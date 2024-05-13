@@ -24,7 +24,7 @@ Acknowledgements:
 """
 
 import re,sys
-from pdbx.reader.PdbxContainers import *
+from cifutils.pdbx.reader.PdbxContainers import *
 
 class PdbxError(Exception):
     """ Class for catch general errors 
