@@ -2,7 +2,6 @@
 Modified from BioPython's Residue class."""
 
 import numpy as np
-from cifutils.data_structures import Chain
 from cifutils.MultiChildComponent import MultiChildComponent
 
 class Residue(MultiChildComponent):
@@ -14,16 +13,14 @@ class Residue(MultiChildComponent):
     def __init__(self, 
         id, # The residue number in the parent chain's sequence, e.g., 25
         name = None, # e.g., LYS
-        intra_residue_bonds = None, # List of Bond objects representing bonds between atoms within the residue
         automorphisms = None,
         chirals = None,
         planars = None,
-        alternative_residue_names = [],
+        alternative_residue_names = set(),
         hetero = False,
         unmatched_heavy_atom = False
     ):
         self.name = name
-        self.intra_residue_bonds = intra_residue_bonds
         self.automorphisms = automorphisms
         self.chirals = chirals
         self.planars = planars
@@ -35,21 +32,6 @@ class Residue(MultiChildComponent):
     # Overridden methods
     
     # Public methods
-    
-    def get_full_id(self):
-        """Return the full id of the residue.
-        
-        The full id of a residue is a tuple of (chain_id, id [sequence index], name [residue name])
-        We need the residue name to handle cases of sequence heterogeneity.
-        """
-    def set_parent(self, parent):
-        """Set the parent residue and update the full_id accordingly.
-
-        Arguments:
-        - parent - Residue object
-
-        """
-        self.parent = parent
     
     def get_parent_chain_id(self):
         """Return the parent chain id."""
@@ -70,3 +52,23 @@ class Residue(MultiChildComponent):
     def add_multiple_atoms(self, atoms):
         """Add a list or dictionary of atoms"""
         MultiChildComponent.add_multiple_children(self, atoms)
+    
+    def add_intra_residue_bond(self, bond):
+        """Add a single intra-residue bond"""
+        MultiChildComponent.add_bond(self, bond)
+        bond.type = "intra_residue"
+    
+    def add_intra_residue_bonds(self, bonds):
+        """Add a list of intra-residue bonds"""
+        MultiChildComponent.add_multiple_bonds(self, bonds)
+        for bond in bonds:
+            bond.type = "intra_residue"
+    
+    def get_intra_residue_bonds(self):
+        """Returns intra-residue bonds as an iterator"""
+        yield from self.component_level_bond_list
+    
+    def remove_intra_residue_bond(self, atom_a, atom_b):
+        """Remove a single intra-residue bond"""
+        MultiChildComponent.remove_bond(self, atom_a, atom_b)
+    

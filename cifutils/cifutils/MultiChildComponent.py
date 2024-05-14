@@ -7,10 +7,12 @@ class MultiChildComponent():
     def __init__(self, id):
         """Initialize the wrapper class"""
         self.id = id # Unique id within the parent object
-        self.full_id = None # Globalley unique id (assuming the parent is a Structure object)
+        self.full_id = None # Globally unique id (assuming the parent is a Structure object)
         self.parent = None
         self.child_list = []
         self.child_dict = {}
+        self.component_level_bond_list = [] # List of Bond objects representing bonds between atoms at the Model (inter-chain bonds), Chain (inter-residue), and Residue (intra-residue) level
+        self.component_level_bond_dict = {}
     
     # Private methods
     
@@ -19,13 +21,12 @@ class MultiChildComponent():
         
         Resets the full_id of this entity and recursively all of its children based on their ID.
         """
+        self.full_id = self._generate_full_id()
         for child in self:
             try:
                 child._reset_full_id()
             except AttributeError:
                 pass
-        self.full_id = self._generate_full_id()
-
 
     def _generate_full_id(self):
         """Generate full_id (PRIVATE).
@@ -77,7 +78,7 @@ class MultiChildComponent():
             if self.parent is None:
                 return self.id == other.id
             else:
-                return self.full_id[1:] == other.full_id[1:]
+                return self.full_id[1:] == other.full_id[1:] # We skip the first ID, which is the structure ID, so we can compare across structures
         else:
             return NotImplemented
     
@@ -143,3 +144,33 @@ class MultiChildComponent():
         child.parent = None
         del self.child_dict[id]
         self.child_list.remove(child)
+
+    def has_bond(self, atom_a, atom_b):
+        """Check if a bond exists between two atoms"""
+        bond_id = tuple(sorted([atom_a.get_full_id(), atom_b.get_full_id()]))
+        return bond_id in self.component_level_bond_dict
+
+    def add_bond(self, bond):
+        """Add a bond, if it does not already exist"""
+        if not self.has_bond(bond.atom_a, bond.atom_b):
+            self.component_level_bond_list.append(bond)
+            self.component_level_bond_dict[bond.id] = bond
+    
+    def add_multiple_bonds(self, bonds):
+        """Add a list of bonds"""
+        for bond in bonds:
+            self.add_bond(bond)
+
+    def remove_bond(self, atom_a, atom_b):
+        """Remove a single bond"""
+        bond_id = tuple(sorted([atom_a.get_full_id(), atom_b.get_full_id()]))
+        if self.has_bond(atom_a, atom_b):
+            bond = self.component_level_bond_dict[bond_id]
+            del self.component_level_bond_dict[bond_id]
+            self.component_level_bond_list.remove(bond)
+    
+    def remove_bonds_involving_atom(self, atom):
+        """Remove all bonds involving a single atom"""
+        for bond in self.component_level_bond_list:
+            if atom == bond.atom_a or atom == bond.atom_b:
+                self.remove_bond(bond.atom_a, bond.atom_b)

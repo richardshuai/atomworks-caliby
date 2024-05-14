@@ -498,6 +498,7 @@ class CIFParser:
                 # res = {k:Residue(*self.getRes(next(v)[1])['res'][:-1],alternatives=set([vi[1] for vi in v]))
                 #        for k,v in itertools.groupby(res, key=lambda x : x[0])}
                 
+                # When there are alternative residues at the same position, pick the one which occurs last
                 residue_id_obj_map = {}
                 for k, v in itertools.groupby(res, key=lambda x: x[0]):  # Key is the sequence number, stored in x[0]
                     v_list = list(v) # Convert grouped iterator to a list
@@ -557,6 +558,7 @@ class CIFParser:
                                                      ('model', 'pdbx_PDB_model_num') # model number (for multi-model PDBs, e.g. NMR)
                                                     ]}
     
+        first_model = None
         for r in atom_site.getRowList():
 
             hetero, symbol, atm, res, chid, num, num_author, alt, x, y, z, occ, bfac, model = \
@@ -564,6 +566,12 @@ class CIFParser:
                                         ('num',str), ('num_author',str), ('alt',str),
                                         ('x',float), ('y',float), ('z',float), 
                                         ('occ',float), ('bfac',float), ('model',int)))
+            
+            if first_model is None:
+                first_model = model
+
+            if model > first_model:
+                continue
             
             # we use author assigned residue numbers for non-polymeric chains
             if chains[chid]['type']=='nonpoly':
@@ -579,6 +587,7 @@ class CIFParser:
                     if symbol!='H' and symbol!='D':
                         chains[chid]['res'][num] = None
                     continue
+                # If we have atoms with the same occupancy in multiple altlocs, we keep the first one
                 atom = residue.atoms[atm]
                 if occ>atom.occ or (atom.occ == 0 and occ == 0): # Handle examples where atoms have information (e.g., coordinates) in the CIF file, but no occupancy. For instance, `1a8o`
                     residue.atoms[atm] = atom._replace(xyz=[x,y,z], 

@@ -12,20 +12,18 @@ import pandas as pd
 import networkx as nx
 import torch
 import cifutils.pdbx as pdbx
-from cifutils.data_structures import Bond
 from cifutils.Structure import Structure
 from cifutils.Model import Model
 from cifutils.Chain import Chain
 from cifutils.Residue import Residue
 from cifutils.Atom import Atom
+from cifutils.Bond import Bond
 from cifutils.pdbx.reader.PdbxReader import PdbxReader
 import cifutils.obutils as obutils
 
 
-def ParsePDBLigand(cifname : str) -> Dict:
-    '''Parse a single molecule from the PDB-Ligands set
-    '''
-
+def parse_pdb_ligand(cifname : str) -> Dict:
+    '''Parse a single molecule from the PDB-Ligands set'''
     data = []
     with open(cifname,'r') as cif:
         reader = PdbxReader(cif)
@@ -34,20 +32,20 @@ def ParsePDBLigand(cifname : str) -> Dict:
     chem_comp_atom = data.getObj('chem_comp_atom')
     rows = chem_comp_atom.getRowList()
 
-    # parse atom names
+    # Parse atom names
     idx = chem_comp_atom.getIndex('atom_id')
     atom_id = np.array([r[idx] for r in rows])
     
-    # parse element symbols
+    # Parse element symbols
     idx = chem_comp_atom.getIndex('type_symbol')
     symbol = np.array([r[idx] for r in rows])
 
-    # parse leaving flags
+    # Parse leaving flags
     idx = chem_comp_atom.getIndex('pdbx_leaving_atom_flag')
     leaving = [r[idx] for r in rows]
     leaving = np.array([True if flag=='Y' else False for flag in leaving], dtype=bool)
 
-    # atom name alignment offset in PDB atom field
+    # Atom name alignment offset in PDB atom field
     idx = chem_comp_atom.getIndex('pdbx_align')
     pdbx_align = np.array([int(r[idx]) for r in rows])
     
@@ -58,30 +56,21 @@ def ParsePDBLigand(cifname : str) -> Dict:
     xyz = [(r[i],r[j],r[k]) for r in rows]
     xyz = np.array([[float(c) if c!='?' else np.nan for c in p] for p in xyz])
 
-    out = {'atom_id' : atom_id,
-           'leaving' : leaving,
-           'symbol' : symbol,
-           'pdbx_align' : pdbx_align,
-           'xyz' : xyz}
-
-    return out
-
+    return {'atom_id': atom_id, 'leaving': leaving, 'symbol': symbol, 'pdbx_align': pdbx_align, 'xyz': xyz}
 
 # ============================================================
 class CIFParser:
     
     def __init__(self, skip_res : List[str] = None):
-        
-        # parse pre-compiled library of all residues observed in the PDB
+        # Parse pre-compiled library of all residues observed in the PDB
         DIR = os.path.dirname(__file__)
         with gzip.open(f'{DIR}/ligands.json.gz','rt') as file:
             self.precomputed_open_babel_residue_data = json.load(file)
-            
             # Residues to be ignored during parsing are deleted from the precomputed library
             if skip_res is not None:
                 self.precomputed_open_babel_residue_data = {k: v for k, v in self.precomputed_open_babel_residue_data.items() if k not in skip_res}
             
-        # parse quasi-symmetric groups table
+        # Parse quasi-symmetric groups table
         df = pd.read_csv(f'{DIR}/data/quasisym.csv')
         df.indices = df.indices.apply(lambda x : [int(xi) for xi in x.split(',')])
         df['matcher'] = df.apply(lambda x : openbabel.OBSmartsPattern(), axis=1)
@@ -90,7 +79,7 @@ class CIFParser:
                          for smarts,matcher,indices 
                          in zip(df.smarts,df.matcher,df.indices)}
         
-        # parse pesiodic table
+        # Parse periodic table
         with open(f'{DIR}/data/elements.txt','r') as f:
             self.i2a = [l.strip().split()[:2] for l in f.readlines()]
             self.i2a = {int(i):a for i,a in self.i2a}
@@ -99,7 +88,7 @@ class CIFParser:
         self.residue_name_to_data_map = {}
     
 
-    def initialize_residue_from_name(self, id : str, name : str) -> Residue:
+    def initialize_residue_from_name(self, id : str, name : str, parent: Chain = None) -> Residue:
         """
         Initializes and pre-populates with Atoms and Bonds a Residue object from a given residue name.
         Loads bond and atom information from Open Babel.
@@ -107,6 +96,7 @@ class CIFParser:
         Parameters:
         id (int): The ID of the residue.
         name (str): The name of the residue.
+        parent (Chain): The parent Chain object to which the Residue belongs. If provided, the Residue will be added to the parent Chain.
 
         Returns:
         Residue: The initialized Residue object, or None if the residue data is not available in the library.
@@ -132,18 +122,22 @@ class CIFParser:
         new_residue = Residue(
             id=id,
             name=residue_data['name'],
-            intra_residue_bonds=residue_data['intra_residue_bonds'],
             automorphisms=residue_data['automorphisms'],
             chirals=residue_data['chirals'],
             planars=residue_data['planars'],
             alternative_residue_names=set()
         )
+        new_residue.set_parent(parent)
 
         # Add atoms to set parents correctly
         new_residue.add_multiple_atoms(residue_data['atoms'])
+        
+        # Then, add bonds, once the atom parents are set correctly
+        new_residue.add_intra_residue_bonds(residue_data['intra_residue_bonds'])
+
         return new_residue
         
-    def AddQausisymmetries(self, 
+    def add_quasi_symmetries(self, 
                            obmol : openbabel.OBMol,
                            automorphisms : torch.Tensor) -> torch.Tensor:
         '''add quasisymmetries to automorphisms
@@ -179,16 +173,16 @@ class CIFParser:
 
 
     @staticmethod
-    def getLeavingAtoms(a,leaving,s):
+    def get_leaving_atoms_from_ob_atom(a, leaving, s):
         for b in openbabel.OBAtomAtomIter(a):
             if leaving[b.GetIndex()]==True:
                 if b.GetIndex() not in s:
                     s.append(b.GetIndex())
-                    CIFParser.getLeavingAtoms(b,leaving,s)
+                    CIFParser.get_leaving_atoms_from_ob_atom(b,leaving,s)
 
 
     @staticmethod
-    def getLeavingAtoms2(aname, G):
+    def get_leaving_atoms_from_graph(aname, G):
 
         leaving_group = set()
     
@@ -277,19 +271,24 @@ class CIFParser:
         # get bonds and their features
         bonds = []
         for b in openbabel.OBMolBondIter(obmol):
-            bonds.append(Bond(a=atom_id[b.GetBeginAtom().GetIndex()],
-                              b=atom_id[b.GetEndAtom().GetIndex()],
-                              is_aromatic=b.IsAromatic(),
-                              in_ring=b.IsInRing(),
-                              order=b.GetBondOrder(),
-                              intra_residue=True,
-                              length=b.GetLength()))
+            atom_a_name = atom_id[b.GetBeginAtom().GetIndex()]
+            atom_b_name = atom_id[b.GetEndAtom().GetIndex()]
+            bonds.append(
+                Bond(
+                    atom_a=residue_atoms[atom_a_name],
+                    atom_b=residue_atoms[atom_b_name],
+                    is_aromatic=b.IsAromatic(),
+                    in_ring=b.IsInRing(),
+                    order=b.GetBondOrder(),
+                    length=b.GetLength(),
+                )
+            )
 
         # get automorphisms
         automorphisms = obutils.FindAutomorphisms(obmol, heavy=True)
         
         # add quasi-symmetric groups
-        automorphisms = self.AddQausisymmetries(obmol, automorphisms)
+        automorphisms = self.add_quasi_symmetries(obmol, automorphisms)
         
         # only retain atoms with alternative mappings
         mask = (automorphisms[:1]==automorphisms).all(dim=0)
@@ -314,9 +313,9 @@ class CIFParser:
         # add leaving groups to atoms
         G = nx.Graph()
         G.add_nodes_from([(a.id,{'leaving':a.leaving_atom_flag}) for a in residue_atoms.values()])
-        G.add_edges_from([(bond.a,bond.b) for bond in bonds])
+        G.add_edges_from([(bond.atom_a.id,bond.atom_b.id) for bond in bonds])
         for k, v in residue_atoms.items():
-            v.leaving_group = CIFParser.getLeavingAtoms2(k,G)
+            v.leaving_group = CIFParser.get_leaving_atoms_from_graph(k,G)
         
         # Put everything into a dictionary we will later use to initialize the Residue object
         anames = np.array(atom_id)
@@ -331,7 +330,7 @@ class CIFParser:
 
     
     @staticmethod
-    def parseOperationExpression(expression : str) -> List:
+    def parse_operation_expression(expression : str) -> List:
         '''a function to parse _pdbx_struct_assembly_gen.oper_expression 
         into individual operations'''
 
@@ -351,7 +350,7 @@ class CIFParser:
 
 
     @staticmethod
-    def parseAssemblies(data : pdbx.reader.PdbxContainers.DataContainer) -> Dict:
+    def parse_assemblies(data : pdbx.reader.PdbxContainers.DataContainer) -> Dict:
         '''parse biological assembly data'''
         
         assembly_data = data.getObj("pdbx_struct_assembly")
@@ -385,7 +384,7 @@ class CIFParser:
             # Retrieve the operation expression for this assembly from the oper_expression attribute	
             oper_expression = assembly_gen.getValue("oper_expression", index)
 
-            oper_list = [CIFParser.parseOperationExpression(expression) 
+            oper_list = [CIFParser.parse_operation_expression(expression) 
                          for expression in re.split('\(|\)', oper_expression) if expression]
 
             # chain IDs which the transform should be applied to
@@ -409,11 +408,32 @@ class CIFParser:
         return out
 
 
+    def parse_entities(data : pdbx.reader.PdbxContainers.DataContainer) -> Dict:
+        '''Parse entity data'''
+
+        entities = data.getObj('entity')
+        if entities is None:
+            return {}
+
+        entity_map = {}
+        for row in entities.getRowList():
+            entity_id = row[entities.getIndex('id')]
+            entity_map[entity_id] = {
+                'type': row[entities.getIndex('type')],
+                'pdbx_description': row[entities.getIndex('pdbx_description')],
+                'formula_weight': row[entities.getIndex('formula_weight')],
+                'pdbx_number_of_molecules': row[entities.getIndex('pdbx_number_of_molecules')],
+                'pdbx_ec': row[entities.getIndex('pdbx_ec')],
+                'pdbx_mutation': row[entities.getIndex('pdbx_mutation')],
+                'pdbx_fragment': row[entities.getIndex('pdbx_fragment')],
+                'pdbx_detail': row[entities.getIndex('pdbx_detail')]
+            }
+
+        return entity_map
+
     def parse(self, filename : str) -> Dict:
         
-        ########################################################
-        # 0. read a .cif file
-        ########################################################
+        #### 1. Load the CIF file ####
         data = []
         if filename.endswith('.gz'):
             with gzip.open(filename,'rt') as cif:
@@ -425,9 +445,8 @@ class CIFParser:
                 reader.read(data)
         data = data[0]
         
-        ########################################################
-        # 0.5. parse entities into a dictionary
-        ########################################################
+        #### 2. Build the entity map dictionary ####
+        entity_map = self.parse_entities(data)
         entities = data.getObj('entity')
         entity_map = {}
         if entities is not None:
@@ -515,7 +534,7 @@ class CIFParser:
                 for chain in model.get_chains_by_entity_id(entity_id):
                     # When there are alternative residues at the same position (sequence heterogeneity), pick the one which occurs last
                     # This scheme is consistent with OpenSource solutions (e.g., BioPython), and anecdotally results in higher occupancies
-                    residue_to_add = self.initialize_residue_from_name(id=sequence_id, name=residue_name)
+                    residue_to_add = self.initialize_residue_from_name(id=sequence_id, name=residue_name, parent=chain)
                     if residue_to_add: # Ensure we aren't including any intentionally skipped residues
                         residue_to_add.hetero = is_hetero_residue
                         if not chain.has_id(sequence_id):
@@ -524,7 +543,7 @@ class CIFParser:
                             old_residue = chain.get_residue(sequence_id)
                             del chain[sequence_id]
                             # Set the new residue's alternative residue names to the old residue's name combined with the old residue's alternative residue names
-                            residue_to_add.alternative_residue_names = old_residue.alternative_residue_names.append(old_residue.name)
+                            residue_to_add.alternative_residue_names.update(old_residue.alternative_residue_names, [old_residue.name])
                             chain.add_residue(residue_to_add)
                 
         ########################################################
@@ -576,6 +595,7 @@ class CIFParser:
             if model.has_id(parsed_row['chain_id']):
                 chain = model.get_chain(parsed_row['chain_id'])
             else:
+                # If we're working with a non-polymeric chain, create a new chain
                 chain = Chain(
                     id = parsed_row['chain_id'],
                     entity_id=parsed_row['entity_id'],
@@ -596,8 +616,13 @@ class CIFParser:
             # Check if the model has the relevant residue
             if chain.has_id(sequence_id):
                 residue = chain.get_residue(sequence_id)
-            elif parsed_row['atom_or_hetatm'] == 'HETATM': # If we're working with a non-polymer, create a new chain
-                residue = Residue(id=sequence_id, name=parsed_row['residue_name'])
+                # Set residue to None if the name doesn't match
+                # This occurs for chains with sequence heterogeneity
+                if residue.name != parsed_row['residue_name']:
+                    residue = None
+            elif parsed_row['atom_or_hetatm'] == 'HETATM': 
+                # If we're working with a non-polymeric chain, create a new residue
+                residue = self.initialize_residue_from_name(id=sequence_id, name=parsed_row['residue_name'], parent=chain)
                 chain.add_residue(residue)
             else: 
                 # Raise exception
@@ -649,148 +674,113 @@ class CIFParser:
             'conn_type_id': struct_conn.getIndex('conn_type_id')
         }
 
-        covale = []
         for row in struct_conn.getRowList():
             if row[indices['conn_type_id']] == 'covale': # Only process covalent connections (but excluding disulfide bridges and coordination covalent bonds, which are technically covalent, as well as hydrogen bonds)
                 
                 # Loop through all models
                 for model in structure.get_models():
+                    # Get the chains
+                    chain_a = model.get_chain(row[indices['ptnr1_label_asym_id']])
+                    chain_b = model.get_chain(row[indices['ptnr2_label_asym_id']])
+
+                    # Get the appropriate sequence ID for each chain (either author or label)
+                    sequence_id_a = row[indices['ptnr1_auth_seq_id']] if chain_a.type == 'nonpoly' else row[indices['ptnr1_label_seq_id']]
+                    sequence_id_b = row[indices['ptnr2_auth_seq_id']] if chain_b.type == 'nonpoly' else row[indices['ptnr2_label_seq_id']]
+
                     # Check to make sure that none of the residues involved are heterogenous in sequence
                     # If they are, raise an error
-                    residue_a = model.get_residue(row[indices['ptnr1_label_asym_id']], row[indices['ptnr1_label_seq_id']])
-                    residue_b = model.get_residue(row[indices['ptnr1_label_asym_id']], row[indices['ptnr1_label_seq_id']])
+                    residue_a = chain_a.get_residue(sequence_id_a)
+                    residue_b = chain_b.get_residue(sequence_id_b)
                     if residue_a.hetero or residue_b.hetero:
                         raise ValueError(f"Residue {residue_a.id} or {residue_b.id} is heterogenous in sequence in model {model.id}")
                     
+                    atom_a_name = row[indices['ptnr1_label_atom_id']]
+                    atom_b_name = row[indices['ptnr2_label_atom_id']]
+
                     # Get the two partner atoms involved in the covalent bond
-                    atom_a = model.get_atom(row[indices['ptnr1_label_asym_id']], row[indices['ptnr1_label_seq_id']], row[indices['ptnr1_label_atom_id']])
-                    atom_b = model.get_atom(row[indices['ptnr2_label_asym_id']], row[indices['ptnr2_label_seq_id']], row[indices['ptnr2_label_atom_id']])
+                    atom_a = residue_a.get_atom(atom_a_name)
+                    atom_b = residue_b.get_atom(atom_b_name) 
                     
                     # Ensure the bond is inter-residue
-                    if(atom_a.residue != atom_b.residue):
-                        # Add the bond to the list of covalent bonds
-                        covale.append((atom_a, atom_b))
+                    # NOTE: This check was always evaluating to true in the original code
+                    if(atom_a.parent != atom_b.parent):
+                        # Create a bond object
+                        bond = Bond(
+                            atom_a = atom_a,
+                            atom_b = atom_b,
+                            is_aromatic = False,
+                            in_ring = False,
+                            order = 1, # We assume that all inter-residue bonds are single
+                            length = 1.5, # This is a rough guesstimate # NOTE: This should be different for proteins, nucleic acids, and oligosaccharides
+                        )
 
-                if p1[:4] != p2[:4]:  # Skip intra-residue covalent bonds
-                    sequence_id_or_auth = lambda x: x[2] if chains[x[0]]['type'] == 'nonpoly' else x[1]
-                    covale.append(
-                        ((p1[0], sequence_id_or_auth(p1), p1[3], p1[4]),
-                        (p2[0], sequence_id_or_auth(p2), p2[3], p2[4]))
-                    )
+                        # If the bond is within a chain, add to the chain's `inter_residue_bonds` list. Otherwise, add to the structure's `inter_chain_bonds` list
+                        if chain_a == chain_b:
+                            chain_a.add_inter_residue_bond(bond)
+                            chain_b.add_inter_residue_bond(bond)
+                        else:
+                            model.add_inter_chain_bond(bond)
 
-        if struct_conn is not None:
-            covale = [(r[struct_conn.getIndex('ptnr1_label_asym_id')],
-                       r[struct_conn.getIndex('ptnr1_label_seq_id')],
-                       r[struct_conn.getIndex('ptnr1_auth_seq_id')],
-                       r[struct_conn.getIndex('ptnr1_label_comp_id')],
-                       r[struct_conn.getIndex('ptnr1_label_atom_id')],
-                       r[struct_conn.getIndex('ptnr2_label_asym_id')],
-                       r[struct_conn.getIndex('ptnr2_label_seq_id')],
-                       r[struct_conn.getIndex('ptnr2_auth_seq_id')],
-                       r[struct_conn.getIndex('ptnr2_label_comp_id')],
-                       r[struct_conn.getIndex('ptnr2_label_atom_id')])
-                      for r in struct_conn.getRowList() if r[struct_conn.getIndex('conn_type_id')]=='covale']
-            F = lambda x : x[2] if chains[x[0]]['type']=='nonpoly' else x[1]
-            # here we skip intra-residue covalent bonds assuming that
-            # they are properly handled by parsing from the residue library
-            covale = [((c[0],F(c[:4]),c[3],c[4]),(c[5],F(c[5:]),c[8],c[9])) 
-                      for c in covale if c[:4]!=c[5:8]]
-                        
         ########################################################
         # 6. build connected chains
         ########################################################
-        return_chains = {}
-        for chain_id,chain in chains.items():
+
+        # Add inter-residue connections in polymers
+
+        # Define a dictionary to map chain types to atom pairs
+        # Possible types given at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity_poly.type.html
+        atom_pairs = {
+            'polydeoxyribonucleotide': ("O3'", 'P'),
+            'polydeoxyribonucleotide/polyribonucleotide hybrid': ("O3'", 'P'),
+            'polypeptide(D)': ('C', 'N'),
+            'polypeptide(L)': ('C', 'N'),
+            'polyribonucleotide': ("O3'", 'P'),
+        }          
+        
+        for model in structure.get_models():
+            for chain in model.get_chains():
+                # Determine atom pair for the chain type
+                bond_atoms = atom_pairs.get(chain.type, ())
+                
+                if(len(bond_atoms)>0):
+                    current_residues = list(chain.get_residues())[:-1] # Skip the last residue
+                    next_residues = list(chain.get_residues())[1:] # Skip the first residue
+
+                    for current_residue, next_residue in zip(current_residues , next_residues): # E.g., process residues 1 and 2, 2 and 3, 3 and 4, etc.
+                        if current_residue.unmatched_heavy_atom or next_residue.unmatched_heavy_atom:
+                            continue
+
+                        # Get the two atoms involved in the bond
+                        atom_a = current_residue.get_atom(bond_atoms[0])
+                        atom_b = next_residue.get_atom(bond_atoms[1])
                         
-            residues = list(chain['res'].items())
-            atoms,bonds,skip_atoms = [],[],[]
+                        # Create the bond between the two atoms and add the object to the Chain's list of inter-residue bonds
+                        bond = Bond(
+                            atom_a = atom_a,
+                            atom_b = atom_b,
+                            is_aromatic = False,
+                            in_ring = False,
+                            order = 1, # We assume that all inter-residue bonds are single
+                            length=1.5, # This is a rough guesstimate # NOTE: This should be different for proteins, nucleic acids, and oligosaccharides
+                        )
+                        chain.add_inter_residue_bond(bond)
             
-            # (a) add inter-residue connections in polymers
-            if 'polypept' in chain['type']:
-                ab = ('C','N')
-            elif 'polyribo' in chain['type'] or 'polydeoxyribo' in chain['type']:
-                ab = ("O3'",'P')
-            else:
-                ab = ()
 
-            if len(ab)>0:
-                for residue_a, residue_b in zip(residues[:-1],residues[1:]):
-                    # check for skipped residues (the ones failed in step 4)
-                    if residue_a[1] is None or residue_b[1] is None:
-                        continue
-                    atom_a = residue_a[1][ab[0]]
-                    atom_b = residue_b[1][ab[1]]
-                    if atom_a is not None and atom_b is not None:
-                        bonds.append(Bond(
-                            a=(chain_id,residue_a[0],residue_a[1].name, atom_a.id),
-                            b=(chain_id,residue_b[0],residue_b[1].name, atom_b.id),
-                            is_aromatic=False,
-                            in_ring=False,
-                            order=1, # !!! we assume that all inter-residue bonds are single !!!
-                            intra_residue=False,
-                            length=1.5 # !!! this is a rough guesstimate !!!
-                        ))
-                        skip_atoms.extend([(chain_id,residue_a[0],residue_a[1].name,ai) for ai in atom_a.leaving_group])
-                        skip_atoms.extend([(chain_id,residue_b[0],residue_b[1].name,bi) for bi in atom_b.leaving_group])
-
-            # (b) add connections parsed from mmcif's struct_conn record
-            # TODO: Refactor to be less terrible, using my new class
-            for residue_a, residue_b in covale:
-                atom_a = atom_b = None
-                if residue_a[0] == chain_id and chain['res'][residue_a[1]] is not None and chain['res'][residue_a[1]].name == residue_a[2]:
-                    atom_a = chain['res'][residue_a[1]].get_atom(residue_a[3])
-                    skip_atoms.extend([(chain_id,*residue_a[1:3],ai) for ai in atom_a.leaving_group])
-                if residue_b[0]==chain_id and chain['res'][residue_b[1]] is not None and chain['res'][residue_b[1]].name==residue_b[2]:
-                    atom_b = chain['res'][residue_b[1]].get_atom(residue_b[3])
-                    skip_atoms.extend([(chain_id,*residue_b[1:3],bi) for bi in atom_b.leaving_group])
-                if atom_a is not None and atom_b is not None:
-                    bonds.append(Bond(
-                        a=(chain_id,*residue_a[1:3],atom_a.id),
-                        b=(chain_id,*residue_b[1:3],atom_b.id),
-                        is_aromatic=False,
-                        in_ring=False,
-                        order=1, # !!! we assume that all inter-residue bonds are single !!!
-                        intra_residue=False,
-                        length=1.5 # !!! this is a rough guesstimate !!!
-                    ))
-                    
-            # (c) collect atoms
-            skip_atoms = set(skip_atoms)
-            # Create a dictionary indexed by Atom tuples (chain_id, seq_id, res_name, atom_name) and containing Atom objects
-
-            # atoms = {}
-            # for r in residues:
-            #     if r[1] is not None:
-            #         for atom in r[1].get_atoms():
-            #             atoms[(chain_id, r[0], r[1].name, atom.id)] = atom
-
-            atoms = {
-                (chain_id, r[0], r[1].name, atom.id): atom for r in residues if r[1] is not None for atom in r[1].get_atoms()
-            }
+            # Create a list of atoms to ignore that are leaving groups of atoms that are part of a covalent bond
+            atoms_to_remove = set()
+            for bond in model.get_inter_residue_bonds():
+                atoms_to_remove.update(bond.atom_a.parent.get_atom(atom) for atom in bond.atom_a.leaving_group)
+                atoms_to_remove.update(bond.atom_b.parent.get_atom(atom) for atom in bond.atom_b.leaving_group)
             
-            filtered_atoms = {}
-            for atom_full_id, atom in atoms.items():
-                if atom_full_id not in skip_atoms:
-                    atom.full_id = atom_full_id
-                    filtered_atoms[atom_full_id] = atom
-                    
-            # atoms = {aname: a._replace(name=aname) for aname,a in atoms.items() if aname not in skip_atoms}
-            atoms = None  # FOR TESTING
-            # (d) collect intra-residue bonds
-            bonds_intra = [bond._replace(a=(chain_id,r[0],r[1].name,bond.a),
-                                         b=(chain_id,r[0],r[1].name,bond.b))
-                           for r in residues if r[1] is not None
-                           for bond in r[1].intra_residue_bonds]
-            bonds_intra = [bond for bond in bonds_intra 
-                           if bond.a not in skip_atoms and \
-                           bond.b not in skip_atoms]
-
-            bonds.extend(bonds_intra)
+            for bond in model.get_inter_chain_bonds():
+                atoms_to_remove.update(bond.atom_a.parent.get_atom(atom) for atom in bond.atom_a.leaving_group)
+                atoms_to_remove.update(bond.atom_b.parent.get_atom(atom) for atom in bond.atom_b.leaving_group)
             
-            # (e) double check whether bonded atoms actually exist:
-            #     some could be part of the skip_atoms set and thus removed
-            bonds = [bond for bond in bonds if bond.a in filtered_atoms.keys() and bond.b in filtered_atoms.keys()]
-            bonds = list(set(bonds))
+            # Remove leaving atoms from the model
+            for atom in atoms_to_remove:
+                # Remove bonds to the atom we will delete
+                atom.parent.remove_bonds_involving_atom(atom)
+                del atom.parent[atom.id] # Invokes overloaded __delitem__ method in Residue class
             
             # (f) fix charges and hydrogen counts for cases when
             #     charged atoms are connected by an inter-residue bond
@@ -813,132 +803,58 @@ class CIFParser:
                         atoms[bond.b] = b._replace(charge=0)
             '''
             
-            # (g) relabel chirals, planars and automorphisms 
-            #     to include residue indices and names
-            chirals = [[(chain_id,r[0],r[1].name,c) for c in chiral] 
-                       for r in residues if r[1] is not None for chiral in r[1].chirals]
-            
-            planars = [[(chain_id,r[0],r[1].name,c) for c in planar] 
-                       for r in residues if r[1] is not None for planar in r[1].planars]
-            
-            automorphisms = [[[(chain_id,r[0],r[1].name,a) 
-                               for a in auto] for auto in r[1].automorphisms] 
-                             for r in residues if r[1] is not None and len(r[1].automorphisms)>1]
 
-            chirals = [c for c in chirals if all([ci in filtered_atoms.keys() for ci in c])]
-            planars = [c for c in planars if all([ci in filtered_atoms.keys() for ci in c])]
-
-            if len(filtered_atoms)>0:
-                # return_chains[chain_id] = Chain(id=chain_id,
-                #                                 type=chain['type'],
-                #                                 canonical_sequence=chain.get('seq'),
-                #                                 non_canonical_sequence=None, # TODO
-                #                                 atoms=filtered_atoms,
-                #                                 bonds=bonds,
-                #                                 chirals=chirals,
-                #                                 planars=planars,
-                #                                 automorphisms=automorphisms)
-
-                return_chains[chain_id] = Chain(id=chain_id,
-                                                type=chain['type'],
-                                                canonical_sequence=chain.get('seq'),
-                                                non_canonical_sequence=None, # TODO
-                                                entity_id=None,
-                                                symmetric_id=0
-                                                )
-                
         ########################################################
         # 6. parse assemblies
         ########################################################
-        asmb = self.parseAssemblies(data)
-        asmb = {k:[vi for vi in v if vi[0] in return_chains.keys()]
-                for k,v in asmb.items()}
+        asmb = self.parse_assemblies(data)
+        # Filter to ensure the chains exist
+        asmb = {
+            k:[vi for vi in v if structure.get_model(1).has_id(vi[0])]
+            for k,v in asmb.items()
+        }
 
+        # Fix inter-chain and inter-residue charges
+        for bond in itertools.chain(model.get_inter_residue_bonds(), model.get_inter_chain_bonds()):
+            for atom in (bond.atom_a, bond.atom_b):
+                if atom.element==7 and atom.charge==1 and atom.hyb==3 and atom.nhyd==2 and atom.hvydeg==2: # -(NH2+)-
+                    atom.charge = 0
+                    atom.hyb = 2
+                    atom.nhyd = 0
+                elif atom.element==7 and atom.charge==1 and atom.hyb==3 and atom.nhyd==3 and atom.hvydeg==0: # free NH3+ group
+                    atom.charge = 0
+                    atom.hyb = 2
+                    atom.nhyd = 2
+                elif atom.element==8 and atom.charge==-1 and atom.hyb==3 and atom.nhyd==0:
+                    atom.charge = 0
+                elif atom.element==8 and atom.charge==-1 and atom.hyb==2 and atom.nhyd==0: # O-linked connections
+                    atom.charge = 0
         
-        # convert covalent links to Bonds
-        covale = [Bond(a=c[0],
-                       b=c[1],
-                       is_aromatic=False,
-                       in_ring=False,
-                       order=1,
-                       intra_residue=False,
-                       length=1.5)
-                  for c in covale if c[0][0]!=c[1][0]]
-
-        # make sure covale atoms exist
-        covale = [c for c in covale if \
-                  c.a[0] in return_chains.keys() and \
-                  c.b[0] in return_chains.keys() and \
-                  c.a in return_chains[c.a[0]].atoms.keys() and \
-                  c.b in return_chains[c.b[0]].atoms.keys()]
-
-        
-        # fix charges and hydrogen counts for cases when
-        # charged a atom is connected by an inter-residue bond
-        for bond in bonds+covale:
-            if bond.intra_residue==False:
-                for i in (bond.a,bond.b):
-                    atom = return_chains[i[0]].atoms[i]
-                    
-                    #if a.element==7 and a.charge==1 and a.hyb==3 and a.nhyd==3 and a.hvydeg==1: # -NH3+
-                    #    return_chains[i[0]].atoms[i] = a._replace(charge=0, hyb=2, nhyd=1)
-                    if atom.element==7 and atom.charge==1 and atom.hyb==3 and atom.nhyd==2 and atom.hvydeg==2: # -(NH2+)-
-                        return_chains[i[0]].atoms[i] = atom._replace(charge=0, hyb=2, nhyd=0)
-                    elif atom.element==7 and atom.charge==1 and atom.hyb==3 and atom.nhyd==3 and atom.hvydeg==0: # free NH3+ group
-                        return_chains[i[0]].atoms[i] = atom._replace(charge=0, hyb=2, nhyd=2)
-                    elif atom.element==8 and atom.charge==-1 and atom.hyb==3 and atom.nhyd==0:
-                        return_chains[i[0]].atoms[i] = atom._replace(charge=0)
-                    elif atom.element==8 and atom.charge==-1 and atom.hyb==2 and atom.nhyd==0: # O-linked connections
-                        return_chains[i[0]].atoms[i] = atom._replace(charge=0)
-                    elif atom.charge!=0:
-                        #print(filename, i, a)
-                        pass
-
-                '''
-                a = return_chains[bond.a[0]].atoms[bond.a]
-                b = return_chains[bond.b[0]].atoms[bond.b]
-
-                # nitrogen (involved in a peptide bond)
-                if a.element==7 and a.charge==1 and a.hyb==3 and (a.nhyd==3 or (a.nhyd==2 and bond.a[2]=='PRO')):
-                    return_chains[bond.a[0]].atoms[bond.a] = a._replace(charge=0, hyb=2, nhyd=1)
-                if b.element==7 and b.charge==1 and b.hyb==3 and (b.nhyd==3 or (b.nhyd==2 and bond.b[2]=='PRO')):
-                    return_chains[bond.b[0]].atoms[bond.b] = b._replace(charge=0, hyb=2, nhyd=1)
-            
-                # oxygen (nucletides)
-                if a.element==8 and a.charge==-1 and a.hyb==3 and a.nhyd==0:
-                    return_chains[bond.a[0]].atoms[bond.a] = a._replace(charge=0)
-                if b.element==8 and b.charge==-1 and b.hyb==3 and b.nhyd==0:
-                    return_chains[bond.b[0]].atoms[bond.b] = b._replace(charge=0)
-                    
-                a = return_chains[bond.a[0]].atoms[bond.a]
-                b = return_chains[bond.b[0]].atoms[bond.b]
-                if a.charge!=0:
-                    print(filename, bond.a,bond.b, a)
-                if b.charge!=0:
-                    print(filename, bond.b,bond.a, b)
-                '''
-
-        residue_id_obj_map = None
+        # Load metadata
+        resolution = None
         if data.getObj('refine') is not None:
             try:
-                residue_id_obj_map = float(data.getObj('refine').getValue('ls_d_res_high',0))
+                resolution = float(data.getObj('refine').getValue('ls_d_res_high',0))
             except:
-                residue_id_obj_map = None
-        if (data.getObj('em_3d_reconstruction') is not None) and (residue_id_obj_map is None):
+                resolution = None
+        if (data.getObj('em_3d_reconstruction') is not None) and (resolution is None):
             try:
-                residue_id_obj_map = float(data.getObj('em_3d_reconstruction').getValue('resolution',0))
+                resolution = float(data.getObj('em_3d_reconstruction').getValue('resolution',0))
             except:
-                residue_id_obj_map = None
+                resolution = None
 
         meta = {
             'method' : data.getObj('exptl').getValue('method',0).replace(' ','_'),
             'date' : data.getObj('pdbx_database_status').getValue('recvd_initial_deposition_date',0),
-            'resolution' : residue_id_obj_map
+            'resolution' : resolution
         }
 
-        return return_chains,asmb,covale,meta, modified_residues
-    
-    
+        structure.method = meta['method']
+        structure.initial_deposition_date = meta['date']
+        structure.resolution = meta['resolution']
+
+        return structure, asmb, modified_residues
+
     #@staticmethod
     def save(self, chain : Chain, filename : str):
         '''save a single chain'''

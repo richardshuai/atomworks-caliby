@@ -6,7 +6,7 @@ Areas not covered by these unit tests:
 import pytest
 import gzip
 import io
-from cifutils import cifutils_extended, parser_utils
+from cifutils import cifutils_extended, cifutils_legacy, parser_utils
 from Bio.PDB.MMCIFParser import MMCIFParser, MMCIF2Dict
 import logging
 
@@ -76,9 +76,9 @@ def test_atom_coordinates(pdb_id):
     filename = f'/databases/rcsb/cif/{pdb_id[1:3]}/{pdb_id}.cif.gz'
     periodic_table = parser_utils.PeriodicTable()
 
-    # Initialize CIFParser and parse data
-    cif_parser = cifutils_extended.CIFParser()
-    chains, _, _, _, _ = cif_parser.parse(filename)
+    # Initialize CIFParser legacy and parse data
+    cif_parser_legacy = cifutils_legacy.CIFParser()
+    chains, _, _, _, _ = cif_parser_legacy.parse(filename)
 
     # Extracting coordinates from CIFParser output
     cifutils_common_atoms = {}
@@ -90,13 +90,13 @@ def test_atom_coordinates(pdb_id):
             # Check to make sure the coordinates aren't all zeros
             atom_data = create_common_atom(
                 periodic_table,
-                chain_id=atom.full_id[0],
-                residue_name=atom.get_parent_residue_name(),
-                atom_name=atom.id,
+                chain_id=atom.name[0],
+                residue_name=atom.name[2],
+                atom_name=atom.name[3],
                 element=atom.element,
                 xyz_coords=atom.xyz,
-                occ=atom.occupancy,
-                bfac=atom.bfactor,
+                occ=atom.occ,
+                bfac=atom.bfac,
                 charge=atom.charge
             )
             if atom_data['xyz'] != (0.000, 0.000, 0.000): # All coordinates are rounded to 3 decimals
@@ -116,26 +116,28 @@ def test_atom_coordinates(pdb_id):
     biopython_original_atoms = {} # for debugging
     biopython_all_xyz = set()
     biopython_heavy_xyz = set()
-    for model in structure:
-        for chain in model:
-            for residue in chain:
-                for atom in residue:
-                    atom_data = create_common_atom(
-                        periodic_table,
-                        chain_id=chain.id,
-                        residue_name=atom.get_parent().get_resname(),
-                        atom_name=atom.name,
-                        element=atom.element,
-                        xyz_coords=atom.get_coord(),
-                        occ=atom.occupancy,
-                        bfac=atom.bfactor,
-                        charge=atom.pqr_charge
-                    )
-                    biopython_all_xyz.add(atom_data['xyz'])
-                    if atom_data['element'] > 1:
-                        biopython_heavy_xyz.add(atom_data['xyz'])
-                    biopython_common_atoms[atom_data['xyz']] = atom_data
-                    biopython_original_atoms[atom_data['xyz']] = atom
+
+    # Use the first model in the structure
+    model = structure.child_list[0]
+    for chain in model.get_chains():
+        for residue in chain.get_residues():
+            for atom in residue.get_atoms():
+                atom_data = create_common_atom(
+                    periodic_table,
+                    chain_id=chain.id,
+                    residue_name=atom.get_parent().get_resname(),
+                    atom_name=atom.name,
+                    element=atom.element,
+                    xyz_coords=atom.get_coord(),
+                    occ=atom.occupancy,
+                    bfac=atom.bfactor,
+                    charge=atom.pqr_charge
+                )
+                biopython_all_xyz.add(atom_data['xyz'])
+                if atom_data['element'] > 1:
+                    biopython_heavy_xyz.add(atom_data['xyz'])
+                biopython_common_atoms[atom_data['xyz']] = atom_data
+                biopython_original_atoms[atom_data['xyz']] = atom
 
     # Asserting that XYZ coordinates match
     all_xyz_mismatches = cifutils_all_xyz.symmetric_difference(biopython_all_xyz)
@@ -143,15 +145,12 @@ def test_atom_coordinates(pdb_id):
 
     # Log warning for non-heavy XYZ mismatches
     if all_xyz_mismatches:
+        # Loop through mismatches
+        for mismatch in all_xyz_mismatches:
+            biopython_atom = biopython_original_atoms[mismatch] if mismatch in biopython_original_atoms else None
+            cifutils_atom = cifutils_original_atoms[mismatch] if mismatch in cifutils_original_atoms else None
+            logger.warning(f"XYZ coordinate mismatch at {mismatch}: BioPython {biopython_atom} vs CIFParser {cifutils_atom}")
         logger.warning(f"Non-heavy XYZ coordinate mismatches ({len(all_xyz_mismatches)} errors), e.g., {next(iter(all_xyz_mismatches), None)}")
-
-    # # For debugging, convert to lists and sort based on xyz coordinates
-    # if all_xyz_mismatches:
-    #     # Loop through xyz_mismatches
-    #     for mismatch in all_xyz_mismatches: 
-    #         biopython_atom = biopython_original_atoms[mismatch] if mismatch in biopython_original_atoms else None
-    #         cifutils_atom = cifutils_original_atoms[mismatch] if mismatch in cifutils_original_atoms else None
-    #         print("MISMATCH")
 
     assert not heavy_xyz_mismatches, f"Heavy XYZ coordinate mismatches ({len(heavy_xyz_mismatches)} errors), e.g., {next(iter(heavy_xyz_mismatches), None)}"
 
@@ -186,16 +185,16 @@ def test_atom_coordinates(pdb_id):
 
 if __name__ == "__main__":
     # test_non_canonical_amino_acids("3k4a")
-    test_atom_coordinates("4js1") # Oligosaccharide
-    test_atom_coordinates("1ivo") # (3) residues unobserved in the middle, a handful of modified amino acids (MSE)
-    test_atom_coordinates("1lys")
-    test_atom_coordinates("1a8o") # (3) residues unobserved in the middle, a handful of modified amino acids (MSE)
-    test_atom_coordinates("6dmg")
-    test_atom_coordinates("1cbn")
-    test_atom_coordinates("6wjc") # Starts on label_seq_id 26, since first 25 were unobserved
-    test_atom_coordinates("1y1w") # Protein-nucleic acid complex
-    test_atom_coordinates("133d") # DNA
-    test_atom_coordinates("6dmh") # Multiconformer ligand
-    test_atom_coordinates("6wtf")
-    test_atom_coordinates("1azx")
-    test_atom_coordinates("1zy8") # Polypeptide with FAD ligand assigned to polypeptide chain 0 (causes error when importing)
+    # test_atom_coordinates("4js1") # Oligosaccharide
+    # test_atom_coordinates("1ivo") # (3) residues unobserved in the middle, a handful of modified amino acids (MSE)
+    # test_atom_coordinates("1lys")
+    # test_atom_coordinates("1a8o") # (3) residues unobserved in the middle, a handful of modified amino acids (MSE)
+    # test_atom_coordinates("6dmg")
+    # test_atom_coordinates("1cbn")
+    # test_atom_coordinates("6wjc") # Starts on label_seq_id 26, since first 25 were unobserved
+    # test_atom_coordinates("1y1w") # Protein-nucleic acid complex
+    # test_atom_coordinates("133d") # DNA
+    # test_atom_coordinates("6dmh") # Multiconformer ligand
+    # test_atom_coordinates("6wtf")
+    # test_atom_coordinates("1azx")
+    # test_atom_coordinates("1zy8") # Polypeptide with FAD ligand assigned to polypeptide chain 0 (causes error when importing). Asymmetric unit is smaller than biological unit.

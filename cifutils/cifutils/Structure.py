@@ -25,19 +25,13 @@ class Structure(MultiChildComponent):
     
     # Public methods
     
-    def set_parent(self, parent):
-        """Set the parent residue and update the full_id accordingly.
-
-        Arguments:
-        - parent - Residue object
-
-        """
-        self.parent = parent
-        # self.full_id = self.get_full_id()
-
     def get_model(self, model_id):
         """Fetch a single model based on its id"""
         return self[model_id]
+    
+    def get_models(self):
+        """Returns models as an iterator"""
+        yield from self
 
     def add_model(self, model):
         """Atom a single model to both the model list and model dictionary"""

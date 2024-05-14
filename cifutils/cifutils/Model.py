@@ -16,16 +16,6 @@ class Model(MultiChildComponent):
 
     # Public methods
     
-    def set_parent(self, parent):
-        """Set the parent residue and update the full_id accordingly.
-
-        Arguments:
-        - parent - Residue object
-
-        """
-        self.parent = parent
-        # self.full_id = self.get_full_id()
-
     def add_chain(self, chain):
         """Atom a single chain to both the chain list and chain dictionary"""
         MultiChildComponent.add_child(self, chain)
@@ -56,6 +46,45 @@ class Model(MultiChildComponent):
             for residue in chain:
                 yield from residue.get_atoms()
     
+    def remove_atom(self, chain_id, residue_id, atom_id):
+        """Remove a single atom based on its identifying information"""
+        del self[chain_id][residue_id][atom_id]
+    
     def get_residue(self, chain_id, residue_id):
         """Fetch a single residue based on its identifying information"""
         return self[chain_id][residue_id]
+    
+    def add_inter_chain_bond(self, bond):
+        """Add a single inter-chain bond"""
+        MultiChildComponent.add_bond(self, bond)
+        bond.type = 'inter_chain'
+    
+    def add_inter_chain_bonds(self, bonds):
+        """Add a list of inter-chain bonds"""
+        MultiChildComponent.add_multiple_bonds(self, bonds)
+        for bond in bonds:
+            bond.type = 'inter_chain'
+    
+    def get_inter_chain_bonds(self):
+        """Returns inter-chain bonds as an iterator"""
+        yield from self.component_level_bond_list
+    
+    def get_inter_residue_bonds(self):
+        """Returns inter-residue bonds as an iterator"""
+        for chain in self:
+            yield from chain.get_inter_residue_bonds()
+    
+    def get_intra_residue_bonds(self):
+        """Returns intra-residue bonds as an iterator"""
+        for chain in self:
+            yield from chain.get_intra_residue_bonds()
+    
+    def remove_inter_chain_bond(self, atom_a, atom_b):
+        """Remove a single inter-chain bond"""
+        MultiChildComponent.remove_bond(self, atom_a, atom_b)
+    
+    def get_bonds(self):
+        """Returns all bonds as an iterator"""
+        yield from self.get_inter_chain_bonds()
+        yield from self.get_inter_residue_bonds()
+        yield from self.get_intra_residue_bonds()

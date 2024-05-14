@@ -5,6 +5,7 @@
 *.pyo
 *.pyd
 __pycache__
+__pycache__/*
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -57,7 +58,6 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
-.benchmarks
 
 # Translations
 *.mo
@@ -132,4 +132,10 @@ dmypy.json
 cython_debug/
 
 # VS Code
+.vscode/.benchmarks
 .vscode/
+
+# Misc
+cifutils/pdbx/reader/__pycache__/__init__.cpython-39.pyc
+cifutils/pdbx/reader/__pycache__/PdbxContainers.cpython-39.pyc
+cifutils/pdbx/reader/__pycache__/PdbxReader.cpython-39.pyc

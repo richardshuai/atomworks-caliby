@@ -50,12 +50,11 @@ class Atom:
     
     # Overridden methods
     
-    # Sorting Methods
     # standard across different objects and allows direct comparison
     def __eq__(self, other):
         """Test equality."""
         if isinstance(other, Atom):
-            return self.full_id[1:] == other.full_id[1:]
+            return self.full_id[1:] == other.full_id[1:] # We skip the first ID, which is the structure ID, so we can compare across structures
         else:
             return NotImplemented
 
@@ -71,6 +70,10 @@ class Atom:
         """Return atom full identifier."""
         return hash(self.full_id or self.get_full_id())
     
+    def _reset_full_id(self):
+        """Reset the full id."""
+        self.full_id = self.get_full_id(recompute = True)
+    
     
     # Public methods
 
@@ -81,7 +84,7 @@ class Atom:
         - parent - Residue object
         """
         self.parent = parent
-        self.full_id = self.get_full_id()
+        self.full_id = self.get_full_id(recompute = True)
 
     def get_parent_chain_id(self):
         """Return the parent chain id."""
@@ -92,20 +95,23 @@ class Atom:
         return self.parent.name
     
     def get_parent_residue_id(self):
-        """Return the parent residue name."""
+        """Return the parent residue sequence number."""
         return self.parent.id
 
-    def get_full_id(self):
+    def get_full_id(self, recompute = False):
         """Return the full id of the atom.
 
         The full id of an atom is a tuple used to uniquely identify
         the atom and consists of the following elements:
         (structure id, model id, chain id, residue id, atom id)
         """
-        try:
-            return self.parent.get_full_id() +  self.id #((self.name, self.altloc),)
-        except AttributeError:
-            return (None, None, None, None, self.name)
+        if not recompute and self.full_id is not None:
+            return self.full_id
+        else:
+            try:
+                return self.parent.get_full_id() +  (self.id,) #((self.name, self.altloc),)
+            except AttributeError:
+                return (None, None, None, None, self.name)
     
     def transform(self, rot, tran):
         """Apply rotation and translation to the atomic coordinates.
