@@ -3,19 +3,17 @@ import pstats
 import io
 import gzip
 from Bio.PDB.MMCIFParser import MMCIFParser, MMCIF2Dict
-from cifutils import cifutils_extended, cifutils_legacy
+from cifutils import cifutils_extended, cifutils_legacy, parser_utils, cifutils_biotite
+import os
 
 # Initialize parsers
-cifutils_legacy_parser = cifutils_legacy.CIFParser()
-biopython_parser = MMCIFParser()
-cifutils_extended_parser = cifutils_extended.CIFParser()
+cifutils_biotite_parser = cifutils_biotite.CIFParser()
 
-def load_with_cifutils_extended(pdbids):
+def load_with_cifutils_biotite(pdbids):
     for pdbid in pdbids:
-        filename = f'/databases/rcsb/cif/{pdbid[1:3]}/{pdbid}.cif.gz'
-        with gzip.open(filename, 'rt') as file:
-            cif_data = file.read()
-        cifutils_extended_parser.parse(filename)
+        # filename = f'/databases/rcsb/cif/{pdbid[1:3]}/{pdbid}.cif.gz'
+        filename = os.path.join("data", f"{pdbid}.bcif")
+        cifutils_biotite_parser.parse(filename)
         
 
 if __name__ == "__main__":
@@ -28,7 +26,7 @@ if __name__ == "__main__":
     profiler.enable()
 
     # Run only the function you want to profile
-    load_with_cifutils_extended(pdbids)
+    load_with_cifutils_biotite(pdbids)
 
     # Stop profiling
     profiler.disable()

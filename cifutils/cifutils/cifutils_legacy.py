@@ -305,7 +305,7 @@ class CIFParser:
         automorphisms = obutils.FindAutomorphisms(obmol, heavy=True)
         
         # add quasi-symmetric groups
-        automorphisms = self.AddQausisymmetries(obmol, automorphisms)
+        # automorphisms = self.AddQausisymmetries(obmol, automorphisms)
         
         # only retain atoms with alternative mappings
         mask = (automorphisms[:1]==automorphisms).all(dim=0)
@@ -589,7 +589,7 @@ class CIFParser:
                     continue
                 # If we have atoms with the same occupancy in multiple altlocs, we keep the first one
                 atom = residue.atoms[atm]
-                if occ>atom.occ or (atom.occ == 0 and occ == 0): # Handle examples where atoms have information (e.g., coordinates) in the CIF file, but no occupancy. For instance, `1a8o`
+                if occ>=atom.occ or (atom.occ == 0 and occ == 0): # Handle examples where atoms have information (e.g., coordinates) in the CIF file, but no occupancy. For instance, `1a8o`
                     residue.atoms[atm] = atom._replace(xyz=[x,y,z], 
                                                        occ=occ,
                                                        bfac=bfac,

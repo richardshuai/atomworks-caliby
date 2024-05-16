@@ -65,10 +65,10 @@ class CIFParser:
         # Parse pre-compiled library of all residues observed in the PDB
         DIR = os.path.dirname(__file__)
         with gzip.open(f'{DIR}/ligands.json.gz','rt') as file:
-            self.precomputed_open_babel_residue_data = json.load(file)
+            self.precomputed_ccd_data = json.load(file)
             # Residues to be ignored during parsing are deleted from the precomputed library
             if skip_res is not None:
-                self.precomputed_open_babel_residue_data = {k: v for k, v in self.precomputed_open_babel_residue_data.items() if k not in skip_res}
+                self.precomputed_ccd_data = {k: v for k, v in self.precomputed_ccd_data.items() if k not in skip_res}
             
         # Parse quasi-symmetric groups table
         df = pd.read_csv(f'{DIR}/data/quasisym.csv')
@@ -102,38 +102,61 @@ class CIFParser:
         Residue: The initialized Residue object, or None if the residue data is not available in the library.
         """
 
-        open_babel_residue_data = self.precomputed_open_babel_residue_data.get(name)
+        ccd_data = self.precomputed_ccd_data.get(name)
         # If we didn't include the result in our library (e.g., we skipped it), we return None, and skip the residue downstream
-        if open_babel_residue_data is None:
+        if ccd_data is None:
             return None
         
         # If we haven't already loaded the residue, we load it now
         if name not in self.residue_name_to_data_map:
             self.residue_name_to_data_map[name] = self.load_residue_details_and_atoms_from_open_babel(
-                sdfstring=open_babel_residue_data['sdf'],
-                atom_id=open_babel_residue_data['atom_id'],
-                leaving=open_babel_residue_data['leaving'],
-                pdbx_align=open_babel_residue_data['pdbx_align']
+                sdfstring=ccd_data['sdf'],
+                atom_id=ccd_data['atom_id'],
+                leaving=ccd_data['leaving'],
+                pdbx_align=ccd_data['pdbx_align']
             )
         
-        # Copy the residue data to avoid modifying the original
-        residue_data = copy.deepcopy(self.residue_name_to_data_map[name])
+        residue_template = self.residue_name_to_data_map[name]
         
         new_residue = Residue(
             id=id,
-            name=residue_data['name'],
-            automorphisms=residue_data['automorphisms'],
-            chirals=residue_data['chirals'],
-            planars=residue_data['planars'],
-            alternative_residue_names=set()
+            name=residue_template['name'],
+            automorphisms=residue_template['automorphisms'],
+            chirals=residue_template['chirals'],
+            planars=residue_template['planars']
         )
         new_residue.set_parent(parent)
 
-        # Add atoms to set parents correctly
-        new_residue.add_multiple_atoms(residue_data['atoms'])
+        # Create and add atoms to the new Residue
+        atoms = {
+            aname: Atom(
+                id=a['id'],
+                leaving_atom_flag=a['leaving_atom_flag'],
+                leaving_group=a['leaving_group'],
+                parent_heavy_atom=a['parent_heavy_atom'],
+                element=a['element'],
+                is_metal=a['is_metal'],
+                charge=a['charge'],
+                hyb=a['hyb'],
+                nhyd=a['nhyd'],
+                hvydeg=a['hvydeg'],
+                align=a['align'],
+            ) for aname, a in residue_template['atoms'].items()
+        }
+        new_residue.add_multiple_atoms(atoms)
         
-        # Then, add bonds, once the atom parents are set correctly
-        new_residue.add_intra_residue_bonds(residue_data['intra_residue_bonds'])
+        # Create and add bonds to the new Residue
+        bonds = [
+            Bond(
+                atom_a=atoms[bond['atom_a_id']],
+                atom_b=atoms[bond['atom_b_id']],
+                is_aromatic=bond['is_aromatic'],
+                in_ring=bond['in_ring'],
+                order=bond['order'],
+                length=bond['length'],
+            ) for bond in residue_template['intra_residue_bonds']
+        ]
+        new_residue.add_intra_residue_bonds(bonds)# Then, add bonds, once the atom parents are set correctly
 
         return new_residue
         
@@ -224,17 +247,10 @@ class CIFParser:
         obmol_ph.DeleteHydrogens()
         ha_iter = openbabel.OBMolAtomIter(obmol_ph)                
         
-        # get atoms and their features
+        # get atoms and their features (as a dictionary)
         residue_atoms = {}
         for aname,aleaving,align,a in zip(atom_id,leaving,pdbx_align,openbabel.OBMolAtomIter(obmol)):
 
-            '''
-            leaving_group = []
-            if aleaving==False:
-                CIFParser.getLeavingAtoms(a,leaving,leaving_group)
-                leaving_group = [atom_id[i] for i in leaving_group]
-            '''
-            
             # parent heavy atoms
             parent = None
             for b in openbabel.OBAtomAtomIter(a):
@@ -248,40 +264,35 @@ class CIFParser:
                 charge = ha.GetFormalCharge()
                 nhyd = ha.GetTotalDegree()-ha.GetHvyDegree()
             
-            # Create the Atom object
-            residue_atoms[aname] = Atom(
-                id=aname, # Atom ID's are their CCD "names"
-                xyz=np.array([0.0,0.0,0.0]),
-                occupancy=0.0,
-                altloc='',
-                bfactor=0.0,
-                leaving_atom_flag=aleaving,
-                leaving_group=[],
-                parent_heavy_atom=parent,
-                element=a.GetAtomicNum(),
-                is_metal=a.IsMetal(),
-                charge=charge,
-                hyb=a.GetHyb(),
-                nhyd=nhyd,
-                hvydeg=a.GetHvyDegree(),
-                align=align,
-                hetero=False
-            )
-        
+            # Store the information needed to create the atom
+            residue_atoms[aname] = {
+                'id': aname, # Atom ID's are their CCD "names"
+                'leaving_atom_flag': aleaving,
+                'leaving_group': [],
+                'parent_heavy_atom': parent,
+                'element': a.GetAtomicNum(),
+                'is_metal': a.IsMetal(),
+                'charge': charge,
+                'hyb': a.GetHyb(),
+                'nhyd': nhyd,
+                'hvydeg': a.GetHvyDegree(),
+                'align': align,
+            }
+            
         # get bonds and their features
         bonds = []
         for b in openbabel.OBMolBondIter(obmol):
             atom_a_name = atom_id[b.GetBeginAtom().GetIndex()]
             atom_b_name = atom_id[b.GetEndAtom().GetIndex()]
             bonds.append(
-                Bond(
-                    atom_a=residue_atoms[atom_a_name],
-                    atom_b=residue_atoms[atom_b_name],
-                    is_aromatic=b.IsAromatic(),
-                    in_ring=b.IsInRing(),
-                    order=b.GetBondOrder(),
-                    length=b.GetLength(),
-                )
+                {
+                    'atom_a_id': atom_a_name,
+                    'atom_b_id': atom_b_name,
+                    'is_aromatic': b.IsAromatic(),
+                    'in_ring': b.IsInRing(),
+                    'order': b.GetBondOrder(),
+                    'length': b.GetLength(),
+                }
             )
 
         # get automorphisms
@@ -294,28 +305,16 @@ class CIFParser:
         mask = (automorphisms[:1]==automorphisms).all(dim=0)
         automorphisms = automorphisms[:,~mask]
 
-        # skip automorphisms which include leaving atoms
-        '''
-        if automorphisms.shape[0]>1:
-            mask = torch.tensor(leaving)[automorphisms].any(dim=0)
-            #print(mask, torch.tensor(leaving)[automorphisms])
-            automorphisms = automorphisms[:,~mask]
-            if automorphisms.shape[-1]>0:
-                automorphisms = torch.unique(automorphisms,dim=0)
-            else:
-                automorphisms = automorphisms.flatten()
-        '''
-                
         # get chirals and planars
         chirals = obutils.GetChirals(obmol, heavy=True)
         planars = obutils.GetPlanars(obmol, heavy=True)
 
         # add leaving groups to atoms
         G = nx.Graph()
-        G.add_nodes_from([(a.id,{'leaving':a.leaving_atom_flag}) for a in residue_atoms.values()])
-        G.add_edges_from([(bond.atom_a.id,bond.atom_b.id) for bond in bonds])
+        G.add_nodes_from([(a['id'],{'leaving':a['leaving_atom_flag']}) for a in residue_atoms.values()])
+        G.add_edges_from([(bond['atom_a_id'],bond['atom_b_id']) for bond in bonds])
         for k, v in residue_atoms.items():
-            v.leaving_group = CIFParser.get_leaving_atoms_from_graph(k,G)
+            v['leaving_group'] = CIFParser.get_leaving_atoms_from_graph(k,G)
         
         # Put everything into a dictionary we will later use to initialize the Residue object
         anames = np.array(atom_id)
@@ -408,7 +407,7 @@ class CIFParser:
         return out
 
 
-    def parse_entities(data : pdbx.reader.PdbxContainers.DataContainer) -> Dict:
+    def parse_entities(self, data : pdbx.reader.PdbxContainers.DataContainer) -> Dict:
         '''Parse entity data'''
 
         entities = data.getObj('entity')
@@ -431,66 +430,18 @@ class CIFParser:
 
         return entity_map
 
-    def parse(self, filename : str) -> Dict:
-        
-        #### 1. Load the CIF file ####
-        data = []
-        if filename.endswith('.gz'):
-            with gzip.open(filename,'rt') as cif:
-                reader = PdbxReader(cif)
-                reader.read(data)
-        else:
-            with open(filename,'r') as cif:
-                reader = PdbxReader(cif)
-                reader.read(data)
-        data = data[0]
-        
-        #### 2. Build the entity map dictionary ####
-        entity_map = self.parse_entities(data)
-        entities = data.getObj('entity')
-        entity_map = {}
-        if entities is not None:
-            for row in entities.getRowList():
-                entity_id = row[entities.getIndex('id')]
-                entity_map[entity_id] = {
-                    'type': row[entities.getIndex('type')],
-                    'pdbx_description': row[entities.getIndex('pdbx_description')],
-                    'formula_weight': row[entities.getIndex('formula_weight')],
-                    'pdbx_number_of_molecules': row[entities.getIndex('pdbx_number_of_molecules')],
-                    'pdbx_ec': row[entities.getIndex('pdbx_ec')],
-                    'pdbx_mutation': row[entities.getIndex('pdbx_mutation')],
-                    'pdbx_fragment': row[entities.getIndex('pdbx_fragment')],
-                    'pdbx_detail': row[entities.getIndex('pdbx_detail')]
-                }
-
-        ########################################################
-        # 1. parse mappings of modified residues to their 
-        #    standard counterparts
-        ########################################################
+    def parse_modified_residues(self, data : pdbx.reader.PdbxContainers.DataContainer) -> Dict:
+        '''Parse modified residues data'''
         pdbx_struct_mod_residue = data.getObj('pdbx_struct_mod_residue')
         if pdbx_struct_mod_residue is None:
-            modified_residues = {}
-        else:
-            modified_residues = {(r[pdbx_struct_mod_residue.getIndex('label_comp_id')],
-                       r[pdbx_struct_mod_residue.getIndex('parent_comp_id')])
-                      for r in pdbx_struct_mod_residue.getRowList()}
-            modified_residues = {k:v for k,v in modified_residues if k!=v}
-        
-        # Create a Structure and Model wrapper class TODO: Make these real
-        structure = Structure(id = 0)
+            return {}
+        modified_residues = {(r[pdbx_struct_mod_residue.getIndex('label_comp_id')],
+                            r[pdbx_struct_mod_residue.getIndex('parent_comp_id')])
+                            for r in pdbx_struct_mod_residue.getRowList()}
+        return {k: v for k, v in modified_residues if k != v}
 
-        # Get the first model number
-        atom_site = data.getObj('atom_site')
-        first_model_number = int(atom_site.getRow(0)[atom_site.getIndex("pdbx_PDB_model_num")])
-        model = Model(id = first_model_number)
-
-        # Load the model into the structure
-        structure.add_model(model)
-
-        ########################################################
-        # 2. parse polymeric chains
-        # We can't parse non-polymers this way, as the residue ordering for glycans is not guaranteed to be correct
-        ########################################################
+    def parse_polymeric_chains(self, data, model, entity_map):
+        '''Parse polymeric chains from the CIF file and add them to the model'''
         pdbx_poly_seq_scheme = data.getObj('pdbx_poly_seq_scheme')
         if pdbx_poly_seq_scheme is not None:
             
@@ -500,9 +451,10 @@ class CIFParser:
             for row in pdbx_poly_seq_scheme.getRowList():
                 asym_id = row[pdbx_poly_seq_scheme.getIndex('asym_id')]
                 if asym_id not in poly_chains:
+                    entity_id = row[pdbx_poly_seq_scheme.getIndex('entity_id')]
                     poly_chains[asym_id] = Chain(
                         id = asym_id,
-                        entity_id=row[pdbx_poly_seq_scheme.getIndex('entity_id')],
+                        entity_id=entity_id,
                         entity_details=entity_map.get(entity_id),
                         pdb_strand_id=row[pdbx_poly_seq_scheme.getIndex('pdb_strand_id')],
                     )
@@ -545,13 +497,9 @@ class CIFParser:
                             # Set the new residue's alternative residue names to the old residue's name combined with the old residue's alternative residue names
                             residue_to_add.alternative_residue_names.update(old_residue.alternative_residue_names, [old_residue.name])
                             chain.add_residue(residue_to_add)
-                
-        ########################################################
-        # 4. populate residues with coordinates
-        #    If we come across a non-polymeric chain, we will create a new Chain object
-        ########################################################
-        
 
+    def populate_residues_with_coordinates(self, data, structure, entity_map):
+        atom_site = data.getObj('atom_site')
         # Mapping of descriptive keys to their respective column indices in the atom_site object
         column_map = {
             'entity_id': 'label_entity_id',
@@ -590,7 +538,6 @@ class CIFParser:
                 model = Model(id = parsed_row['model_number'])
                 structure.add_model(model)
             
-            
             # Check if the model has the relevant chain
             if model.has_id(parsed_row['chain_id']):
                 chain = model.get_chain(parsed_row['chain_id'])
@@ -613,6 +560,7 @@ class CIFParser:
             if sequence_id == '.': # !!! Fixes 1ZY8 is which FAD ligand is assigned to a polypeptide chain O !!!
                 continue
 
+            # TODO: Handle multiple models; we may need to copy one
             # Check if the model has the relevant residue
             if chain.has_id(sequence_id):
                 residue = chain.get_residue(sequence_id)
@@ -651,13 +599,7 @@ class CIFParser:
                         raise ValueError(f"Atom {atom_id} not found in residue {residue.id} in chain {chain.id} in model {model.id}")
                         residue.unmatched_heavy_atom = True
 
-        ########################################################
-        # 5. parse covalent connections
-        ########################################################
-
-        # NOTE: We make an implicit assumption that covalent connections across atoms are shared between models. The RCSB documentation does not include a `model` flag for `_struct_conn`
-        # TODO: Is this a fair assumption?
-        
+    def parse_covalent_connections(self, data, structure):
         struct_conn = data.getObj('struct_conn')
         #  Retrieve all necessary indices once to avoid repeated calls to getIndex
         indices = {
@@ -721,13 +663,8 @@ class CIFParser:
                         else:
                             model.add_inter_chain_bond(bond)
 
-        ########################################################
-        # 6. build connected chains
-        ########################################################
-
-        # Add inter-residue connections in polymers
-
-        # Define a dictionary to map chain types to atom pairs
+    def add_inter_residue_bonds(self, structure):
+        '''Add inter-residue connections in polymers'''
         # Possible types given at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity_poly.type.html
         atom_pairs = {
             'polydeoxyribonucleotide': ("O3'", 'P'),
@@ -736,7 +673,7 @@ class CIFParser:
             'polypeptide(L)': ('C', 'N'),
             'polyribonucleotide': ("O3'", 'P'),
         }          
-        
+
         for model in structure.get_models():
             for chain in model.get_chains():
                 # Determine atom pair for the chain type
@@ -765,49 +702,91 @@ class CIFParser:
                         )
                         chain.add_inter_residue_bond(bond)
             
+    def remove_leaving_groups_and_bonds(self, structure):
+        """Remove leaving atoms and corresponding bonds from the model"""
+        model = structure.child_list[0] # TODO: Make robust for multi-structure
+        # Create a list of atoms to ignore that are leaving groups of atoms that are part of a covalent bond
+        atoms_to_remove = set()
+        for bond in model.get_inter_residue_bonds():
+            atoms_to_remove.update(bond.atom_a.parent.get_atom(atom) for atom in bond.atom_a.leaving_group)
+            atoms_to_remove.update(bond.atom_b.parent.get_atom(atom) for atom in bond.atom_b.leaving_group)
+        
+        for bond in model.get_inter_chain_bonds():
+            atoms_to_remove.update(bond.atom_a.parent.get_atom(atom) for atom in bond.atom_a.leaving_group)
+            atoms_to_remove.update(bond.atom_b.parent.get_atom(atom) for atom in bond.atom_b.leaving_group)
+        
+        # Remove leaving atoms from the model
+        for atom in atoms_to_remove:
+            # Remove bonds to the atom we will delete
+            atom.parent.remove_bonds_involving_atom(atom)
+            del atom.parent[atom.id] # Invokes overloaded __delitem__ method in Residue class
 
-            # Create a list of atoms to ignore that are leaving groups of atoms that are part of a covalent bond
-            atoms_to_remove = set()
-            for bond in model.get_inter_residue_bonds():
-                atoms_to_remove.update(bond.atom_a.parent.get_atom(atom) for atom in bond.atom_a.leaving_group)
-                atoms_to_remove.update(bond.atom_b.parent.get_atom(atom) for atom in bond.atom_b.leaving_group)
-            
-            for bond in model.get_inter_chain_bonds():
-                atoms_to_remove.update(bond.atom_a.parent.get_atom(atom) for atom in bond.atom_a.leaving_group)
-                atoms_to_remove.update(bond.atom_b.parent.get_atom(atom) for atom in bond.atom_b.leaving_group)
-            
-            # Remove leaving atoms from the model
-            for atom in atoms_to_remove:
-                # Remove bonds to the atom we will delete
-                atom.parent.remove_bonds_involving_atom(atom)
-                del atom.parent[atom.id] # Invokes overloaded __delitem__ method in Residue class
-            
-            # (f) fix charges and hydrogen counts for cases when
-            #     charged atoms are connected by an inter-residue bond
-            '''
-            for bond in bonds:
-                if bond.intra==False:
-                    a = atoms[bond.a]
-                    b = atoms[bond.b]
+    def parse(self, filename : str) -> Dict:
+        """ TODO: Rewrite this docstring
+        Parses the given CIF file and returns a dictionary.
 
-                    # nitrogen (involved in a peptide bond)
-                    if a.element==7 and a.charge==1 and a.hyb==3 and a.nhyd==3:
-                        atoms[bond.a] = a._replace(charge=0, hyb=2, nhyd=1)
-                    if b.element==7 and b.charge==1 and b.hyb==3 and b.nhyd==3:
-                        atoms[bond.b] = b._replace(charge=0, hyb=2, nhyd=1)
-            
-                    # oxygen (nucletides)
-                    if a.element==8 and a.charge==-1 and a.hyb==3 and a.nhyd==0:
-                        atoms[bond.a] = a._replace(charge=0)
-                    if b.element==8 and b.charge==-1 and b.hyb==3 and b.nhyd==0:
-                        atoms[bond.b] = b._replace(charge=0)
-            '''
-            
+        The method performs the following steps:
+        1. Load the CIF file.
+        2. Build the entity map dictionary.
+        3. Parse mappings of modified residues to their standard counterparts.
 
-        ########################################################
-        # 6. parse assemblies
-        ########################################################
+        Args:
+            filename (str): The path to the CIF file to parse.
+
+        Returns:
+            Dict: A dictionary containing XYZ
+        """
+        
+        #### 1. Load the CIF file ####
+        data = []
+        if filename.endswith('.gz'):
+            with gzip.open(filename,'rt') as cif:
+                reader = PdbxReader(cif)
+                reader.read(data)
+        else:
+            with open(filename,'r') as cif:
+                reader = PdbxReader(cif)
+                reader.read(data)
+        data = data[0]
+        
+        #### 2. Build the entity map dictionary ####
+        entity_map = self.parse_entities(data)
+
+        #### 3. Parse mappings of modified residues to their standard counterparts ####
+        modified_residues = self.parse_modified_residues(data)
+        
+        # Create a Structure and Model wrapper class TODO: Make the structure ID the pdb ID
+        structure = Structure(id = 0)
+
+        # Get the first model number
+        atom_site = data.getObj('atom_site')
+        first_model_number = int(atom_site.getRow(0)[atom_site.getIndex("pdbx_PDB_model_num")])
+        model = Model(id = first_model_number)
+
+        # Load the model into the structure
+        structure.add_model(model)
+
+        #### 4. Parse polymeric chains ####
+        # We can't parse non-polymers this way, as the residue ordering for glycans is not guaranteed to be correct
+        self.parse_polymeric_chains(data, model, entity_map)
+                
+        #### 5. Populate residues with coordinates ####
+        # If we come across a non-polymeric chain, we will create a new Chain object
+        self.populate_residues_with_coordinates(data, structure, entity_map)
+        
+        #### 6. Parse covalent connections ####
+        # NOTE: We make an implicit assumption that covalent connections across atoms are shared between models. The RCSB documentation does not include a `model` flag for `_struct_conn`.
+        self.parse_covalent_connections(data, structure)
+        
+        #### 6. build connected chains ####
+        self.add_inter_residue_bonds(structure)
+
+        #### 7. Remove leaving atoms and corresponding bonds from the model ####
+        self.remove_leaving_groups_and_bonds(structure)
+            
+        #### 6. Parse assemblies ####
         asmb = self.parse_assemblies(data)
+
         # Filter to ensure the chains exist
         asmb = {
             k:[vi for vi in v if structure.get_model(1).has_id(vi[0])]

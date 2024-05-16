@@ -74,6 +74,11 @@ class Chain(MultiChildComponent):
     def get_inter_residue_bonds(self):
         """Returns inter-residue bonds as an iterator"""
         yield from self.component_level_bond_list
+
+    def get_intra_residue_bonds(self):
+        """Returns intra-residue bonds as an iterator"""
+        for residue in self:
+            yield from residue.get_intra_residue_bonds()
     
     def remove_inter_residue_bond(self, atom_a, atom_b):
         """Remove a single inter-residue bond"""

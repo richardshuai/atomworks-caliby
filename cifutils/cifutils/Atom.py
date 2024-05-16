@@ -5,27 +5,26 @@ from cifutils.Residue import Residue
 
 class Atom:
     """ Define atom class.
-
     """
 
     def __init__(
         self,
-        id: str,
-        xyz: np.ndarray,
-        occupancy: float,
-        altloc: str,
-        bfactor,
-        leaving_atom_flag,
-        leaving_group,
-        parent_heavy_atom,
-        element,
-        is_metal,
-        charge,
-        hyb,
-        nhyd,
-        hvydeg,
-        align,
-        hetero,
+        id,
+        xyz = np.array([0.0, 0.0, 0.0]),
+        occupancy = 0.0,
+        altloc = '',
+        bfactor = 0.0,
+        leaving_atom_flag = None,
+        leaving_group = [],
+        parent_heavy_atom = None,
+        element = None,
+        is_metal = None,
+        charge = None,
+        hyb = None,
+        nhyd = None,
+        hvydeg = None,
+        align = None,
+        hetero = False, # True if the atom is a heteroatom (an atom that is not part of the standard amino acid or nucleic acid residues)
         parent: Residue = None
     ):
         self.id = id # e.g., CA

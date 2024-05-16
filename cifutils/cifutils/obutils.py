@@ -13,7 +13,7 @@ openbabel.obErrorLog.SetOutputLevel(0)
 # ============================================================
 def FindAutomorphisms(obmol : openbabel.OBMol,
                       heavy : bool = True,
-                      maxmem : int = 2**20) -> torch.tensor:
+                      maxmem : int = 20 * (2**30)) -> torch.tensor:
     '''find automorphisms of a molecule
     
     Args:
@@ -21,7 +21,7 @@ def FindAutomorphisms(obmol : openbabel.OBMol,
     	heavy : whether to use heavy atoms only
                 (by default hydrogens are ignored)
         maxmem : max memory in bytes to be used by openbabel
-                (default is ~1GB)
+                (default is ~20GB)
         
     Returns:
         [N,L] tensor storing automorphisms (!!!sorted!!!)
