@@ -24,11 +24,8 @@ Acknowledgements:
 """
 
 import re,sys
-<<<<<<< HEAD:cifutils/pdbx/reader/PdbxReader.py
 from cifutils.pdbx.reader.PdbxContainers import *
-=======
 from cifutils.cifutils_legacy.pdbx.reader.PdbxContainers import *
->>>>>>> 55d707d (Implementing cifutils_biotite; refactoring and minor changes to cifutils_legacy):cifutils/cifutils_legacy/pdbx/reader/PdbxReader.py
 
 class PdbxError(Exception):
     """ Class for catch general errors 
