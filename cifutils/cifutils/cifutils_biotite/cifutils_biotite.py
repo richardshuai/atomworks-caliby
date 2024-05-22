@@ -39,14 +39,14 @@ class CIFParser:
         Initialize a CIFParser object.
 
         Args:
-            by_residue_pickle (str, optional): Path to the pre-compiled residue-level CCD and OB data built from `make_residue_library_from_ccd.py`.
-            by_atom_pickle (str, optional): Path to the pre-compiled atom-level CCD and OB data built from `make_residue_library_from_ccd.py`.
-            residues_to_skip (list, optional): List of residue names to skip.
-            add_missing_atoms (bool, optional): Whether to add missing atoms to the structure, including relevant OpenBabel atom-level data.
-            add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
-            convert_residues_dict (dict, optional): Dictionary of residue name conversions. Keys are the original residue names, and values are the new residue names.
-            remove_waters (bool, optional): Whether to remove water molecules from the structure.
-            build_assembly (bool, optional): Whether to build the first biological assembly found within the mmCIF file and add the `transformation_id` field.
+        - by_residue_pickle (str, optional): Path to the pre-compiled residue-level CCD and OB data built from `make_residue_library_from_ccd.py`.
+        - by_atom_pickle (str, optional): Path to the pre-compiled atom-level CCD and OB data built from `make_residue_library_from_ccd.py`.
+        - residues_to_skip (list, optional): List of residue names to skip.
+        - add_missing_atoms (bool, optional): Whether to add missing atoms to the structure, including relevant OpenBabel atom-level data.
+        - add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
+        - convert_residues_dict (dict, optional): Dictionary of residue name conversions. Keys are the original residue names, and values are the new residue names.
+        - remove_waters (bool, optional): Whether to remove water molecules from the structure.
+        - build_assembly (bool, optional): Whether to build the first biological assembly found within the mmCIF file and add the `transformation_id` field.
         """
 
         # Step 0: Set and validate arguments
@@ -100,15 +100,15 @@ class CIFParser:
         Parse the CIF file and return chain information, residue information, atom array, metadata, and legacy data.
 
         Args:
-            filename (str): Path to the CIF file. May be any format of CIF file (e.g., gz, bcif, etc.).
+        - filename (str): Path to the CIF file. May be any format of CIF file (e.g., gz, bcif, etc.).
 
         Returns:
-            dict: A dictionary containing the following keys:
-                'chain_info': A dictionary mapping chain ID to sequence, type, entity ID, and other information.
-                'residue_info': A dictionary mapping residue name to reference structure (atoms, bonds, automorphisms, etc.).
-                'atom_array': An AtomArrayStack instance representing the structure.
-                'metadata': A dictionary containing metadata about the structure.
-                'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
+        - dict: A dictionary containing the following keys:
+        'chain_info': A dictionary mapping chain ID to sequence, type, entity ID, and other information.
+        'residue_info': A dictionary mapping residue name to reference structure (atoms, bonds, automorphisms, etc.).
+        'atom_array': An AtomArrayStack instance representing the structure.
+        'metadata': A dictionary containing metadata about the structure.
+        'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
         """
         cif_file = read_cif_file(filename)
         cif_block = cif_file.block
@@ -136,6 +136,9 @@ class CIFParser:
 
         # Replace non-polymeric chain sequence ids with author sequence ids
         self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
+
+        # Remove unmatched residues from the atom array
+        atom_array = self._remove_atoms_with_unmatched_residues(atom_array)
 
         # Load monomer sequence information into chain_info_dict and residue details (e.g., automorphisms) into residue_info_dict
         chain_info_dict, residue_info_dict = self._load_monomer_sequence_information(cif_block, chain_info_dict, atom_array)
@@ -169,6 +172,11 @@ class CIFParser:
             'extra_info': {**self.extra_info} # modified residues, struct_conn bonds
         }
     
+    def _remove_atoms_with_unmatched_residues(self, atom_array):
+        """Remove atoms from the atom array that do not have a corresponding residue in the precompiled CCD data."""
+        matched_residue_mask = np.isin(atom_array.res_name, self.data_by_residue.index)
+        return atom_array[matched_residue_mask]
+
     def _build_assembly(self, cif_block, atom_array, assembly_id=None):
         """
         Build the first biological assembly found within the mmCIF file and update the `transformation_id` annotation.
@@ -176,12 +184,12 @@ class CIFParser:
         Code modified from: https://github.com/biotite-dev/biotite/blob/v0.40.0/src/biotite/structure/io/pdbx/convert.py#L1318
 
         Args:
-            cif_block (CIFBlock): The CIF block containing the structure data.
-            atom_array (AtomArray): The atom array to which the transformations will be applied.
-            assembly_id (int, optional): The ID of the assembly to build. Defaults to None, which means the first assembly will be built.
+        - cif_block (CIFBlock): The CIF block containing the structure data.
+        - atom_array (AtomArray): The atom array to which the transformations will be applied.
+        - assembly_id (int, optional): The ID of the assembly to build. Defaults to None, which means the first assembly will be built.
 
         Returns:
-            AtomArray: The atom array with the biological assembly built and transformation_id annotations updated.
+        - AtomArray: The atom array with the biological assembly built and transformation_id annotations updated.
         """
 
         if "pdbx_struct_assembly" not in cif_block.keys():
@@ -225,7 +233,7 @@ class CIFParser:
         """
         Build a list of atoms for a given residue name from CCD data.
 
-        Parameters:
+        Args:
         - residue_name (str): The name of the residue.
 
         Returns:
@@ -364,7 +372,7 @@ class CIFParser:
         """ 
         Adds inter-residue and intra_residue bonds to an atom array for a given chain.
 
-        Parameters:
+        Args:
         - atom_array (AtomArray): The atom array to which the bonds are added.
         - chain_id (str): The ID of the chain for which bonds are added.
         - chain_type (str): The type of the chain, used to determine the type of bond.
@@ -403,26 +411,27 @@ class CIFParser:
             if next_res and bond_atoms is not None:
                 atom_a = current_res[current_res.atom_name == bond_atoms[0]]
                 atom_b = next_res[next_res.atom_name == bond_atoms[1]]
-                inter_residue_bonds.append([atom_a.index[0], atom_b.index[0], struc.BondType.SINGLE])
+                if atom_a and atom_b:
+                    inter_residue_bonds.append([atom_a.index[0], atom_b.index[0], struc.BondType.SINGLE])
 
-                # Leaving group bookkeeping
-                leaving_atom_indices.append(current_res.index[np.isin(current_res.atom_name, atom_a.leaving_group[0])])
-                leaving_atom_indices.append(next_res.index[np.isin(next_res.atom_name, atom_b.leaving_group[0])])
-                
-                # Fix charges
-                atom_a_updates = fix_bonded_atom_charges(atom_a[0])
-                atom_a.charge, atom_a.hyb, atom_a.nhyd = (
-                    np.array([atom_a_updates['charge']]),
-                    np.array([atom_a_updates['hyb']]),
-                    np.array([atom_a_updates['nhyd']])
-                )
+                    # Leaving group bookkeeping
+                    leaving_atom_indices.append(current_res.index[np.isin(current_res.atom_name, atom_a.leaving_group[0])])
+                    leaving_atom_indices.append(next_res.index[np.isin(next_res.atom_name, atom_b.leaving_group[0])])
+                    
+                    # Fix charges
+                    atom_a_updates = fix_bonded_atom_charges(atom_a[0])
+                    atom_a.charge, atom_a.hyb, atom_a.nhyd = (
+                        np.array([atom_a_updates['charge']]),
+                        np.array([atom_a_updates['hyb']]),
+                        np.array([atom_a_updates['nhyd']])
+                    )
 
-                atom_b_updates = fix_bonded_atom_charges(atom_b[0])
-                atom_b.charge, atom_b.hyb, atom_b.nhyd = (
-                    np.array([atom_b_updates['charge']]),
-                    np.array([atom_b_updates['hyb']]),
-                    np.array([atom_b_updates['nhyd']])
-                )
+                    atom_b_updates = fix_bonded_atom_charges(atom_b[0])
+                    atom_b.charge, atom_b.hyb, atom_b.nhyd = (
+                        np.array([atom_b_updates['charge']]),
+                        np.array([atom_b_updates['hyb']]),
+                        np.array([atom_b_updates['nhyd']])
+                    )
                 
             # Add intra-residue bonds for the current residue
             residue_name = current_res.res_name[0] # current_res.res_name is a list of identical values, so we just take the first one
@@ -449,7 +458,7 @@ class CIFParser:
         """ 
         Adds bonds from the 'struct_conn' category of a CIF block to an atom array. Only covalent bonds are considered.
 
-        Parameters:
+        Args:
         - cif_block (CIF): The CIF block containing the 'struct_conn' category.
         - chain_info_dif (Dict): A dictionary containing information about the chains.
         - atom_array (AtomArray): The atom array used to get atom indices.
@@ -471,10 +480,17 @@ class CIFParser:
                 b_seq_id = row['ptnr2_label_seq_id'] if chain_info_dict[b_chain_id]['is_polymer'] else row['ptnr2_auth_seq_id']
                 a_atom_id = row['ptnr1_label_atom_id']
                 b_atom_id = row['ptnr2_label_atom_id']
+                a_res_name = row['ptnr1_label_comp_id']
+                b_res_name = row['ptnr2_label_comp_id']
 
                 # Get the indices of the atoms and append to the list
                 residue_a = atom_array[(atom_array.chain_id == a_chain_id) & (atom_array.res_id == int(a_seq_id))]
                 residue_b = atom_array[(atom_array.chain_id == b_chain_id) & (atom_array.res_id == int(b_seq_id))]
+
+                # Ensure that the we picked the correct residue (to handle sequence heterogeneity; see PDB ID `3nez` for an example)
+                if a_res_name != residue_a.res_name[0] or b_res_name != residue_b.res_name[0]:
+                    continue
+
                 atom_a = residue_a[residue_a.atom_name == a_atom_id]
                 atom_b = residue_b[residue_b.atom_name == b_atom_id]
                 struct_conn_bonds.append([atom_a.index[0], atom_b.index[0], struc.BondType.SINGLE])
@@ -508,12 +524,12 @@ class CIFParser:
         Add bonds to the atom array stack using precomputed CCD data and the mmCIF `struct_conn` field.
 
         Args:
-            cif_block (CIFBlock): The CIF file block containing the structure data.
-            atom_array (AtomArray): The atom array to which the bonds will be added.
-            chain_info_dict (dict): A dictionary containing information about the chains in the structure.
+        - cif_block (CIFBlock): The CIF file block containing the structure data.
+        - atom_array (AtomArray): The atom array to which the bonds will be added.
+        - chain_info_dict (dict): A dictionary containing information about the chains in the structure.
 
         Returns:
-            AtomArray: The updated atom array with bonds added.
+        - AtomArray: The updated atom array with bonds added.
         """
         # Step 0: Add index to atom_array for ease of access
         atom_array.set_annotation('index', np.arange(len(atom_array)))
@@ -554,7 +570,7 @@ class CIFParser:
         """
         Removes duplicate residues in the atom array, keeping only the last occurrence.
 
-        Parameters:
+        Args:
         - atom_array (AtomArray): The atom array stack containing the chain information.
 
         Returns:
@@ -586,7 +602,7 @@ class CIFParser:
         """
         Updates the sequence IDs of non-polymeric chains in the atom array stack.
 
-        Parameters:
+        Args:
         - atom_array (AtomArray): The atom array stack containing the chain information.
         - chain_info_dict (dict): Dictionary containing the sequence details of each chain.
 
@@ -624,7 +640,10 @@ class CIFParser:
 
         # Keep only the last occurrence of each residue
         polymer_seq_df.drop_duplicates(subset=['entity_id', 'residue_id'], keep='last', inplace=True)
-        
+
+        # Filter out residues that are not in the precompiled CCD data
+        polymer_seq_df = polymer_seq_df[polymer_seq_df['residue_name'].isin(self.data_by_residue.index)]
+
         # Map entity_id to lists of residue names and residue IDs
         polymer_seq_df['entity_id'] = polymer_seq_df['entity_id'].astype(float)
         polymer_entity_id_to_residue_names_and_ids = {
@@ -638,15 +657,20 @@ class CIFParser:
             entity_id = int(chain_info_dict[chain_id]['entity_id'])
             if entity_id in polymer_entity_id_to_residue_names_and_ids:
                 # For polymers, we use the stored entity residue list
-                chain_info_dict[chain_id]['residue_name_list'] = polymer_entity_id_to_residue_names_and_ids[entity_id]['residue_names']
-                chain_info_dict[chain_id]['residue_id_list'] = polymer_entity_id_to_residue_names_and_ids[entity_id]['residue_ids']
+                if polymer_entity_id_to_residue_names_and_ids[entity_id]['residue_names']:
+                    chain_info_dict[chain_id]['residue_name_list'] = polymer_entity_id_to_residue_names_and_ids[entity_id]['residue_names']
+                    chain_info_dict[chain_id]['residue_id_list'] = polymer_entity_id_to_residue_names_and_ids[entity_id]['residue_ids']
             else:
                 # For non-polymers, we must re-compute every time, since entities are not guaranteed to have the same monomer sequence (e.g., for H2O chains)
                 chain_atom_array = atom_array[atom_array.chain_id == chain_id]
                 residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
+                # We don't need to filter out unmatched residues for non-polymers here, since we handled that by filtering the AtomArray earlier
                 chain_info_dict[chain_id]['residue_name_list'] = residue_name_list
                 chain_info_dict[chain_id]['residue_id_list'] = residue_id_list
                 unique_residues.update(residue_name_list)
+
+        # Remove entries from chain_info_dict that have no residues
+        chain_info_dict = {chain_id: chain_info for chain_id, chain_info in chain_info_dict.items() if 'residue_name_list' in chain_info}
         
         # Store information about each present residue in a dictionary
         residue_info_dict = {
@@ -664,7 +688,7 @@ class CIFParser:
         """
         Extracts chain information from the CIF block.
 
-        Parameters:
+        Args:
         - cif_block (CIFBlock): Parsed CIF block.
         - atom_array (AtomArray): Atom array stack containing the chain information.
 
