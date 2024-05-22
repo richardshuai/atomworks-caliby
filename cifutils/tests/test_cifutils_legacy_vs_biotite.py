@@ -130,7 +130,6 @@ def validate_chains(pdb_id, chains_legacy, converted_chains):
             legacy_atom = legacy_atoms[atom_id]
             converted_atom = converted_atoms[atom_id]
             assert legacy_atom.name == converted_atom.name, f"Name mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert legacy_atom.xyz == converted_atom.xyz, f"XYZ mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
             assert legacy_atom.element == converted_atom.element, f"Element mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
             assert legacy_atom.name == converted_atom.name, f"Name mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
             assert legacy_atom.occ == converted_atom.occ, f"Occupancy mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
@@ -142,7 +141,15 @@ def validate_chains(pdb_id, chains_legacy, converted_chains):
             assert legacy_atom.hvydeg == converted_atom.hvydeg, f"Heavy degree mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
             assert legacy_atom.align == converted_atom.align, f"Alignment flag mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
             assert legacy_atom.charge == converted_atom.charge, f"Charge mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert legacy_atom.bfac == converted_atom.bfac, f"B-factor mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
+
+            # We need to handle the situation where the occupancy is 0.5 and there is an equally-occupied alternative location
+            # Biotite will not pick between the two alternative locations deterministically
+            # In that instance, the b-factors may be uncorrelated, so we don't check
+            if legacy_atom.occ == 0.5 and converted_atom.occ == 0.5:
+                assert np.allclose(legacy_atom.xyz, converted_atom.xyz, atol=10), f"(Partial occupancy) Approximate XYZ mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
+            else:
+                assert legacy_atom.xyz == converted_atom.xyz, f"XYZ mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
+                assert legacy_atom.bfac == converted_atom.bfac, f"B-factor mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
         
         legacy_bonds = legacy_chain.bonds
         converted_bonds = converted_chain.bonds
@@ -194,8 +201,11 @@ def cifutils_biotite_parser():
     return cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=False)
 
 @pytest.mark.parametrize("pdb_id", [
-    "1lys", "6dmg", "1a8o", "6wjc", "4js1", "1ivo",
-    "1fu2", "1cbn", "1en2", "1y1w", "133d", "5xnl", "6wtf", "1azx", "2e2h"
+    "4az0", "2ejf", "5tmc", "6dru", "6s7t", "4xo3", "6tt7", "1khz",
+    "1adl", "1nte", "3dpm", "1bs3", "2b4b", "1etu", "4ztt", "1brx",
+    "3nez", "4ndz", "1lys", "6dmg", "1a8o", "6wjc", "4js1", "1ivo",
+    "1fu2", "1cbn", "1en2", "1y1w", "133d", "5xnl", "6wtf", "1azx", 
+    "2e2h", "1q1k", "3ne7"
 ])
 def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser):
     """
@@ -213,7 +223,7 @@ def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser):
 
     # Parse with cifutils_legacy
     chains_legacy, asmb_legacy, covale_legacy, meta_legacy, modres_legacy = parse_with_cifutils_legacy(filename, cif_parser_legacy)
-    
+
     # Parse with cifutils_biotite
     result_dict = parse_with_cifutils_biotite(filename, cifutils_biotite_parser)
     
@@ -240,3 +250,9 @@ def test_unmatched_atom_types():
     atom_array = result_dict['atom_array']
     residue_2 = atom_array[(atom_array.chain_id == 'A') & (atom_array.res_id == 2)]
     assert np.sum(residue_2.occupancy) == 0
+
+if __name__ == "__main__":
+    # Test a single example
+    cif_parser_legacy = cifutils_legacy.CIFParser()
+    cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=False)
+    test_parsing("3ne7", cif_parser_legacy, cifutils_biotite_parser)

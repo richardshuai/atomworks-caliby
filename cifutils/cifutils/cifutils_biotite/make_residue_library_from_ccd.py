@@ -1,5 +1,6 @@
 """Pre-process the Chemical Component Dictionary (CCD) with OpenBabel to create a residue library for use in the CIF parser."""
 
+import argparse
 import glob
 import logging
 import numpy as np
@@ -81,7 +82,7 @@ def validate_coordinates(obmol, cif):
         return False
     return ((xyz - cif['xyz'])[~np.isnan(cif['xyz'])] < 1e-3).all()
 
-def extract_residue_details(obmol, atom_id, leaving, pdbx_align):
+def extract_residue_details(obmol, atom_id, leaving, pdbx_align, params):
     """
     Extracts detailed information about the residue from the OBMol object.
     
@@ -90,6 +91,7 @@ def extract_residue_details(obmol, atom_id, leaving, pdbx_align):
     atom_id (List[str]): List of atom IDs.
     leaving (List[bool]): List of leaving flags for each atom.
     pdbx_align (List[int]): List of alignment indices.
+    params (dict): Dictionary of parameters.
     
     Returns:
     dict: Dictionary containing residue details.
@@ -134,12 +136,20 @@ def extract_residue_details(obmol, atom_id, leaving, pdbx_align):
             'length': b.GetLength(),
         })
     
-    automorphisms = obutils.FindAutomorphisms(obmol, heavy=True, maxmem=20*(2**30), max_automorphs=10**4)
-    mask = (automorphisms[:1] == automorphisms).all(dim=0)
-    automorphisms = automorphisms[:, ~mask]
+    automorphisms = []
+    chirals = []
+    planars = []
     
-    chirals = obutils.GetChirals(obmol, heavy=True)
-    planars = obutils.GetPlanars(obmol, heavy=True)
+    if params['include_automorphisms']:
+        automorphisms = obutils.FindAutomorphisms(obmol, heavy=True, maxmem=20*(2**30), max_automorphs=params['max_automorphisms'])
+        mask = (automorphisms[:1] == automorphisms).all(dim=0)
+        automorphisms = automorphisms[:, ~mask]
+        
+    if params['include_chirals']:
+        chirals = obutils.GetChirals(obmol, heavy=True)
+        
+    if params['include_planars']:
+        planars = obutils.GetPlanars(obmol, heavy=True)
     
     G = nx.Graph()
     G.add_nodes_from([(a['id'], {'leaving': a['leaving_atom_flag']}) for a in residue_atoms.values()])
@@ -151,19 +161,20 @@ def extract_residue_details(obmol, atom_id, leaving, pdbx_align):
     return {
         'name': obmol.GetTitle(),
         'intra_residue_bonds': bonds,
-        'automorphisms': anames[automorphisms].tolist(),
-        'chirals': anames[chirals].tolist(),
-        'planars': anames[planars].tolist(),
+        'automorphisms': anames[automorphisms].tolist() if params['include_automorphisms'] else [],
+        'chirals': anames[chirals].tolist() if params['include_chirals'] else [],
+        'planars': anames[planars].tolist() if params['include_planars'] else [],
         'atoms': residue_atoms
     }
 
-def process_single_ligand(sdfname, obConversion):
+def process_single_ligand(sdfname, obConversion, params):
     """
     Processes a single SDF file to extract ligand details.
     
     Parameters:
     sdfname (str): The name of the SDF file.
     obConversion (openbabel.OBConversion): Open Babel conversion object.
+    params (dict): Dictionary of parameters.
     
     Returns:
     tuple: A tuple containing the ligand ID and its details.
@@ -186,16 +197,18 @@ def process_single_ligand(sdfname, obConversion):
         obmol=obmol,
         atom_id=cif['atom_id'].tolist(),
         leaving=cif['leaving'].tolist(),
-        pdbx_align=cif['pdbx_align'].tolist()
+        pdbx_align=cif['pdbx_align'].tolist(),
+        params=params
     )
     return id, ligand_details
 
-def process_ligands(sdfnames, num_threads=5, timeout=300):
+def process_ligands(sdfnames, params, num_threads=5, timeout=300):
     """
     Processes a list of SDF files to create a dictionary of ligands with their details.
     
     Parameters:
     sdfnames (list): List of SDF file names.
+    params (dict): Dictionary of parameters.
     num_threads (int): Number of threads to use.
     timeout (int): Timeout in seconds for processing each ligand.
     
@@ -206,9 +219,10 @@ def process_ligands(sdfnames, num_threads=5, timeout=300):
     obConversion.SetInFormat("sdf")
     ligands = []
     start_time = time.time()
+    logging.info(f"Processing {len(sdfnames)} ligands with {num_threads} threads...")
 
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = {executor.submit(process_single_ligand, sdfname, obConversion): sdfname for sdfname in sdfnames}
+        futures = {executor.submit(process_single_ligand, sdfname, obConversion, params): sdfname for sdfname in sdfnames}
         
         for future in tqdm(as_completed(futures), total=len(sdfnames), desc="Processing ligands"):
             sdfname = futures[future]
@@ -226,7 +240,7 @@ def process_ligands(sdfnames, num_threads=5, timeout=300):
     logging.info(f"Finished processing all ligands. Total time: {end_time - start_time:.2f} seconds")
     return ligands
 
-def save_ligands_to_pickles(ligands, by_residues_filename="ligands_by_residue.pkl", by_atoms_filename="ligands_by_atom.pkl"):
+def save_ligands_to_pickles(ligands, params):
     """
     Saves the ligands information to a pickle file using HIGHEST_PROTOCOL.
     Saves two files:
@@ -235,8 +249,7 @@ def save_ligands_to_pickles(ligands, by_residues_filename="ligands_by_residue.pk
     
     Parameters:
     ligands (list): List containing tuples of ligand ID and ligand details.
-    by_residues_filename (str): The name of the file to save ligands grouped by residue.
-    by_atoms_filename (str): The name of the file to save ligands grouped by atom.
+    params (dict): Dictionary of parameters.
     """
     ligand_records = []
     for id, details in ligands:
@@ -244,30 +257,35 @@ def save_ligands_to_pickles(ligands, by_residues_filename="ligands_by_residue.pk
             'id': id,
             'name': details['name'],
             'intra_residue_bonds': details['intra_residue_bonds'],
-            'automorphisms': details['automorphisms'],
-            'chirals': details['chirals'],
-            'planars': details['planars'],
             'atoms': details['atoms']
         }
+        if params['include_automorphisms']:
+            record['automorphisms'] = details['automorphisms']
+        if params['include_chirals']:
+            record['chirals'] = details['chirals']
+        if params['include_planars']:
+            record['planars'] = details['planars']
+        
         ligand_records.append(record)
     
     by_residue_df = pd.DataFrame(ligand_records)
-    with open(by_residues_filename, 'wb') as outfile:
+    with open(params['by_residues_filename'], 'wb') as outfile:
         pickle.dump(by_residue_df, outfile, protocol=pickle.HIGHEST_PROTOCOL)
-    logging.info(f"Ligands grouped by residue saved to {by_residues_filename}")
+    logging.info(f"Ligands grouped by residue saved to {params['by_residues_filename']}")
 
     # Function to process each row and extract necessary information
     def process_row(row):
         residue_name = row['id']
         atoms_data = row['atoms']
-        chiral_centers = set(chiral[0] for chiral in row['chirals'])
+        chiral_centers = set()
+        if params['include_chirals']:
+            chiral_centers = set(chiral[0] for chiral in row['chirals'])
 
         atom_records = []
         for atom_id, atom_info in atoms_data.items():
-            atom_records.append({
+            atom_record = {
                 'residue_name': residue_name,
                 'atom_id': atom_id,
-                'is_chiral_center': atom_id in chiral_centers,
                 'leaving_atom_flag': atom_info['leaving_atom_flag'],
                 'leaving_group': atom_info['leaving_group'],
                 'is_metal': atom_info['is_metal'],
@@ -275,18 +293,41 @@ def save_ligands_to_pickles(ligands, by_residues_filename="ligands_by_residue.pk
                 'hybridization': atom_info['hyb'],
                 'n_hydrogens': atom_info['nhyd'],
                 'hvy_degree': atom_info['hvydeg'],
-                'pdbx_align': atom_info['align'],
-            })
+                'pdbx_align': atom_info['align']
+            }
+            if params['include_chirals']:
+                atom_record['is_chiral_center'] = atom_id in chiral_centers
+            atom_records.append(atom_record)
         return atom_records
 
     # Apply the function to each row and concatenate the results into a DataFrame
     by_atom_df = pd.concat([pd.DataFrame(process_row(row)) for _, row in by_residue_df.iterrows()], ignore_index=True)
-    with open(by_atoms_filename, 'wb') as outfile:
+    with open(params['by_atoms_filename'], 'wb') as outfile:
         pickle.dump(by_atom_df, outfile, protocol=pickle.HIGHEST_PROTOCOL)
-    logging.info(f"Ligands grouped by atoms saved to {by_atoms_filename}")
+    logging.info(f"Ligands grouped by atoms saved to {params['by_atoms_filename']}")
+
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Pre-process the Chemical Component Dictionary (CCD) with OpenBabel")
+    parser.add_argument('--by_residues_filename', type=str, default='ligands_by_residue_minimal.pkl', help='Filename for ligands grouped by residue')
+    parser.add_argument('--by_atoms_filename', type=str, default='ligands_by_atom_minimal.pkl', help='Filename for ligands grouped by atom')
+    parser.add_argument('--max_automorphisms', type=int, default=2000, help='Maximum number of automorphisms to consider')
+    parser.add_argument('--include_automorphisms', action='store_true', help='Include automorphisms in the output')
+    parser.add_argument('--include_planars', action='store_true', help='Include planars in the output')
+    parser.add_argument('--include_chirals', action='store_true', help='Include chirals in the output')
+
+    args = parser.parse_args()
+
+    params = {
+        'max_automorphisms': args.max_automorphisms,
+        'include_automorphisms': args.include_automorphisms,
+        'include_chirals': args.include_chirals,
+        'include_planars': args.include_planars,
+        'by_residues_filename': args.by_residues_filename,
+        'by_atoms_filename': args.by_atoms_filename
+    }
+
     sdfnames = glob.glob('/projects/ml/ligand_datasets/pdb/ligands/?/*_model.sdf')
-    ligands = process_ligands(sdfnames, num_threads=15)
-    save_ligands_to_pickles(ligands)
+    ligands = process_ligands(sdfnames, params, num_threads=15)
+    save_ligands_to_pickles(ligands, params)
     logging.info("################## Complete. ##################")

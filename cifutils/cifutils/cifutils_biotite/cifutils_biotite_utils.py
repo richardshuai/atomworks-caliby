@@ -8,6 +8,7 @@ import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
 import pandas as pd
 from collections import OrderedDict
+from pathlib import Path
 
 def category_to_df(cif_block, category):
     """Convert a CIF block to a pandas DataFrame."""
@@ -36,14 +37,17 @@ def get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
 
 def read_cif_file(filename):
     """Reads a CIF, BCIF, or gzipped CIF/BCIF file and returns its contents."""
-    file_ext = os.path.splitext(filename)[-1]
+    if not isinstance(filename, Path):
+        filename = Path(filename)
+    
+    file_ext = filename.suffix
     
     if file_ext == '.gz':
         with gzip.open(filename, 'rt') as f:
             # Handle gzipped CIF files
-            if filename.endswith('.cif.gz'):
+            if filename.name.endswith('.cif.gz'):
                 cif_file = pdbx.CIFFile.read(f)
-            elif filename.endswith('.bcif.gz'):
+            elif filename.name.endswith('.bcif.gz'):
                 with gzip.open(filename, 'rb') as bf:
                     cif_file = pdbx.BinaryCIFFile.read(bf)
             else:
