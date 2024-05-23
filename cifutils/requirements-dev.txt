@@ -1,0 +1,2 @@
+# Development requirements
+ruff==0.4.5
