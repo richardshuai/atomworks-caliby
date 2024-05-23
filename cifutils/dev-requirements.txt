@@ -1,4 +1,0 @@
-# Development requirements
-black==24.4.2
-isort==5.13.2
-autoflake==2.3.1

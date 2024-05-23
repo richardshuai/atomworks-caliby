@@ -17,9 +17,8 @@ clean:
 
 ## Format src directory using black
 format:
-	isort .
-	autoflake -r --in-place --remove-unused-variables --remove-all-unused-imports --ignore-init-module-imports .
-	black --config=pyproject.toml .
+	ruff format .
+	ruff check --fix .
 
 #################################################################################
 # Self Documenting Commands                                                     #
