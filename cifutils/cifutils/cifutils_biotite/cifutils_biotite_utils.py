@@ -1,9 +1,7 @@
 import numpy as np
 import itertools
 from biotite.structure.atoms import repeat
-from biotite.structure.util import matrix_rotate
 import gzip
-import os
 import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
 import pandas as pd
@@ -146,6 +144,34 @@ def apply_transformations(structure, transformation_dict, operations):
         assembly_coord[i] = coord
 
     return repeat(structure, assembly_coord)
+
+def matrix_rotate(v, matrix):
+    """
+    Perform a rotation using a rotation matrix.
+
+    Parameters
+    ----------
+    v : ndarray
+        The coordinates to rotate.
+    matrix : ndarray
+        The rotation matrix.
+    
+    Returns
+    -------
+    rotated : ndarray
+        The rotated coordinates.
+    """
+    # For proper rotation reshape into a maximum of 2 dimensions
+    orig_ndim = v.ndim
+    if orig_ndim > 2:
+        orig_shape = v.shape
+        v = v.reshape(-1, 3)
+    # Apply rotation
+    v = np.dot(matrix, v.T).T
+    # Reshape back into original shape
+    if orig_ndim > 2:
+        v = v.reshape(*orig_shape)
+    return v
 
 def fix_bonded_atom_charges(atom):
     """

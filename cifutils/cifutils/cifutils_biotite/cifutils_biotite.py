@@ -174,8 +174,13 @@ class CIFParser:
     
     def _remove_atoms_with_unmatched_residues(self, atom_array):
         """Remove atoms from the atom array that do not have a corresponding residue in the precompiled CCD data."""
-        matched_residue_mask = np.isin(atom_array.res_name, self.data_by_residue.index)
-        return atom_array[matched_residue_mask]
+        unknown_residues = np.setdiff1d(np.unique(atom_array.res_name), self.data_by_residue.index.to_numpy())
+
+        for unknown_residue in unknown_residues:
+            mask = atom_array.res_name != unknown_residue
+            atom_array = atom_array[mask]
+
+        return atom_array
 
     def _build_assembly(self, cif_block, atom_array, assembly_id=None):
         """
