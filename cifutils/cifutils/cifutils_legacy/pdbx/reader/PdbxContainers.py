@@ -170,7 +170,6 @@ class ContainerBase(object):
 
         return False
 
-
 class DefinitionContainer(ContainerBase):
     def __init__(self,name):
         super(DefinitionContainer,self).__init__(name)        
@@ -206,7 +205,6 @@ class DefinitionContainer(ContainerBase):
                 self.getObj(nm).dumpId(fh)
 
 
-
 class DataContainer(ContainerBase):
     ''' Container class for DataCategory objects.
     '''
@@ -268,10 +266,10 @@ class DataCategoryBase(object):
         self._name=name
 
     def get(self):
-        return (self._name,self._attributeNameList,self._rowList)
+        return (
+            self._name, self._attributeNameList, self._rowList
+        )
 
-    
-        
 class DataCategory(DataCategoryBase):
     """  Methods for creating, accessing, and formatting PDBx cif data categories.  
     """
@@ -488,7 +486,7 @@ class DataCategory(DataCategoryBase):
 
                 # extend the list if needed - 
                 if ( ind >= ll):
-                    self._rowList[rowI].extend([None for ii in xrange(2*ind -ll)])    
+                    self._rowList[rowI].extend([None for ii in range(2*ind -ll)])    
                 self._rowList[rowI][ind]=value                    
             except (IndexError):
                 self.__lfh.write("DataCategory(setvalue) index error category %s attribute %s index %d value %r\n" %
@@ -535,14 +533,14 @@ class DataCategory(DataCategoryBase):
         #
         ind=self._attributeNameList.index(attributeName)
         if len(self._rowList) == 0:
-            row=[None for ii in xrange(len(self._attributeNameList)*2)]
+            row=[None for ii in range(len(self._attributeNameList)*2)]
             row[ind]=None
             self._rowList.append(row)
             
         for row in self._rowList:
             ll = len(row)
             if (ind >= ll):
-                row.extend([None for ii in xrange(2*ind-ll)])
+                row.extend([None for ii in range(2*ind-ll)])
                 row[ind]=None
             exec(method.getInline())
             self.__currentRowIndex+=1
