@@ -24,7 +24,6 @@ Acknowledgements:
 """
 
 import re,sys
-from cifutils.pdbx.reader.PdbxContainers import *
 from cifutils.cifutils_legacy.pdbx.reader.PdbxContainers import *
 
 class PdbxError(Exception):
