@@ -125,7 +125,7 @@ def validate_modified_residues(modres_legacy, converted_modres):
     """
     derived_modres = {}
     for key, value_list in converted_modres.items():
-        mod_res_name = key[2]
+        mod_res_name = key[2]  # key: (chain_id, res_id, mod_res_name)
         sorted_list = sorted(value_list)
         last_element = sorted_list[-1]
         derived_modres[mod_res_name] = last_element
