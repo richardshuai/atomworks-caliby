@@ -16,8 +16,9 @@ __email__ = "jwest@rcsb.rutgers.edu"
 __license__ = "Creative Commons Attribution 3.0 Unported"
 __version__ = "V0.01"
 
-import sys, unittest, traceback
-import sys, time, os, os.path, shutil
+import sys
+import unittest
+import traceback
 
 from cifutils.pdbx.reader.PdbxReader import PdbxReader
 from cifutils.pdbx.writer.PdbxWriter import PdbxWriter

@@ -1,4 +1,4 @@
-import sys, os
+import os
 import json
 import gzip
 import re
@@ -13,9 +13,8 @@ import pandas as pd
 import networkx as nx
 import torch
 import cifutils.cifutils_legacy.obutils as obutils
-import cifutils.cifutils_legacy.geometry as geometry
 from cifutils.cifutils_legacy.pdbx.reader.PdbxReader import PdbxReader
-from cifutils.cifutils_legacy.pdbx.reader.PdbxContainers import DataCategory, DataContainer
+from cifutils.cifutils_legacy.pdbx.reader.PdbxContainers import DataContainer
 
 # ============================================================
 Atom = collections.namedtuple(
