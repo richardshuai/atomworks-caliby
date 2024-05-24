@@ -1,10 +1,10 @@
-import sys, os
+import sys
+import os
 import json
 import gzip
 import re
 import copy
 import collections
-import random
 from openbabel import openbabel
 import itertools
 from typing import Dict, List
@@ -13,11 +13,9 @@ import networkx as nx
 import torch
 import pdbx
 from pdbx.reader.PdbxReader import PdbxReader
-from pdbx.reader.PdbxContainers import DataCategory
 
 sys.path.insert(0, "../")
 import cifutils.cifutils_legacy.obutils as obutils
-import cifutils.cifutils_legacy.geometry as geometry
 
 # TODO:
 #   1) overlapping ligands/residues

@@ -23,7 +23,7 @@ Acknowledgements:
 
 """
 
-import re, sys
+import re
 from cifutils.cifutils_legacy.pdbx.reader.PdbxContainers import *
 
 

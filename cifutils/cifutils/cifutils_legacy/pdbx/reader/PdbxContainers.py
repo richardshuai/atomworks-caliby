@@ -43,7 +43,9 @@ __email__ = "jwest@rcsb.rutgers.edu"
 __license__ = "Creative Commons Attribution 3.0 Unported"
 __version__ = "V0.01"
 
-import re, sys, traceback
+import re
+import sys
+import traceback
 
 
 class CifName(object):

@@ -13,8 +13,9 @@ Test cases for reading PDBx/mmCIF data files PdbxReader class -
 
 """
 
-import sys, unittest, traceback
-import sys, time, os, os.path, shutil
+import sys
+import unittest
+import traceback
 
 from cifutils.pdbx.reader.PdbxReader import PdbxReader
 from cifutils.pdbx.reader.PdbxContainers import *
