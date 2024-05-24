@@ -5,12 +5,14 @@ import biotite.structure as struc
 import os
 import numpy as np
 
+
 def parse_with_cifutils_legacy(filename, cif_parser_legacy):
     return cif_parser_legacy.parse(filename)
 
 
 def parse_with_cifutils_biotite(filename, cifutils_biotite_parser):
     return cifutils_biotite_parser.parse(filename)
+
 
 def convert_cifutils_biotite_to_legacy(result_dict):
     """
@@ -110,6 +112,25 @@ def convert_cifutils_biotite_to_legacy(result_dict):
         chains[chain_id] = chain
 
     return chains, modres_legacy, metadata_legacy
+
+
+def validate_modified_residues(modres_legacy, converted_modres):
+    """
+    Validates that the converted_modres dictionary can be transformed to match the modres_legacy dictionary.
+    We must handle cases where a modified residue is derived from multiple canonical residues, which the legacy format does not support.
+
+    Args:
+    - modres_legacy (dict): The legacy dictionary mapping modified residue names to their canonical names.
+    - converted_modres (dict): The dictionary with lists of canonical residue names for each modified residue.
+    """
+    derived_modres = {}
+    for key, value_list in converted_modres.items():
+        mod_res_name = key[2]
+        sorted_list = sorted(value_list)
+        last_element = sorted_list[-1]
+        derived_modres[mod_res_name] = last_element
+
+    assert derived_modres == modres_legacy
 
 
 def validate_chains(pdb_id, chains_legacy, converted_chains):
@@ -249,6 +270,7 @@ def cifutils_biotite_parser():
 @pytest.mark.parametrize(
     "pdb_id",
     [
+        "3k4a",
         "3kfa",
         "4az0",
         "2ejf",
@@ -318,6 +340,9 @@ def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser):
     # Test metadata
     assert result_dict["metadata"] == meta_legacy, "Metadata mismatch."
 
+    # Test modified residue dict
+    validate_modified_residues(modres_legacy, result_dict["modified_residues"])
+
 
 def test_unmatched_atom_types():
     """
@@ -341,4 +366,4 @@ if __name__ == "__main__":
     # Test a single example
     cif_parser_legacy = cifutils_legacy.CIFParser()
     cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=False)
-    test_parsing("3k4a", cif_parser_legacy, cifutils_biotite_parser)
+    test_parsing("4az0", cif_parser_legacy, cifutils_biotite_parser)
