@@ -33,7 +33,6 @@ exclude = [
     "venv",
     "data"
 ]
-extend-include = ["*.ipynb"]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
