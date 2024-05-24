@@ -6,16 +6,19 @@ from cifutils.cifutils_legacy import cifutils_legacy
 cifutils_legacy_parser = cifutils_legacy.CIFParser()
 cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=False)
 
+
 def load_with_cifutils_legacy(pdbids):
     for pdbid in pdbids:
-        filename = f'/databases/rcsb/cif/{pdbid[1:3]}/{pdbid}.cif.gz'
+        filename = f"/databases/rcsb/cif/{pdbid[1:3]}/{pdbid}.cif.gz"
         cifutils_legacy_parser.parse(filename)
+
 
 def load_with_cifutils_biotite(pdbids):
     for pdbid in pdbids:
         # filename = os.path.join("data", f"{pdbid}.bcif")
-        filename = f'/databases/rcsb/cif/{pdbid[1:3]}/{pdbid}.cif.gz'
+        filename = f"/databases/rcsb/cif/{pdbid[1:3]}/{pdbid}.cif.gz"
         cifutils_biotite_parser.parse(filename)
+
 
 if __name__ == "__main__":
     pdbids = ["6wjc", "1out", "1cbn", "5xnl"]  # List of PDB IDs to load (Difficult example: "5xnl")

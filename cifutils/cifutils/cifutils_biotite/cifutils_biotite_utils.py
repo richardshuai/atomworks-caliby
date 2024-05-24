@@ -8,13 +8,20 @@ import pandas as pd
 from collections import OrderedDict
 from pathlib import Path
 
+
 def category_to_df(cif_block, category):
     """Convert a CIF block to a pandas DataFrame."""
-    return pd.DataFrame({key: column.as_array() for key, column in cif_block[category].items()}) if category in cif_block.keys() else None
+    return (
+        pd.DataFrame({key: column.as_array() for key, column in cif_block[category].items()})
+        if category in cif_block.keys()
+        else None
+    )
+
 
 def deduplicate_iterator(iterator):
     """Deduplicate an iterator while preserving order."""
     return iter(OrderedDict.fromkeys(iterator))
+
 
 def get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
     """Get the biotite struc.BondType from the bond order and aromaticity."""
@@ -31,60 +38,58 @@ def get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
         4: struc.BondType.QUADRUPLE,
     }
 
-    return aromatic_bond_types.get(order, struc.BondType.ANY) if is_aromatic else non_aromatic_bond_types.get(order, struc.BondType.ANY)
+    return (
+        aromatic_bond_types.get(order, struc.BondType.ANY)
+        if is_aromatic
+        else non_aromatic_bond_types.get(order, struc.BondType.ANY)
+    )
+
 
 def read_cif_file(filename):
     """Reads a CIF, BCIF, or gzipped CIF/BCIF file and returns its contents."""
     if not isinstance(filename, Path):
         filename = Path(filename)
-    
+
     file_ext = filename.suffix
-    
-    if file_ext == '.gz':
-        with gzip.open(filename, 'rt') as f:
+
+    if file_ext == ".gz":
+        with gzip.open(filename, "rt") as f:
             # Handle gzipped CIF files
-            if filename.name.endswith('.cif.gz'):
+            if filename.name.endswith(".cif.gz"):
                 cif_file = pdbx.CIFFile.read(f)
-            elif filename.name.endswith('.bcif.gz'):
-                with gzip.open(filename, 'rb') as bf:
+            elif filename.name.endswith(".bcif.gz"):
+                with gzip.open(filename, "rb") as bf:
                     cif_file = pdbx.BinaryCIFFile.read(bf)
             else:
                 raise ValueError("Unsupported file format for gzip compressed file")
-    elif file_ext == '.bcif':
+    elif file_ext == ".bcif":
         # Handle BinaryCIF files
         cif_file = pdbx.BinaryCIFFile.read(filename)
-    elif file_ext == '.cif':
+    elif file_ext == ".cif":
         # Handle plain CIF files
         cif_file = pdbx.CIFFile.read(filename)
     else:
         raise ValueError("Unsupported file format")
-    
+
     return cif_file
+
 
 def parse_transformations(struct_oper):
     """
     Get transformation operation in terms of rotation matrix and
     translation for each operation ID in ``pdbx_struct_oper_list``.
-    
-    Copied from: https://github.com/biotite-dev/biotite/blob/v0.40.0/src/biotite/structure/io/pdbx/convert.py#L1398 
+
+    Copied from: https://github.com/biotite-dev/biotite/blob/v0.40.0/src/biotite/structure/io/pdbx/convert.py#L1398
     """
     transformation_dict = {}
     for index, id in enumerate(struct_oper["id"].as_array(str)):
         rotation_matrix = np.array(
-            [
-                [
-                    struct_oper[f"matrix[{i}][{j}]"].as_array(float)[index]
-                    for j in (1, 2, 3)
-                ]
-                for i in (1, 2, 3)
-            ]
+            [[struct_oper[f"matrix[{i}][{j}]"].as_array(float)[index] for j in (1, 2, 3)] for i in (1, 2, 3)]
         )
-        translation_vector = np.array([
-            struct_oper[f"vector[{i}]"].as_array(float)[index]
-            for i in (1, 2, 3)
-        ])
+        translation_vector = np.array([struct_oper[f"vector[{i}]"].as_array(float)[index] for i in (1, 2, 3)])
         transformation_dict[id] = (rotation_matrix, translation_vector)
     return transformation_dict
+
 
 def parse_operation_expression(expression):
     """
@@ -92,7 +97,7 @@ def parse_operation_expression(expression):
     ``oper_expression``.
     Form the cartesian product, if necessary.
 
-    Copied from: https://github.com/biotite-dev/biotite/blob/v0.40.0/src/biotite/structure/io/pdbx/convert.py#L1398 
+    Copied from: https://github.com/biotite-dev/biotite/blob/v0.40.0/src/biotite/structure/io/pdbx/convert.py#L1398
     """
     # Split groups by parentheses:
     # use the opening parenthesis as delimiter
@@ -107,9 +112,7 @@ def parse_operation_expression(expression):
         if "-" in expr:
             # Range of operation IDs, they must be integers
             first, last = expr.split("-")
-            operations.append(
-                [str(id) for id in range(int(first), int(last) + 1)]
-            )
+            operations.append([str(id) for id in range(int(first), int(last) + 1)])
         elif "," in expr:
             # List of operation IDs
             operations.append(expr.split(","))
@@ -119,6 +122,7 @@ def parse_operation_expression(expression):
 
     # Cartesian product of operations
     return list(itertools.product(*operations))
+
 
 def apply_transformations(structure, transformation_dict, operations):
     """
@@ -145,6 +149,7 @@ def apply_transformations(structure, transformation_dict, operations):
 
     return repeat(structure, assembly_coord)
 
+
 def matrix_rotate(v, matrix):
     """
     Perform a rotation using a rotation matrix.
@@ -155,7 +160,7 @@ def matrix_rotate(v, matrix):
         The coordinates to rotate.
     matrix : ndarray
         The rotation matrix.
-    
+
     Returns
     -------
     rotated : ndarray
@@ -173,6 +178,7 @@ def matrix_rotate(v, matrix):
         v = v.reshape(*orig_shape)
     return v
 
+
 def fix_bonded_atom_charges(atom):
     """
     Fix charges and hydrogen counts for cases when
@@ -186,7 +192,9 @@ def fix_bonded_atom_charges(atom):
     """
     if atom.element == 7 and atom.charge == 1 and atom.hyb == 3 and atom.nhyd == 2 and atom.hvydeg == 2:  # -(NH2+)-
         return {"charge": 0, "hyb": 2, "nhyd": 0}
-    elif atom.element == 7 and atom.charge == 1 and atom.hyb == 3 and atom.nhyd == 3 and atom.hvydeg == 0:  # free NH3+ group
+    elif (
+        atom.element == 7 and atom.charge == 1 and atom.hyb == 3 and atom.nhyd == 3 and atom.hvydeg == 0
+    ):  # free NH3+ group
         return {"charge": 0, "hyb": 2, "nhyd": 2}
     elif atom.element == 8 and atom.charge == -1 and atom.hyb == 3 and atom.nhyd == 0:
         return {"charge": 0, "hyb": atom.hyb, "nhyd": atom.nhyd}
@@ -196,4 +204,3 @@ def fix_bonded_atom_charges(atom):
         # Additional logic for other cases if needed
         pass
     return {"charge": atom.charge, "hyb": atom.hyb, "nhyd": atom.nhyd}
-
