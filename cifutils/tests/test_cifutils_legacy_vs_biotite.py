@@ -5,14 +5,12 @@ import biotite.structure as struc
 import os
 import numpy as np
 
-
 def parse_with_cifutils_legacy(filename, cif_parser_legacy):
     return cif_parser_legacy.parse(filename)
 
 
 def parse_with_cifutils_biotite(filename, cifutils_biotite_parser):
     return cifutils_biotite_parser.parse(filename)
-
 
 def convert_cifutils_biotite_to_legacy(result_dict):
     """
@@ -251,6 +249,7 @@ def cifutils_biotite_parser():
 @pytest.mark.parametrize(
     "pdb_id",
     [
+        "3kfa",
         "4az0",
         "2ejf",
         "5tmc",
@@ -342,4 +341,4 @@ if __name__ == "__main__":
     # Test a single example
     cif_parser_legacy = cifutils_legacy.CIFParser()
     cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=False)
-    test_parsing("3ne7", cif_parser_legacy, cifutils_biotite_parser)
+    test_parsing("3k4a", cif_parser_legacy, cifutils_biotite_parser)

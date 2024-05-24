@@ -23,7 +23,7 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
 )
 
 logging.basicConfig(level=logging.DEBUG)
-
+logger = logging.getLogger(__name__)
 
 class CIFParser:
     def __init__(
@@ -60,22 +60,22 @@ class CIFParser:
         self._validate_arguments()
 
         # Step 1: Parse pre-compiled library (from the CCD, augmented with OpenBabel) of all residues observed in the PDB
-        logging.info(f"Loading residue-level CCD and OB data from {by_residue_pickle}...")
+        logger.info(f"Loading residue-level CCD and OB data from {by_residue_pickle}...")
         start_time = time.time()
         with open(by_residue_pickle, "rb") as file:
             self.data_by_residue = pickle.load(file)
         end_time = time.time()
         loading_time = end_time - start_time
-        logging.info(f"Precompiled CCD data loaded successfully in {round(loading_time)} seconds.")
+        logger.info(f"Precompiled CCD data loaded successfully in {round(loading_time)} seconds.")
 
         # Step 2: Preparse atom-centric transformation of the precompiled library
-        logging.info(f"Loading atom-level CCD and OB data from {by_atom_pickle}...")
+        logger.info(f"Loading atom-level CCD and OB data from {by_atom_pickle}...")
         start_time = time.time()
         with open(by_atom_pickle, "rb") as file:
             self.data_by_atom = pickle.load(file)
         end_time = time.time()
         loading_time = end_time - start_time
-        logging.info(f"Built atom-level dataframe in {round(loading_time)} seconds.")
+        logger.info(f"Built atom-level dataframe in {round(loading_time)} seconds.")
 
         # Residues to be ignored during parsing are deleted from the precomputed library
         if residues_to_skip is not None:
@@ -253,7 +253,7 @@ class CIFParser:
                 [0.0, 0.0, 0.0],
                 res_name=residue_name,
                 atom_name=atom_name,
-                element=int(atom_data["element"]),
+                element=atom_data["element"],
                 charge=atom_data["charge"],
                 leaving_atom_flag=atom_data["leaving_atom_flag"],
                 leaving_group=atom_data["leaving_group"],
@@ -345,7 +345,7 @@ class CIFParser:
 
         # If any heavy atom in a residue cannot be matched, then mask the whole residue
         unmatched_heavy_atoms_mask = ~present_atom_array_match_mask & (
-            (atom_array.element != "H") & (atom_array.element != "D")
+            (atom_array.element != "H") & (atom_array.element != "D") # Note that in atom_array the elements are still strings
         )
         unmatched_heavy_atoms = atom_array[unmatched_heavy_atoms_mask]
         for i in range(len(unmatched_heavy_atoms)):
@@ -495,6 +495,9 @@ class CIFParser:
         - struct_conn_bonds: A List of bonds to be added to the atom array.
         - leaving_atom_indices: A List of indices of atoms that are leaving groups for bookkeeping.
         """
+        if "struct_conn" not in cif_block:
+            return [], []
+
         struct_conn_df = category_to_df(cif_block, "struct_conn")
         struct_conn_df = struct_conn_df[
             struct_conn_df["conn_type_id"] == "covale"

@@ -1,6 +1,6 @@
 # .gitignore
-cifutils_extended/
-data/
+cifutils_extended
+data
 
 # Python files
 *.pyc
