@@ -11,5 +11,6 @@ setup(
         "pandas>=1.4.2",
         "torch>=2.2.0",
         "numpy>=1.21.0",
+        "cytoolz>=0.12.3",
     ],
 )
