@@ -3,26 +3,34 @@ Implementation of original `citufils` functions using `biotite` library.
 Retains all functionality of orginal library, with increased performance and additional features.
 """
 
-import biotite.structure as struc
-import biotite.structure.io.pdbx as pdbx
-import pandas as pd
-import numpy as np
-import pickle
 import logging
+import pickle
 import time
 from functools import lru_cache
+from typing import Sequence
+
+import biotite.structure as struc
+import biotite.structure.io.pdbx as pdbx
+import numpy as np
+import pandas as pd
+
 from cifutils.cifutils_biotite.cifutils_biotite_utils import (
-    read_cif_file,
+    apply_transformations,
     category_to_df,
     deduplicate_iterator,
-    get_bond_type_from_order_and_is_aromatic,
-    parse_transformations,
-    parse_operation_expression,
-    apply_transformations,
     fix_bonded_atom_charges,
+    get_bond_type_from_order_and_is_aromatic,
+    parse_operation_expression,
+    parse_transformations,
+    read_cif_file,
 )
 
+from biotite.structure.io.pdbx import CIFBlock
+from biotite.structure import AtomArray, Atom
+
 logging.basicConfig(level=logging.DEBUG)
+
+__all__ = ["CIFParser"]
 
 
 class CIFParser:
@@ -30,7 +38,7 @@ class CIFParser:
         self,
         by_residue_pickle="/projects/ml/RF2_allatom/cifutils_extended/ligands_by_residue.pkl",
         by_atom_pickle="/projects/ml/RF2_allatom/cifutils_extended/ligands_by_atom.pkl",
-        residues_to_skip=None,
+        residues_to_skip: Sequence[str] = None,
         add_missing_atoms=True,
         add_bonds=True,
         convert_residues_dict=None,
@@ -97,7 +105,7 @@ class CIFParser:
         if self.convert_residues_dict is not None:
             raise NotImplementedError("convert_residues_dict is not yet implemented.")
 
-    def parse(self, filename):
+    def parse(self, filename: str) -> dict:
         """
         Parse the CIF file and return chain information, residue information, atom array, metadata, and legacy data.
 
@@ -176,7 +184,7 @@ class CIFParser:
             "extra_info": {**self.extra_info},  # modified residues, struct_conn bonds
         }
 
-    def _remove_atoms_with_unmatched_residues(self, atom_array):
+    def _remove_atoms_with_unmatched_residues(self, atom_array: AtomArray) -> AtomArray:
         """Remove atoms from the atom array that do not have a corresponding residue in the precompiled CCD data."""
         unknown_residues = np.setdiff1d(np.unique(atom_array.res_name), self.data_by_residue.index.to_numpy())
 
@@ -186,7 +194,7 @@ class CIFParser:
 
         return atom_array
 
-    def _build_assembly(self, cif_block, atom_array, assembly_id=None):
+    def _build_assembly(self, cif_block: CIFBlock, atom_array: AtomArray, assembly_id: int | None = None) -> AtomArray:
         """
         Build the first biological assembly found within the mmCIF file and update the `transformation_id` annotation.
 
@@ -234,7 +242,7 @@ class CIFParser:
         return assembly
 
     @lru_cache(maxsize=None)
-    def _build_residue_atoms(self, residue_name):
+    def _build_residue_atoms(self, residue_name: str) -> list[Atom]:
         """
         Build a list of atoms for a given residue name from CCD data.
 
@@ -267,7 +275,7 @@ class CIFParser:
         ]
         return atom_list
 
-    def _add_missing_atoms(self, atom_array, chain_info_dict):
+    def _add_missing_atoms(self, atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
         """
         Add missing atoms to a polymer chain based on its sequence.
 
@@ -315,7 +323,9 @@ class CIFParser:
         # Find overlap between populated atoms from atom_site and the full atom list derived from the sequences
         def create_structured_array(atom_array):
             """Create a structured array from an AtomArray object. Used for efficient element comparison."""
-            dtype = np.dtype([("chain_id", "U3"), ("res_id", "i4"), ("atom_name", "U4")])
+            dtype = np.dtype(
+                [("chain_id", "U3"), ("res_id", "i4"), ("atom_name", "U4")]
+            )  # TODO: Why not also compare `res_name`? Are res_id's guaranteed to match?
             structured_array = np.zeros(len(atom_array), dtype=dtype)
             structured_array["chain_id"] = atom_array.chain_id
             structured_array["res_id"] = atom_array.res_id
@@ -328,7 +338,10 @@ class CIFParser:
         present_atom_array_match_mask = np.isin(present_atom_array_structured, full_atom_array_structured)
 
         if not np.array_equal(
-            full_atom_array[full_atom_array_match_mask].atom_name, atom_array[present_atom_array_match_mask].atom_name
+            full_atom_array[full_atom_array_match_mask].atom_name,
+            atom_array[
+                present_atom_array_match_mask
+            ].atom_name,  # TODO: Order atom names within residue with biotite.standardize
         ):
             raise ValueError("Order of atom names in full_atom_array and atom_array do not match.")
 
@@ -341,7 +354,7 @@ class CIFParser:
         # Replace annotations
         full_atom_array.coord[full_atom_array_match_mask] = atom_array[present_atom_array_match_mask].coord
         full_atom_array.set_annotation("b_factor", b_factor)
-        full_atom_array.set_annotation("occupancy", occupancy)
+        full_atom_array.set_annotation("occupancy", occupancy)  # TODO: Add `entity` annotation as well?
 
         # If any heavy atom in a residue cannot be matched, then mask the whole residue
         unmatched_heavy_atoms_mask = ~present_atom_array_match_mask & (
@@ -356,7 +369,7 @@ class CIFParser:
         return full_atom_array
 
     @lru_cache(maxsize=None)
-    def _get_intra_residue_bonds(self, residue_name):
+    def _get_intra_residue_bonds(self, residue_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Retrieve intra-residue bonds for a given residue.
 
@@ -381,7 +394,9 @@ class CIFParser:
             bond_types.append(bond_type)
         return np.array(atom_a_indices), np.array(atom_b_indices), np.array(bond_types)
 
-    def _get_inter_and_intra_residue_bonds(self, atom_array, chain_id, chain_type):
+    def _get_inter_and_intra_residue_bonds(
+        self, atom_array: AtomArray, chain_id: str, chain_type: str
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Adds inter-residue and intra_residue bonds to an atom array for a given chain.
 
@@ -389,7 +404,6 @@ class CIFParser:
         - atom_array (AtomArray): The atom array to which the bonds are added.
         - chain_id (str): The ID of the chain for which bonds are added.
         - chain_type (str): The type of the chain, used to determine the type of bond.
-        - atom_index_map (Dict): A Dict mapping atom identifiers to indices in the atom array.
 
         Returns:
         - intra_residue_bonds: An np.array of intra-residue bonds to be added to the atom array.
@@ -482,7 +496,9 @@ class CIFParser:
         else:
             return intra_residue_bonds, leaving_atom_indices
 
-    def _add_bonds_from_struct_conn(self, cif_block, chain_info_dict, atom_array):
+    def _add_bonds_from_struct_conn(
+        self, cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray
+    ) -> tuple[list[list[int]], list[int]]:
         """
         Adds bonds from the 'struct_conn' category of a CIF block to an atom array. Only covalent bonds are considered.
 
@@ -553,7 +569,7 @@ class CIFParser:
 
         return struct_conn_bonds, leaving_atom_indices
 
-    def _add_bonds(self, cif_block, atom_array, chain_info_dict):
+    def _add_bonds(self, cif_block: CIFBlock, atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
         """
         Add bonds to the atom array stack using precomputed CCD data and the mmCIF `struct_conn` field.
 
@@ -601,7 +617,7 @@ class CIFParser:
         all_atom_indices = atom_array.index
         return atom_array[np.setdiff1d(all_atom_indices, leaving_atoms, True)]
 
-    def _keep_last_residue(self, atom_array):
+    def _keep_last_residue(self, atom_array: AtomArray) -> AtomArray:
         """
         Removes duplicate residues in the atom array, keeping only the last occurrence.
 
@@ -635,7 +651,7 @@ class CIFParser:
         # Remove rows from atom_array with the deletion mask
         return atom_array[mask]
 
-    def _update_nonpoly_seq_ids(self, atom_array, chain_info_dict):
+    def _update_nonpoly_seq_ids(self, atom_array: AtomArray, chain_info_dict: dict) -> None:
         """
         Updates the sequence IDs of non-polymeric chains in the atom array stack.
 
@@ -656,7 +672,9 @@ class CIFParser:
         # Update the atom_array_label with the (1-indexed) author sequence ids
         atom_array.res_id[non_polymer_mask] = author_seq_ids[non_polymer_mask]
 
-    def _load_monomer_sequence_information(self, cif_block, chain_info_dict, atom_array):
+    def _load_monomer_sequence_information(
+        self, cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray
+    ) -> tuple[dict, dict]:
         """
         Load monomer sequence information into a chain_info_dict.
 
@@ -735,7 +753,7 @@ class CIFParser:
 
         return chain_info_dict, residue_info_dict
 
-    def _get_chain_info(self, cif_block, atom_array):
+    def _get_chain_info(self, cif_block: CIFBlock, atom_array: AtomArray) -> dict:
         """
         Extracts chain information from the CIF block.
 
@@ -790,7 +808,7 @@ class CIFParser:
 
         return chain_info_dict
 
-    def _get_metadata(self, cif_block):
+    def _get_metadata(self, cif_block: CIFBlock) -> dict:
         """Extract metadata from the CIF block."""
         metadata = {}
         exptl = cif_block["exptl"] if "exptl" in cif_block.keys() else None
