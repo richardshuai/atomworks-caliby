@@ -212,3 +212,43 @@ def fix_bonded_atom_charges(atom):
         # Additional logic for other cases if needed
         pass
     return {"charge": atom.charge, "hyb": atom.hyb, "nhyd": atom.nhyd}
+
+
+def build_modified_residues_dict(cif_block, chain_info_dict):
+    """
+    Build a dictionary mapping modified residue names to their canonical names.
+    Note that one modified residue could be derived from multiple canonical residues (e.g., NRQ, circularized tri-peptide chromophore).
+    In such cases, we store the modified residue name as the key and a list of canonical residue names as the value.
+
+    Args:
+    - cif_block (CIFBlock): The CIF block for the entry.
+    - chain_info_dict (Dict): A dictionary containing information about the chains.
+
+    Returns:
+    - dict: A dictionary mapping modified residue names to their canonical names.
+    """
+    modified_residues_category = cif_block.get("pdbx_struct_mod_residue")
+    if not modified_residues_category:
+        return {}
+
+    # Extract relevant fields
+    auth_asym_ids = modified_residues_category["auth_asym_id"].as_array(str)
+    label_seq_ids = modified_residues_category["label_seq_id"].as_array(str)
+    auth_seq_ids = modified_residues_category["auth_seq_id"].as_array(str)
+    label_comp_ids = modified_residues_category["auth_comp_id"].as_array(str)
+    parent_comp_ids = modified_residues_category["parent_comp_id"].as_array(str)
+
+    # Build the dictionary
+    modified_residues_dict = {}
+    for chain_id, label_seq_id, auth_seq_id, mod_res_name, canon_res_name in zip(
+        auth_asym_ids, label_seq_ids, auth_seq_ids, label_comp_ids, parent_comp_ids
+    ):
+        # Check if we removed the chain (e.g., for unknown ligands / UNL residues)
+        if chain_id not in chain_info_dict:
+            continue
+        res_id = label_seq_id if chain_info_dict[chain_id]["is_polymer"] else auth_seq_id
+        key = (chain_id, res_id, mod_res_name)
+        if mod_res_name != canon_res_name:
+            modified_residues_dict.setdefault(key, []).append(canon_res_name)
+
+    return modified_residues_dict

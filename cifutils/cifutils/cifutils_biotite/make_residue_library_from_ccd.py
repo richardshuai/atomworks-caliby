@@ -17,6 +17,7 @@ import cifutils.cifutils_legacy.cifutils_legacy as cifutils_legacy
 import cifutils.cifutils_legacy.obutils as obutils
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def get_leaving_atoms_from_graph(atom_name, graph):
@@ -196,11 +197,11 @@ def process_single_ligand(sdfname, obConversion, params):
     try:
         cif = cifutils_legacy.ParsePDBLigand(cifname)
     except Exception as e:
-        logging.error(f"FAILED: {sdfname}, due to error: {str(e)}")
+        logger.error(f"FAILED: {sdfname}, due to error: {str(e)}")
         return None
 
     if not validate_coordinates(obmol, cif):
-        logging.error(f"FAILED: {sdfname}")
+        logger.error(f"FAILED: {sdfname}")
         return None
 
     id = cifname.split("/")[-1][:-4]
@@ -231,7 +232,7 @@ def process_ligands(sdfnames, params, num_threads=5, timeout=300):
     obConversion.SetInFormat("sdf")
     ligands = []
     start_time = time.time()
-    logging.info(f"Processing {len(sdfnames)} ligands with {num_threads} threads...")
+    logger.info(f"Processing {len(sdfnames)} ligands with {num_threads} threads...")
 
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         futures = {
@@ -246,12 +247,12 @@ def process_ligands(sdfnames, params, num_threads=5, timeout=300):
                     id, ligand_details = result
                     ligands.append((id, ligand_details))
             except TimeoutError:
-                logging.error(f"FAILED: {sdfname}, due to timeout (exceeded {timeout} seconds)")
+                logger.error(f"FAILED: {sdfname}, due to timeout (exceeded {timeout} seconds)")
             except Exception as e:
-                logging.error(f"FAILED: {sdfname}, due to error: {str(e)}")
+                logger.error(f"FAILED: {sdfname}, due to error: {str(e)}")
 
     end_time = time.time()
-    logging.info(f"Finished processing all ligands. Total time: {end_time - start_time:.2f} seconds")
+    logger.info(f"Finished processing all ligands. Total time: {end_time - start_time:.2f} seconds")
     return ligands
 
 
@@ -286,7 +287,7 @@ def save_ligands_to_pickles(ligands, params):
     by_residue_df = pd.DataFrame(ligand_records)
     with open(params["by_residues_filename"], "wb") as outfile:
         pickle.dump(by_residue_df, outfile, protocol=pickle.HIGHEST_PROTOCOL)
-    logging.info(f"Ligands grouped by residue saved to {params['by_residues_filename']}")
+    logger.info(f"Ligands grouped by residue saved to {params['by_residues_filename']}")
 
     # Function to process each row and extract necessary information
     def process_row(row):
@@ -319,7 +320,7 @@ def save_ligands_to_pickles(ligands, params):
     by_atom_df = pd.concat([pd.DataFrame(process_row(row)) for _, row in by_residue_df.iterrows()], ignore_index=True)
     with open(params["by_atoms_filename"], "wb") as outfile:
         pickle.dump(by_atom_df, outfile, protocol=pickle.HIGHEST_PROTOCOL)
-    logging.info(f"Ligands grouped by atoms saved to {params['by_atoms_filename']}")
+    logger.info(f"Ligands grouped by atoms saved to {params['by_atoms_filename']}")
 
 
 if __name__ == "__main__":
@@ -357,4 +358,4 @@ if __name__ == "__main__":
     sdfnames = glob.glob("/projects/ml/ligand_datasets/pdb/ligands/?/*_model.sdf")
     ligands = process_ligands(sdfnames, params, num_threads=15)
     save_ligands_to_pickles(ligands, params)
-    logging.info("################## Complete. ##################")
+    logger.info("################## Complete. ##################")

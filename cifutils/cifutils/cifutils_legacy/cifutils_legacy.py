@@ -435,7 +435,9 @@ class CIFParser:
                 )
                 for r in pdbx_struct_mod_residue.getRowList()
             }
-            modres = {k: v for k, v in modres if k != v}
+            # Convert the set to a list and sort it to ensure deterministic order
+            modres_list = sorted(modres)
+            modres = {k: v for k, v in modres_list if k != v}
 
         ########################################################
         # 2. parse polymeric chains
