@@ -164,6 +164,9 @@ class CIFParser:
         # Handle sequence heterogeneity by selecting the residue that appears last
         atom_array = self._keep_last_residue(atom_array)
 
+        # Order atoms within each residue according to standard CCD ordering
+        atom_array = atom_array[struc.info.standardize.standardize_order(atom_array)]
+
         # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
         if self.add_missing_atoms:
             atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
@@ -348,9 +351,7 @@ class CIFParser:
 
         if not np.array_equal(
             full_atom_array[full_atom_array_match_mask].atom_name,
-            atom_array[
-                present_atom_array_match_mask
-            ].atom_name,  # TODO: Order atom names within residue with biotite.standardize
+            atom_array[present_atom_array_match_mask].atom_name,
         ):
             raise ValueError("Order of atom names in full_atom_array and atom_array do not match.")
 
