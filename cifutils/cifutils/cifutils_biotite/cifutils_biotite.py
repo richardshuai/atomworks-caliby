@@ -17,6 +17,7 @@ import pandas as pd
 from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     apply_transformations,
     category_to_df,
+    category_to_dict,
     deduplicate_iterator,
     fix_bonded_atom_charges,
     get_bond_type_from_order_and_is_aromatic,
@@ -24,6 +25,7 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     parse_transformations,
     read_cif_file,
 )
+from cifutils.cifutils_biotite.common import exists
 
 from biotite.structure.io.pdbx import CIFBlock
 from biotite.structure import AtomArray, Atom
@@ -86,7 +88,7 @@ class CIFParser:
         logging.info(f"Built atom-level dataframe in {round(loading_time)} seconds.")
 
         # Residues to be ignored during parsing are deleted from the precomputed library
-        if residues_to_skip is not None:
+        if exists(residues_to_skip):
             self.data_by_residue = self.data_by_residue[~self.data_by_residue["name"].isin(residues_to_skip)]
             self.data_by_atom = self.data_by_atom[~self.data_by_residue["name"].isin(residues_to_skip)]
 
@@ -98,11 +100,11 @@ class CIFParser:
         """Validate the arguments passed to the CIFParser object."""
         if not self.add_missing_atoms and self.add_bonds:
             raise ValueError("add_bonds cannot be True if add_missing_atoms is False")
-        if not isinstance(self.convert_residues_dict, dict) and self.convert_residues_dict is not None:
+        if not isinstance(self.convert_residues_dict, dict) and exists(self.convert_residues_dict):
             raise ValueError("convert_residues_dict must be a dictionary.")
         if self.remove_waters:
             raise NotImplementedError("remove_waters is not yet implemented.")
-        if self.convert_residues_dict is not None:
+        if exists(self.convert_residues_dict):
             raise NotImplementedError("convert_residues_dict is not yet implemented.")
 
     def parse(self, filename: str) -> dict:
@@ -171,14 +173,16 @@ class CIFParser:
         if self.build_assembly:
             atom_array = self._build_assembly(cif_block, atom_array)
 
+        # Get ligand of interest information
+        loi_info = self._get_ligand_of_interest_info(cif_block)
+
         # Extra information
-        modified_residues_df = category_to_df(cif_block, "pdbx_struct_mod_residue")
-        modified_residues_dict = modified_residues_df.to_dict() if modified_residues_df is not None else {}
-        self.extra_info["modified_residues"] = modified_residues_dict
+        self.extra_info["modified_residues"] = category_to_dict(cif_block, "pdbx_struct_mod_residue")
 
         return {
             "chain_info": chain_info_dict,
             "residue_info": residue_info_dict,
+            "ligand_info": loi_info,
             "atom_array": atom_array,
             "metadata": metadata,
             "extra_info": {**self.extra_info},  # modified residues, struct_conn bonds
@@ -435,7 +439,7 @@ class CIFParser:
             current_res = residues[i]
             next_res = residues[i + 1] if i + 1 < len(residues) else None
             # Add inter-residue bond if there is a next residue
-            if next_res and bond_atoms is not None:
+            if next_res and exists(bond_atoms):
                 atom_a = current_res[current_res.atom_name == bond_atoms[0]]
                 atom_b = next_res[next_res.atom_name == bond_atoms[1]]
                 if atom_a and atom_b:
@@ -495,6 +499,31 @@ class CIFParser:
             return np.vstack((np.array(inter_residue_bonds), intra_residue_bonds)), leaving_atom_indices
         else:
             return intra_residue_bonds, leaving_atom_indices
+
+    def _get_ligand_of_interest_info(self, cif_block: CIFBlock) -> dict:
+        """Extract ligand of interest information from a CIF block.
+
+        Reference:
+            - https://pdb101.rcsb.org/learn/guide-to-understanding-pdb-data/small-molecule-ligands
+        """
+
+        # Extract binary flag for whether the ligand of interest is specified
+        # NOTE: This is being used in addition to the below as it has slightly higher coverage across the PDB
+        # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_pdbx_entry_details.has_ligand_of_interest.html
+        has_loi = (
+            category_to_dict(cif_block, "pdbx_entry_details").get("has_ligand_of_interest", np.array(["N"]))[0] == "Y"
+        )
+
+        # Extract which ligand is of interest if specified
+        # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_pdbx_entity_instance_feature.feature_type.html
+        entity_instance_feature = category_to_dict(cif_block, "pdbx_entity_instance_feature")
+        comp_id_names = entity_instance_feature.get("comp_id", np.array([], dtype="<U3"))
+        comp_id_mask = entity_instance_feature.get("feature_type", np.array([])) == "SUBJECT OF INVESTIGATION"
+
+        return {
+            "ligand_of_interest": comp_id_names[comp_id_mask],
+            "has_ligand_of_interest": has_loi | (len(comp_id_names) > 0),
+        }
 
     def _add_bonds_from_struct_conn(
         self, cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray
@@ -589,7 +618,7 @@ class CIFParser:
         struct_conn_bonds, struct_conn_leaving_atom_indices = self._add_bonds_from_struct_conn(
             cif_block, chain_info_dict, atom_array
         )
-        if struct_conn_leaving_atom_indices is not None and len(struct_conn_leaving_atom_indices) > 0:
+        if exists(struct_conn_leaving_atom_indices) and len(struct_conn_leaving_atom_indices) > 0:
             leaving_atom_indices.append(np.concatenate(struct_conn_leaving_atom_indices))
 
         # Step 2: Add inter-residue and intra-residue bonds
@@ -598,9 +627,9 @@ class CIFParser:
             chain_bonds, chain_leaving_atom_indices = self._get_inter_and_intra_residue_bonds(
                 atom_array, chain_id, chain_info_dict[chain_id]["type"]
             )
-            if chain_bonds is not None:
+            if exists(chain_bonds):
                 inter_and_intra_residue_bonds.append(chain_bonds)
-            if chain_leaving_atom_indices is not None and len(chain_leaving_atom_indices) > 0:
+            if exists(chain_leaving_atom_indices) and len(chain_leaving_atom_indices) > 0:
                 leaving_atom_indices.append(chain_leaving_atom_indices)
 
         if len(struct_conn_bonds) == 0:
