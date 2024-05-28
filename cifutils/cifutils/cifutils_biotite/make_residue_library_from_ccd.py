@@ -3,16 +3,18 @@
 import argparse
 import glob
 import logging
-import numpy as np
-import pandas as pd
 import pickle
 import time
-from openbabel import openbabel
-import cifutils.cifutils_legacy.cifutils_legacy as cifutils_legacy
+from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
+
 import networkx as nx
-import cifutils.cifutils_legacy.obutils as obutils
+import numpy as np
+import pandas as pd
+from openbabel import openbabel
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+
+import cifutils.cifutils_legacy.cifutils_legacy as cifutils_legacy
+import cifutils.cifutils_legacy.obutils as obutils
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="CIFUtils: Python packages for reading mmCIF files from the PDB",
@@ -11,5 +11,6 @@ setup(
         "pandas>=1.4.2",
         "torch>=2.2.0",
         "numpy>=1.21.0",
+        "cytoolz>=0.12.3",
     ],
 )

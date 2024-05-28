@@ -1,21 +1,29 @@
-import numpy as np
-import itertools
-from biotite.structure.atoms import repeat
 import gzip
-import biotite.structure as struc
-import biotite.structure.io.pdbx as pdbx
-import pandas as pd
+import itertools
 from collections import OrderedDict
 from pathlib import Path
+from os import PathLike
+import biotite.structure as struc
+import biotite.structure.io.pdbx as pdbx
+import numpy as np
+import pandas as pd
+import toolz
+from biotite.structure.atoms import repeat
+from biotite.structure.io.pdbx import CIFBlock, CIFFile, BinaryCIFFile
+from cifutils.cifutils_biotite.common import exists
 
 
-def category_to_df(cif_block, category):
+def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
+    """Convert a CIF block to a dictionary."""
+    if exists(cif_block.get(category)):
+        return toolz.valmap(lambda x: x.as_array(), dict(cif_block[category]))
+    else:
+        return {}
+
+
+def category_to_df(cif_block: CIFBlock, category: str) -> pd.DataFrame | None:
     """Convert a CIF block to a pandas DataFrame."""
-    return (
-        pd.DataFrame({key: column.as_array() for key, column in cif_block[category].items()})
-        if category in cif_block.keys()
-        else None
-    )
+    return pd.DataFrame(category_to_dict(cif_block, category)) if category in cif_block.keys() else None
 
 
 def deduplicate_iterator(iterator):
@@ -45,7 +53,7 @@ def get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
     )
 
 
-def read_cif_file(filename):
+def read_cif_file(filename: PathLike) -> CIFFile | BinaryCIFFile:
     """Reads a CIF, BCIF, or gzipped CIF/BCIF file and returns its contents."""
     if not isinstance(filename, Path):
         filename = Path(filename)
