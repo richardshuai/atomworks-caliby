@@ -30,6 +30,7 @@ from cifutils.cifutils_biotite.common import exists
 
 from biotite.structure.io.pdbx import CIFBlock
 from biotite.structure import AtomArray, Atom
+from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -48,6 +49,7 @@ class CIFParser:
         convert_residues_dict=None,
         remove_waters=False,
         build_assembly=False,
+        exclude_crystallization_aid=True,
     ):
         """
         Initialize a CIFParser object.
@@ -69,6 +71,7 @@ class CIFParser:
         self.convert_residues_dict = convert_residues_dict
         self.remove_waters = remove_waters
         self.build_assembly = build_assembly
+        self.exclude_crystallization_aid = exclude_crystallization_aid
         self._validate_arguments()
 
         # Step 1: Parse pre-compiled library (from the CCD, augmented with OpenBabel) of all residues observed in the PDB
@@ -150,6 +153,10 @@ class CIFParser:
         # Load chain information (uses atom_array to build chain list)
         chain_info_dict = self._get_chain_info(cif_block, atom_array)
 
+        # Remove crystallization aids and ions from the atom array
+        if self.exclude_crystallization_aid:
+            atom_array, chain_info_dict = self._remove_crystallization_aids_and_ions(atom_array, chain_info_dict)
+
         # Replace non-polymeric chain sequence ids with author sequence ids
         self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
 
@@ -203,6 +210,14 @@ class CIFParser:
         for unknown_residue in unknown_residues:
             mask = atom_array.res_name != unknown_residue
             atom_array = atom_array[mask]
+
+        return atom_array
+
+    def _remove_crystallization_aids_and_ions(self, atom_array: AtomArray) -> AtomArray:
+        """Remove crystallization aids and ions from the atom array."""
+
+        # Remove atoms from the atom array that are crystallization aids
+        atom_array = atom_array[~np.isin(atom_array.res_name, CRYSTALLIZATION_AIDS)]
 
         return atom_array
 
