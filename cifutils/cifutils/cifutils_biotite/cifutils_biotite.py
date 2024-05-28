@@ -364,7 +364,7 @@ class CIFParser:
         # Replace annotations
         full_atom_array.coord[full_atom_array_match_mask] = atom_array[present_atom_array_match_mask].coord
         full_atom_array.set_annotation("b_factor", b_factor)
-        full_atom_array.set_annotation("occupancy", occupancy)  # TODO: Add `entity` annotation as well?
+        full_atom_array.set_annotation("occupancy", occupancy)
 
         # If any heavy atom in a residue cannot be matched, then mask the whole residue
         unmatched_heavy_atoms_mask = ~present_atom_array_match_mask & (
