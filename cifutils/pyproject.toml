@@ -11,12 +11,15 @@ authors = [
     { name = "Rohith Krishna"},
 ]
 dependencies = [
-    "biotite>=0.40.0",
-    "pytest>=8.2.0",
-    "pandas>=1.4.2",
-    "torch>=2.2.0",
-    "numpy>=1.21.0",
-    "cytoolz>=0.12.3",  
+    # NOTE: Dependency versions specify the minimum versions for the packages 
+    #  that were confirmed to work with the codebase. Lower versions might still
+    #  work (at your own risk). 
+    "biotite>=0.40.0,<1",
+    "pytest>=8.2.0,<9",
+    "pandas>=1.4.2,<2",
+    "torch>=2.2.0,<3",
+    "numpy>=1.21.0,<2",
+    "cytoolz>=0.12.3,<1",  
 ]
 
 [project.optional-dependencies]
