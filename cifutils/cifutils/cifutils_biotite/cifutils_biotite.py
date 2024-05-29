@@ -156,7 +156,7 @@ class CIFParser:
 
         # Remove crystallization aids and ions from the atom array
         if self.exclude_crystallization_aid:
-            atom_array, chain_info_dict = self._remove_crystallization_aids_and_ions(atom_array, chain_info_dict)
+            atom_array = self._remove_crystallization_aids_and_ions(atom_array)
 
         # Replace non-polymeric chain sequence ids with author sequence ids
         self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
