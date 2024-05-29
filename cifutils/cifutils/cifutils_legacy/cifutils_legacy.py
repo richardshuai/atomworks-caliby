@@ -383,7 +383,7 @@ class CIFParser:
 
             oper_list = [
                 CIFParser.parseOperationExpression(expression)
-                for expression in re.split("\(|\)", oper_expression)
+                for expression in re.split(r"\(|\)", oper_expression)
                 if expression
             ]
 

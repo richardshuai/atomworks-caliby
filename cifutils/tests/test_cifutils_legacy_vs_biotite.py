@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pytest
 from cifutils.cifutils_biotite import cifutils_biotite
 from cifutils.cifutils_legacy import cifutils_legacy
