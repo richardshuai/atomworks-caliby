@@ -3,14 +3,14 @@ import cProfile
 import pstats
 import io
 from cifutils.cifutils_biotite import cifutils_biotite
+from tests.conftest import get_digs_path
 
 cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=True)
 
 
 def load_with_cifutils_biotite(pdbids):
     for pdbid in pdbids:
-        filename = f"/databases/rcsb/cif/{pdbid[1:3]}/{pdbid}.cif.gz"
-        cifutils_biotite_parser.parse(filename)
+        cifutils_biotite_parser.parse(get_digs_path(pdbid))
 
 
 if __name__ == "__main__":
