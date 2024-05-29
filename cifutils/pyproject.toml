@@ -1,3 +1,42 @@
+[project]
+name = "cifutils"
+version = "2.0.0"
+description = "CIFUtils: Python packages for reading mmCIF files from the PDB"
+readme = "README.md"
+requires-python = ">= 3.8"
+authors = [
+    { name = "Nate Corley", email = "ncorley@uw.edu" },
+    { name = "Simon Mathis", email = "smathis@uw.edu" },
+    { name = "Pascal Strumfels"},
+    { name = "Rohith Krishna"},
+]
+dependencies = [
+    "biotite>=0.40.0",
+    "pytest>=8.2.0",
+    "pandas>=1.4.2",
+    "torch>=2.2.0",
+    "numpy>=1.21.0",
+    "cytoolz>=0.12.3",  
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.4.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["cifutils"]
+
+[tool.hatch.build.targets.wheel.force-include]
+# to include data files in the wheel when `pip install`-ing (if we want to give some test cases)
+
 [tool.ruff]
 line-length = 120
 indent-width = 4
@@ -58,3 +97,6 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Avoid linting notebooks
 exclude = ["*.ipynb"]
+
+[tool.pytest]
+conftest = "tests/conftest.py"
