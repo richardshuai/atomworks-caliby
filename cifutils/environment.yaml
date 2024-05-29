@@ -1,0 +1,10 @@
+name: cifutils
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.8
+  - openbabel  # installed separately as per README instructions
+  - pip
+  - pip:
+      - -e ".[dev]"
