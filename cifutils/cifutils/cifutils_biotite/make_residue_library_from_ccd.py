@@ -1,5 +1,6 @@
 """Pre-process the Chemical Component Dictionary (CCD) with OpenBabel to create a residue library for use in the CIF parser."""
 
+from __future__ import annotations
 import argparse
 import glob
 import logging

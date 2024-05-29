@@ -1,3 +1,4 @@
+from __future__ import annotations
 import gzip
 import itertools
 from collections import OrderedDict

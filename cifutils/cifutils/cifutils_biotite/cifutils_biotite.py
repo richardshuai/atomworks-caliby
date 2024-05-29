@@ -3,6 +3,7 @@ Implementation of original `citufils` functions using `biotite` library.
 Retains all functionality of orginal library, with increased performance and additional features.
 """
 
+from __future__ import annotations
 import logging
 import pickle
 import time

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 CRYSTALLIZATION_AIDS = [
     "SO4",
     "GOL",
