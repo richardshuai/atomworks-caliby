@@ -5,6 +5,7 @@ from cifutils.cifutils_legacy import cifutils_legacy
 import biotite.structure as struc
 import os
 import numpy as np
+from tests.conftest import get_digs_path
 
 
 def parse_with_cifutils_legacy(filename, cif_parser_legacy):
@@ -265,12 +266,13 @@ def cif_parser_legacy():
 
 @pytest.fixture(scope="module")
 def cifutils_biotite_parser():
-    return cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=None)
+    return cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True)
 
 
 @pytest.mark.parametrize(
     "pdb_id",
     [
+        "2k0a",
         "3k4a",
         "3kfa",
         "4az0",
@@ -320,9 +322,9 @@ def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser):
     - Metadata
 
     Does not compare:
-    - Assembly (to be handled by downstream tests)
+    - Assembly (handled by test_bioassemblies.py)
     """
-    filename = f"/databases/rcsb/cif/{pdb_id[1:3]}/{pdb_id}.cif.gz"
+    filename = get_digs_path(pdb_id)
 
     # Parse with cifutils_legacy
     chains_legacy, asmb_legacy, covale_legacy, meta_legacy, modres_legacy = parse_with_cifutils_legacy(
@@ -350,11 +352,11 @@ def test_unmatched_atom_types():
     Ensure that unmatched atom types are handled correctly. For cifutils_biotite, that means masking the residue with the unmathced atom with 0 occupancy.
     """
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    filename = os.path.join(script_dir, "test_data/1a8o_modified.cif")
+    filename = os.path.join(script_dir, "../test_data/1a8o_modified.cif")
 
     # Parse with cifutils_biotite
     result_dict = parse_with_cifutils_biotite(
-        filename, cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly="first")
+        filename, cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True)
     )
 
     # Ensure that residue 2 has no occupancy
@@ -366,5 +368,5 @@ def test_unmatched_atom_types():
 if __name__ == "__main__":
     # Test a single example
     cif_parser_legacy = cifutils_legacy.CIFParser()
-    cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=None)
+    cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True)
     test_parsing("4az0", cif_parser_legacy, cifutils_biotite_parser)

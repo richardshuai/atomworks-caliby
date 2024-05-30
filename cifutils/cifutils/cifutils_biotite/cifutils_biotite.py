@@ -49,8 +49,7 @@ class CIFParser:
         add_bonds=True,
         convert_residues_dict=None,
         remove_waters=False,
-        build_assembly: Literal["first", "all"] | list[str] | None = None,
-        exclude_crystallization_aid=True,
+        exclude_crystallization_aid=False,
     ):
         """
         Initialize a CIFParser object.
@@ -63,7 +62,6 @@ class CIFParser:
         - add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
         - convert_residues_dict (dict, optional): Dictionary of residue name conversions. Keys are the original residue names, and values are the new residue names.
         - remove_waters (bool, optional): Whether to remove water molecules from the structure.
-        - build_assembly (bool, optional): Whether to build the first biological assembly found within the mmCIF file and add the `transformation_id` field.
         """
 
         # Step 0: Set and validate arguments
@@ -71,7 +69,6 @@ class CIFParser:
         self.add_bonds = add_bonds
         self.convert_residues_dict = convert_residues_dict
         self.remove_waters = remove_waters
-        self.build_assembly = build_assembly
         self.exclude_crystallization_aid = exclude_crystallization_aid
         self._validate_arguments()
 
@@ -113,19 +110,25 @@ class CIFParser:
         if exists(self.convert_residues_dict):
             raise NotImplementedError("convert_residues_dict is not yet implemented.")
 
-    def parse(self, filename: str) -> dict:
+    def parse(
+            self, 
+            filename: str,
+            build_assembly: Literal["first", "all"] | list[str] | None = None,
+        ) -> dict:
         """
         Parse the CIF file and return chain information, residue information, atom array, metadata, and legacy data.
 
         Args:
         - filename (str): Path to the CIF file. May be any format of CIF file (e.g., gz, bcif, etc.).
+        - build_assembly (str, optional): Which assembly to build, if any. Options are None (e.g., asymmetric unit), "first", "all", or a list of assembly IDs. Defaults to None.
 
         Returns:
         - dict: A dictionary containing the following keys:
         'chain_info': A dictionary mapping chain ID to sequence, type, entity ID, and other information.
         'residue_info': A dictionary mapping residue name to reference structure (atoms, bonds, automorphisms, etc.).
         'ligand_info': A dictionary containing ligand of interest information.
-        'atom_array': An AtomArrayStack instance representing the structure.
+        'atom_array': An AtomArrayStack instance representing the asymmetric unit.
+        'assemblies': A dictionary mapping assembly IDs to AtomArray instances.
         'metadata': A dictionary containing metadata about the structure.
         'modified_residues': A dictionary mapping modified residue names to their canonical name(s).
         'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
@@ -184,8 +187,8 @@ class CIFParser:
             atom_array = self._add_bonds(cif_block, atom_array, chain_info_dict)
 
         # Build the assembly and add the transformation_id annotation (defaults to identity)
-        if exists(self.build_assembly):
-            assemblies = self._build_assembly(cif_block, atom_array, assembly_ids=self.build_assembly)
+        if exists(build_assembly):
+            assemblies = self._build_assembly(cif_block, atom_array, assembly_ids=build_assembly)
         else:
             assemblies = {}
 
