@@ -111,10 +111,10 @@ class CIFParser:
             raise NotImplementedError("convert_residues_dict is not yet implemented.")
 
     def parse(
-            self, 
-            filename: str,
-            build_assembly: Literal["first", "all"] | list[str] | None = None,
-        ) -> dict:
+        self,
+        filename: str,
+        build_assembly: Literal["first", "all"] | list[str] | None = None,
+    ) -> dict:
         """
         Parse the CIF file and return chain information, residue information, atom array, metadata, and legacy data.
 
@@ -886,6 +886,7 @@ class CIFParser:
     def _get_metadata(self, cif_block: CIFBlock) -> dict:
         """Extract metadata from the CIF block."""
         metadata = {}
+        metadata["pdb_id"] = cif_block["entry"]["id"].as_item().lower()
         exptl = cif_block["exptl"] if "exptl" in cif_block.keys() else None
         status = cif_block["pdbx_database_status"] if "pdbx_database_status" in cif_block.keys() else None
         refine = cif_block["refine"] if "refine" in cif_block.keys() else None
