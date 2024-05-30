@@ -8,7 +8,7 @@ import logging
 import pickle
 import time
 from functools import lru_cache
-from typing import Sequence
+from typing import Sequence, Literal
 
 import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
@@ -49,7 +49,7 @@ class CIFParser:
         add_bonds=True,
         convert_residues_dict=None,
         remove_waters=False,
-        build_assembly=False,
+        build_assembly: Literal["first", "all"] | list[str] | None = None,
         exclude_crystallization_aid=True,
     ):
         """
@@ -184,9 +184,10 @@ class CIFParser:
             atom_array = self._add_bonds(cif_block, atom_array, chain_info_dict)
 
         # Build the assembly and add the transformation_id annotation (defaults to identity)
-        atom_array.set_annotation("transformation_id", np.full(len(atom_array), 1))
-        if self.build_assembly:
-            atom_array = self._build_assembly(cif_block, atom_array)
+        if exists(self.build_assembly):
+            assemblies = self._build_assembly(cif_block, atom_array, assembly_ids=self.build_assembly)
+        else:
+            assemblies = {}
 
         # Get ligand of interest information
         loi_info = self._get_ligand_of_interest_info(cif_block)
@@ -199,6 +200,7 @@ class CIFParser:
             "residue_info": residue_info_dict,
             "ligand_info": loi_info,
             "atom_array": atom_array,
+            "assemblies": assemblies,
             "metadata": metadata,
             "modified_residues": modified_residues_dict,
             "extra_info": {**self.extra_info},  # modified residues, struct_conn bonds
@@ -222,7 +224,9 @@ class CIFParser:
 
         return atom_array
 
-    def _build_assembly(self, cif_block: CIFBlock, atom_array: AtomArray, assembly_id: int | None = None) -> AtomArray:
+    def _build_assembly(
+        self, cif_block: CIFBlock, atom_array: AtomArray, assembly_ids: Literal["all", "first"] | list[str] = "first"
+    ) -> AtomArray:
         """
         Build the first biological assembly found within the mmCIF file and update the `transformation_id` annotation.
 
@@ -243,19 +247,32 @@ class CIFParser:
         # Parse CIF blocks and select assembly (either by passed assembly_id or the first assembly)
         assembly_gen_category = cif_block["pdbx_struct_assembly_gen"]
         struct_oper_category = cif_block["pdbx_struct_oper_list"]
-        assembly_ids = assembly_gen_category["assembly_id"].as_array(str)
-        assembly_id = assembly_ids[0] if assembly_id is None else assembly_id
+        available_assembly_ids = assembly_gen_category["assembly_id"].as_array(str)
 
-        # Get the transformations and apply to affected asym IDs
+        # parse `assembly_ids` option
+        if assembly_ids == "first":
+            to_build = [available_assembly_ids[0]]
+        elif assembly_ids == "all":
+            to_build = available_assembly_ids
+        else:
+            to_build = assembly_ids
+
+        # ensure instructions for each requested assembly id exist
+        if not all(_id in available_assembly_ids for _id in to_build):
+            raise ValueError(
+                f"Invalid assembly ID(s) provided: {to_build}. Available assembly IDs: {available_assembly_ids}"
+            )
+
+        # get the transformations and apply to affected asym IDs
         transformations = parse_transformations(struct_oper_category)  # {id: rotation, translation}
-        assembly = None
-        for id, op_expr, asym_id_expr in zip(
+        assemblies = {}
+        for _id, op_expr, asym_id_expr in zip(
             assembly_gen_category["assembly_id"].as_array(str),
             assembly_gen_category["oper_expression"].as_array(str),
             assembly_gen_category["asym_id_list"].as_array(str),
         ):
             # Find the operation expressions for given assembly ID
-            if id == assembly_id:
+            if _id in to_build:
                 operations = parse_operation_expression(op_expr)
                 asym_ids = asym_id_expr.split(",")
                 # Filter affected asym IDs
@@ -265,9 +282,9 @@ class CIFParser:
                     # Add transformation ID annotation (e.g., 1 for identity operation)
                     sub_assembly.set_annotation("transformation_id", np.full(len(sub_assembly), operation))
                     # Merge the chains with asym IDs for this operation with chains from other operations
-                    assembly = assembly + sub_assembly if assembly else sub_assembly
+                    assemblies[_id] = assemblies[_id] + sub_assembly if _id in assemblies else sub_assembly
 
-        return assembly
+        return assemblies
 
     @lru_cache(maxsize=None)
     def _build_residue_atoms(self, residue_name: str) -> list[Atom]:

@@ -265,7 +265,7 @@ def cif_parser_legacy():
 
 @pytest.fixture(scope="module")
 def cifutils_biotite_parser():
-    return cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=False)
+    return cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=None)
 
 
 @pytest.mark.parametrize(
@@ -354,7 +354,7 @@ def test_unmatched_atom_types():
 
     # Parse with cifutils_biotite
     result_dict = parse_with_cifutils_biotite(
-        filename, cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=True)
+        filename, cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly="first")
     )
 
     # Ensure that residue 2 has no occupancy
@@ -366,5 +366,5 @@ def test_unmatched_atom_types():
 if __name__ == "__main__":
     # Test a single example
     cif_parser_legacy = cifutils_legacy.CIFParser()
-    cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=False)
+    cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly=None)
     test_parsing("4az0", cif_parser_legacy, cifutils_biotite_parser)
