@@ -286,7 +286,7 @@ class CIFParser:
                     sub_assembly.set_annotation("transformation_id", np.full(len(sub_assembly), operation))
                     # Merge the chains with asym IDs for this operation with chains from other operations
                     assemblies[_id] = assemblies[_id] + sub_assembly if _id in assemblies else sub_assembly
-
+                assemblies[_id] = self._maybe_patch_metal_at_symmetry_center(assemblies[_id])
         return assemblies
 
     @lru_cache(maxsize=None)
@@ -911,3 +911,42 @@ class CIFParser:
                 pass
 
         return metadata
+
+    @staticmethod
+    def _maybe_patch_metal_at_symmetry_center(atom_array: AtomArray) -> AtomArray:
+        """
+        If a metal atom is clashing with the symmetry center, patch it at the symmetry center.
+        This happens very rarely, but an example is PDB ID `7mub`, which has a potassium ion
+        at the symmetry center.
+        """
+        if not np.any(atom_array.is_metal):
+            return atom_array
+        else:
+            metals = atom_array[atom_array.is_metal]  # [n]
+
+            # Build cell list for rapid distance computations
+            cell_list = struc.CellList(metals, cell_size=3.0)
+
+            # Check whether any metal is closer than 0.05A to any other. If this is the case,
+            # we call them `duplicates` and will only keep the first one.
+            is_same_matrix = cell_list.get_atoms(metals.coord, 0.05, as_mask=True)  # [n, n]
+
+            if np.array_equal(is_same_matrix, np.identity(len(metals), dtype=bool)):
+                # No duplicates, early exit
+                return atom_array
+
+            # Reduce each group to its first member (find first non-zero element via argmax)
+            to_keep = np.argmax(is_same_matrix, axis=0)
+            # ... and remove the duplicates
+            to_keep = np.unique(to_keep)
+
+            # Keep only the first metal in each group
+            keep_mask = np.zeros(len(metals), dtype=bool)
+            keep_mask[to_keep] = True
+
+            # Embed remove mask into mask for full atom array
+            keep_mask_full = np.ones(len(atom_array), dtype=bool)
+            keep_mask_full[atom_array.is_metal] = keep_mask
+
+            # Remove duplicates
+            return atom_array[keep_mask_full]
