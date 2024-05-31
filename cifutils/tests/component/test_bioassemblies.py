@@ -13,6 +13,7 @@ ASSEMBLY_ATOM_COORDINATES_TEST_CASES = ["1A8O", "1RXZ", "4NDZ", "5XNL", "6DMG", 
 
 cif_parser = cifutils_biotite.CIFParser()
 
+
 @pytest.mark.parametrize("test_case", MULTIPLE_ASSEMBLY_TEST_CASES)
 def test_assembly_counts(test_case: dict):
     # unpack test case
@@ -32,6 +33,7 @@ def test_assembly_counts(test_case: dict):
     out_all = cif_parser.parse(filename, build_assembly="all")
     assert len(out_all["assemblies"]) == n_assemblies
 
+
 @pytest.mark.parametrize("pdb_id", ASSEMBLY_ATOM_COORDINATES_TEST_CASES)
 def test_assembly_atom_coordinates(pdb_id: str):
     path = get_digs_path(pdb_id)
@@ -39,7 +41,7 @@ def test_assembly_atom_coordinates(pdb_id: str):
     # Biotite
     file = cifutils_biotite_utils.read_cif_file(path)
     biotite_assembly = pdbx.get_assembly(
-        file, 
+        file,
         assembly_id="1",
         use_author_fields=False,
         altloc="occupancy",
