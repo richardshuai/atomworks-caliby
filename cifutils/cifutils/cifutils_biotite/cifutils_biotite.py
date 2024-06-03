@@ -14,6 +14,7 @@ import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
 import numpy as np
 import pandas as pd
+from collections import Counter
 
 from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     apply_transformations,
@@ -105,8 +106,6 @@ class CIFParser:
             raise ValueError("add_bonds cannot be True if add_missing_atoms is False")
         if not isinstance(self.convert_residues_dict, dict) and exists(self.convert_residues_dict):
             raise ValueError("convert_residues_dict must be a dictionary.")
-        if self.remove_waters:
-            raise NotImplementedError("remove_waters is not yet implemented.")
         if exists(self.convert_residues_dict):
             raise NotImplementedError("convert_residues_dict is not yet implemented.")
 
@@ -157,12 +156,16 @@ class CIFParser:
         # Load chain information (uses atom_array to build chain list)
         chain_info_dict = self._get_chain_info(cif_block, atom_array)
 
+        # Remove waters
+        if self.remove_waters:
+            atom_array = atom_array[atom_array.res_name != "HOH"]
+
         # Remove crystallization aids and ions from the atom array
         if self.exclude_crystallization_aid:
             atom_array = self._remove_crystallization_aids_and_ions(atom_array)
 
         # Replace non-polymeric chain sequence ids with author sequence ids
-        self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
+        atom_array = self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
 
         # Remove unmatched residues from the atom array
         atom_array = self._remove_atoms_with_unmatched_residues(atom_array)
@@ -286,7 +289,17 @@ class CIFParser:
                     sub_assembly.set_annotation("transformation_id", np.full(len(sub_assembly), operation))
                     # Merge the chains with asym IDs for this operation with chains from other operations
                     assemblies[_id] = assemblies[_id] + sub_assembly if _id in assemblies else sub_assembly
-                assemblies[_id] = self._maybe_patch_metal_at_symmetry_center(assemblies[_id])
+
+                # Create a composite chain_id, transformation_id annotation for ease of access
+                chain_full_id = np.char.add(
+                    np.char.add(assemblies[_id].chain_id, "_"), assemblies[_id].transformation_id.astype(str)
+                )
+                assemblies[_id].set_annotation("chain_full_id", chain_full_id)
+
+                # For molecules with multiple transformations, we need to check for non-polymers at symmetry centers
+                if len(operations) > 1:
+                    assemblies[_id] = self._maybe_patch_non_polymer_at_symmetry_center(assemblies[_id])
+                print("Done here.")
         return assemblies
 
     @lru_cache(maxsize=None)
@@ -401,6 +414,12 @@ class CIFParser:
         full_atom_array.coord[full_atom_array_match_mask] = atom_array[present_atom_array_match_mask].coord
         full_atom_array.set_annotation("b_factor", b_factor)
         full_atom_array.set_annotation("occupancy", occupancy)
+
+        # Create polymer annotation
+        full_atom_array.add_annotation("is_polymer", dtype=bool)
+        polymer_chain_ids = [chain_id for chain_id, chain_info in chain_info_dict.items() if chain_info["is_polymer"]]
+        polymer_mask = np.isin(full_atom_array.chain_id, polymer_chain_ids)
+        full_atom_array.set_annotation("is_polymer", polymer_mask)
 
         # If any heavy atom in a residue cannot be matched, then mask the whole residue
         unmatched_heavy_atoms_mask = ~present_atom_array_match_mask & (
@@ -729,13 +748,14 @@ class CIFParser:
     def _update_nonpoly_seq_ids(self, atom_array: AtomArray, chain_info_dict: dict) -> None:
         """
         Updates the sequence IDs of non-polymeric chains in the atom array stack.
+        Additionally, adds an annotation to the atom array stack to indicate whether a chain is a polymer.
 
         Args:
         - atom_array (AtomArray): The atom array stack containing the chain information.
         - chain_info_dict (dict): Dictionary containing the sequence details of each chain.
 
         Returns:
-        - None: This method updates the atom array stack in-place and does not return anything.
+        - AtomArray: The updated atom array stack with the sequence IDs updated for non-polymeric chains.
         """
         # For non-polymeric chains, we use the author sequence ids
         author_seq_ids = atom_array.get_annotation("auth_seq_id")
@@ -746,6 +766,8 @@ class CIFParser:
 
         # Update the atom_array_label with the (1-indexed) author sequence ids
         atom_array.res_id[non_polymer_mask] = author_seq_ids[non_polymer_mask]
+
+        return atom_array
 
     def _load_monomer_sequence_information(
         self, cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray
@@ -913,40 +935,95 @@ class CIFParser:
         return metadata
 
     @staticmethod
-    def _maybe_patch_metal_at_symmetry_center(atom_array: AtomArray) -> AtomArray:
+    def _maybe_patch_non_polymer_at_symmetry_center(
+        atom_array: AtomArray, clash_distance=1.0, clash_ratio=0.5
+    ) -> AtomArray:
         """
-        If a metal atom is clashing with the symmetry center, patch it at the symmetry center.
-        This happens very rarely, but an example is PDB ID `7mub`, which has a potassium ion
-        at the symmetry center.
+        In some PDB entries, non-polymer molecules are placed at the symmetry center and clash with themselves when
+        transformed via symmetry operations. We should remove the duplicates in these cases, keeping the identity copy.
+
+        We consider a non-polymer to be clashing with itself if at least `clash_ratio` of its atoms clash with the symmetric copy.
+
+        Examples:
+        — PDB ID `7mub` has a potassium ion at the symmetry center that when reflected with the symmetry operation clashes with itself.
+        — PDB ID `1xan` has a ligand at a symmetry center that similarly when refelcted clashes with itself.
+
+        Arguments:
+        — atom_array (AtomArray): The atom array to be patched.
+        — clash_distance (float): The distance threshold for two atoms to be considered clashing.
+        - clash_ratio (float): The percentage of atoms that must clash for the molecule to be considered clashing.
+
+        Returns:
+        — AtomArray: The patched atom array.
         """
-        if not np.any(atom_array.is_metal):
-            return atom_array
+        # Filter to only atoms with coordinates to avoid non-physical clashes at the origin
+        resolved_atom_array = atom_array[atom_array.occupancy > 0]
+
+        if not np.any(~resolved_atom_array.is_polymer):
+            return atom_array  # Early exit
         else:
-            metals = atom_array[atom_array.is_metal]  # [n]
+            non_polymers = resolved_atom_array[~resolved_atom_array.is_polymer]  # [n]
 
             # Build cell list for rapid distance computations
-            cell_list = struc.CellList(metals, cell_size=3.0)
+            cell_list = struc.CellList(non_polymers, cell_size=3.0)
 
-            # Check whether any metal is closer than 0.05A to any other. If this is the case,
-            # we call them `duplicates` and will only keep the first one.
-            is_same_matrix = cell_list.get_atoms(metals.coord, 0.05, as_mask=True)  # [n, n]
+            # Quick check to see whether any non-polymer is closer than 0.05A to any other.
+            clash_matrix = cell_list.get_atoms(non_polymers.coord, clash_distance, as_mask=True)  # [n, n]
+            identity_matrix = np.identity(len(non_polymers), dtype=bool)
+            if np.array_equal(clash_matrix, identity_matrix):
+                return atom_array  # Early exit
+            else:
+                # Remove identity matrix so we don't count self-clashes
+                clash_matrix = clash_matrix & ~identity_matrix
 
-            if np.array_equal(is_same_matrix, np.identity(len(metals), dtype=bool)):
-                # No duplicates, early exit
-                return atom_array
+            # Get list of chain_ids with clashing atoms (for computational efficiency)
+            clashing_atom_mask = np.sum(clash_matrix, axis=1) > 0
+            clashing_chain_ids = np.unique(non_polymers.chain_id[clashing_atom_mask])
 
-            # Reduce each group to its first member (find first non-zero element via argmax)
-            to_keep = np.argmax(is_same_matrix, axis=0)
-            # ... and remove the duplicates
-            to_keep = np.unique(to_keep)
+            # For each clashing chain, we check whether any non-polymer is clashing with a symmetric copy of itself
+            # We count the clashes with each symmetric copy of itself and remove those that have a clash ratio above the threshold
+            # We keep the identity transformation, or the lowest transformation ID in the case of multiple symmetric copies
+            chain_full_ids_to_remove = []
+            for chain_id in clashing_chain_ids:
+                chain_mask = non_polymers.chain_id == chain_id
+                mask = chain_mask & clashing_atom_mask  # Mask for clashing atoms in the current chain
+                chain_clash_matrix = clash_matrix[mask][:, mask]
 
-            # Keep only the first metal in each group
-            keep_mask = np.zeros(len(metals), dtype=bool)
-            keep_mask[to_keep] = True
+                # Loop through possible transformation ID's
+                transformation_ids_to_check = sorted(
+                    np.unique(non_polymers.transformation_id[mask].astype(int)).tolist()
+                )
+                while transformation_ids_to_check:
+                    transformation_id = str(transformation_ids_to_check.pop(0))
+                    transformation_mask = non_polymers.transformation_id == str(transformation_id)
+                    # Create matrix where the rows correspond to the atoms of the current transformation and the columns corresponded to the other transformations
+                    chain_clash_matrix = clash_matrix[mask & transformation_mask][
+                        :, mask & ~transformation_mask
+                    ]  # [current transformation clashing atoms, other transformations clashing atoms]
+                    # We can then count clashes by transformation ID
+                    transformation_id_matrix = np.tile(
+                        non_polymers.transformation_id[mask & ~transformation_mask], (chain_clash_matrix.shape[0], 1)
+                    )
 
-            # Embed remove mask into mask for full atom array
-            keep_mask_full = np.ones(len(atom_array), dtype=bool)
-            keep_mask_full[atom_array.is_metal] = keep_mask
+                    # Apply chain_clash_matrix to transformation_id_matrix so we can count clashes by transformation ID
+                    clashing_transformation_ids = np.where(chain_clash_matrix, transformation_id_matrix, None).flatten()
+                    clash_count_by_transformation_id = Counter(
+                        clashing_transformation_ids[clashing_transformation_ids != np.array(None)]
+                    )
+                    threshold = clash_ratio * np.sum(chain_mask & transformation_mask)
 
-            # Remove duplicates
-            return atom_array[keep_mask_full]
+                    # For each transformation ID with a clash ratio above the threshold, note the chain_full_id to remove, and remove from the list to check
+                    transformation_ids_to_remove = [
+                        trans_id for trans_id, count in clash_count_by_transformation_id.items() if count > threshold
+                    ]
+                    chain_full_ids_to_remove.extend(
+                        [f"{chain_id}_{trans_id}" for trans_id in transformation_ids_to_remove]
+                    )
+                    transformation_ids_to_check = [
+                        id_ for id_ in transformation_ids_to_check if str(id_) not in transformation_ids_to_remove
+                    ]
+
+            # Filter and return
+            keep_mask = ~np.isin(atom_array.chain_full_id, chain_full_ids_to_remove)
+            atom_array = atom_array[keep_mask]
+            return atom_array
