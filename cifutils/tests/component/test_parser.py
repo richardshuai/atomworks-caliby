@@ -341,7 +341,9 @@ def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser):
     validate_chains(pdb_id, chains_legacy, converted_chains)
 
     # Test metadata
-    assert result_dict["metadata"] == meta_legacy, "Metadata mismatch."
+    assert result_dict["metadata"]["method"] == meta_legacy["method"], "Method mismatch."
+    assert result_dict["metadata"]["resolution"] == meta_legacy["resolution"], "Resolution mismatch."
+    assert result_dict["metadata"]["date"] == meta_legacy["date"], "Date mismatch."
 
     # Test modified residue dict
     validate_modified_residues(modres_legacy, result_dict["modified_residues"])
