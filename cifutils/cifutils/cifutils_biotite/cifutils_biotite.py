@@ -390,9 +390,7 @@ class CIFParser:
         # Find overlap between populated atoms from atom_site and the full atom list derived from the sequences
         def create_structured_array(atom_array):
             """Create a structured array from an AtomArray object. Used for efficient element comparison."""
-            dtype = np.dtype(
-                [("chain_id", "U3"), ("res_id", "i4"), ("res_name", "U4"), ("atom_name", "U4")]
-            )
+            dtype = np.dtype([("chain_id", "<U4"), ("res_id", "int64"), ("res_name", "<U5"), ("atom_name", "<U6")])
             structured_array = np.zeros(len(atom_array), dtype=dtype)
             structured_array["chain_id"] = atom_array.chain_id
             structured_array["res_id"] = atom_array.res_id
