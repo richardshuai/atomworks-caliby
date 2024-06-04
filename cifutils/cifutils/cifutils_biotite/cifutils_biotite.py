@@ -183,9 +183,6 @@ class CIFParser:
         # Handle sequence heterogeneity by selecting the residue that appears last
         atom_array = self._keep_last_residue(atom_array)
 
-        # Order atoms within each residue according to standard CCD ordering
-        atom_array = atom_array[struc.info.standardize.standardize_order(atom_array)]
-
         # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
         if self.add_missing_atoms:
             atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
@@ -385,6 +382,11 @@ class CIFParser:
         full_atom_array.add_annotation("element", dtype=int)
         full_atom_array.set_annotation("element", elements)
 
+        # Standardize ordering (this is necessary for the matching, e.g. for residues such as `API`)
+        # ... we do this by ordering atoms within each residue according to standard CCD ordering
+        atom_array = atom_array[struc.info.standardize.standardize_order(atom_array)]
+        full_atom_array = full_atom_array[struc.info.standardize.standardize_order(full_atom_array)]
+
         # Find overlap between populated atoms from atom_site and the full atom list derived from the sequences
         def create_structured_array(atom_array):
             """Create a structured array from an AtomArray object. Used for efficient element comparison."""
@@ -406,7 +408,19 @@ class CIFParser:
             full_atom_array[full_atom_array_match_mask].atom_name,
             atom_array[present_atom_array_match_mask].atom_name,
         ):
-            raise ValueError("Order of atom names in full_atom_array and atom_array do not match.")
+            # Extract mismatched atom information for error message
+            mismatch_mask = np.where(
+                full_atom_array[full_atom_array_match_mask].atom_name
+                != atom_array[present_atom_array_match_mask].atom_name,
+                True,
+                False,
+            )
+            full_atom_array_mismatch_ids = full_atom_array_structured[full_atom_array_match_mask][mismatch_mask]
+            atom_array_mismatch_ids = present_atom_array_structured[present_atom_array_match_mask][mismatch_mask]
+            mismatches = np.vstack((full_atom_array_mismatch_ids, atom_array_mismatch_ids)).T
+            raise ValueError(
+                f"Order of atom names in full_atom_array and atom_array do not match.\nFound {len(mismatches)} mismatches:\n\n{mismatches}"
+            )
 
         # Prepare np arrays to add b_factor and occupancy annotations to the AtomArray
         b_factor = np.zeros(len(full_atom_array), dtype=np.float32)
