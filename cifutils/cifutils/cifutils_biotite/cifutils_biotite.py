@@ -641,8 +641,7 @@ class CIFParser:
 
                 atom_a = residue_a[residue_a.atom_name == a_atom_id]
                 atom_b = residue_b[residue_b.atom_name == b_atom_id]
-                if atom_a and atom_b:
-                    struct_conn_bonds.append([atom_a.index[0], atom_b.index[0], struc.BondType.SINGLE])
+                struct_conn_bonds.append([atom_a.index[0], atom_b.index[0], struc.BondType.SINGLE])
 
                 # Leaving group bookkeeping
                 leaving_atom_indices.append(residue_a.index[np.isin(residue_a.atom_name, atom_a.leaving_group[0])])
