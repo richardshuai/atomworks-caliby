@@ -52,6 +52,7 @@ class CIFParser:
         convert_residues_dict=None,
         remove_waters=False,
         exclude_crystallization_aid=False,
+        patch_symmetry_centers=True,
     ):
         """
         Initialize a CIFParser object.
@@ -64,6 +65,8 @@ class CIFParser:
         - add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
         - convert_residues_dict (dict, optional): Dictionary of residue name conversions. Keys are the original residue names, and values are the new residue names.
         - remove_waters (bool, optional): Whether to remove water molecules from the structure.
+        - exclude_crystallization_aid (bool, optional): Whether to exclude crystallization aids and ions from the structure. Uses the AF-3 exclusion list.
+        - patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed.
         """
 
         # Step 0: Set and validate arguments
@@ -72,6 +75,7 @@ class CIFParser:
         self.convert_residues_dict = convert_residues_dict
         self.remove_waters = remove_waters
         self.exclude_crystallization_aid = exclude_crystallization_aid
+        self.patch_symmetry_cetner = patch_symmetry_centers
         self._validate_arguments()
 
         # Step 1: Parse pre-compiled library (from the CCD, augmented with OpenBabel) of all residues observed in the PDB
@@ -298,7 +302,7 @@ class CIFParser:
                 assemblies[_id].set_annotation("chain_full_id", chain_full_id)
 
                 # For molecules with multiple transformations, we need to check for non-polymers at symmetry centers
-                if len(operations) > 1:
+                if len(operations) > 1 and self.patch_symmetry_centers:
                     assemblies[_id] = self._maybe_patch_non_polymer_at_symmetry_center(assemblies[_id])
         return assemblies
 
