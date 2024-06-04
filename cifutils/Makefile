@@ -48,8 +48,8 @@ _biotite_access_error:
 ## Install the production version of the code
 install:
 	@echo "Installing production version"
-	@pip install --upgrade git+https://biotite-install:${BIOTITE_INSTALL_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
-		pip install --upgrade git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
+	@pip install --force-reinstall git+https://biotite-install:${BIOTITE_INSTALL_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
+		pip install --force-reinstall git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
 		$(MAKE) _biotite_access_error
 	@pip install .
 
@@ -63,8 +63,8 @@ install-dev:
 		echo "... ignoring for now as it is only needed for CCD data pre-computation ..."; \
 		exit 1; \
 	}
-	@pip install --upgrade git+https://biotite-install:${BIOTITE_INSTALL_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
-		pip install --upgrade git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
+	@pip install --force-reinstall git+https://biotite-install:${BIOTITE_INSTALL_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
+		pip install --force-reinstall git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
 		$(MAKE) _biotite_access_error
 	@pip install -e ".[dev]"
 
