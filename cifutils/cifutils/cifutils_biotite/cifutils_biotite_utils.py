@@ -12,6 +12,7 @@ import toolz
 from biotite.structure.atoms import repeat
 from biotite.structure.io.pdbx import CIFBlock, CIFFile, BinaryCIFFile
 from cifutils.cifutils_biotite.common import exists
+from functools import cache
 
 
 def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
@@ -253,3 +254,18 @@ def build_modified_residues_dict(cif_block, chain_info_dict):
             modified_residues_dict.setdefault(key, []).append(canon_res_name)
 
     return modified_residues_dict
+
+
+@cache
+def get_std_alt_atom_id_conversion(res_name: str) -> dict:
+    std_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "atom_id")
+    alt_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "alt_atom_id")
+
+    assert len(std_atom_ids) > 0, f"{res_name} info does not exist."
+    assert len(std_atom_ids) == len(
+        alt_atom_ids
+    ), f"{res_name} has {len(std_atom_ids)} standard atom ids and {len(alt_atom_ids)} alternative atom ids"
+
+    mapping = {"std_to_alt": dict(zip(std_atom_ids, alt_atom_ids)), "alt_to_std": dict(zip(alt_atom_ids, std_atom_ids))}
+
+    return mapping
