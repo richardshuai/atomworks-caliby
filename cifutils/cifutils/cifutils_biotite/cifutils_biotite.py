@@ -14,6 +14,7 @@ import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
 import numpy as np
 import pandas as pd
+from os import PathLike
 from collections import Counter
 
 from cifutils.cifutils_biotite.cifutils_biotite_utils import (
@@ -111,7 +112,7 @@ class CIFParser:
 
     def parse(
         self,
-        filename: str,
+        filename: PathLike,
         build_assembly: Literal["first", "all"] | list[str] | None = None,
     ) -> dict:
         """

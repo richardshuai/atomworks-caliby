@@ -4,7 +4,11 @@
 # GLOBALS                                                                       #
 #################################################################################
 
+# Set the project directory
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
+# Set conda/mamba binary, mamba if available, conda otherwise
+CONDA_BINARY := $(shell command -v mamba || command -v conda)
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -20,6 +24,49 @@ format:
 	ruff format .
 	ruff check --fix ./cifutils/cifutils_biotite
 	ruff check --fix .
+
+_biotite_access_error:
+	@echo "==============================================================================="; \
+	echo "Error: Environment variables BIOTITE_INSTALL_TOKEN or GITLAB_USER and GITLAB_TOKEN must be set."; \
+	echo ""; \
+	echo "Option 1: Set the environment variable BIOTITE_INSTALL_TOKEN. You can ask one of the maintainers for this token."; \
+	echo "Option 2: Set the environment variables GITLAB_USER and GITLAB_TOKEN. You can create a personal access token on GitLab."; \
+	echo ""; \
+	echo "To expose these variables, you can use:"; \
+	echo "export BIOTITE_INSTALL_TOKEN=<gitlab-token>"; \
+	echo ""; \
+	echo " ... or ... "; \
+	echo ""; \
+	echo "export GITLAB_USER=<gitlab-username>"; \
+	echo "export GITLAB_TOKEN=<gitlab-token>"; \
+	echo ""; \
+	echo "It is recommended that you set these tokens in your .bashrc or .zshrc file for future use."; \
+	echo "===============================================================================";
+	exit 1;
+
+
+## Install the production version of the code
+install:
+	@echo "Installing production version"
+	@pip install --force-reinstall git+https://biotite-install:${BIOTITE_INSTALL_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
+		pip install --force-reinstall git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
+		$(MAKE) _biotite_access_error
+	@pip install .
+
+
+
+## Install the development version of the code
+install-dev:
+	@echo "Installing development version"
+	@${CONDA_BINARY} install -c conda-forge openbabel || { \
+		echo "Failed to install openbabel with conda, attempting fallback installation..."; \
+		echo "... ignoring for now as it is only needed for CCD data pre-computation ..."; \
+		exit 1; \
+	}
+	@pip install --force-reinstall git+https://biotite-install:${BIOTITE_INSTALL_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
+		pip install --force-reinstall git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
+		$(MAKE) _biotite_access_error
+	@pip install -e ".[dev]"
 
 #################################################################################
 # Self Documenting Commands                                                     #

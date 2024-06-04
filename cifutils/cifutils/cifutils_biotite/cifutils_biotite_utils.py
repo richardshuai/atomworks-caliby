@@ -78,7 +78,7 @@ def read_cif_file(filename: PathLike) -> CIFFile | BinaryCIFFile:
         # Handle plain CIF files
         cif_file = pdbx.CIFFile.read(filename)
     else:
-        raise ValueError("Unsupported file format")
+        raise ValueError(f"Unsupported file format {file_ext} in {filename}")
 
     return cif_file
 

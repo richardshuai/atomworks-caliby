@@ -14,7 +14,10 @@ dependencies = [
     # NOTE: Dependency versions specify the minimum versions for the packages 
     #  that were confirmed to work with the codebase. Lower versions might still
     #  work (at your own risk). 
-    "biotite>=0.40.0,<1",
+    # NOTE: Biotite is currently installed manually, because pyproject.toml does not support
+    #  git+http URLS with environment variables. Once the public biotite master is updated
+    #  we can switch back to `biotite>=0.40.0,<1` (or the updated version from then on)
+    # "'git+https://biotite-install:gldt-U-X1vnQm7m5tADMddoUt@git.ipd.uw.edu/ai/biotite'",  # NOTE: Originally "biotite>=0.40.0,<1", but we updated to a local repo to have 
     "pytest>=8.2.0,<9",
     "pandas>=1.4.2,<2",
     "torch>=2.2.0,<3",
