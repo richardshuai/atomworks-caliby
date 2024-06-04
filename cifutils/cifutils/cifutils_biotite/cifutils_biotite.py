@@ -300,7 +300,6 @@ class CIFParser:
                 # For molecules with multiple transformations, we need to check for non-polymers at symmetry centers
                 if len(operations) > 1:
                     assemblies[_id] = self._maybe_patch_non_polymer_at_symmetry_center(assemblies[_id])
-                print("Done here.")
         return assemblies
 
     @lru_cache(maxsize=None)

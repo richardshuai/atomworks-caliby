@@ -1,6 +1,7 @@
 # .gitignore
 cifutils_extended
 data
+biotite
 
 # Python files
 *.pyc
