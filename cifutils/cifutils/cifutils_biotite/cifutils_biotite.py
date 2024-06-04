@@ -75,7 +75,7 @@ class CIFParser:
         self.convert_residues_dict = convert_residues_dict
         self.remove_waters = remove_waters
         self.exclude_crystallization_aid = exclude_crystallization_aid
-        self.patch_symmetry_cetner = patch_symmetry_centers
+        self.patch_symmetry_centers = patch_symmetry_centers
         self._validate_arguments()
 
         # Step 1: Parse pre-compiled library (from the CCD, augmented with OpenBabel) of all residues observed in the PDB
