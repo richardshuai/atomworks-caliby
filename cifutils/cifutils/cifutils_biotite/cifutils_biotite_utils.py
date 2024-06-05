@@ -13,6 +13,11 @@ from biotite.structure.atoms import repeat
 from biotite.structure.io.pdbx import CIFBlock, CIFFile, BinaryCIFFile
 from cifutils.cifutils_biotite.common import exists
 from functools import cache
+from biotite.structure.atoms import AtomArray
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
@@ -269,3 +274,26 @@ def get_std_alt_atom_id_conversion(res_name: str) -> dict:
     mapping = {"std_to_alt": dict(zip(std_atom_ids, alt_atom_ids)), "alt_to_std": dict(zip(alt_atom_ids, std_atom_ids))}
 
     return mapping
+
+
+def standardize_atom_ids(atom_array: AtomArray) -> np.ndarray:
+    _found_alt_atom_ids = 0
+    atom_name_all = []
+    for res in struc.residue_iter(atom_array):
+        res_name = res.res_name
+        atom_name = res.atom_name
+
+        # Check if an atom array uses standard atom ids
+        mapping = get_std_alt_atom_id_conversion(res_name[0])
+        std_atoms = np.array(list(mapping["std_to_alt"].keys()))
+        if not np.all(np.isin(atom_name, std_atoms)):
+            _found_alt_atom_ids += 1
+            # Convert to standard atom ids
+            atom_name = np.array([mapping["alt_to_std"][atom_id] for atom_id in atom_name])
+
+        atom_name_all.append(atom_name)
+
+    if _found_alt_atom_ids > 0:
+        logger.info(f"Found {_found_alt_atom_ids} alternative atom ids.")
+
+    return np.concatenate(atom_name_all)
