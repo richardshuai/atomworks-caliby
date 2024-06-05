@@ -281,15 +281,19 @@ def standardize_atom_ids(atom_array: AtomArray) -> np.ndarray:
     atom_name_all = []
     for res in struc.residue_iter(atom_array):
         res_name = res.res_name
+        # NOTE: We do not rename any H atoms, as we only care about 
+        #  covalent bonds in the struct_conn category later and so
+        #  we will never have to match up H's.
+        is_heavy = res.element != "H"
         atom_name = res.atom_name
 
         # Check if an atom array uses standard atom ids
         mapping = get_std_alt_atom_id_conversion(res_name[0])
         std_atoms = np.array(list(mapping["std_to_alt"].keys()))
-        if not np.all(np.isin(atom_name, std_atoms)):
+        if not np.all(np.isin(atom_name[is_heavy], std_atoms)):
             _found_alt_atom_ids += 1
             # Convert to standard atom ids
-            atom_name = np.array([mapping["alt_to_std"][atom_id] for atom_id in atom_name])
+            atom_name[is_heavy] = np.array([mapping["alt_to_std"][atom_id] for atom_id in atom_name[is_heavy]])
 
         atom_name_all.append(atom_name)
 
