@@ -5,8 +5,11 @@ from biotite.structure.io import pdbx
 import numpy as np
 
 MULTIPLE_ASSEMBLY_TEST_CASES = [
-    {"pdbid": "1A7J", "n_assemblies": 3},
-    {"pdbid": "1KTD", "n_assemblies": 3},
+    {"pdbid": "1a7j", "n_assemblies": 3},
+    {"pdbid": "1ktd", "n_assemblies": 3},
+    {"pdbid": "5vos", "n_assemblies": 1},
+    {"pdbid": "1vei", "n_assemblies": 1},
+    {"pdbid": "6t40", "n_assemblies": 1},
 ]
 
 ASSEMBLY_ATOM_COORDINATES_TEST_CASES = ["1A8O", "1RXZ", "4NDZ", "5XNL", "6DMG", "2E2H"]
