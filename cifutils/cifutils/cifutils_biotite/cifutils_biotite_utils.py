@@ -281,7 +281,7 @@ def standardize_atom_ids(atom_array: AtomArray) -> np.ndarray:
     atom_name_all = []
     for res in struc.residue_iter(atom_array):
         res_name = res.res_name
-        # NOTE: We do not rename any H atoms, as we only care about 
+        # NOTE: We do not rename any H atoms, as we only care about
         #  covalent bonds in the struct_conn category later and so
         #  we will never have to match up H's.
         is_heavy = res.element != "H"
