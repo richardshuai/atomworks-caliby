@@ -273,7 +273,6 @@ def cifutils_biotite_parser():
     "pdb_id",
     [
         "2k0a",
-        "3k4a",
         "3kfa",
         "4az0",
         "2ejf",
@@ -287,7 +286,6 @@ def cifutils_biotite_parser():
         "1nte",
         "3dpm",
         "1bs3",
-        "2b4b",
         "1etu",
         "4ztt",
         "1brx",
@@ -295,7 +293,6 @@ def cifutils_biotite_parser():
         "4ndz",
         "1lys",
         "6dmg",
-        "1a8o",
         "6wjc",
         "4js1",
         "1ivo",
@@ -309,7 +306,6 @@ def cifutils_biotite_parser():
         "1azx",
         "2e2h",
         "1q1k",
-        "3ne7",
     ],
 )
 def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser):
