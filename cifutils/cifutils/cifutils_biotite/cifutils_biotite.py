@@ -18,7 +18,7 @@ from os import PathLike
 from collections import Counter
 
 from cifutils.cifutils_biotite.cifutils_biotite_utils import (
-    apply_transformations,
+    apply_transformation,
     category_to_df,
     category_to_dict,
     deduplicate_iterator,
@@ -286,7 +286,7 @@ class CIFParser:
                 # Filter affected asym IDs
                 sub_structure = atom_array[..., np.isin(atom_array.chain_id, asym_ids)]
                 for operation in operations:
-                    sub_assembly = apply_transformations(sub_structure, transformations, operation)
+                    sub_assembly = apply_transformation(sub_structure, transformations, operation)
                     # Add transformation ID annotation (e.g., 1 for identity operation)
                     sub_assembly.set_annotation("transformation_id", np.full(len(sub_assembly), operation))
                     # Merge the chains with asym IDs for this operation with chains from other operations

@@ -133,30 +133,27 @@ def parse_operation_expression(expression):
     return list(itertools.product(*operations))
 
 
-def apply_transformations(structure, transformation_dict, operations):
+def apply_transformation(structure, transformation_dict, operation):
     """
-    Get subassembly by applying the given operations to the input
+    Get subassembly by applying the given operation to the input
     structure containing affected asym IDs.
 
-    Copied from: https://github.com/biotite-dev/biotite/blob/v0.40.0/src/biotite/structure/io/pdbx/convert.py#L1398
+    Modified from: https://github.com/biotite-dev/biotite/blob/v0.40.0/src/biotite/structure/io/pdbx/convert.py#L1398
     """
-    # Additional first dimesion for 'structure.repeat()'
-    assembly_coord = np.zeros((len(operations),) + structure.coord.shape)
+    coord = structure.coord
+    # Execute for each transformation step
+    # in the operation expression
+    for op_step in operation:
+        rotation_matrix, translation_vector = transformation_dict[op_step]
+        # Rotate
+        coord = matrix_rotate(coord, rotation_matrix)
+        # Translate
+        coord += translation_vector
 
-    # Apply corresponding transformation for each copy in the assembly
-    for i, operation in enumerate(operations):
-        coord = structure.coord
-        # Execute for each transformation step
-        # in the operation expression
-        for op_step in operation:
-            rotation_matrix, translation_vector = transformation_dict[op_step]
-            # Rotate
-            coord = matrix_rotate(coord, rotation_matrix)
-            # Translate
-            coord += translation_vector
-        assembly_coord[i] = coord
+    # Add a dimension to coord to match expected shape or `repeat` (first dimension is # repeats)
+    coord = coord[np.newaxis, ...]
 
-    return repeat(structure, assembly_coord)
+    return repeat(structure, coord)
 
 
 def matrix_rotate(v, matrix):
