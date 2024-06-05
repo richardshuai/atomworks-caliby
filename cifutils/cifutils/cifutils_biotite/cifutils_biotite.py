@@ -662,7 +662,14 @@ class CIFParser:
                 ]
 
                 # Ensure that the we picked the correct residue (to handle sequence heterogeneity; see PDB ID `3nez` for an example)
-                if a_res_name != residue_a.res_name[0] or b_res_name != residue_b.res_name[0]:
+                #  (short circuit eval to avoid indexing errors in cases where we don't have one of the residues due to seq. heterogeneity
+                #   - e.g. 3nez)
+                if (
+                    (len(residue_a) == 0)
+                    or (len(residue_b) == 0)
+                    or (a_res_name != residue_a.res_name[0])
+                    or (b_res_name != residue_b.res_name[0])
+                ):
                     continue
 
                 # Get the atoms that participate in the bond
