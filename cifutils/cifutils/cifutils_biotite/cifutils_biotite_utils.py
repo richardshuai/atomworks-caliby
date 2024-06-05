@@ -293,7 +293,9 @@ def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
         if not np.all(np.isin(atom_name[is_heavy], std_atoms)):
             _found_alt_atom_ids += 1
             # Convert to standard atom ids
-            atom_name[is_heavy] = np.array([mapping["alt_to_std"][atom_id] for atom_id in atom_name[is_heavy]])
+            atom_name[is_heavy] = np.array(
+                [mapping["alt_to_std"].get(atom_id, atom_id) for atom_id in atom_name[is_heavy]]
+            )
 
         atom_name_all.append(atom_name)
 
