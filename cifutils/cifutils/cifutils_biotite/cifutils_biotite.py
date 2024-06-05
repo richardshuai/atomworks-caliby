@@ -29,7 +29,7 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     read_cif_file,
     build_modified_residues_dict,
     get_std_alt_atom_id_conversion,
-    standardize_atom_ids,
+    standardize_heavy_atom_ids,
 )
 from cifutils.cifutils_biotite.common import exists
 
@@ -387,9 +387,9 @@ class CIFParser:
         # Standardize ordering (this is necessary for the matching, e.g. for residues such as `API`)
         # ... we do this by ordering atoms within each residue according to standard CCD ordering
         # NOTE: If performeance were to become an issue, these loops could be grouped (similarly elsewhere)
-        atom_array.atom_name = standardize_atom_ids(atom_array)
+        atom_array.atom_name = standardize_heavy_atom_ids(atom_array)
         atom_array = atom_array[struc.info.standardize.standardize_order(atom_array)]
-        full_atom_array.atom_name = standardize_atom_ids(full_atom_array)
+        full_atom_array.atom_name = standardize_heavy_atom_ids(full_atom_array)
         full_atom_array = full_atom_array[struc.info.standardize.standardize_order(full_atom_array)]
 
         # Find overlap between populated atoms from atom_site and the full atom list derived from the sequences

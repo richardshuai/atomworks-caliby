@@ -276,7 +276,7 @@ def get_std_alt_atom_id_conversion(res_name: str) -> dict:
     return mapping
 
 
-def standardize_atom_ids(atom_array: AtomArray) -> np.ndarray:
+def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
     _found_alt_atom_ids = 0
     atom_name_all = []
     for res in struc.residue_iter(atom_array):
