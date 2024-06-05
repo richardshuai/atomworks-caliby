@@ -28,6 +28,7 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     parse_transformations,
     read_cif_file,
     build_modified_residues_dict,
+    get_std_alt_atom_id_conversion,
     standardize_atom_ids,
 )
 from cifutils.cifutils_biotite.common import exists
@@ -665,8 +666,8 @@ class CIFParser:
                     continue
 
                 # Get the atoms that participate in the bond
-                atom_a = residue_a[residue_a.atom_name == a_atom_id]
-                atom_b = residue_b[residue_b.atom_name == b_atom_id]
+                atom_a = self._get_matching_atom(residue_a, a_atom_id)
+                atom_b = self._get_matching_atom(residue_b, b_atom_id)
 
                 struct_conn_bonds.append([atom_a.index[0], atom_b.index[0], struc.BondType.SINGLE])
 
@@ -1058,3 +1059,26 @@ class CIFParser:
             keep_mask = ~np.isin(atom_array.chain_full_id, chain_full_ids_to_remove)
             atom_array = atom_array[keep_mask]
             return atom_array
+
+    @staticmethod
+    def _get_matching_atom(res: AtomArray, atom_name: str, try_alt_atom_id: bool = True) -> Atom:
+        """Selects a `single` atom from a residue that matches the given atom name or alternative atom id.
+        If none or more are found it raises an error.
+        """
+        # If the atom name exists, simply select it
+        res_name = res.res_name[0]
+        atom = res[res.atom_name == atom_name]
+
+        if len(atom) == 0 and try_alt_atom_id:
+            # if the atom name does not exist, try the alternative atom id
+            # as the alternative atom id's are sometimes used and try to
+            # match the alternative atom id
+            std_alt_map = get_std_alt_atom_id_conversion(res_name)
+            atom = res[res.atom_name == std_alt_map["std_to_alt"][atom_name]]
+
+        if len(atom) != 1:
+            # Check if we found a matching atom, otherwise error
+            msg = f"Found {len(atom)} matching atoms for {atom_name} in {res_name}:\n{res}\n\n"
+            raise ValueError(msg)
+
+        return atom
