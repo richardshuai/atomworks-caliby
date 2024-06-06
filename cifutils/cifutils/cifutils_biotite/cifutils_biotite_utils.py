@@ -278,10 +278,13 @@ def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
     atom_name_all = []
     for res in struc.residue_iter(atom_array):
         res_name = res.res_name
+
         # NOTE: We do not rename any H atoms, as we only care about
         #  covalent bonds in the struct_conn category later and so
         #  we will never have to match up H's.
-        is_heavy = res.element != "H"
+        is_heavy = res.element != 1  # 1 is hydrogen, deuterium, tritium here
+        is_heavy &= ~np.isin(res.element, ["H", "D", "H2", "T"])
+
         atom_name = res.atom_name
 
         # Check if an atom array uses standard atom ids
