@@ -1,6 +1,5 @@
 import pytest
-from cifutils.cifutils_biotite import cifutils_biotite
-from tests.conftest import get_digs_path
+from tests.conftest import get_digs_path, CIF_PARSER
 import numpy as np
 
 LIGAND_AT_SYMMETRY_CENTER_TEST_CASES = [
@@ -16,8 +15,6 @@ LIGAND_AT_SYMMETRY_CENTER_TEST_CASES = [
     },
 ]
 
-cif_parser = cifutils_biotite.CIFParser(exclude_crystallization_aid=True, remove_waters=True)
-
 
 @pytest.mark.parametrize("test_case", LIGAND_AT_SYMMETRY_CENTER_TEST_CASES)
 def test_patch_symmetry_centers(test_case: dict):
@@ -26,7 +23,7 @@ def test_patch_symmetry_centers(test_case: dict):
 
     # Parse the file
     filename = get_digs_path(pdbid)
-    out = cif_parser.parse(filename, build_assembly="first")
+    out = CIF_PARSER.parse(filename, build_assembly="first", remove_crystallization_aids=True, remove_waters=True)
     chain_full_ids = np.unique(out["assemblies"]["1"].chain_full_id).tolist()
 
     # Ensure that we excluded clashing chains

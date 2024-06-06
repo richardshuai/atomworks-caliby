@@ -5,7 +5,7 @@ from cifutils.cifutils_legacy import cifutils_legacy
 import biotite.structure as struc
 import os
 import numpy as np
-from tests.conftest import get_digs_path
+from tests.conftest import get_digs_path, TEST_DATA_DIR
 
 
 def parse_with_cifutils_legacy(filename, cif_parser_legacy):
@@ -354,7 +354,7 @@ def test_unmatched_atom_types():
     Ensure that unmatched atom types are handled correctly. For cifutils_biotite, that means masking the residue with the unmathced atom with 0 occupancy.
     """
     script_dir = os.path.dirname(os.path.realpath(__file__))
-    filename = os.path.join(script_dir, "../test_data/1a8o_modified.cif")
+    filename = TEST_DATA_DIR / "1a8o_modified.cif"
 
     # Parse with cifutils_biotite
     result_dict = parse_with_cifutils_biotite(
