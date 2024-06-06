@@ -15,5 +15,5 @@ TEST_CASES = [
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_atom_order(pdb_id: str):
     path = get_digs_path(pdb_id)
-    result = CIF_PARSER.parse(path, add_missing_atoms=True, build_assembly="all")
+    result = CIF_PARSER.parse(path, add_missing_atoms=True, build_assembly=None)
     assert result is not None

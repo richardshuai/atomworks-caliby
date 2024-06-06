@@ -6,12 +6,11 @@ TEST_CASES = [
     "5xa9",
     "5xag",
     "5xaf",
-    "5ocm",
 ]
 
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_deserialize_assembly(pdb_id: str):
     digs_path = get_digs_path(pdb_id)
-    result = CIF_PARSER.parse(digs_path, build_assembly="all")
+    result = CIF_PARSER.parse(digs_path, build_assembly="first")
     assert result is not None

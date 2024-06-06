@@ -106,6 +106,7 @@ class CIFParser:
         patch_symmetry_centers: bool = True,
         build_assembly: Literal["first", "all"] | list[str] | None = None,
         convert_residues_dict: dict = None,
+        fix_arginines: bool = True,
     ) -> dict:
         """
         Parse the CIF file and return chain information, residue information, atom array, metadata, and legacy data.
@@ -180,7 +181,8 @@ class CIFParser:
         atom_array = self._keep_last_residue(atom_array)
 
         # Resolve arginine naming ambiguity
-        atom_array = resolve_arginine_naming_ambiguity(atom_array)
+        if fix_arginines:
+            atom_array = resolve_arginine_naming_ambiguity(atom_array)
 
         # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
         if add_missing_atoms:
