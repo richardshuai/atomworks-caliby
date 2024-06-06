@@ -30,6 +30,7 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     build_modified_residues_dict,
     get_std_alt_atom_id_conversion,
     standardize_heavy_atom_ids,
+    resolve_arginine_naming_ambiguity,
 )
 from cifutils.cifutils_biotite.common import exists
 
@@ -184,6 +185,9 @@ class CIFParser:
 
         # Handle sequence heterogeneity by selecting the residue that appears last
         atom_array = self._keep_last_residue(atom_array)
+
+        # Resolve arginine naming ambiguity
+        atom_array = resolve_arginine_naming_ambiguity(atom_array)
 
         # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
         if self.add_missing_atoms:

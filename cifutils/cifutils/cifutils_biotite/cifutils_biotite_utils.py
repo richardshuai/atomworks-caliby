@@ -303,3 +303,33 @@ def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
         logger.info(f"Found {_found_alt_atom_ids} alternative atom ids.")
 
     return np.concatenate(atom_name_all)
+
+
+def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
+    """
+    Arginine naming ambiguities are fixed (ensuring NH1 is always closer to CD than NH2)
+    """
+    arg_mask = atom_array.res_name == "ARG"
+
+    arg_nh1_mask = (atom_array.atom_name == "NH1") & arg_mask
+    arg_nh2_mask = (atom_array.atom_name == "NH2") & arg_mask
+    arg_cd_mask = (atom_array.atom_name == "CD") & arg_mask
+
+    cd_nh1_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh1_mask])
+    cd_nh2_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh2_mask])
+
+    # Check if there are any name swamps required
+    needs_name_swapping = cd_nh1_dist > cd_nh2_dist
+
+    if needs_name_swapping:
+        logger.debug(f"Swapping arginine naming ambiguity for {np.sum(needs_name_swapping)} atoms")
+
+        # Update the atom names
+        atom_array.atom_name[arg_nh2_mask][needs_name_swapping] = "NH1"
+        atom_array.atom_name[arg_nh1_mask][needs_name_swapping] = "NH2"
+
+        # Reorder the atom array for consistent ordering
+        updated_order = struc.info.standardize_order(atom_array[arg_mask])
+        atom_array[arg_mask] = atom_array[arg_mask][updated_order]
+
+    return atom_array
