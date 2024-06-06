@@ -315,13 +315,13 @@ def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
     arg_nh2_mask = (atom_array.atom_name == "NH2") & arg_mask
     arg_cd_mask = (atom_array.atom_name == "CD") & arg_mask
 
-    cd_nh1_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh1_mask])
-    cd_nh2_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh2_mask])
+    cd_nh1_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh1_mask], axis=1)
+    cd_nh2_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh2_mask], axis=1)
 
     # Check if there are any name swamps required
     needs_name_swapping = cd_nh1_dist > cd_nh2_dist
 
-    if needs_name_swapping:
+    if np.any(needs_name_swapping):
         logger.debug(f"Swapping arginine naming ambiguity for {np.sum(needs_name_swapping)} atoms")
 
         # Update the atom names

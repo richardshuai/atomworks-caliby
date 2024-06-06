@@ -186,12 +186,12 @@ class CIFParser:
         # Handle sequence heterogeneity by selecting the residue that appears last
         atom_array = self._keep_last_residue(atom_array)
 
-        # Resolve arginine naming ambiguity
-        atom_array = resolve_arginine_naming_ambiguity(atom_array)
-
         # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
         if self.add_missing_atoms:
             atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
+
+        # Resolve arginine naming ambiguity
+        atom_array = resolve_arginine_naming_ambiguity(atom_array)
 
         # Get bonds from the preprocessed CCD and OpenBabel data
         if self.add_bonds:
