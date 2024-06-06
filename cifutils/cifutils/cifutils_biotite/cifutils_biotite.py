@@ -295,8 +295,10 @@ class CIFParser:
                     assemblies[_id] = assemblies[_id] + sub_assembly if _id in assemblies else sub_assembly
 
                 # Create a composite chain_id, transformation_id annotation for ease of access
+
                 chain_full_id = np.char.add(
-                    np.char.add(assemblies[_id].chain_id, "_"), assemblies[_id].transformation_id.astype(str)
+                    np.char.add(assemblies[_id].chain_id.astype("<U20"), "_"),
+                    assemblies[_id].transformation_id.astype(str),
                 )
                 assemblies[_id].set_annotation("chain_full_id", chain_full_id)
 
