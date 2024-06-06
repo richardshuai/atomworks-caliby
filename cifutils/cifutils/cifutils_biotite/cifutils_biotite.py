@@ -384,13 +384,9 @@ class CIFParser:
         full_atom_array.add_annotation("element", dtype=int)
         full_atom_array.set_annotation("element", elements)
 
-        # Standardize ordering (this is necessary for the matching, e.g. for residues such as `API`)
-        # ... we do this by ordering atoms within each residue according to standard CCD ordering
-        # NOTE: If performeance were to become an issue, these loops could be grouped (similarly elsewhere)
+        # Standardize heavy atom naming
         atom_array.atom_name = standardize_heavy_atom_ids(atom_array)
-        atom_array = atom_array[struc.info.standardize.standardize_order(atom_array)]
         full_atom_array.atom_name = standardize_heavy_atom_ids(full_atom_array)
-        full_atom_array = full_atom_array[struc.info.standardize.standardize_order(full_atom_array)]
 
         # Find overlap between populated atoms from atom_site and the full atom list derived from the sequences
         def create_structured_array(atom_array):
