@@ -12,6 +12,12 @@ import toolz
 from biotite.structure.atoms import repeat
 from biotite.structure.io.pdbx import CIFBlock, CIFFile, BinaryCIFFile
 from cifutils.cifutils_biotite.common import exists
+from functools import cache
+from biotite.structure.atoms import AtomArray
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
@@ -250,3 +256,50 @@ def build_modified_residues_dict(cif_block, chain_info_dict):
             modified_residues_dict.setdefault(key, []).append(canon_res_name)
 
     return modified_residues_dict
+
+
+@cache
+def get_std_alt_atom_id_conversion(res_name: str) -> dict:
+    std_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "atom_id")
+    alt_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "alt_atom_id")
+
+    assert len(std_atom_ids) > 0, f"{res_name} info does not exist."
+    assert len(std_atom_ids) == len(
+        alt_atom_ids
+    ), f"{res_name} has {len(std_atom_ids)} standard atom ids and {len(alt_atom_ids)} alternative atom ids"
+
+    mapping = {"std_to_alt": dict(zip(std_atom_ids, alt_atom_ids)), "alt_to_std": dict(zip(alt_atom_ids, std_atom_ids))}
+
+    return mapping
+
+
+def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
+    _found_alt_atom_ids = 0
+    atom_name_all = []
+    for res in struc.residue_iter(atom_array):
+        res_name = res.res_name
+
+        # NOTE: We do not rename any H atoms, as we only care about
+        #  covalent bonds in the struct_conn category later and so
+        #  we will never have to match up H's.
+        is_heavy = res.element != 1  # 1 is hydrogen, deuterium, tritium here
+        is_heavy &= ~np.isin(res.element, ["H", "D", "H2", "T"])
+
+        atom_name = res.atom_name
+
+        # Check if an atom array uses standard atom ids
+        mapping = get_std_alt_atom_id_conversion(res_name[0])
+        std_atoms = np.array(list(mapping["std_to_alt"].keys()))
+        if not np.all(np.isin(atom_name[is_heavy], std_atoms)):
+            _found_alt_atom_ids += 1
+            # Convert to standard atom ids
+            atom_name[is_heavy] = np.array(
+                [mapping["alt_to_std"].get(atom_id, atom_id) for atom_id in atom_name[is_heavy]]
+            )
+
+        atom_name_all.append(atom_name)
+
+    if _found_alt_atom_ids > 0:
+        logger.info(f"Found {_found_alt_atom_ids} alternative atom ids.")
+
+    return np.concatenate(atom_name_all)

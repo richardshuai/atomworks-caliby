@@ -147,7 +147,7 @@ def validate_chains(pdb_id, chains_legacy, converted_chains):
         # Assert number of atoms
         assert (
             len(legacy_atom_ids) == len(converted_atom_ids)
-        ), f"Number of atoms mismatch for chain {chain_id} within PDB ID {pdb_id}: {len(legacy_atom_ids)} vs {len(converted_atom_ids)}"
+        ), f"Number of atoms mismatch for chain {chain_id} within PDB ID {pdb_id}: {len(legacy_atom_ids)} vs {len(converted_atom_ids)}.\n Missing atoms: {legacy_atom_ids - converted_atom_ids}\n Extra atoms: {converted_atom_ids - legacy_atom_ids}"
         # Assert atom IDs match
         assert (
             legacy_atom_ids == converted_atom_ids
@@ -371,4 +371,4 @@ if __name__ == "__main__":
     # Test a single example
     cif_parser_legacy = cifutils_legacy.CIFParser()
     cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True)
-    test_parsing("4az0", cif_parser_legacy, cifutils_biotite_parser)
+    test_parsing("2k0a", cif_parser_legacy, cifutils_biotite_parser)
