@@ -48,8 +48,8 @@ def assert_same_atom_array(
             msg = f"AtomArrays are not equivalent in `{annotation}`\n"
             arr1_mismatch = arr1[mismatch_mask][:max_print_length]  # max len to reduce length of print output
             arr2_mismatch = arr2[mismatch_mask][:max_print_length]
-            msg += f"\tarr1: {arr1_mismatch}\n"
-            msg += f"\tarr2: {arr2_mismatch}\n"
+            msg += f"\tarr1: \n{arr1_mismatch}\n"
+            msg += f"\tarr2: \n{arr2_mismatch}\n"
             raise ValueError(msg)
 
     if not np.allclose(arr1.coord, arr2.coord, equal_nan=True):
