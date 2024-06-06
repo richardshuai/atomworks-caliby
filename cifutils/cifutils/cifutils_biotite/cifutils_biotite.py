@@ -50,12 +50,6 @@ class CIFParser:
         by_residue_pickle="/projects/ml/RF2_allatom/cifutils_extended/ligands_by_residue.pkl",
         by_atom_pickle="/projects/ml/RF2_allatom/cifutils_extended/ligands_by_atom.pkl",
         residues_to_skip: Sequence[str] = None,
-        add_missing_atoms=True,
-        add_bonds=True,
-        convert_residues_dict=None,
-        remove_waters=False,
-        exclude_crystallization_aid=False,
-        patch_symmetry_centers=True,
     ):
         """
         Initialize a CIFParser object.
@@ -64,22 +58,7 @@ class CIFParser:
         - by_residue_pickle (str, optional): Path to the pre-compiled residue-level CCD and OB data built from `make_residue_library_from_ccd.py`.
         - by_atom_pickle (str, optional): Path to the pre-compiled atom-level CCD and OB data built from `make_residue_library_from_ccd.py`.
         - residues_to_skip (list, optional): List of residue names to skip.
-        - add_missing_atoms (bool, optional): Whether to add missing atoms to the structure, including relevant OpenBabel atom-level data.
-        - add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
-        - convert_residues_dict (dict, optional): Dictionary of residue name conversions. Keys are the original residue names, and values are the new residue names.
-        - remove_waters (bool, optional): Whether to remove water molecules from the structure.
-        - exclude_crystallization_aid (bool, optional): Whether to exclude crystallization aids and ions from the structure. Uses the AF-3 exclusion list.
-        - patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed.
         """
-
-        # Step 0: Set and validate arguments
-        self.add_missing_atoms = add_missing_atoms
-        self.add_bonds = add_bonds
-        self.convert_residues_dict = convert_residues_dict
-        self.remove_waters = remove_waters
-        self.exclude_crystallization_aid = exclude_crystallization_aid
-        self.patch_symmetry_centers = patch_symmetry_centers
-        self._validate_arguments()
 
         # Step 1: Parse pre-compiled library (from the CCD, augmented with OpenBabel) of all residues observed in the PDB
         logger.info(f"Loading residue-level CCD and OB data from {by_residue_pickle}...")
@@ -108,19 +87,25 @@ class CIFParser:
         self.data_by_residue.set_index("name", inplace=True)
         self.extra_info = {}  # For backwards compatability
 
-    def _validate_arguments(self):
+    def _validate_arguments(self, add_missing_atoms: bool, add_bonds: bool, convert_residues_dict: dict):
         """Validate the arguments passed to the CIFParser object."""
-        if not self.add_missing_atoms and self.add_bonds:
+        if not add_missing_atoms and add_bonds:
             raise ValueError("add_bonds cannot be True if add_missing_atoms is False")
-        if not isinstance(self.convert_residues_dict, dict) and exists(self.convert_residues_dict):
+        if not isinstance(convert_residues_dict, dict) and exists(convert_residues_dict):
             raise ValueError("convert_residues_dict must be a dictionary.")
-        if exists(self.convert_residues_dict):
+        if exists(convert_residues_dict):
             raise NotImplementedError("convert_residues_dict is not yet implemented.")
 
     def parse(
         self,
         filename: PathLike,
+        add_missing_atoms: bool = True,
+        add_bonds: bool = True,
+        remove_waters: bool = False,
+        remove_crystallization_aids: bool = False,
+        patch_symmetry_centers: bool = True,
         build_assembly: Literal["first", "all"] | list[str] | None = None,
+        convert_residues_dict: dict = None,
     ) -> dict:
         """
         Parse the CIF file and return chain information, residue information, atom array, metadata, and legacy data.
@@ -128,6 +113,12 @@ class CIFParser:
         Args:
         - filename (str): Path to the CIF file. May be any format of CIF file (e.g., gz, bcif, etc.).
         - build_assembly (str, optional): Which assembly to build, if any. Options are None (e.g., asymmetric unit), "first", "all", or a list of assembly IDs. Defaults to None.
+        - add_missing_atoms (bool, optional): Whether to add missing atoms to the structure, including relevant OpenBabel atom-level data.
+        - add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
+        - convert_residues_dict (dict, optional): Dictionary of residue name conversions. Keys are the original residue names, and values are the new residue names.
+        - remove_waters (bool, optional): Whether to remove water molecules from the structure.
+        - remove_crystallization_aids (bool, optional): Whether to exclude crystallization aids and ions from the structure. Uses the AF-3 exclusion list.
+        - patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed.
 
         Returns:
         - dict: A dictionary containing the following keys:
@@ -140,6 +131,8 @@ class CIFParser:
         'modified_residues': A dictionary mapping modified residue names to their canonical name(s).
         'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
         """
+        self._validate_arguments(add_missing_atoms, add_bonds, convert_residues_dict)
+
         cif_file = read_cif_file(filename)
         cif_block = cif_file.block
 
@@ -165,11 +158,11 @@ class CIFParser:
         chain_info_dict = self._get_chain_info(cif_block, atom_array)
 
         # Remove waters
-        if self.remove_waters:
+        if remove_waters:
             atom_array = atom_array[atom_array.res_name != "HOH"]
 
         # Remove crystallization aids and ions from the atom array
-        if self.exclude_crystallization_aid:
+        if remove_crystallization_aids:
             atom_array = self._remove_crystallization_aids_and_ions(atom_array)
 
         # Replace non-polymeric chain sequence ids with author sequence ids
@@ -186,20 +179,22 @@ class CIFParser:
         # Handle sequence heterogeneity by selecting the residue that appears last
         atom_array = self._keep_last_residue(atom_array)
 
-        # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
-        if self.add_missing_atoms:
-            atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
-
         # Resolve arginine naming ambiguity
         atom_array = resolve_arginine_naming_ambiguity(atom_array)
 
+        # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
+        if add_missing_atoms:
+            atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
+
         # Get bonds from the preprocessed CCD and OpenBabel data
-        if self.add_bonds:
+        if add_bonds:
             atom_array = self._add_bonds(cif_block, atom_array, chain_info_dict)
 
         # Build the assembly and add the transformation_id annotation (defaults to identity)
         if exists(build_assembly):
-            assemblies = self._build_assembly(cif_block, atom_array, assembly_ids=build_assembly)
+            assemblies = self._build_assembly(
+                cif_block, atom_array, assembly_ids=build_assembly, patch_symmetry_centers=patch_symmetry_centers
+            )
         else:
             assemblies = {}
 
@@ -239,7 +234,11 @@ class CIFParser:
         return atom_array
 
     def _build_assembly(
-        self, cif_block: CIFBlock, atom_array: AtomArray, assembly_ids: Literal["all", "first"] | list[str] = "first"
+        self,
+        cif_block: CIFBlock,
+        atom_array: AtomArray,
+        assembly_ids: Literal["all", "first"] | list[str] = "first",
+        patch_symmetry_centers: bool = True,
     ) -> AtomArray:
         """
         Build the first biological assembly found within the mmCIF file and update the `transformation_id` annotation.
@@ -307,7 +306,7 @@ class CIFParser:
                 assemblies[_id].set_annotation("chain_full_id", chain_full_id)
 
                 # For molecules with multiple transformations, we need to check for non-polymers at symmetry centers
-                if len(operations) > 1 and self.patch_symmetry_centers:
+                if len(operations) > 1 and patch_symmetry_centers:
                     assemblies[_id] = self._maybe_patch_non_polymer_at_symmetry_center(assemblies[_id])
         return assemblies
 
