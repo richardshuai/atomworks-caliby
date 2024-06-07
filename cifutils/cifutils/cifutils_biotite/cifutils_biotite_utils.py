@@ -266,7 +266,7 @@ def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
         atom_name_all.append(atom_name)
 
     if _found_alt_atom_ids > 0:
-        logger.info(f"Found {_found_alt_atom_ids} alternative atom ids.")
+        logger.debug(f"Found {_found_alt_atom_ids} alternative atom ids.")
 
     return np.concatenate(atom_name_all)
 
@@ -293,7 +293,7 @@ def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
 
     # Swap NH1 and NH2 names if NH1 is further from CD than NH2
     if np.any(to_swap):
-        logger.info(f"Resolving {np.sum(_to_swap)} arginine naming ambiguities.")
+        logger.debug(f"Resolving {np.sum(_to_swap)} arginine naming ambiguities.")
         atom_array.atom_name[arg_nh1_mask & to_swap] = "NH2"
         atom_array.atom_name[arg_nh2_mask & to_swap] = "NH1"
 
