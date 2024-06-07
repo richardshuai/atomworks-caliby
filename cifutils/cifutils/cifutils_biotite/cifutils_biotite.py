@@ -472,20 +472,20 @@ class CIFParser:
 
         # If any heavy atom in a residue cannot be matched, then mask the whole residue
         if len(_failed_to_match) > 0:
-            logger.debug(
-                "Masking all residues in `full_atom_array` that have heavy atoms in `atom_array` that failed to match."
-            )
             failing_atoms = atom_array[np.array(_failed_to_match)]
             is_heavy = ~np.isin(failing_atoms.element, ["H", "D", "T"])
-            for atom in failing_atoms[is_heavy]:
-                chain_id, res_id, res_name = atom.chain_id, atom.res_id, atom.res_name
-                residue_mask = (
-                    (full_atom_array.chain_id == chain_id)
-                    & (full_atom_array.res_id == res_id)
-                    & (full_atom_array.res_name == res_name)
+            if len(failing_atoms[is_heavy]) > 0:
+                for atom in failing_atoms[is_heavy]:
+                    chain_id, res_id, res_name = atom.chain_id, atom.res_id, atom.res_name
+                    residue_mask = (
+                        (full_atom_array.chain_id == chain_id)
+                        & (full_atom_array.res_id == res_id)
+                        & (full_atom_array.res_name == res_name)
+                    )
+                    full_atom_array.occupancy[residue_mask] = 0
+                logger.warning(
+                    f"Masked residues for {len(failing_atoms[is_heavy])} heavy atoms in `atom_array` that failed to match."
                 )
-                full_atom_array.occupancy[residue_mask] = 0
-            logger.warning(f"Masked residues for {len(failing_atoms[is_heavy])} heavy atoms.")
 
         return full_atom_array
 
