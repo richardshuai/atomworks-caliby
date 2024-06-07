@@ -417,6 +417,7 @@ class CIFParser:
         # ... inspect all present atoms in `atom_array` and get the matching idx in `full_atom_array`
         full_atom_array_match_idx = []
         atom_array_match_idx = []
+        _failed_to_match = []
         for idx, id in enumerate(
             zip(atom_array.chain_id, atom_array.res_id, atom_array.res_name, atom_array.atom_name)
         ):
@@ -424,6 +425,7 @@ class CIFParser:
                 full_atom_array_match_idx.append(id_to_idx_full_atom_array[id])
                 atom_array_match_idx.append(idx)
             else:
+                _failed_to_match.append(idx)
                 logger.warning(f"Atom {id} not found in `full_atom_array`!")
 
         # ... turn arrays into np arrays
@@ -456,7 +458,23 @@ class CIFParser:
         polymer_mask = np.isin(full_atom_array.chain_id, polymer_chain_ids)
         full_atom_array.set_annotation("is_polymer", polymer_mask)
 
-        # If any heavy atom in a residue cannot be matched, then mask the whole residue (TODO: reintroduce if needed)
+        # If any heavy atom in a residue cannot be matched, then mask the whole residue
+        if len(_failed_to_match) > 0:
+            logger.debug(
+                "Masking all residues in `full_atom_array` that have heavy atoms in `atom_array` that failed to match."
+            )
+            failing_atoms = atom_array[np.array(_failed_to_match)]
+            is_heavy = ~np.isin(failing_atoms.element, ["H", "D", "T"])
+            for atom in failing_atoms[is_heavy]:
+                chain_id, res_id, res_name = atom.chain_id, atom.res_id, atom.res_name
+                residue_mask = (
+                    (full_atom_array.chain_id == chain_id)
+                    & (full_atom_array.res_id == res_id)
+                    & (full_atom_array.res_name == res_name)
+                )
+                full_atom_array.occupancy[residue_mask] = 0
+            logger.debug(f"Masked residues for {len(failing_atoms[is_heavy])} heavy atoms.")
+
         return full_atom_array
 
     @lru_cache(maxsize=None)
