@@ -25,4 +25,4 @@ def test_prior_bugs(pdb_id: str):
         patch_symmetry_centers=True,
         fix_arginines=True,
     )
-    assert result is not None # Check if processing runs through
+    assert result is not None  # Check if processing runs through
