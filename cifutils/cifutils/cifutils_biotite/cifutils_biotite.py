@@ -30,6 +30,7 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     get_std_alt_atom_id_conversion,
     standardize_heavy_atom_ids,
     resolve_arginine_naming_ambiguity,
+    mse_to_met,
 )
 from cifutils.cifutils_biotite.common import exists
 
@@ -106,6 +107,7 @@ class CIFParser:
         build_assembly: Literal["first", "all"] | list[str] | None = None,
         convert_residues_dict: dict = None,
         fix_arginines: bool = True,
+        convert_mse_to_met: bool = False,
     ) -> dict:
         """
         Parse the CIF file and return chain information, residue information, atom array, metadata, and legacy data.
@@ -132,6 +134,9 @@ class CIFParser:
         'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
         """
         self._validate_arguments(add_missing_atoms, add_bonds, convert_residues_dict)
+        # ... init internal processing variables
+        converted_res = {}
+        ignored_res = []
 
         cif_file = read_cif_file(filename)
         cif_block = cif_file.block
@@ -160,10 +165,12 @@ class CIFParser:
         # Remove waters
         if remove_waters:
             atom_array = atom_array[atom_array.res_name != "HOH"]
+            ignored_res.append("HOH")
 
         # Remove crystallization aids and ions from the atom array
         if remove_crystallization_aids:
             atom_array = self._remove_crystallization_aids_and_ions(atom_array)
+            ignored_res.extend(CRYSTALLIZATION_AIDS)
 
         # Replace non-polymeric chain sequence ids with author sequence ids
         atom_array = self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
@@ -187,9 +194,14 @@ class CIFParser:
         if fix_arginines:
             atom_array = resolve_arginine_naming_ambiguity(atom_array)
 
+        # Convert MSE to MET
+        if convert_mse_to_met:
+            atom_array = mse_to_met(atom_array)
+            converted_res["MSE"] = "MET"
+
         # Get bonds from the preprocessed CCD and OpenBabel data
         if add_bonds:
-            atom_array = self._add_bonds(cif_block, atom_array, chain_info_dict)
+            atom_array = self._add_bonds(cif_block, atom_array, chain_info_dict, converted_res, ignored_res)
 
         # Build the assembly and add the transformation_id annotation (defaults to identity)
         if exists(build_assembly):
@@ -631,7 +643,12 @@ class CIFParser:
         }
 
     def _add_bonds_from_struct_conn(
-        self, cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray
+        self,
+        cif_block: CIFBlock,
+        chain_info_dict: dict,
+        atom_array: AtomArray,
+        converted_res: dict = {},
+        ignored_res: list = [],
     ) -> tuple[list[list[int]], list[int]]:
         """
         Adds bonds from the 'struct_conn' category of a CIF block to an atom array. Only covalent bonds are considered.
@@ -640,6 +657,8 @@ class CIFParser:
         - cif_block (CIFBlock): The CIF block for the entry.
         - chain_info_dif (Dict): A dictionary containing information about the chains.
         - atom_array (AtomArray): The atom array used to get atom indices.
+        - converted_res (dict): A dictionary of residues that have been converted to a different residue name.
+        - ignored_res (list): A list of residues that should be ignored.
 
         Returns:
         - struct_conn_bonds: A List of bonds to be added to the atom array.
@@ -662,11 +681,11 @@ class CIFParser:
                 b_chain_id = row["ptnr2_label_asym_id"]
                 a_atom_id = row["ptnr1_label_atom_id"]
                 b_atom_id = row["ptnr2_label_atom_id"]
-                a_res_name = row["ptnr1_label_comp_id"]
-                b_res_name = row["ptnr2_label_comp_id"]
+                a_res_name = converted_res.get(row["ptnr1_label_comp_id"], row["ptnr1_label_comp_id"])
+                b_res_name = converted_res.get(row["ptnr2_label_comp_id"], row["ptnr2_label_comp_id"])
 
                 # Check if res_name is water or a crystallization aid, in which case we early exit:
-                if (a_res_name in ["HOH"] + CRYSTALLIZATION_AIDS) or (b_res_name in ["HOH"] + CRYSTALLIZATION_AIDS):
+                if (a_res_name in ignored_res) or (b_res_name in ignored_res):
                     # skip
                     continue
 
@@ -730,7 +749,14 @@ class CIFParser:
 
         return struct_conn_bonds, leaving_atom_indices
 
-    def _add_bonds(self, cif_block: CIFBlock, atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
+    def _add_bonds(
+        self,
+        cif_block: CIFBlock,
+        atom_array: AtomArray,
+        chain_info_dict: dict,
+        converted_res: dict = {},
+        ignored_res: list = [],
+    ) -> AtomArray:
         """
         Add bonds to the atom array stack using precomputed CCD data and the mmCIF `struct_conn` field.
 
@@ -748,7 +774,7 @@ class CIFParser:
         # Step 1: Add inter-residue and inter-chain bonds from the `struct_conn` category in the CIF file
         leaving_atom_indices = []
         struct_conn_bonds, struct_conn_leaving_atom_indices = self._add_bonds_from_struct_conn(
-            cif_block, chain_info_dict, atom_array
+            cif_block, chain_info_dict, atom_array, converted_res, ignored_res
         )
         if exists(struct_conn_leaving_atom_indices) and len(struct_conn_leaving_atom_indices) > 0:
             leaving_atom_indices.append(np.concatenate(struct_conn_leaving_atom_indices))

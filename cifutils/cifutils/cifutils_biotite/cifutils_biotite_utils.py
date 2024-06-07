@@ -300,3 +300,32 @@ def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
         # apply reorder to ensure standardized order
         atom_array[arg_mask] = atom_array[arg_mask][struc.info.standardize_order(atom_array[arg_mask])]
     return atom_array
+
+
+def mse_to_met(atom_array: AtomArray) -> AtomArray:
+    """
+    Convert MSE to MET for arginine residues.
+    """
+    mse_mask = atom_array.res_name == "MSE"
+    if np.any(mse_mask):
+        se_mask = (atom_array.atom_name == "SE") & mse_mask
+        logger.debug(f"Converting {np.sum(se_mask)} MSE residues to MET.")
+
+        # Update residue name, hetero flag, and element
+        atom_array.res_name[mse_mask] = "MET"
+        atom_array.hetero[mse_mask] = False
+        atom_array.atom_name[se_mask] = "SD"
+
+        # ... handle cases for integer or string representatiosn of element
+        _elt_prev = atom_array.element[se_mask][0]
+        if _elt_prev == "SE":
+            atom_array.element[se_mask] = "S"
+        elif _elt_prev == 34:
+            atom_array.element[se_mask] = 16
+        elif _elt_prev == "34":
+            atom_array.element[se_mask] = "16"
+
+        # Reorder atoms for canonical MET ordering
+        atom_array[mse_mask] = atom_array[mse_mask][struc.info.standardize_order(atom_array[mse_mask])]
+
+    return atom_array
