@@ -179,13 +179,13 @@ class CIFParser:
         # Handle sequence heterogeneity by selecting the residue that appears last
         atom_array = self._keep_last_residue(atom_array)
 
-        # Resolve arginine naming ambiguity
-        if fix_arginines:
-            atom_array = resolve_arginine_naming_ambiguity(atom_array)
-
         # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
         if add_missing_atoms:
             atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
+
+        # Resolve arginine naming ambiguity
+        if fix_arginines:
+            atom_array = resolve_arginine_naming_ambiguity(atom_array)
 
         # Get bonds from the preprocessed CCD and OpenBabel data
         if add_bonds:
@@ -399,68 +399,64 @@ class CIFParser:
         atom_array.atom_name = standardize_heavy_atom_ids(atom_array)
         full_atom_array.atom_name = standardize_heavy_atom_ids(full_atom_array)
 
-        # Find overlap between populated atoms from atom_site and the full atom list derived from the sequences
-        def create_structured_array(atom_array):
-            """Create a structured array from an AtomArray object. Used for efficient element comparison."""
-            dtype = np.dtype([("chain_id", "<U4"), ("res_id", "int64"), ("res_name", "<U5"), ("atom_name", "<U6")])
-            structured_array = np.zeros(len(atom_array), dtype=dtype)
-            structured_array["chain_id"] = atom_array.chain_id
-            structured_array["res_id"] = atom_array.res_id
-            structured_array["res_name"] = atom_array.res_name
-            structured_array["atom_name"] = atom_array.atom_name
-            return structured_array
+        # Compute index mapping between `full_atom_array`
+        # ... get lookup table of id -> idx for full_atom_array
+        id_to_idx_full_atom_array = {
+            id: idx
+            for idx, id in enumerate(
+                zip(
+                    full_atom_array.chain_id,
+                    full_atom_array.res_id,
+                    full_atom_array.res_name,
+                    full_atom_array.atom_name,
+                )
+            )
+        }
+        assert len(id_to_idx_full_atom_array) == len(full_atom_array), "Duplicate atom ids in `full_atom_array`!"
 
-        full_atom_array_structured = create_structured_array(full_atom_array)
-        present_atom_array_structured = create_structured_array(atom_array)
-        full_atom_array_match_mask = np.isin(full_atom_array_structured, present_atom_array_structured)
-        present_atom_array_match_mask = np.isin(present_atom_array_structured, full_atom_array_structured)
-
-        if not np.array_equal(
-            full_atom_array[full_atom_array_match_mask].atom_name,
-            atom_array[present_atom_array_match_mask].atom_name,
+        # ... inspect all present atoms in `atom_array` and get the matching idx in `full_atom_array`
+        full_atom_array_match_idx = []
+        atom_array_match_idx = []
+        for idx, id in enumerate(
+            zip(atom_array.chain_id, atom_array.res_id, atom_array.res_name, atom_array.atom_name)
         ):
-            # Extract mismatched atom information for error message
-            mismatch_mask = np.where(
-                full_atom_array[full_atom_array_match_mask].atom_name
-                != atom_array[present_atom_array_match_mask].atom_name,
-                True,
-                False,
-            )
-            full_atom_array_mismatch_ids = full_atom_array_structured[full_atom_array_match_mask][mismatch_mask]
-            atom_array_mismatch_ids = present_atom_array_structured[present_atom_array_match_mask][mismatch_mask]
-            mismatches = np.vstack((full_atom_array_mismatch_ids, atom_array_mismatch_ids)).T
+            if id in id_to_idx_full_atom_array:
+                full_atom_array_match_idx.append(id_to_idx_full_atom_array[id])
+                atom_array_match_idx.append(idx)
+            else:
+                logger.warning(f"Atom {id} not found in `full_atom_array`!")
+
+        # ... turn arrays into np arrays
+        full_atom_array_match_idx = np.array(full_atom_array_match_idx)
+        atom_array_match_idx = np.array(atom_array_match_idx)
+
+        # ... verify that there is a 1-to-1 mapping between the two arrays
+        if not len(full_atom_array_match_idx) == len(atom_array_match_idx):
+            unique, counts = np.unique(full_atom_array_match_idx, return_counts=True)
+            # ... find duplicates in `full_atom_array_match_idx` for error message
+            duplicates = unique[counts > 1]
+            duplicates_id = full_atom_array[full_atom_array_match_idx][duplicates]
             raise ValueError(
-                f"Order of atom names in full_atom_array and atom_array do not match.\nFound {len(mismatches)} mismatches:\n\n{mismatches}"
+                f"Mismatch between `full_atom_array` and `atom_array`! Found {len(duplicates)} duplicates in `full_atom_array_match_idx`:\n{duplicates_id}"
             )
 
-        # Prepare np arrays to add b_factor and occupancy annotations to the AtomArray
+        # Carry over the annotations from `atom_array` to `full_atom_array` for corresponding atoms
+        # ... initialize
         b_factor = np.zeros(len(full_atom_array), dtype=np.float32)
-        b_factor[full_atom_array_match_mask] = atom_array[present_atom_array_match_mask].b_factor
         occupancy = np.zeros(len(full_atom_array), dtype=np.float32)
-        occupancy[full_atom_array_match_mask] = atom_array[present_atom_array_match_mask].occupancy
-
-        # Replace annotations
-        full_atom_array.coord[full_atom_array_match_mask] = atom_array[present_atom_array_match_mask].coord
+        # ... carry over annotations
+        full_atom_array.coord[full_atom_array_match_idx] = atom_array[atom_array_match_idx].coord
+        b_factor[full_atom_array_match_idx] = atom_array[atom_array_match_idx].b_factor
+        occupancy[full_atom_array_match_idx] = atom_array[atom_array_match_idx].occupancy
         full_atom_array.set_annotation("b_factor", b_factor)
         full_atom_array.set_annotation("occupancy", occupancy)
-
-        # Create polymer annotation
+        # ... polymer annotation
         full_atom_array.add_annotation("is_polymer", dtype=bool)
         polymer_chain_ids = [chain_id for chain_id, chain_info in chain_info_dict.items() if chain_info["is_polymer"]]
         polymer_mask = np.isin(full_atom_array.chain_id, polymer_chain_ids)
         full_atom_array.set_annotation("is_polymer", polymer_mask)
 
-        # If any heavy atom in a residue cannot be matched, then mask the whole residue
-        unmatched_heavy_atoms_mask = ~present_atom_array_match_mask & (
-            (atom_array.element != "H")
-            & (atom_array.element != "D")  # Note that in atom_array the elements are still strings
-        )
-        unmatched_heavy_atoms = atom_array[unmatched_heavy_atoms_mask]
-        for i in range(len(unmatched_heavy_atoms)):
-            atom = unmatched_heavy_atoms[i]
-            residue_mask = (full_atom_array.chain_id == atom.chain_id) & (full_atom_array.res_id == atom.res_id)
-            full_atom_array.occupancy[residue_mask] = np.zeros(np.sum(residue_mask), dtype=np.half)
-
+        # If any heavy atom in a residue cannot be matched, then mask the whole residue (TODO: reintroduce if needed)
         return full_atom_array
 
     @lru_cache(maxsize=None)
