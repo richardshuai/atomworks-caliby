@@ -7,7 +7,7 @@ TEST_CASES = [
     "2fs3",  # Contains an unusual operation expression for assembly building
     "1fp7",  # Contains bonds between crystallization aids in struct_conn
     "6lzb",  # Duplicate index problem with struct_conn (? - presumably crystallization aids/water)
-    "5t39"  # Contains misordered atoms in a residue (`SAH`)
+    "5t39",  # Contains misordered atoms in a residue (`SAH`)
     "1nci",  # Issues with arginine resolving, seems to have differing number of NH1/NH2
 ]
 
