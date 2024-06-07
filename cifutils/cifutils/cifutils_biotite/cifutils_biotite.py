@@ -24,7 +24,6 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     deduplicate_iterator,
     fix_bonded_atom_charges,
     get_bond_type_from_order_and_is_aromatic,
-    parse_operation_expression,
     parse_transformations,
     read_cif_file,
     build_modified_residues_dict,
@@ -288,13 +287,18 @@ class CIFParser:
         ):
             # Find the operation expressions for given assembly ID
             if _id in to_build:
-                operations = parse_operation_expression(op_expr)
+                operations = pdbx.convert._parse_operation_expression(op_expr)
                 asym_ids = asym_id_expr.split(",")
                 # Filter affected asym IDs
                 sub_structure = atom_array[..., np.isin(atom_array.chain_id, asym_ids)]
                 for operation in operations:
                     sub_assembly = apply_transformation(sub_structure, transformations, operation)
                     # Add transformation ID annotation (e.g., 1 for identity operation)
+                    if len(operation) > 1:
+                        # Rarely, operation expressions will have multiple elements defining their name
+                        # (e.g. ('1', 'X0') for `2fs3`), in this case we combine them into a single string
+                        # for referencing the operation later on
+                        operation = "".join(operation)
                     sub_assembly.set_annotation("transformation_id", np.full(len(sub_assembly), operation))
                     # Merge the chains with asym IDs for this operation with chains from other operations
                     assemblies[_id] = assemblies[_id] + sub_assembly if _id in assemblies else sub_assembly

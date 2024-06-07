@@ -1,6 +1,5 @@
 from __future__ import annotations
 import gzip
-import itertools
 from collections import OrderedDict
 from pathlib import Path
 from os import PathLike
@@ -104,39 +103,6 @@ def parse_transformations(struct_oper):
         translation_vector = np.array([struct_oper[f"vector[{i}]"].as_array(float)[index] for i in (1, 2, 3)])
         transformation_dict[id] = (rotation_matrix, translation_vector)
     return transformation_dict
-
-
-def parse_operation_expression(expression):
-    """
-    Get successive operation steps (IDs) for the given
-    ``oper_expression``.
-    Form the cartesian product, if necessary.
-
-    Copied from: https://github.com/biotite-dev/biotite/blob/v0.40.0/src/biotite/structure/io/pdbx/convert.py#L1398
-    """
-    # Split groups by parentheses:
-    # use the opening parenthesis as delimiter
-    # and just remove the closing parenthesis
-    expressions_per_step = expression.replace(")", "").split("(")
-    expressions_per_step = [e for e in expressions_per_step if len(e) > 0]
-    # Important: Operations are applied from right to left
-    expressions_per_step.reverse()
-
-    operations = []
-    for expr in expressions_per_step:
-        if "-" in expr:
-            # Range of operation IDs, they must be integers
-            first, last = expr.split("-")
-            operations.append([str(id) for id in range(int(first), int(last) + 1)])
-        elif "," in expr:
-            # List of operation IDs
-            operations.append(expr.split(","))
-        else:
-            # Single operation ID
-            operations.append([expr])
-
-    # Cartesian product of operations
-    return list(itertools.product(*operations))
 
 
 def apply_transformation(structure, transformation_dict, operation):
