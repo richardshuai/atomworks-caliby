@@ -1042,7 +1042,7 @@ class CIFParser:
             else:
                 # Remove identity matrix so we don't count self-clashes
                 clash_matrix = clash_matrix & ~identity_matrix
-            logger.debug("Found clashes, resolving.")
+            logger.debug("Found clashing non-polymer at a symmetry center, resolving.")
 
             # Get list of chain_ids with clashing atoms (for computational efficiency)
             clashing_atom_mask = np.sum(clash_matrix, axis=1) > 0
