@@ -957,7 +957,7 @@ class CIFParser:
         em_reconstruction = cif_block["em_3d_reconstruction"] if "em_3d_reconstruction" in cif_block.keys() else None
 
         # Method
-        metadata["method"] = exptl["method"].as_item().replace(" ", "_") if exptl else None
+        metadata["method"] = ",".join(exptl["method"].as_array()).replace(" ", "_") if exptl else None
         # Initial deposition date (date)
         metadata["date"] = status["recvd_initial_deposition_date"].as_item() if status else None
         # Resolution
