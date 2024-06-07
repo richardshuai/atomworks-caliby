@@ -636,12 +636,13 @@ class CIFParser:
 
         struct_conn_df = category_to_df(cif_block, "struct_conn")
         struct_conn_df = struct_conn_df[
-            struct_conn_df["conn_type_id"] == "covale"
+            struct_conn_df["conn_type_id"].str.startswith("covale")
         ]  # Only consider covalent bonds (throw out disulfide bods, metal coordination covalent bonds, hydrogen bonds)
         struct_conn_bonds = []
         leaving_atom_indices = []
 
         if not struct_conn_df.empty:
+            logger.debug(f"Attempting to add {len(struct_conn_df)} bonds from `struct_conn`")
             for _, row in struct_conn_df.iterrows():
                 a_chain_id = row["ptnr1_label_asym_id"]
                 b_chain_id = row["ptnr2_label_asym_id"]
@@ -661,7 +662,7 @@ class CIFParser:
                 b_seq_id = (
                     row["ptnr2_label_seq_id"] if chain_info_dict[b_chain_id]["is_polymer"] else row["ptnr2_auth_seq_id"]
                 )
-                
+
                 # Get the indices of the atoms and append to the list
                 residue_a = atom_array[
                     (atom_array.chain_id == a_chain_id)
@@ -1027,6 +1028,7 @@ class CIFParser:
             else:
                 # Remove identity matrix so we don't count self-clashes
                 clash_matrix = clash_matrix & ~identity_matrix
+            logger.debug("Found clashes, resolving.")
 
             # Get list of chain_ids with clashing atoms (for computational efficiency)
             clashing_atom_mask = np.sum(clash_matrix, axis=1) > 0
