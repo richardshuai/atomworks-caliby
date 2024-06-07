@@ -645,17 +645,23 @@ class CIFParser:
             for _, row in struct_conn_df.iterrows():
                 a_chain_id = row["ptnr1_label_asym_id"]
                 b_chain_id = row["ptnr2_label_asym_id"]
+                a_atom_id = row["ptnr1_label_atom_id"]
+                b_atom_id = row["ptnr2_label_atom_id"]
+                a_res_name = row["ptnr1_label_comp_id"]
+                b_res_name = row["ptnr2_label_comp_id"]
+
+                # Check if res_name is water or a crystallization aid, in which case we early exit:
+                if (a_res_name in ["HOH"] + CRYSTALLIZATION_AIDS) or (b_res_name in ["HOH"] + CRYSTALLIZATION_AIDS):
+                    # skip
+                    continue
+
                 a_seq_id = (
                     row["ptnr1_label_seq_id"] if chain_info_dict[a_chain_id]["is_polymer"] else row["ptnr1_auth_seq_id"]
                 )
                 b_seq_id = (
                     row["ptnr2_label_seq_id"] if chain_info_dict[b_chain_id]["is_polymer"] else row["ptnr2_auth_seq_id"]
                 )
-                a_atom_id = row["ptnr1_label_atom_id"]
-                b_atom_id = row["ptnr2_label_atom_id"]
-                a_res_name = row["ptnr1_label_comp_id"]
-                b_res_name = row["ptnr2_label_comp_id"]
-
+                
                 # Get the indices of the atoms and append to the list
                 residue_a = atom_array[
                     (atom_array.chain_id == a_chain_id)
