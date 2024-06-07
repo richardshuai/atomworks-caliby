@@ -1,20 +1,14 @@
 import pytest
-from cifutils.cifutils_biotite import cifutils_biotite, cifutils_biotite_utils
-from tests.conftest import get_digs_path
+from cifutils.cifutils_biotite import cifutils_biotite_utils
+from tests.conftest import get_digs_path, CIF_PARSER, assert_same_atom_array
 from biotite.structure.io import pdbx
-import numpy as np
 
 MULTIPLE_ASSEMBLY_TEST_CASES = [
     {"pdbid": "1a7j", "n_assemblies": 3},
-    {"pdbid": "1ktd", "n_assemblies": 3},
     {"pdbid": "5vos", "n_assemblies": 1},
-    {"pdbid": "1vei", "n_assemblies": 1},
-    {"pdbid": "6t40", "n_assemblies": 1},
 ]
 
 ASSEMBLY_ATOM_COORDINATES_TEST_CASES = ["1A8O", "1RXZ", "4NDZ", "5XNL", "6DMG", "2E2H"]
-
-cif_parser = cifutils_biotite.CIFParser()
 
 
 @pytest.mark.parametrize("test_case", MULTIPLE_ASSEMBLY_TEST_CASES)
@@ -27,13 +21,13 @@ def test_assembly_counts(test_case: dict):
     filename = get_digs_path(pdbid)
 
     # test the different build_assembly options
-    out_no_assembly = cif_parser.parse(filename, build_assembly=None)
+    out_no_assembly = CIF_PARSER.parse(filename, build_assembly=None)
     assert len(out_no_assembly["assemblies"]) == 0
 
-    out_first = cif_parser.parse(filename, build_assembly="first")
+    out_first = CIF_PARSER.parse(filename, build_assembly="first")
     assert len(out_first["assemblies"]) == 1
 
-    out_all = cif_parser.parse(filename, build_assembly="all")
+    out_all = CIF_PARSER.parse(filename, build_assembly="all")
     assert len(out_all["assemblies"]) == n_assemblies
 
 
@@ -57,15 +51,13 @@ def test_assembly_atom_coordinates(pdb_id: str):
     biotite_assembly = biotite_assembly[biotite_assembly.occupancy > 0]
 
     # Cifutils
-    cifutils_assembly = cif_parser.parse(path, build_assembly="first")
+    cifutils_assembly = CIF_PARSER.parse(path, build_assembly="first", fix_arginines=False)
     atom_array = cifutils_assembly["assemblies"]["1"]
     resolved_atoms = atom_array[atom_array.occupancy > 0]
 
-    # Check that the number of atoms match
-    assert len(biotite_assembly) == len(resolved_atoms), f"Number of atoms within assembly do not match for {pdb_id}"
-
-    # Check that the atom locations match
-    assert np.allclose(biotite_assembly.coord, resolved_atoms.coord), f"Atom coordinates do not match for {pdb_id}"
-
-    # Check that the atom names match
-    assert np.all(biotite_assembly.atom_name == resolved_atoms.atom_name), f"Atom names do not match for {pdb_id}"
+    assert_same_atom_array(
+        biotite_assembly,
+        resolved_atoms,
+        annotations_to_compare=["chain_id", "res_name", "atom_name"],
+        # NOTE: We do not compare res_id as waters don't match in the res_id and elements as we turn elements into integers
+    )

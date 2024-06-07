@@ -1,19 +1,30 @@
 from __future__ import annotations
 import pytest
-from cifutils.cifutils_biotite import cifutils_biotite
 from cifutils.cifutils_legacy import cifutils_legacy
 import biotite.structure as struc
-import os
 import numpy as np
-from tests.conftest import get_digs_path
+from tests.conftest import get_digs_path, TEST_DATA_DIR, CIF_PARSER
 
 
 def parse_with_cifutils_legacy(filename, cif_parser_legacy):
     return cif_parser_legacy.parse(filename)
 
 
-def parse_with_cifutils_biotite(filename, cifutils_biotite_parser):
-    return cifutils_biotite_parser.parse(filename)
+def parse_with_cifutils_biotite(
+    filename,
+    cifutils_biotite_parser=CIF_PARSER,
+    add_bonds=True,
+    add_missing_atoms=True,
+    fix_arginines=False,  # Disable, since the old parser did not do this.
+    **kwargs,
+):
+    return cifutils_biotite_parser.parse(
+        filename,
+        add_bonds=add_bonds,
+        add_missing_atoms=add_missing_atoms,
+        fix_arginines=fix_arginines,
+        **kwargs,
+    )
 
 
 def convert_cifutils_biotite_to_legacy(result_dict):
@@ -264,11 +275,6 @@ def cif_parser_legacy():
     return cifutils_legacy.CIFParser()
 
 
-@pytest.fixture(scope="module")
-def cifutils_biotite_parser():
-    return cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True)
-
-
 @pytest.mark.parametrize(
     "pdb_id",
     [
@@ -312,7 +318,7 @@ def cifutils_biotite_parser():
         "3ne7",
     ],
 )
-def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser):
+def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser=CIF_PARSER, **kwargs):
     """
     Compare the results of parsing a CIF file with cifutils_legacy and cifutils_biotite.
 
@@ -332,7 +338,7 @@ def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser):
     )
 
     # Parse with cifutils_biotite
-    result_dict = parse_with_cifutils_biotite(filename, cifutils_biotite_parser)
+    result_dict = parse_with_cifutils_biotite(filename, CIF_PARSER, **kwargs)
 
     # Compare cifutils_legacy with biotite atom locations
     converted_chains, converted_modres, converted_metadata = convert_cifutils_biotite_to_legacy(result_dict)
@@ -353,13 +359,10 @@ def test_unmatched_atom_types():
     """
     Ensure that unmatched atom types are handled correctly. For cifutils_biotite, that means masking the residue with the unmathced atom with 0 occupancy.
     """
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    filename = os.path.join(script_dir, "../test_data/1a8o_modified.cif")
+    filename = TEST_DATA_DIR / "1a8o_modified.cif"
 
     # Parse with cifutils_biotite
-    result_dict = parse_with_cifutils_biotite(
-        filename, cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True)
-    )
+    result_dict = parse_with_cifutils_biotite(filename, CIF_PARSER, add_bonds=True, add_missing_atoms=True)
 
     # Ensure that residue 2 has no occupancy
     atom_array = result_dict["atom_array"]
@@ -370,5 +373,4 @@ def test_unmatched_atom_types():
 if __name__ == "__main__":
     # Test a single example
     cif_parser_legacy = cifutils_legacy.CIFParser()
-    cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True)
-    test_parsing("2k0a", cif_parser_legacy, cifutils_biotite_parser)
+    test_parsing("2k0a", cif_parser_legacy, CIF_PARSER, add_bonds=True, add_missing_atoms=True)

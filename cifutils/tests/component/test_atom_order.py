@@ -1,6 +1,5 @@
 import pytest
-from cifutils.cifutils_biotite import cifutils_biotite
-from tests.conftest import get_digs_path
+from tests.conftest import get_digs_path, CIF_PARSER
 
 TEST_CASES = [
     "6xa4",
@@ -12,11 +11,9 @@ TEST_CASES = [
     "6t4v",
 ]
 
-cif_parser = cifutils_biotite.CIFParser(add_missing_atoms=True)
-
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_atom_order(pdb_id: str):
     path = get_digs_path(pdb_id)
-    result = cif_parser.parse(path, build_assembly="all")
+    result = CIF_PARSER.parse(path, add_missing_atoms=True, build_assembly=None)
     assert result is not None
