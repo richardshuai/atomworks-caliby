@@ -1110,7 +1110,15 @@ class CIFParser:
             # as the alternative atom id's are sometimes used and try to
             # match the alternative atom id
             std_alt_map = get_std_alt_atom_id_conversion(res_name)
-            atom = res[res.atom_name == std_alt_map["std_to_alt"][atom_name]]
+            if atom_name in std_alt_map["std_to_alt"]:
+                # ... try looking for the atom by its standard name
+                atom = res[res.atom_name == std_alt_map["std_to_alt"][atom_name]]
+            elif atom_name in std_alt_map["alt_to_std"]:
+                # ... otherwise try looking for the atom by its alternative name
+                atom = res[res.atom_name == std_alt_map["alt_to_std"][atom_name]]
+            else:
+                # ... set atom to be empty to trigger error
+                atom = []
 
         if len(atom) != 1:
             # Check if we found a matching atom, otherwise error
