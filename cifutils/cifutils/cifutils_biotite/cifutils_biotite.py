@@ -473,7 +473,7 @@ class CIFParser:
                     & (full_atom_array.res_name == res_name)
                 )
                 full_atom_array.occupancy[residue_mask] = 0
-            logger.debug(f"Masked residues for {len(failing_atoms[is_heavy])} heavy atoms.")
+            logger.warning(f"Masked residues for {len(failing_atoms[is_heavy])} heavy atoms.")
 
         return full_atom_array
 
