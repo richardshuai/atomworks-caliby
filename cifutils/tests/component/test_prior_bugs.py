@@ -9,6 +9,7 @@ TEST_CASES = [
     "6lzb",  # Duplicate index problem with struct_conn (? - presumably crystallization aids/water)
     "5t39",  # Contains misordered atoms in a residue (`SAH`)
     "1nci",  # Issues with arginine resolving, seems to have differing number of NH1/NH2
+    "1aym",  # Issues with patching symmetric ligands (invalid literal)
 ]
 
 
