@@ -1085,7 +1085,7 @@ class CIFParser:
 
                 # Loop through possible transformation ID's
                 transformation_ids_to_check = sorted(
-                    np.unique(non_polymers.transformation_id[mask].astype(int)).tolist()
+                    np.unique(non_polymers.transformation_id[mask].astype(str)).tolist()
                 )
                 while transformation_ids_to_check:
                     transformation_id = str(transformation_ids_to_check.pop(0))
