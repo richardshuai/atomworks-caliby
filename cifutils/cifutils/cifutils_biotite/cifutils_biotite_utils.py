@@ -229,7 +229,9 @@ def get_std_alt_atom_id_conversion(res_name: str) -> dict:
     std_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "atom_id")
     alt_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "alt_atom_id")
 
-    assert len(std_atom_ids) > 0, f"{res_name} info does not exist."
+    assert exists(std_atom_ids) and (
+        len(std_atom_ids) > 0
+    ), f"{res_name} info does not exist in biotite's CCD. Try to update it to fix this assertion."
     assert len(std_atom_ids) == len(
         alt_atom_ids
     ), f"{res_name} has {len(std_atom_ids)} standard atom ids and {len(alt_atom_ids)} alternative atom ids"
@@ -249,19 +251,42 @@ def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
         #  covalent bonds in the struct_conn category later and so
         #  we will never have to match up H's.
         is_heavy = res.element != 1  # 1 is hydrogen, deuterium, tritium here
-        is_heavy &= ~np.isin(res.element, ["H", "D", "H2", "T"])
+        is_heavy &= ~np.isin(res.element, ["H", "D", "H2", "T", "1"])
 
         atom_name = res.atom_name
 
         # Check if an atom array uses standard atom ids
-        mapping = get_std_alt_atom_id_conversion(res_name[0])
+        try:
+            mapping = get_std_alt_atom_id_conversion(res_name[0])
+        except AssertionError as e:
+            # deal with residues which do not yet exist in biotite's CCD
+            # skip, but warn
+            logger.warning(
+                f"{e.__class__.__name__}: {e}. Trying to continue processing, but consider updating biotite's CCD."
+            )
+            atom_name_all.append(atom_name)
+            continue
+
         std_atoms = np.array(list(mapping["std_to_alt"].keys()))
         if not np.all(np.isin(atom_name[is_heavy], std_atoms)):
             _found_alt_atom_ids += 1
             # Convert to standard atom ids
-            atom_name[is_heavy] = np.array(
+            atom_name_renamed = np.array(
                 [mapping["alt_to_std"].get(atom_id, atom_id) for atom_id in atom_name[is_heavy]]
             )
+
+            # Ensure that renaming created no dupliates
+            if len(np.unique(atom_name_renamed)) != len(atom_name_renamed):
+                # if updates resulted in non-unique atom names, warn the user and
+                # proceed with old atom names
+                logger.error(
+                    "Duplicate atom names found after renaming. This is likely because a mix of "
+                    "standard and alternative atom ids was used in the input residue. Trying to "
+                    "proceed without renaming."
+                )
+            else:
+                # if updates are unique, rename and proceed
+                atom_name[is_heavy] = atom_name_renamed
 
         atom_name_all.append(atom_name)
 

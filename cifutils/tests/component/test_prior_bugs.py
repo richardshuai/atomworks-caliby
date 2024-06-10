@@ -11,6 +11,8 @@ TEST_CASES = [
     "1nci",  # Issues with arginine resolving, seems to have differing number of NH1/NH2
     "1aym",  # Issues with patching symmetric ligands (invalid literal)
     "8bc3",  # Covalent bond involving chains that were removed during cleaning
+    "1twr",  # Residue name not in biotite's CCD
+    "6q9t",  # Contains residue `QUK` which uses a mix of `std` and `alt` atom ids
 ]
 
 
