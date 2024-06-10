@@ -671,6 +671,7 @@ class CIFParser:
         struct_conn_df = struct_conn_df[
             struct_conn_df["conn_type_id"].str.startswith("covale")
         ]  # Only consider covalent bonds (throw out disulfide bods, metal coordination covalent bonds, hydrogen bonds)
+
         struct_conn_bonds = []
         leaving_atom_indices = []
 
@@ -687,6 +688,17 @@ class CIFParser:
                 # Check if res_name is water or a crystallization aid, in which case we early exit:
                 if (a_res_name in ignored_res) or (b_res_name in ignored_res):
                     # skip
+                    continue
+
+                # Check if the chains for each of the residues exist in the structure
+                if (a_chain_id not in chain_info_dict) or (b_chain_id not in chain_info_dict):
+                    # skip, but warn
+                    logger.warning(
+                        f"Found covalent bond involving chains {a_chain_id} and {b_chain_id}, but at least one "
+                        "chain was removed during cleaning. This is likely because the chain is made up of a "
+                        "residue that is not in the pre-compiled CCD. This should automatically"
+                        f"be resolved once you update your CCD."
+                    )
                     continue
 
                 a_seq_id = (
@@ -717,6 +729,13 @@ class CIFParser:
                     or (a_res_name != residue_a.res_name[0])
                     or (b_res_name != residue_b.res_name[0])
                 ):
+                    # skip, but warn
+                    logger.warning(
+                        f"Covalent bond involving residues {a_chain_id}:{a_seq_id}:{a_res_name} and "
+                        f"{b_chain_id}:{b_seq_id}:{b_res_name} was found in `struct_conn`, but the "
+                        f"residues are not present in the atom array. This is likely due to "
+                        f"resolved sequence heterogeneity which removed one of the residues."
+                    )
                     continue
 
                 # Get the atoms that participate in the bond

@@ -10,6 +10,7 @@ TEST_CASES = [
     "5t39",  # Contains misordered atoms in a residue (`SAH`)
     "1nci",  # Issues with arginine resolving, seems to have differing number of NH1/NH2
     "1aym",  # Issues with patching symmetric ligands (invalid literal)
+    "8bc3",  # Covalent bond involving chains that were removed during cleaning
 ]
 
 
