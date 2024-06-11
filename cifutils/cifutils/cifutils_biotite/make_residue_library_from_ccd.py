@@ -1,18 +1,19 @@
 """Pre-process the Chemical Component Dictionary (CCD) with OpenBabel to create a residue library for use in the CIF parser."""
 
 from __future__ import annotations
-import argparse
 import glob
 import logging
 import pickle
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
+import traceback
 
 import networkx as nx
 import numpy as np
 import pandas as pd
 from openbabel import openbabel
 from tqdm import tqdm
+from fire import Fire
+from datetime import datetime
 
 import cifutils.cifutils_legacy.cifutils_legacy as cifutils_legacy
 import cifutils.cifutils_legacy.obutils as obutils
@@ -73,7 +74,7 @@ def read_sdf_file(sdfname, obConversion):
     return obmol
 
 
-def validate_coordinates(obmol, cif):
+def _coords_are_valid(obmol, cif):
     """
     Validates the coordinates of the molecule against the CIF data.
 
@@ -180,7 +181,7 @@ def extract_residue_details(obmol, atom_id, leaving, pdbx_align, params):
     }
 
 
-def process_single_ligand(sdfname, obConversion, params):
+def process_single_ligand(sdfname, obConversion, params, debug: bool = True):
     """
     Processes a single SDF file to extract ligand details.
 
@@ -193,15 +194,26 @@ def process_single_ligand(sdfname, obConversion, params):
     tuple: A tuple containing the ligand ID and its details.
     """
     obmol = read_sdf_file(sdfname, obConversion)
-    cifname = sdfname.replace("_model.sdf", ".cif")
+    if "_model" in sdfname:
+        cifname = sdfname.replace("_model.sdf", ".cif")
+    elif "_ideal" in sdfname:
+        cifname = sdfname.replace("_ideal.sdf", ".cif")
+    else:
+        raise ValueError(f"Invalid SDF file name: {sdfname}")
 
     try:
         cif = cifutils_legacy.ParsePDBLigand(cifname)
+        if debug:
+            logger.debug(f"Successfully parsed: {sdfname}")
     except Exception as e:
-        logger.error(f"FAILED: {sdfname}, due to error: {str(e)}")
+        logger.error(f"FAILED: {sdfname}, due to {type(e).__name__}: {str(e)}")
+        if debug:
+            # log stack trace
+            logger.debug(f"Stack trace: \n{traceback.format_exc()}\n" + "=" * 100)
+            raise e
         return None
 
-    if not validate_coordinates(obmol, cif):
+    if "_ideal" not in sdfname and (not _coords_are_valid(obmol, cif)):
         logger.error(f"FAILED: {sdfname}")
         return None
 
@@ -216,15 +228,13 @@ def process_single_ligand(sdfname, obConversion, params):
     return id, ligand_details
 
 
-def process_ligands(sdfnames, params, num_threads=5, timeout=300):
+def process_ligands(sdfnames, params, debug: bool = True):
     """
     Processes a list of SDF files to create a dictionary of ligands with their details.
 
     Parameters:
     sdfnames (list): List of SDF file names.
     params (dict): Dictionary of parameters.
-    num_threads (int): Number of threads to use.
-    timeout (int): Timeout in seconds for processing each ligand.
 
     Returns:
     list: List containing tuples of ligand ID and ligand details.
@@ -233,24 +243,13 @@ def process_ligands(sdfnames, params, num_threads=5, timeout=300):
     obConversion.SetInFormat("sdf")
     ligands = []
     start_time = time.time()
-    logger.info(f"Processing {len(sdfnames)} ligands with {num_threads} threads...")
+    logger.info(f"Processing {len(sdfnames)} ligands with ...")
 
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = {
-            executor.submit(process_single_ligand, sdfname, obConversion, params): sdfname for sdfname in sdfnames
-        }
-
-        for future in tqdm(as_completed(futures), total=len(sdfnames), desc="Processing ligands"):
-            sdfname = futures[future]
-            try:
-                result = future.result(timeout=timeout)
-                if result:
-                    id, ligand_details = result
-                    ligands.append((id, ligand_details))
-            except TimeoutError:
-                logger.error(f"FAILED: {sdfname}, due to timeout (exceeded {timeout} seconds)")
-            except Exception as e:
-                logger.error(f"FAILED: {sdfname}, due to error: {str(e)}")
+    for sdfname in tqdm(sdfnames, desc="Processing ligands"):
+        result = process_single_ligand(sdfname, obConversion, params, debug=debug)
+        if result:
+            id, ligand_details = result
+            ligands.append((id, ligand_details))
 
     end_time = time.time()
     logger.info(f"Finished processing all ligands. Total time: {end_time - start_time:.2f} seconds")
@@ -324,39 +323,68 @@ def save_ligands_to_pickles(ligands, params):
     logger.info(f"Ligands grouped by atoms saved to {params['by_atoms_filename']}")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Pre-process the Chemical Component Dictionary (CCD) with OpenBabel")
-    parser.add_argument(
-        "--by_residues_filename",
-        type=str,
-        default="ligands_by_residue_minimal.pkl",
-        help="Filename for ligands grouped by residue",
-    )
-    parser.add_argument(
-        "--by_atoms_filename",
-        type=str,
-        default="ligands_by_atom_minimal.pkl",
-        help="Filename for ligands grouped by atom",
-    )
-    parser.add_argument(
-        "--max_automorphisms", type=int, default=2000, help="Maximum number of automorphisms to consider"
-    )
-    parser.add_argument("--include_automorphisms", action="store_true", help="Include automorphisms in the output")
-    parser.add_argument("--include_planars", action="store_true", help="Include planars in the output")
-    parser.add_argument("--include_chirals", action="store_true", help="Include chirals in the output")
+def main(
+    ligand_dir: str = "/home/smathis/code/ccd",  # /projects/ml/ligand_datasets/pdb/ligands
+    out_dir: str = ".",
+    max_automorphisms: int = 2000,
+    include_automorphisms: bool = True,
+    include_planars: bool = True,
+    include_chirals: bool = True,
+    use_ideal: bool = True,
+    debug: bool = False,
+):
+    """
+    Pre-process the Chemical Component Dictionary (CCD) with OpenBabel.
 
-    args = parser.parse_args()
+    Args:
+    ligand_dir (str): Directory containing the ligand SDF files.
+    out_dir (str): Directory to save the pickle files.
+    max_automorphisms (int): Maximum number of automorphisms to consider.
+    include_automorphisms (bool): Include automorphisms in the output.
+    include_planars (bool): Include planars in the output.
+    include_chirals (bool): Include chirals in the output.
+    use_ideal (bool): Use ideal coordinates. If False, use model coordinates.
+        c.f. https://pdb101.rcsb.org/learn/guide-to-understanding-pdb-data/small-molecule-ligands
+    """
+    # Get datetime date stamp in format YYYY_MM_DD
+    date_stamp = datetime.now().strftime("%Y_%m_%d")
+    if use_ideal:
+        # Ideal coordinates are calculated by the PDB by software based on the known covalent geometry
+        # ... often (always?) RDKit
+        sdf_origin = "ideal"
+    else:
+        # Model coordinates are taken from the first entry in which the component was observed, and as
+        # such can represent the conformation that the ligand adopts upon binding to a macromolecule
+        sdf_origin = "model"
+
+    logger.info(f"Processing `{sdf_origin}` ligands.")
+
+    by_residues_filename = f"{out_dir}/ligands_by_residue_{sdf_origin}_v{date_stamp}.pkl"
+    by_atoms_filename = f"{out_dir}/ligands_by_atom_{sdf_origin}_v{date_stamp}.pkl"
+
+    # Set log level to DEBUG if debug is True
+    if debug:
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Debug mode enabled.")
 
     params = {
-        "max_automorphisms": args.max_automorphisms,
-        "include_automorphisms": args.include_automorphisms,
-        "include_chirals": args.include_chirals,
-        "include_planars": args.include_planars,
-        "by_residues_filename": args.by_residues_filename,
-        "by_atoms_filename": args.by_atoms_filename,
+        "max_automorphisms": max_automorphisms,
+        "include_automorphisms": include_automorphisms,
+        "include_chirals": include_chirals,
+        "include_planars": include_planars,
+        "by_residues_filename": by_residues_filename,
+        "by_atoms_filename": by_atoms_filename,
     }
 
-    sdfnames = glob.glob("/projects/ml/ligand_datasets/pdb/ligands/?/*_model.sdf")
-    ligands = process_ligands(sdfnames, params, num_threads=15)
+    logger.info(f"Processing {ligand_dir}. Parameters: \n{params}")
+
+    sdfnames = glob.glob(f"{ligand_dir}/?/*/*_{sdf_origin}.sdf")
+    logger.info(f"Found {len(sdfnames)} ligand SDF files.")
+
+    ligands = process_ligands(sdfnames, params, debug=debug)
     save_ligands_to_pickles(ligands, params)
     logger.info("################## Complete. ##################")
+
+
+if __name__ == "__main__":
+    Fire(main)
