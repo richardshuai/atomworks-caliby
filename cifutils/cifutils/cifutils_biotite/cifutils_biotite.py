@@ -47,8 +47,8 @@ __all__ = ["CIFParser"]
 class CIFParser:
     def __init__(
         self,
-        by_residue_pickle="/projects/ml/RF2_allatom/cifutils_extended/ligands_by_residue.pkl",
-        by_atom_pickle="/projects/ml/RF2_allatom/cifutils_extended/ligands_by_atom.pkl",
+        by_residue_pickle="/home/smathis/code/cifutils/ligands_by_residue_ideal_v2024_06_10.pkl",  # /projects/ml/RF2_allatom/cifutils_extended/ligands_by_residue.pkl
+        by_atom_pickle="/home/smathis/code/cifutils/ligands_by_atom_ideal_v2024_06_10.pkl",  # /projects/ml/RF2_allatom/cifutils_extended/ligands_by_atom.pkl
         residues_to_skip: Sequence[str] = None,
     ):
         """
@@ -80,11 +80,11 @@ class CIFParser:
 
         # Residues to be ignored during parsing are deleted from the precomputed library
         if exists(residues_to_skip):
-            self.data_by_residue = self.data_by_residue[~self.data_by_residue["name"].isin(residues_to_skip)]
-            self.data_by_atom = self.data_by_atom[~self.data_by_residue["name"].isin(residues_to_skip)]
+            self.data_by_residue = self.data_by_residue[~self.data_by_residue["id"].isin(residues_to_skip)]
+            self.data_by_atom = self.data_by_atom[~self.data_by_atom["residue_name"].isin(residues_to_skip)]
 
         # Set indices
-        self.data_by_residue.set_index("name", inplace=True)
+        self.data_by_residue.set_index("id", inplace=True)
         self.extra_info = {}  # For backwards compatability
 
     def _validate_arguments(self, add_missing_atoms: bool, add_bonds: bool, convert_residues_dict: dict):

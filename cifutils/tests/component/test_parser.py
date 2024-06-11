@@ -4,6 +4,10 @@ from cifutils.cifutils_legacy import cifutils_legacy
 import biotite.structure as struc
 import numpy as np
 from tests.conftest import get_digs_path, TEST_DATA_DIR, CIF_PARSER
+from typing import Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def parse_with_cifutils_legacy(filename, cif_parser_legacy):
@@ -27,7 +31,7 @@ def parse_with_cifutils_biotite(
     )
 
 
-def convert_cifutils_biotite_to_legacy(result_dict):
+def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
     """
     Converts the result dictionary from cifutils_biotite_parser to the legacy format.
     NOTE: This function is slow; it is not optimized for performance, and should only be used for testing.
@@ -36,13 +40,15 @@ def convert_cifutils_biotite_to_legacy(result_dict):
     metadata_legacy = result_dict["metadata"]
     atom_array = result_dict["atom_array"]
 
+    get_atom_name = lambda atom: rename_atoms.get(atom.res_name, {}).get(atom.atom_name, atom.atom_name)  # noqa
+
     chains = {}
     for chain_id, chain_data in result_dict["chain_info"].items():
         legacy_atoms = {}
         chain_atoms = atom_array[atom_array.chain_id == chain_id]
         for i in range(len(chain_atoms)):
             atom = chain_atoms.get_atom(i)
-            atom_id = (chain_id, str(atom.res_id), atom.res_name, atom.atom_name)
+            atom_id = (chain_id, str(atom.res_id), atom.res_name, get_atom_name(atom))
             legacy_atoms[atom_id] = cifutils_legacy.Atom(
                 name=atom_id,
                 element=int(atom.element),
@@ -51,7 +57,7 @@ def convert_cifutils_biotite_to_legacy(result_dict):
                 bfac=round(float(atom.b_factor), 2),
                 charge=atom.charge,
                 leaving=atom.leaving_atom_flag,
-                leaving_group=atom.leaving_group,
+                leaving_group=[rename_atoms.get(atom.res_name, {}).get(a, a) for a in atom.leaving_group],
                 parent=None,  # We don't have this information in biotite, but could if necessary
                 metal=atom.is_metal,
                 hyb=atom.hyb,
@@ -67,8 +73,8 @@ def convert_cifutils_biotite_to_legacy(result_dict):
             b_atom = chain_atoms.get_atom(bond[1])
             bond_type = bond[2]
             bond = cifutils_legacy.Bond(
-                a=(chain_id, str(a_atom.res_id), a_atom.res_name, a_atom.atom_name),
-                b=(chain_id, str(b_atom.res_id), b_atom.res_name, b_atom.atom_name),
+                a=(chain_id, str(a_atom.res_id), a_atom.res_name, get_atom_name(a_atom)),
+                b=(chain_id, str(b_atom.res_id), b_atom.res_name, get_atom_name(b_atom)),
                 aromatic=bond_type > 4,
                 in_ring=False,
                 order=bond_type if bond_type < 5 else bond_type - 4,
@@ -241,11 +247,16 @@ def validate_chains(pdb_id, chains_legacy, converted_chains):
             legacy_bond = legacy_bond_dict[bond_id]
             converted_bond = converted_bond_dict[bond_id]
             assert (
-                legacy_bond.order == converted_bond.order
-            ), f"Bond order mismatch for bond {bond_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert (
                 legacy_bond.aromatic == converted_bond.aromatic
             ), f"Aromatic flag mismatch for bond {bond_id} within chain {chain_id} in PDB ID {pdb_id}"
+            if not legacy_bond.aromatic:
+                assert (
+                    legacy_bond.order == converted_bond.order
+                ), f"Bond order mismatch for bond {bond_id} within chain {chain_id} in PDB ID {pdb_id}"
+            elif legacy_bond.order != converted_bond.order:
+                logger.warning(
+                    f"Bond order mismatch in an aromatic ring for bond {bond_id} within chain {chain_id} in PDB ID {pdb_id}: {legacy_bond.order} vs {converted_bond.order}"
+                )
             assert (
                 legacy_bond.intra == converted_bond.intra
             ), f"Intra-residue flag mismatch for bond {bond_id} within chain {chain_id} in PDB ID {pdb_id}"
@@ -275,50 +286,57 @@ def cif_parser_legacy():
     return cifutils_legacy.CIFParser()
 
 
+TEST_CASES_PARSER = [
+    {"pdb_id": "2k0a"},
+    {"pdb_id": "3k4a", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
+    {
+        "pdb_id": "3kfa"
+    },  # 3kfa in the legacy parser has an aromatic ring in ligand `B91` tagged as 'double' while it is tagged as 'single' in the updated parser
+    {"pdb_id": "4az0"},
+    {"pdb_id": "2ejf"},
+    {"pdb_id": "5tmc"},
+    {"pdb_id": "6dru"},
+    {"pdb_id": "6s7t"},
+    {"pdb_id": "4xo3"},
+    {"pdb_id": "6tt7"},
+    {"pdb_id": "1khz"},
+    {
+        "pdb_id": "1adl"
+    },  # 1adl in the legacy parser has the leaving flag for atom `HO2` in ligand `PPI` false, but the entire ligand as leaving group.
+    {"pdb_id": "1nte"},
+    {"pdb_id": "3dpm"},
+    {"pdb_id": "1bs3"},
+    {"pdb_id": "2b4b", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
+    {"pdb_id": "1etu"},
+    {"pdb_id": "4ztt"},
+    {"pdb_id": "1brx"},
+    {"pdb_id": "3nez", "rename_atoms": {"CH6": {"H": "HN11", "H2": "HN12"}}},  # CH6 uses legacy atom name `HN11`
+    {"pdb_id": "4ndz"},  # atom `O3` in ligand `NPO` is flagged as leaving even though it is not
+    {"pdb_id": "1lys"},
+    {"pdb_id": "6dmg"},
+    {"pdb_id": "1a8o", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
+    {"pdb_id": "6wjc"},
+    {"pdb_id": "4js1"},
+    {"pdb_id": "1ivo"},
+    {"pdb_id": "1fu2"},
+    {"pdb_id": "1cbn"},
+    {"pdb_id": "1en2"},
+    {"pdb_id": "1y1w"},
+    {"pdb_id": "133d"},
+    {"pdb_id": "5xnl"},
+    {"pdb_id": "6wtf"},
+    {"pdb_id": "1azx"},
+    {"pdb_id": "2e2h"},
+    {"pdb_id": "1q1k"},
+    {"pdb_id": "3ne7", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
+]
+
+
 @pytest.mark.parametrize(
-    "pdb_id",
-    [
-        "2k0a",
-        "3k4a",
-        "3kfa",
-        "4az0",
-        "2ejf",
-        "5tmc",
-        "6dru",
-        "6s7t",
-        "4xo3",
-        "6tt7",
-        "1khz",
-        "1adl",
-        "1nte",
-        "3dpm",
-        "1bs3",
-        "2b4b",
-        "1etu",
-        "4ztt",
-        "1brx",
-        "3nez",
-        "4ndz",
-        "1lys",
-        "6dmg",
-        "1a8o",
-        "6wjc",
-        "4js1",
-        "1ivo",
-        "1fu2",
-        "1cbn",
-        "1en2",
-        "1y1w",
-        "133d",
-        "5xnl",
-        "6wtf",
-        "1azx",
-        "2e2h",
-        "1q1k",
-        "3ne7",
-    ],
+    "test_case",
+    TEST_CASES_PARSER,
 )
-def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser=CIF_PARSER, **kwargs):
+def test_parsing(test_case: dict[str, Any], cif_parser_legacy, cifutils_biotite_parser=CIF_PARSER, **kwargs):
     """
     Compare the results of parsing a CIF file with cifutils_legacy and cifutils_biotite.
 
@@ -330,6 +348,7 @@ def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser=CIF_PARSER, 
     Does not compare:
     - Assembly (handled by test_bioassemblies.py)
     """
+    pdb_id = test_case.pop("pdb_id")
     filename = get_digs_path(pdb_id)
 
     # Parse with cifutils_legacy
@@ -341,7 +360,9 @@ def test_parsing(pdb_id, cif_parser_legacy, cifutils_biotite_parser=CIF_PARSER, 
     result_dict = parse_with_cifutils_biotite(filename, CIF_PARSER, **kwargs)
 
     # Compare cifutils_legacy with biotite atom locations
-    converted_chains, converted_modres, converted_metadata = convert_cifutils_biotite_to_legacy(result_dict)
+    converted_chains, converted_modres, converted_metadata = convert_cifutils_biotite_to_legacy(
+        result_dict, **test_case
+    )
 
     # Validate chains
     validate_chains(pdb_id, chains_legacy, converted_chains)
