@@ -15,7 +15,6 @@ from functools import cache
 from biotite.structure.atoms import AtomArray
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 

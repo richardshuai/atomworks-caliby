@@ -38,7 +38,6 @@ from biotite.structure.io.pdbx import CIFBlock
 from biotite.structure import AtomArray, Atom
 from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 __all__ = ["CIFParser"]
@@ -47,8 +46,8 @@ __all__ = ["CIFParser"]
 class CIFParser:
     def __init__(
         self,
-        by_residue_pickle="/home/smathis/code/cifutils/ligands_by_residue_ideal_v2024_06_10.pkl",  # /projects/ml/RF2_allatom/cifutils_extended/ligands_by_residue.pkl
-        by_atom_pickle="/home/smathis/code/cifutils/ligands_by_atom_ideal_v2024_06_10.pkl",  # /projects/ml/RF2_allatom/cifutils_extended/ligands_by_atom.pkl
+        by_residue_pickle="/projects/ml/RF2_allatom/cifutils_biotite/ligands_by_residue_ideal_v2024_06_10.pkl",  
+        by_atom_pickle="/projects/ml/RF2_allatom/cifutils_biotite/ligands_by_atom_ideal_v2024_06_10.pkl", 
         residues_to_skip: Sequence[str] = None,
     ):
         """
