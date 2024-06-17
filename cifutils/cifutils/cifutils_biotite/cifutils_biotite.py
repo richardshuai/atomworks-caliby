@@ -31,6 +31,7 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     standardize_heavy_atom_ids,
     resolve_arginine_naming_ambiguity,
     mse_to_met,
+    get_1_from_3_letter_code,
 )
 from cifutils.cifutils_biotite.common import exists
 
@@ -46,8 +47,8 @@ __all__ = ["CIFParser"]
 class CIFParser:
     def __init__(
         self,
-        by_residue_pickle="/projects/ml/RF2_allatom/cifutils_biotite/ligands_by_residue_ideal_v2024_06_10.pkl",  
-        by_atom_pickle="/projects/ml/RF2_allatom/cifutils_biotite/ligands_by_atom_ideal_v2024_06_10.pkl", 
+        by_residue_pickle="/projects/ml/RF2_allatom/cifutils_biotite/ligands_by_residue_ideal_v2024_06_10.pkl",
+        by_atom_pickle="/projects/ml/RF2_allatom/cifutils_biotite/ligands_by_atom_ideal_v2024_06_10.pkl",
         residues_to_skip: Sequence[str] = None,
     ):
         """
@@ -86,25 +87,20 @@ class CIFParser:
         self.data_by_residue.set_index("id", inplace=True)
         self.extra_info = {}  # For backwards compatability
 
-    def _validate_arguments(self, add_missing_atoms: bool, add_bonds: bool, convert_residues_dict: dict):
+    def _validate_arguments(self, add_missing_atoms: bool, add_bonds: bool):
         """Validate the arguments passed to the CIFParser object."""
         if not add_missing_atoms and add_bonds:
             raise ValueError("add_bonds cannot be True if add_missing_atoms is False")
-        if not isinstance(convert_residues_dict, dict) and exists(convert_residues_dict):
-            raise ValueError("convert_residues_dict must be a dictionary.")
-        if exists(convert_residues_dict):
-            raise NotImplementedError("convert_residues_dict is not yet implemented.")
 
     def parse(
         self,
         filename: PathLike,
         add_missing_atoms: bool = True,
         add_bonds: bool = True,
-        remove_waters: bool = False,
-        remove_crystallization_aids: bool = False,
+        remove_waters: bool = True,
+        remove_crystallization_aids: bool = True,
         patch_symmetry_centers: bool = True,
-        build_assembly: Literal["first", "all"] | list[str] | None = None,
-        convert_residues_dict: dict = None,
+        build_assembly: Literal["first", "all"] | list[str] | None = "all",
         fix_arginines: bool = True,
         convert_mse_to_met: bool = False,
     ) -> dict:
@@ -113,13 +109,14 @@ class CIFParser:
 
         Args:
         - filename (str): Path to the CIF file. May be any format of CIF file (e.g., gz, bcif, etc.).
-        - build_assembly (str, optional): Which assembly to build, if any. Options are None (e.g., asymmetric unit), "first", "all", or a list of assembly IDs. Defaults to None.
         - add_missing_atoms (bool, optional): Whether to add missing atoms to the structure, including relevant OpenBabel atom-level data.
         - add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
-        - convert_residues_dict (dict, optional): Dictionary of residue name conversions. Keys are the original residue names, and values are the new residue names.
         - remove_waters (bool, optional): Whether to remove water molecules from the structure.
         - remove_crystallization_aids (bool, optional): Whether to exclude crystallization aids and ions from the structure. Uses the AF-3 exclusion list.
         - patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed.
+        - build_assembly (str, optional): Which assembly to build, if any. Options are None (e.g., asymmetric unit), "first", "all", or a list of assembly IDs.
+        - fix_argenines (bool, optional): Whether to fix arginine naming ambiguity, see the AF-3 supplement for details.
+        - convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE) residues to methionine (MET) residues.
 
         Returns:
         - dict: A dictionary containing the following keys:
@@ -132,7 +129,7 @@ class CIFParser:
         'modified_residues': A dictionary mapping modified residue names to their canonical name(s).
         'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
         """
-        self._validate_arguments(add_missing_atoms, add_bonds, convert_residues_dict)
+        self._validate_arguments(add_missing_atoms, add_bonds)
         # ... init internal processing variables
         converted_res = {}
         ignored_res = []
@@ -216,6 +213,7 @@ class CIFParser:
         # Modified residue information
         modified_residues_dict = build_modified_residues_dict(cif_block, chain_info_dict)
 
+        # Add final sequence information to chain_info_dict
         return {
             "chain_info": chain_info_dict,
             "residue_info": residue_info_dict,
@@ -378,9 +376,8 @@ class CIFParser:
         full_atom_list = []
         residue_ids = []
         chain_ids = []
-        for chain_id in deduplicate_iterator(
-            struc.get_chains(atom_array)
-        ):  # NOTE: We need set() since biotite considers a decrease in sequence_id as a new chain (see `5xnl`)
+        # NOTE: We need deduplicate_iterator() since biotite considers a decrease in sequence_id as a new chain (see `5xnl`)
+        for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
             # Iterate through the sequence and create all atoms with zero coordinates
             residue_name_list = chain_info_dict[chain_id]["residue_name_list"]
             for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
@@ -904,9 +901,13 @@ class CIFParser:
         )
 
         # Keep only the last occurrence of each residue
-        polymer_seq_df.drop_duplicates(subset=["entity_id", "residue_id"], keep="last", inplace=True)
+        duplicates = polymer_seq_df.duplicated(subset=["entity_id", "residue_id"], keep="last")
+        entities_with_sequence_heterogeneity = polymer_seq_df[duplicates]["entity_id"].unique()
+        if duplicates.any():
+            logger.info("Sequence heterogeneity detected, keeping only the last occurrence of each residue.")
+            polymer_seq_df = polymer_seq_df[~duplicates]
 
-        # Filter out residues that are not in the precompiled CCD data
+        # Filter out residues that are not in the precompiled CCD data (e.g., remove unknown residues)
         polymer_seq_df = polymer_seq_df[polymer_seq_df["residue_name"].isin(self.data_by_residue.index)]
 
         # Map entity_id to lists of residue names and residue IDs
@@ -926,13 +927,29 @@ class CIFParser:
             entity_id = int(chain_info_dict[chain_id]["entity_id"])
             if entity_id in polymer_entity_id_to_residue_names_and_ids:
                 # For polymers, we use the stored entity residue list
-                if polymer_entity_id_to_residue_names_and_ids[entity_id]["residue_names"]:
-                    chain_info_dict[chain_id]["residue_name_list"] = polymer_entity_id_to_residue_names_and_ids[
-                        entity_id
-                    ]["residue_names"]
+                residue_names = polymer_entity_id_to_residue_names_and_ids[entity_id]["residue_names"]
+                chain_type = chain_info_dict[chain_id]["type"]
+                if residue_names:
+                    chain_info_dict[chain_id]["residue_name_list"] = residue_names
                     chain_info_dict[chain_id]["residue_id_list"] = polymer_entity_id_to_residue_names_and_ids[
                         entity_id
                     ]["residue_ids"]
+
+                    # Create the processed single-letter sequence representations
+                    processed_entity_non_canonical_sequence = [
+                        get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=False)
+                        for residue in residue_names
+                    ]
+                    processed_entity_canonical_sequence = [
+                        get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=True)
+                        for residue in residue_names
+                    ]
+                    chain_info_dict[chain_id]["processed_entity_non_canonical_sequence"] = "".join(
+                        processed_entity_non_canonical_sequence
+                    )
+                    chain_info_dict[chain_id]["processed_entity_canonical_sequence"] = "".join(
+                        processed_entity_canonical_sequence
+                    )
             else:
                 # For non-polymers, we must re-compute every time, since entities are not guaranteed to have the same monomer sequence (e.g., for H2O chains)
                 chain_atom_array = atom_array[atom_array.chain_id == chain_id]
@@ -941,6 +958,10 @@ class CIFParser:
                 chain_info_dict[chain_id]["residue_name_list"] = residue_name_list
                 chain_info_dict[chain_id]["residue_id_list"] = residue_id_list
                 unique_residues.update(residue_name_list)
+
+            chain_info_dict[chain_id]["has_sequence_heterogeneity"] = (
+                str(entity_id) in entities_with_sequence_heterogeneity
+            )
 
         # Remove entries from chain_info_dict that have no residues
         chain_info_dict = {
@@ -1009,8 +1030,10 @@ class CIFParser:
             chain_info_dict[chain_id] = {
                 "entity_id": entity_id,
                 "type": polymer_info.get("polymer_type", chain_info.get("entity_type", "")),
-                "canonical_sequence": polymer_info.get("canonical_sequence", ""),
-                "non_canonical_sequence": polymer_info.get("non_canonical_sequence", ""),
+                "unprocessed_entity_canonical_sequence": polymer_info.get("canonical_sequence", "").replace("\n", ""),
+                "unprocessed_entity_non_canonical_sequence": polymer_info.get("non_canonical_sequence", "").replace(
+                    "\n", ""
+                ),
                 "is_polymer": chain_info.get("entity_type") == "polymer",
             }
 

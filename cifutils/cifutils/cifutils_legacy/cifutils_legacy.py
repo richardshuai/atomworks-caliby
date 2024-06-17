@@ -106,7 +106,7 @@ class CIFParser:
     def __init__(self, skip_res: List[str] = None):
         # parse pre-compiled library of all residues observed in the PDB
         DIR = os.path.dirname(__file__)
-        with gzip.open("/projects/ml/RF2_allatom/cifutils_extended/ligands.json.gz") as file:
+        with gzip.open("/projects/ml/RF2_allatom/cifutils_legacy/ligands.json.gz") as file:
             self.mols = json.load(file)
 
             # residues to be ignored during parsing are

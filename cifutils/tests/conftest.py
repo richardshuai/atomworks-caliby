@@ -20,10 +20,10 @@ def get_digs_path(pdbid: str) -> str:
 
 
 def _get_atom_array_stats(arr: AtomArray) -> str:
-    msg = f"AtomArray: {len(arr)} atoms, {len(struc.get_residue_count(arr))} residues, {len(struc.get_chain_id_count(arr))} chains\n"
+    msg = f"AtomArray: {len(arr)} atoms, {struc.get_residue_count(arr)} residues, {struc.get_chain_count(arr)} chains\n"
     msg += f"\t... unique chain ids: {np.unique(arr.chain_id)}\n"
-    msg += f"\t... unique residue ids: {np.unique(arr.residue_id)}\n"
-    msg += f"\t... unique atom types: {np.unique(arr.atom_type)}\n"
+    msg += f"\t... unique residue ids: {np.unique(arr.res_id)}\n"
+    msg += f"\t... unique atom types: {np.unique(arr.atom_name)}\n"
     msg += f"\t... unique elements: {np.unique(arr.element)}\n"
     return msg
 
