@@ -52,8 +52,8 @@ def test_assembly_atom_coordinates(pdb_id: str):
 
     # Cifutils
     cifutils_assembly = CIF_PARSER.parse(
-        path, 
-        build_assembly="first", 
+        path,
+        build_assembly="first",
         fix_arginines=False,
         remove_crystallization_aids=False,
         remove_waters=False,
