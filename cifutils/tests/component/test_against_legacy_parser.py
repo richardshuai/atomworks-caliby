@@ -301,7 +301,7 @@ TEST_CASES_PARSER = [
     {"pdb_id": "6tt7"},
     {"pdb_id": "1khz"},
     # {
-        # "pdb_id": "1adl"
+    # "pdb_id": "1adl"
     # },  # 1adl in the legacy parser has the leaving flag for atom `HO2` in ligand `PPI` false, but the entire ligand as leaving group.
     {"pdb_id": "1nte"},
     {"pdb_id": "3dpm"},

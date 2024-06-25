@@ -85,7 +85,8 @@ class CIFParser:
 
         # Set indices
         self.data_by_residue.set_index("id", inplace=True)
-        self.extra_info = {}  # For backwards compatability
+        # For backwards compatability
+        self.extra_info = {}
 
     def _validate_arguments(self, add_missing_atoms: bool, add_bonds: bool):
         """Validate the arguments passed to the CIFParser object."""
@@ -120,12 +121,12 @@ class CIFParser:
 
         Returns:
         - dict: A dictionary containing the following keys:
-        'chain_info': A dictionary mapping chain ID to sequence, type, entity ID, and other information.
+        'chain_info': A dictionary mapping chain ID to sequence, type, entity ID, EC number, and other information.
         'residue_info': A dictionary mapping residue name to reference structure (atoms, bonds, automorphisms, etc.).
         'ligand_info': A dictionary containing ligand of interest information.
         'atom_array': An AtomArrayStack instance representing the asymmetric unit.
         'assemblies': A dictionary mapping assembly IDs to AtomArray instances.
-        'metadata': A dictionary containing metadata about the structure.
+        'metadata': A dictionary containing metadata about the structure (e.g., resolution, deposition date, etc.).
         'modified_residues': A dictionary mapping modified residue names to their canonical name(s).
         'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
         """
@@ -1003,7 +1004,7 @@ class CIFParser:
         # Step 2: Load additional chain information
         entity_df = category_to_df(cif_block, "entity")
         entity_df["id"] = entity_df["id"].astype(str)
-        entity_df.rename(columns={"type": "entity_type"}, inplace=True)
+        entity_df.rename(columns={"type": "entity_type", "pdbx_ec": "ec_numbers"}, inplace=True)
         entity_dict = entity_df.set_index("id").to_dict(orient="index")
 
         # From `entity_poly`
@@ -1026,6 +1027,10 @@ class CIFParser:
         for chain_id, entity_id in unique_chain_entity_map.items():
             chain_info = entity_dict.get(entity_id, {})
             polymer_info = polymer_dict.get(entity_id, {})
+            if chain_info.get("ec_numbers", "?") != "?":
+                ec_numbers = [ec.strip() for ec in chain_info.get("ec_numbers", "").split(",")]
+            else:
+                ec_numbers = []
 
             chain_info_dict[chain_id] = {
                 "entity_id": entity_id,
@@ -1035,6 +1040,7 @@ class CIFParser:
                     "\n", ""
                 ),
                 "is_polymer": chain_info.get("entity_type") == "polymer",
+                "ec_numbers": ec_numbers,
             }
 
         return chain_info_dict
