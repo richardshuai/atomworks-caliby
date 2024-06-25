@@ -14,8 +14,48 @@ from cifutils.cifutils_biotite.common import exists
 from functools import cache
 from biotite.structure.atoms import AtomArray
 import logging
+from Bio.Data.PDBData import (
+    protein_letters_3to1_extended,
+    nucleic_letters_3to1_extended,
+    protein_letters_3to1,
+    nucleic_letters_3to1,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def get_1_from_3_letter_code(res_name: str, chain_type: str, use_closest_canonical=False) -> str:
+    """
+    Converts a 3-letter residue name to its 1-letter code based on the chain type.
+    Optionally, the closest canonical mapping can be used.
+
+    Parameters:
+    - res_name (str): The 3-letter residue name.
+    - chain_type (str): The type of chain, e.g., "polypeptide(D)", "polypeptide(L)", "polydeoxyribonucleotide", or "polyribonucleotide".
+    - use_closest_canonical (bool): Whether to use the closest canonical mapping (from BioPython). Defaults to False.
+
+    Returns:
+    - str: The corresponding 1-letter code. Returns "X" if the residue name or chain type is not supported.
+    """
+    if chain_type == "polypeptide(D)" or chain_type == "polypeptide(L)":
+        # Proteins
+        if use_closest_canonical:
+            return protein_letters_3to1_extended.get(res_name, "X")
+        else:
+            return protein_letters_3to1.get(res_name, "X")
+    elif chain_type == "polydeoxyribonucleotide" or chain_type == "polyribonucleotide":
+        # Nucleic acids
+
+        # Pad the residue name to 3 characters
+        res_name = res_name.ljust(3)
+
+        if use_closest_canonical:
+            return nucleic_letters_3to1_extended.get(res_name, "X")
+        else:
+            return nucleic_letters_3to1.get(res_name, "X")
+    else:
+        logger.warning(f"Unsupported chain type: {chain_type}")
+        return "X"
 
 
 def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:

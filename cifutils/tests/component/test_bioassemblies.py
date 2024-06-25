@@ -51,7 +51,13 @@ def test_assembly_atom_coordinates(pdb_id: str):
     biotite_assembly = biotite_assembly[biotite_assembly.occupancy > 0]
 
     # Cifutils
-    cifutils_assembly = CIF_PARSER.parse(path, build_assembly="first", fix_arginines=False)
+    cifutils_assembly = CIF_PARSER.parse(
+        path, 
+        build_assembly="first", 
+        fix_arginines=False,
+        remove_crystallization_aids=False,
+        remove_waters=False,
+    )
     atom_array = cifutils_assembly["assemblies"]["1"]
     resolved_atoms = atom_array[atom_array.occupancy > 0]
 
