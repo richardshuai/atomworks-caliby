@@ -2,8 +2,8 @@ import pytest
 from tests.conftest import get_digs_path, CIF_PARSER
 
 TEST_CASES = [
-    # TODO: Find a case where a protein has multiple EC numbers
     {"pdb_id": "3bdp", "chain_id": "C", "ec_numbers": ["2.7.7.7"]},
+    {"pdb_id": "8e1d", "chain_id": "B", "ec_numbers": ["2.3.1.48", "2.3.1.-"]},
 ]
 
 
