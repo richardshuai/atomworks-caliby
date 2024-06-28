@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 TEST_CASES_PARSER = [
     {"pdb_id": "2k0a"},
     {"pdb_id": "3k4a", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
-    # {
-        # "pdb_id": "3kfa"
-    # },  # 3kfa in the legacy parser has an aromatic ring in ligand `B91` tagged as 'double' while it is tagged as 'single' in the updated parser
+    {
+        "pdb_id": "3kfa"
+    },  # 3kfa in the legacy parser has an aromatic ring in ligand `B91` tagged as 'double' while it is tagged as 'single' in the updated parser
     {"pdb_id": "4az0"},
     {"pdb_id": "2ejf"},
     {"pdb_id": "5tmc"},
@@ -60,8 +60,6 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
     Converts the result dictionary from cifutils_biotite_parser to the legacy format.
     NOTE: This function is slow; it is not optimized for performance, and should only be used for testing.
     """
-    modres_legacy = None
-    metadata_legacy = result_dict["metadata"]
     atom_array = result_dict["atom_array_stack"][0] # Get the first model
 
     get_atom_name = lambda atom: rename_atoms.get(atom.res_name, {}).get(atom.atom_name, atom.atom_name)  # noqa
@@ -154,7 +152,7 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
         )
         chains[chain_id] = chain
 
-    return chains, modres_legacy, metadata_legacy
+    return chains
 
 
 def validate_modified_residues(modres_legacy, converted_modres):
@@ -310,7 +308,6 @@ def cif_parser_legacy():
     return cifutils_legacy.CIFParser()
 
 
-
 @pytest.mark.parametrize(
     "test_case",
     TEST_CASES_PARSER,
@@ -335,24 +332,31 @@ def test_parsing(test_case: dict[str, Any]):
     chains_legacy, asmb_legacy, covale_legacy, meta_legacy, modres_legacy = CIF_PARSER_LEGACY.parse(filename)
 
     # Parse with cifutils_biotite
-    result_dict =  CIF_PARSER_BIOTITE.parse(filename)
+    result_dict =  CIF_PARSER_BIOTITE.parse(
+        filename,
+        add_missing_atoms=True,
+        add_bonds=True,
+        remove_waters=False,
+        remove_crystallization_aids=False,
+        patch_symmetry_centers=False,
+        build_assembly=None,
+        fix_arginines=False,
+        convert_mse_to_met=False,
+        model=1,
+    )
 
-    # Compare cifutils_legacy with biotite atom locations
-    converted_chains, converted_modres, converted_metadata = convert_cifutils_biotite_to_legacy(
+    # Convert the biotite parser result to the legacy format
+    converted_chains = convert_cifutils_biotite_to_legacy(
         result_dict, **test_case
     )
 
-    # Validate chains
+    # Validate chains (atoms)
     validate_chains(pdb_id, chains_legacy, converted_chains)
 
-    # Test metadata
+    # Validate metadata
     assert result_dict["metadata"]["method"] == meta_legacy["method"], "Method mismatch."
     assert result_dict["metadata"]["resolution"] == meta_legacy["resolution"], "Resolution mismatch."
     assert result_dict["metadata"]["deposition_date"] == meta_legacy["date"], "Date mismatch."
 
-    # Test modified residue dict with the legacy parser
+    # Validate modified residues
     validate_modified_residues(modres_legacy, result_dict["modified_residues"])
-
-if __name__ == "__main__":
-    # Test a single example
-    test_parsing(test_case=TEST_CASES_PARSER[5])

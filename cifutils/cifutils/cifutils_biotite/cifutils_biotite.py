@@ -158,14 +158,12 @@ class CIFParser:
             model=model,
         )
 
+        # Ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
+        if not isinstance(atom_array_stack, AtomArrayStack):
+            atom_array_stack = struc.stack([atom_array_stack])
+
         # Load chain information from the first model (uses atom_array to build chain list)
         chain_info_dict = self._get_chain_info(cif_block, atom_array_stack[0])
-
-        # Get ligand of interest information
-        loi_info = self._get_ligand_of_interest_info(cif_block)
-
-        # Modified residue information
-        modified_residues_dict = build_modified_residues_dict(cif_block, chain_info_dict)
 
         # Loop through models
         models = []
@@ -225,6 +223,12 @@ class CIFParser:
             )
         else:
             assemblies = {}
+
+        # Get ligand of interest information
+        loi_info = self._get_ligand_of_interest_info(cif_block)
+
+        # Modified residue information
+        modified_residues_dict = build_modified_residues_dict(cif_block, chain_info_dict)
 
         # Add final sequence information to chain_info_dict
         return {
@@ -1126,7 +1130,7 @@ class CIFParser:
             clash_matrix = cell_list.get_atoms(non_polymers.coord, clash_distance, as_mask=True)  # [n, n]
             identity_matrix = np.identity(len(non_polymers), dtype=bool)
             if np.array_equal(clash_matrix, identity_matrix):
-                return atom_array  # Early exit
+                return atom_array_stack  # Early exit
             else:
                 # Remove identity matrix so we don't count self-clashes
                 clash_matrix = clash_matrix & ~identity_matrix
