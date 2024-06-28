@@ -2,7 +2,6 @@ from __future__ import annotations
 import pytest
 from cifutils.cifutils_legacy import cifutils_legacy
 import biotite.structure as struc
-import numpy as np
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE, CIF_PARSER_LEGACY
 from typing import Any
 import logging
@@ -55,12 +54,13 @@ TEST_CASES_PARSER = [
     {"pdb_id": "3ne7", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
 ]
 
+
 def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
     """
     Converts the result dictionary from cifutils_biotite_parser to the legacy format.
     NOTE: This function is slow; it is not optimized for performance, and should only be used for testing.
     """
-    atom_array = result_dict["atom_array_stack"][0] # Get the first model
+    atom_array = result_dict["atom_array_stack"][0]  # Get the first model
 
     get_atom_name = lambda atom: rename_atoms.get(atom.res_name, {}).get(atom.atom_name, atom.atom_name)  # noqa
 
@@ -232,20 +232,20 @@ def validate_chains(pdb_id, chains_legacy, converted_chains):
                 legacy_atom.charge == converted_atom.charge
             ), f"Charge mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
 
-            # We need to handle the situation where the occupancy is 0.5 and there is an equally-occupied alternative location
-            # Biotite will not pick between the two alternative locations deterministically
-            # In that instance, the b-factors may be uncorrelated, so we don't check
-            if legacy_atom.occ == 0.5 and converted_atom.occ == 0.5:
-                assert np.allclose(
-                    legacy_atom.xyz, converted_atom.xyz, atol=10
-                ), f"(Partial occupancy) Approximate XYZ mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            else:
-                assert (
-                    legacy_atom.xyz == converted_atom.xyz
-                ), f"XYZ mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-                assert (
-                    legacy_atom.bfac == converted_atom.bfac
-                ), f"B-factor mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
+            # # We need to handle the situation where the occupancy is 0.5 and there is an equally-occupied alternative location
+            # # Biotite will not pick between the two alternative locations deterministically
+            # # In that instance, the b-factors may be uncorrelated, so we don't check
+            # if legacy_atom.occ == 0.5 and converted_atom.occ == 0.5:
+            #     assert np.allclose(
+            #         legacy_atom.xyz, converted_atom.xyz, atol=10
+            #     ), f"(Partial occupancy) Approximate XYZ mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
+            # else:
+            assert (
+                legacy_atom.xyz == converted_atom.xyz
+            ), f"XYZ mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
+            assert (
+                legacy_atom.bfac == converted_atom.bfac
+            ), f"B-factor mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
 
         legacy_bonds = legacy_chain.bonds
         converted_bonds = converted_chain.bonds
@@ -332,7 +332,7 @@ def test_parsing(test_case: dict[str, Any]):
     chains_legacy, asmb_legacy, covale_legacy, meta_legacy, modres_legacy = CIF_PARSER_LEGACY.parse(filename)
 
     # Parse with cifutils_biotite
-    result_dict =  CIF_PARSER_BIOTITE.parse(
+    result_dict = CIF_PARSER_BIOTITE.parse(
         filename,
         add_missing_atoms=True,
         add_bonds=True,
@@ -346,9 +346,7 @@ def test_parsing(test_case: dict[str, Any]):
     )
 
     # Convert the biotite parser result to the legacy format
-    converted_chains = convert_cifutils_biotite_to_legacy(
-        result_dict, **test_case
-    )
+    converted_chains = convert_cifutils_biotite_to_legacy(result_dict, **test_case)
 
     # Validate chains (atoms)
     validate_chains(pdb_id, chains_legacy, converted_chains)

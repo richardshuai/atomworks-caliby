@@ -25,7 +25,7 @@ def test_one_letter_sequences(pdb_id: str):
     for chain_id, chain_details in chain_info.items():
         chain_type = chain_details["type"]
         # Get the atom array for that specific chain and count the number of unique residues
-        atom_array = result["atom_array"]
+        atom_array = result["atom_array_stack"][0]  # First model
         chain_atom_array = atom_array[atom_array.chain_id == chain_id]
         num_residues = len(np.unique(chain_atom_array.res_id))
 

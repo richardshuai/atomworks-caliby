@@ -12,11 +12,11 @@ def test_remove_crystallization_aids(pdbid: str):
     # Not excluding crystallization aids
     out1 = CIF_PARSER_BIOTITE.parse(get_digs_path(pdbid), remove_crystallization_aids=False)
     assert np.any(
-        np.isin(out1["atom_array"].res_name, CRYSTALLIZATION_AIDS)
+        np.isin(out1["atom_array_stack"].res_name, CRYSTALLIZATION_AIDS)
     ), "No crystallization aids found when not excluding."
 
     # Excluding crystallization aids
     out2 = CIF_PARSER_BIOTITE.parse(get_digs_path(pdbid), remove_crystallization_aids=True)
     assert not np.any(
-        np.isin(out2["atom_array"].res_name, CRYSTALLIZATION_AIDS)
+        np.isin(out2["atom_array_stack"].res_name, CRYSTALLIZATION_AIDS)
     ), "Crystallization aids found when excluding."

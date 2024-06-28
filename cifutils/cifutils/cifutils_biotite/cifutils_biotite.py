@@ -210,16 +210,19 @@ class CIFParser:
             # Get bonds from the preprocessed CCD and OpenBabel data
             if add_bonds:
                 atom_array = self._add_bonds(cif_block, atom_array, chain_info_dict, converted_res, ignored_res)
-            
+
             models.append(atom_array)
 
         # Create an AtomArrayStack from the models list
         processed_atom_array_stack = struc.stack(models)
-        
+
         # Build the assembly and add the transformation_id annotation (defaults to identity)
         if exists(build_assembly):
             assemblies = self._build_assembly(
-                cif_block, processed_atom_array_stack, assembly_ids=build_assembly, patch_symmetry_centers=patch_symmetry_centers
+                cif_block,
+                processed_atom_array_stack,
+                assembly_ids=build_assembly,
+                patch_symmetry_centers=patch_symmetry_centers,
             )
         else:
             assemblies = {}
