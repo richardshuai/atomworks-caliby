@@ -8,11 +8,11 @@ TEST_CASES = ["1aqc"]
 
 
 def test_mse_to_met_residue():
-    mse = struc.stack([struc.array(CIF_PARSER_BIOTITE._build_residue_atoms("MSE"))])
-    met = struc.stack([struc.array(CIF_PARSER_BIOTITE._build_residue_atoms("MET"))])
+    mse = struc.array(CIF_PARSER_BIOTITE._build_residue_atoms("MSE"))
+    met = struc.array(CIF_PARSER_BIOTITE._build_residue_atoms("MET"))
     is_heavy = lambda x: ~np.isin(x.element, ["1", "H", "D", "T", 1])  # noqa
     mse_converted = mse_to_met(mse)
-    assert_same_atom_array(mse_converted[is_heavy(mse_converted)][0], met[is_heavy(met)][0])
+    assert_same_atom_array(mse_converted[is_heavy(mse_converted)], met[is_heavy(met)])
 
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
