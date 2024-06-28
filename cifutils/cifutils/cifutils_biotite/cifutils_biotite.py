@@ -10,8 +10,6 @@ import time
 from functools import lru_cache
 from typing import Sequence, Literal
 
-import biotite.structure as struc
-import biotite.structure.io.pdbx as pdbx
 import numpy as np
 import pandas as pd
 from os import PathLike
@@ -35,8 +33,10 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
 )
 from cifutils.cifutils_biotite.common import exists
 
+import biotite.structure as struc
+import biotite.structure.io.pdbx as pdbx
 from biotite.structure.io.pdbx import CIFBlock
-from biotite.structure import AtomArray, Atom
+from biotite.structure import AtomArray, Atom, AtomArrayStack
 from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
 
 logger = logging.getLogger(__name__)
@@ -104,6 +104,7 @@ class CIFParser:
         build_assembly: Literal["first", "all"] | list[str] | None = "all",
         fix_arginines: bool = True,
         convert_mse_to_met: bool = False,
+        model: int | None = None,
     ) -> dict:
         """
         Parse the CIF file and return chain information, residue information, atom array, metadata, and legacy data.
@@ -118,14 +119,15 @@ class CIFParser:
         - build_assembly (str, optional): Which assembly to build, if any. Options are None (e.g., asymmetric unit), "first", "all", or a list of assembly IDs.
         - fix_argenines (bool, optional): Whether to fix arginine naming ambiguity, see the AF-3 supplement for details.
         - convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE) residues to methionine (MET) residues.
+        - model (int, optional): The model number to parse from the CIF file for NMR entries. Defaults to all models (None).
 
         Returns:
         - dict: A dictionary containing the following keys:
         'chain_info': A dictionary mapping chain ID to sequence, type, entity ID, EC number, and other information.
         'residue_info': A dictionary mapping residue name to reference structure (atoms, bonds, automorphisms, etc.).
         'ligand_info': A dictionary containing ligand of interest information.
-        'atom_array': An AtomArrayStack instance representing the asymmetric unit.
-        'assemblies': A dictionary mapping assembly IDs to AtomArray instances.
+        'atom_array_stack': An AtomArrayStack instance representing the asymmetric unit.
+        'assemblies': A dictionary mapping assembly IDs to AtomArrayStack instances.
         'metadata': A dictionary containing metadata about the structure (e.g., resolution, deposition date, etc.).
         'modified_residues': A dictionary mapping modified residue names to their canonical name(s).
         'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
@@ -142,7 +144,7 @@ class CIFParser:
         metadata = self._get_metadata(cif_block)
 
         # Load structure using the RCSB labels for sequence ids, and later update for non-polymers
-        atom_array = pdbx.get_structure(
+        atom_array_stack = pdbx.get_structure(
             cif_block,
             extra_fields=[
                 "label_entity_id",
@@ -153,60 +155,11 @@ class CIFParser:
             ],
             use_author_fields=False,
             altloc="occupancy",
-            model=1,
+            model=model,
         )
 
-        # Load chain information (uses atom_array to build chain list)
-        chain_info_dict = self._get_chain_info(cif_block, atom_array)
-
-        # Remove waters
-        if remove_waters:
-            atom_array = atom_array[atom_array.res_name != "HOH"]
-            ignored_res.append("HOH")
-
-        # Remove crystallization aids and ions from the atom array
-        if remove_crystallization_aids:
-            atom_array = self._remove_crystallization_aids_and_ions(atom_array)
-            ignored_res.extend(CRYSTALLIZATION_AIDS)
-
-        # Replace non-polymeric chain sequence ids with author sequence ids
-        atom_array = self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
-
-        # Remove unmatched residues from the atom array
-        atom_array = self._remove_atoms_with_unmatched_residues(atom_array)
-
-        # Load monomer sequence information into chain_info_dict and residue details (e.g., automorphisms) into residue_info_dict
-        chain_info_dict, residue_info_dict = self._load_monomer_sequence_information(
-            cif_block, chain_info_dict, atom_array
-        )
-
-        # Handle sequence heterogeneity by selecting the residue that appears last
-        atom_array = self._keep_last_residue(atom_array)
-
-        # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
-        if add_missing_atoms:
-            atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
-
-        # Resolve arginine naming ambiguity
-        if fix_arginines:
-            atom_array = resolve_arginine_naming_ambiguity(atom_array)
-
-        # Convert MSE to MET
-        if convert_mse_to_met:
-            atom_array = mse_to_met(atom_array)
-            converted_res["MSE"] = "MET"
-
-        # Get bonds from the preprocessed CCD and OpenBabel data
-        if add_bonds:
-            atom_array = self._add_bonds(cif_block, atom_array, chain_info_dict, converted_res, ignored_res)
-
-        # Build the assembly and add the transformation_id annotation (defaults to identity)
-        if exists(build_assembly):
-            assemblies = self._build_assembly(
-                cif_block, atom_array, assembly_ids=build_assembly, patch_symmetry_centers=patch_symmetry_centers
-            )
-        else:
-            assemblies = {}
+        # Load chain information from the first model (uses atom_array to build chain list)
+        chain_info_dict = self._get_chain_info(cif_block, atom_array_stack[0])
 
         # Get ligand of interest information
         loi_info = self._get_ligand_of_interest_info(cif_block)
@@ -214,12 +167,71 @@ class CIFParser:
         # Modified residue information
         modified_residues_dict = build_modified_residues_dict(cif_block, chain_info_dict)
 
+        # Loop through models
+        models = []
+        for model_idx in range(atom_array_stack.stack_depth()):
+            atom_array = atom_array_stack[model_idx]
+
+            # Remove waters
+            if remove_waters:
+                atom_array = atom_array[atom_array.res_name != "HOH"]
+                ignored_res.append("HOH")
+
+            # Remove crystallization aids and ions from the atom array
+            if remove_crystallization_aids:
+                atom_array = self._remove_crystallization_aids_and_ions(atom_array)
+                ignored_res.extend(CRYSTALLIZATION_AIDS)
+
+            # Replace non-polymeric chain sequence ids with author sequence ids
+            atom_array = self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
+
+            # Remove unmatched residues from the atom array
+            atom_array = self._remove_atoms_with_unmatched_residues(atom_array)
+
+            # Load monomer sequence information into chain_info_dict and residue details (e.g., automorphisms) into residue_info_dict
+            chain_info_dict, residue_info_dict = self._load_monomer_sequence_information(
+                cif_block, chain_info_dict, atom_array
+            )
+
+            # Handle sequence heterogeneity by selecting the residue that appears last
+            atom_array = self._keep_last_residue(atom_array)
+
+            # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
+            if add_missing_atoms:
+                atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
+
+            # Resolve arginine naming ambiguity
+            if fix_arginines:
+                atom_array = resolve_arginine_naming_ambiguity(atom_array)
+
+            # Convert MSE to MET
+            if convert_mse_to_met:
+                atom_array = mse_to_met(atom_array)
+                converted_res["MSE"] = "MET"
+
+            # Get bonds from the preprocessed CCD and OpenBabel data
+            if add_bonds:
+                atom_array = self._add_bonds(cif_block, atom_array, chain_info_dict, converted_res, ignored_res)
+            
+            models.append(atom_array)
+
+        # Create an AtomArrayStack from the models list
+        processed_atom_array_stack = struc.stack(models)
+        
+        # Build the assembly and add the transformation_id annotation (defaults to identity)
+        if exists(build_assembly):
+            assemblies = self._build_assembly(
+                cif_block, processed_atom_array_stack, assembly_ids=build_assembly, patch_symmetry_centers=patch_symmetry_centers
+            )
+        else:
+            assemblies = {}
+
         # Add final sequence information to chain_info_dict
         return {
             "chain_info": chain_info_dict,
             "residue_info": residue_info_dict,
             "ligand_info": loi_info,
-            "atom_array": atom_array,
+            "atom_array_stack": processed_atom_array_stack,
             "assemblies": assemblies,
             "metadata": metadata,
             "modified_residues": modified_residues_dict,
@@ -247,10 +259,10 @@ class CIFParser:
     def _build_assembly(
         self,
         cif_block: CIFBlock,
-        atom_array: AtomArray,
+        atom_array_stack: AtomArrayStack,
         assembly_ids: Literal["all", "first"] | list[str] = "first",
         patch_symmetry_centers: bool = True,
-    ) -> AtomArray:
+    ) -> AtomArrayStack:
         """
         Build the first biological assembly found within the mmCIF file and update the `transformation_id` annotation.
 
@@ -258,7 +270,7 @@ class CIFParser:
 
         Args:
         - cif_block (CIFBlock): The CIF block containing the structure data.
-        - atom_array (AtomArray): The atom array to which the transformations will be applied.
+        - atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied.
         - assembly_id (int, optional): The ID of the assembly to build. Defaults to None, which means the first assembly will be built.
 
         Returns:
@@ -266,7 +278,7 @@ class CIFParser:
         """
 
         if "pdbx_struct_assembly" not in cif_block.keys():
-            return atom_array
+            return atom_array_stack
 
         # Parse CIF blocks and select assembly (either by passed assembly_id or the first assembly)
         assembly_gen_category = cif_block["pdbx_struct_assembly_gen"]
@@ -300,7 +312,7 @@ class CIFParser:
                 operations = pdbx.convert._parse_operation_expression(op_expr)
                 asym_ids = asym_id_expr.split(",")
                 # Filter affected asym IDs
-                sub_structure = atom_array[..., np.isin(atom_array.chain_id, asym_ids)]
+                sub_structure = atom_array_stack[..., np.isin(atom_array_stack.chain_id, asym_ids)]
                 for operation in operations:
                     sub_assembly = apply_transformation(sub_structure, transformations, operation)
                     # Add transformation ID annotation (e.g., 1 for identity operation)
@@ -309,7 +321,7 @@ class CIFParser:
                         # (e.g. ('1', 'X0') for `2fs3`), in this case we combine them into a single string
                         # for referencing the operation later on
                         operation = "".join(operation)
-                    sub_assembly.set_annotation("transformation_id", np.full(len(sub_assembly), operation))
+                    sub_assembly.set_annotation("transformation_id", np.full(sub_assembly.array_length(), operation))
                     # Merge the chains with asym IDs for this operation with chains from other operations
                     assemblies[_id] = assemblies[_id] + sub_assembly if _id in assemblies else sub_assembly
 
@@ -774,7 +786,7 @@ class CIFParser:
         ignored_res: list = [],
     ) -> AtomArray:
         """
-        Add bonds to the atom array stack using precomputed CCD data and the mmCIF `struct_conn` field.
+        Add bonds to the atom array using precomputed CCD data and the mmCIF `struct_conn` field.
 
         Args:
         - cif_block (CIFBlock): The CIF file block containing the structure data.
@@ -825,7 +837,7 @@ class CIFParser:
         Removes duplicate residues in the atom array, keeping only the last occurrence.
 
         Args:
-        - atom_array (AtomArray): The atom array stack containing the chain information.
+        - atom_array (AtomArray): The atom array containing the chain information.
 
         Returns:
         - AtomArray: The atom array with duplicate residues removed.
@@ -856,15 +868,15 @@ class CIFParser:
 
     def _update_nonpoly_seq_ids(self, atom_array: AtomArray, chain_info_dict: dict) -> None:
         """
-        Updates the sequence IDs of non-polymeric chains in the atom array stack.
-        Additionally, adds an annotation to the atom array stack to indicate whether a chain is a polymer.
+        Updates the sequence IDs of non-polymeric chains in the atom array.
+        Additionally, adds an annotation to the atom array to indicate whether a chain is a polymer.
 
         Args:
-        - atom_array (AtomArray): The atom array stack containing the chain information.
+        - atom_array (AtomArray): The atom array containing the chain information.
         - chain_info_dict (dict): Dictionary containing the sequence details of each chain.
 
         Returns:
-        - AtomArray: The updated atom array stack with the sequence IDs updated for non-polymeric chains.
+        - AtomArray: The updated atom array with the sequence IDs updated for non-polymeric chains.
         """
         # For non-polymeric chains, we use the author sequence ids
         author_seq_ids = atom_array.get_annotation("auth_seq_id")
@@ -989,7 +1001,7 @@ class CIFParser:
 
         Args:
         - cif_block (CIFBlock): Parsed CIF block.
-        - atom_array (AtomArray): Atom array stack containing the chain information.
+        - atom_array (AtomArray): Atom array containing the chain information.
 
         Returns:
         - dict: Dictionary containing the sequence details of each chain.
@@ -1057,7 +1069,7 @@ class CIFParser:
         # Method
         metadata["method"] = ",".join(exptl["method"].as_array()).replace(" ", "_") if exptl else None
         # Initial deposition date (date)
-        metadata["date"] = status["recvd_initial_deposition_date"].as_item() if status else None
+        metadata["deposition_date"] = status["recvd_initial_deposition_date"].as_item() if status else None
         # Resolution
         metadata["resolution"] = None
         if refine:
@@ -1076,8 +1088,8 @@ class CIFParser:
 
     @staticmethod
     def _maybe_patch_non_polymer_at_symmetry_center(
-        atom_array: AtomArray, clash_distance=1.0, clash_ratio=0.5
-    ) -> AtomArray:
+        atom_array_stack: AtomArrayStack, clash_distance=1.0, clash_ratio=0.5
+    ) -> AtomArrayStack:
         """
         In some PDB entries, non-polymer molecules are placed at the symmetry center and clash with themselves when
         transformed via symmetry operations. We should remove the duplicates in these cases, keeping the identity copy.
@@ -1096,6 +1108,9 @@ class CIFParser:
         Returns:
         — AtomArray: The patched atom array.
         """
+        # Select one model AtomArray to simplify computations
+        atom_array = atom_array_stack[0]
+
         # Filter to only atoms with coordinates to avoid non-physical clashes at the origin
         resolved_atom_array = atom_array[atom_array.occupancy > 0]
 
@@ -1166,8 +1181,8 @@ class CIFParser:
 
             # Filter and return
             keep_mask = ~np.isin(atom_array.chain_full_id, chain_full_ids_to_remove)
-            atom_array = atom_array[keep_mask]
-            return atom_array
+            atom_array_stack = atom_array_stack[:, keep_mask]
+            return atom_array_stack
 
     @staticmethod
     def _get_matching_atom(res: AtomArray, atom_name: str, try_alt_atom_id: bool = True) -> Atom:

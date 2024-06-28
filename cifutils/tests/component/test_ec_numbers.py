@@ -1,5 +1,5 @@
 import pytest
-from tests.conftest import get_digs_path, CIF_PARSER
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 
 TEST_CASES = [
     {"pdb_id": "3bdp", "chain_id": "C", "ec_numbers": ["2.7.7.7"]},
@@ -11,7 +11,7 @@ TEST_CASES = [
 def test_ec_numbers(test_case: dict):
     pdb_id = test_case["pdb_id"]
     path = get_digs_path(pdb_id)
-    result = CIF_PARSER.parse(
+    result = CIF_PARSER_BIOTITE.parse(
         path,
         add_missing_atoms=False,
         add_bonds=False,

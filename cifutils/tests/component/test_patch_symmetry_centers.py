@@ -1,5 +1,5 @@
 import pytest
-from tests.conftest import get_digs_path, CIF_PARSER
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 import numpy as np
 
 LIGAND_AT_SYMMETRY_CENTER_TEST_CASES = [
@@ -23,7 +23,7 @@ def test_patch_symmetry_centers(test_case: dict):
 
     # Parse the file
     filename = get_digs_path(pdbid)
-    out = CIF_PARSER.parse(filename, build_assembly="first", remove_crystallization_aids=True, remove_waters=True)
+    out = CIF_PARSER_BIOTITE.parse(filename, build_assembly="first", remove_crystallization_aids=True, remove_waters=True)
     chain_full_ids = np.unique(out["assemblies"]["1"].chain_full_id).tolist()
 
     # Ensure that we excluded clashing chains

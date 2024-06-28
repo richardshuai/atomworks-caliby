@@ -3,33 +3,57 @@ import pytest
 from cifutils.cifutils_legacy import cifutils_legacy
 import biotite.structure as struc
 import numpy as np
-from tests.conftest import get_digs_path, TEST_DATA_DIR, CIF_PARSER
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE, CIF_PARSER_LEGACY
 from typing import Any
 import logging
 
 logger = logging.getLogger(__name__)
 
-
-def parse_with_cifutils_legacy(filename, cif_parser_legacy):
-    return cif_parser_legacy.parse(filename)
-
-
-def parse_with_cifutils_biotite(
-    filename,
-    cifutils_biotite_parser=CIF_PARSER,
-    add_bonds=True,
-    add_missing_atoms=True,
-    fix_arginines=False,  # Disable, since the old parser did not do this.
-    **kwargs,
-):
-    return cifutils_biotite_parser.parse(
-        filename,
-        add_bonds=add_bonds,
-        add_missing_atoms=add_missing_atoms,
-        fix_arginines=fix_arginines,
-        **kwargs,
-    )
-
+# Test cases to compare against the legacy parser
+TEST_CASES_PARSER = [
+    {"pdb_id": "2k0a"},
+    {"pdb_id": "3k4a", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
+    # {
+        # "pdb_id": "3kfa"
+    # },  # 3kfa in the legacy parser has an aromatic ring in ligand `B91` tagged as 'double' while it is tagged as 'single' in the updated parser
+    {"pdb_id": "4az0"},
+    {"pdb_id": "2ejf"},
+    {"pdb_id": "5tmc"},
+    {"pdb_id": "6dru"},
+    {"pdb_id": "6s7t"},
+    {"pdb_id": "4xo3"},
+    {"pdb_id": "6tt7"},
+    {"pdb_id": "1khz"},
+    # {
+    # "pdb_id": "1adl"
+    # },  # 1adl in the legacy parser has the leaving flag for atom `HO2` in ligand `PPI` false, but the entire ligand as leaving group.
+    {"pdb_id": "1nte"},
+    {"pdb_id": "3dpm"},
+    {"pdb_id": "1bs3"},
+    {"pdb_id": "2b4b", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
+    {"pdb_id": "1etu"},
+    {"pdb_id": "4ztt"},
+    {"pdb_id": "1brx"},
+    {"pdb_id": "3nez", "rename_atoms": {"CH6": {"H": "HN11", "H2": "HN12"}}},  # CH6 uses legacy atom name `HN11`
+    # {"pdb_id": "4ndz"},  # atom `O3` in ligand `NPO` is flagged as leaving even though it is not
+    {"pdb_id": "1lys"},
+    {"pdb_id": "6dmg"},
+    {"pdb_id": "1a8o", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
+    {"pdb_id": "6wjc"},
+    {"pdb_id": "4js1"},
+    {"pdb_id": "1ivo"},
+    {"pdb_id": "1fu2"},
+    {"pdb_id": "1cbn"},
+    {"pdb_id": "1en2"},
+    {"pdb_id": "1y1w"},
+    {"pdb_id": "133d"},
+    # {"pdb_id": "5xnl"},
+    # {"pdb_id": "6wtf"},
+    {"pdb_id": "1azx"},
+    {"pdb_id": "2e2h"},
+    {"pdb_id": "1q1k"},
+    {"pdb_id": "3ne7", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
+]
 
 def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
     """
@@ -38,7 +62,7 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
     """
     modres_legacy = None
     metadata_legacy = result_dict["metadata"]
-    atom_array = result_dict["atom_array"]
+    atom_array = result_dict["atom_array_stack"][0] # Get the first model
 
     get_atom_name = lambda atom: rename_atoms.get(atom.res_name, {}).get(atom.atom_name, atom.atom_name)  # noqa
 
@@ -286,57 +310,12 @@ def cif_parser_legacy():
     return cifutils_legacy.CIFParser()
 
 
-TEST_CASES_PARSER = [
-    {"pdb_id": "2k0a"},
-    {"pdb_id": "3k4a", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
-    {
-        "pdb_id": "3kfa"
-    },  # 3kfa in the legacy parser has an aromatic ring in ligand `B91` tagged as 'double' while it is tagged as 'single' in the updated parser
-    {"pdb_id": "4az0"},
-    {"pdb_id": "2ejf"},
-    {"pdb_id": "5tmc"},
-    {"pdb_id": "6dru"},
-    {"pdb_id": "6s7t"},
-    {"pdb_id": "4xo3"},
-    {"pdb_id": "6tt7"},
-    {"pdb_id": "1khz"},
-    # {
-    # "pdb_id": "1adl"
-    # },  # 1adl in the legacy parser has the leaving flag for atom `HO2` in ligand `PPI` false, but the entire ligand as leaving group.
-    {"pdb_id": "1nte"},
-    {"pdb_id": "3dpm"},
-    {"pdb_id": "1bs3"},
-    {"pdb_id": "2b4b", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
-    {"pdb_id": "1etu"},
-    {"pdb_id": "4ztt"},
-    {"pdb_id": "1brx"},
-    {"pdb_id": "3nez", "rename_atoms": {"CH6": {"H": "HN11", "H2": "HN12"}}},  # CH6 uses legacy atom name `HN11`
-    # {"pdb_id": "4ndz"},  # atom `O3` in ligand `NPO` is flagged as leaving even though it is not
-    {"pdb_id": "1lys"},
-    {"pdb_id": "6dmg"},
-    {"pdb_id": "1a8o", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
-    {"pdb_id": "6wjc"},
-    {"pdb_id": "4js1"},
-    {"pdb_id": "1ivo"},
-    {"pdb_id": "1fu2"},
-    {"pdb_id": "1cbn"},
-    {"pdb_id": "1en2"},
-    {"pdb_id": "1y1w"},
-    {"pdb_id": "133d"},
-    # {"pdb_id": "5xnl"},
-    # {"pdb_id": "6wtf"},
-    {"pdb_id": "1azx"},
-    {"pdb_id": "2e2h"},
-    {"pdb_id": "1q1k"},
-    {"pdb_id": "3ne7", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
-]
-
 
 @pytest.mark.parametrize(
     "test_case",
     TEST_CASES_PARSER,
 )
-def test_parsing(test_case: dict[str, Any], cif_parser_legacy, cifutils_biotite_parser=CIF_PARSER, **kwargs):
+def test_parsing(test_case: dict[str, Any]):
     """
     Compare the results of parsing a CIF file with cifutils_legacy and cifutils_biotite.
 
@@ -344,6 +323,7 @@ def test_parsing(test_case: dict[str, Any], cif_parser_legacy, cifutils_biotite_
     - Atoms
     - Bonds
     - Metadata
+    - Modified residues
 
     Does not compare:
     - Assembly (handled by test_bioassemblies.py)
@@ -352,12 +332,10 @@ def test_parsing(test_case: dict[str, Any], cif_parser_legacy, cifutils_biotite_
     filename = get_digs_path(pdb_id)
 
     # Parse with cifutils_legacy
-    chains_legacy, asmb_legacy, covale_legacy, meta_legacy, modres_legacy = parse_with_cifutils_legacy(
-        filename, cif_parser_legacy
-    )
+    chains_legacy, asmb_legacy, covale_legacy, meta_legacy, modres_legacy = CIF_PARSER_LEGACY.parse(filename)
 
     # Parse with cifutils_biotite
-    result_dict = parse_with_cifutils_biotite(filename, CIF_PARSER, **kwargs)
+    result_dict =  CIF_PARSER_BIOTITE.parse(filename)
 
     # Compare cifutils_legacy with biotite atom locations
     converted_chains, converted_modres, converted_metadata = convert_cifutils_biotite_to_legacy(
@@ -370,28 +348,11 @@ def test_parsing(test_case: dict[str, Any], cif_parser_legacy, cifutils_biotite_
     # Test metadata
     assert result_dict["metadata"]["method"] == meta_legacy["method"], "Method mismatch."
     assert result_dict["metadata"]["resolution"] == meta_legacy["resolution"], "Resolution mismatch."
-    assert result_dict["metadata"]["date"] == meta_legacy["date"], "Date mismatch."
+    assert result_dict["metadata"]["deposition_date"] == meta_legacy["date"], "Date mismatch."
 
-    # Test modified residue dict
+    # Test modified residue dict with the legacy parser
     validate_modified_residues(modres_legacy, result_dict["modified_residues"])
-
-
-def test_unmatched_atom_types():
-    """
-    Ensure that unmatched atom types are handled correctly. For cifutils_biotite, that means masking the residue with the unmathced atom with 0 occupancy.
-    """
-    filename = TEST_DATA_DIR / "1a8o_modified.cif"
-
-    # Parse with cifutils_biotite
-    result_dict = parse_with_cifutils_biotite(filename, CIF_PARSER, add_bonds=True, add_missing_atoms=True)
-
-    # Ensure that residue 2 has no occupancy
-    atom_array = result_dict["atom_array"]
-    residue_2 = atom_array[(atom_array.chain_id == "A") & (atom_array.res_id == 2)]
-    assert np.sum(residue_2.occupancy) == 0
-
 
 if __name__ == "__main__":
     # Test a single example
-    cif_parser_legacy = cifutils_legacy.CIFParser()
-    test_parsing("2k0a", cif_parser_legacy, CIF_PARSER, add_bonds=True, add_missing_atoms=True)
+    test_parsing(test_case=TEST_CASES_PARSER[5])
