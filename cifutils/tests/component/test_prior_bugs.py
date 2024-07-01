@@ -2,6 +2,7 @@ import pytest
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 
 TEST_CASES = [
+    "1zy8",  # Models with different number of atoms; raises an InvalidFileError from Biotite (but we should just choose the first model)
     "5e5j",  # Comes from more than 1 experimental method (X-ray & neutron scattering)
     "1j8z",  # Contains misordered atoms in a residue
     "2fs3",  # Contains an unusual operation expression for assembly building

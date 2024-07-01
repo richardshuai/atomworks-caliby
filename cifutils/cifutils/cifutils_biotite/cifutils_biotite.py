@@ -37,6 +37,7 @@ import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
 from biotite.structure.io.pdbx import CIFBlock
 from biotite.structure import AtomArray, Atom, AtomArrayStack
+from biotite.file import InvalidFileError
 from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
 
 logger = logging.getLogger(__name__)
@@ -144,19 +145,32 @@ class CIFParser:
         metadata = self._get_metadata(cif_block)
 
         # Load structure using the RCSB labels for sequence ids, and later update for non-polymers
-        atom_array_stack = pdbx.get_structure(
-            cif_block,
-            extra_fields=[
-                "label_entity_id",
-                "auth_seq_id",  # for non-polymer residue indexing
-                "atom_id",
-                "b_factor",
-                "occupancy",
-            ],
-            use_author_fields=False,
-            altloc="occupancy",
-            model=model,
-        )
+
+        common_extra_fields = [
+            "label_entity_id",
+            "auth_seq_id",  # for non-polymer residue indexing
+            "atom_id",
+            "b_factor",
+            "occupancy",
+        ]
+        try:
+            atom_array_stack = pdbx.get_structure(
+                cif_block,
+                extra_fields=common_extra_fields,
+                use_author_fields=False,
+                altloc="occupancy",
+                model=model,
+            )
+        except InvalidFileError:
+            logger.warning(f"Invalid file error encountered for {filename}; loading with only one model")
+            # Try again, choosing only one model
+            atom_array_stack = pdbx.get_structure(
+                cif_block,
+                extra_fields=common_extra_fields,
+                use_author_fields=True,
+                altloc="occupancy",
+                model=1,
+            )
 
         # Ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
         if not isinstance(atom_array_stack, AtomArrayStack):
