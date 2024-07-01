@@ -1075,8 +1075,17 @@ class CIFParser:
 
         # Method
         metadata["method"] = ",".join(exptl["method"].as_array()).replace(" ", "_") if exptl else None
-        # Initial deposition date (date)
-        metadata["deposition_date"] = status["recvd_initial_deposition_date"].as_item() if status else None
+        # Initial deposition date and release date to the PDB
+        metadata["deposition_date"] = (
+            status["recvd_initial_deposition_date"].as_item()
+            if status and "recvd_initial_deposition_date" in status
+            else None
+        )
+
+        # The relevant release date is the first `pdbx_audit_revision_history.revision_date` entry
+        revision_dates = cif_block["pdbx_audit_revision_history"]["revision_date"].as_array()
+        metadata["release_date"] = revision_dates[0] if revision_dates is not None else None
+
         # Resolution
         metadata["resolution"] = None
         if refine:
