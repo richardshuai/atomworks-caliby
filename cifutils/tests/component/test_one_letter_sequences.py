@@ -1,5 +1,5 @@
 import pytest
-from tests.conftest import get_digs_path, CIF_PARSER
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 import numpy as np
 import re
 
@@ -9,7 +9,7 @@ TEST_CASES = ["2e2h", "4cpa", "1en2", "1aqc", "1ivo", "3k4a", "1cbn", "133d", "1
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_one_letter_sequences(pdb_id: str):
     path = get_digs_path(pdb_id)
-    result = CIF_PARSER.parse(
+    result = CIF_PARSER_BIOTITE.parse(
         path,
         add_missing_atoms=True,
         add_bonds=True,
@@ -25,7 +25,7 @@ def test_one_letter_sequences(pdb_id: str):
     for chain_id, chain_details in chain_info.items():
         chain_type = chain_details["type"]
         # Get the atom array for that specific chain and count the number of unique residues
-        atom_array = result["atom_array"]
+        atom_array = result["atom_array_stack"][0]  # First model
         chain_atom_array = atom_array[atom_array.chain_id == chain_id]
         num_residues = len(np.unique(chain_atom_array.res_id))
 
