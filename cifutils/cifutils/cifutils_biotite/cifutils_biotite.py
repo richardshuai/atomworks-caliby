@@ -1095,7 +1095,7 @@ class CIFParser:
 
     @staticmethod
     def _maybe_patch_non_polymer_at_symmetry_center(
-        atom_array_stack: AtomArrayStack, clash_distance=1.0, clash_ratio=0.5
+        atom_array_stack: AtomArrayStack, clash_distance: float=1.0, clash_ratio: float=0.5
     ) -> AtomArrayStack:
         """
         In some PDB entries, non-polymer molecules are placed at the symmetry center and clash with themselves when
