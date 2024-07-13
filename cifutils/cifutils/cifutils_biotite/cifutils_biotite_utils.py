@@ -37,7 +37,8 @@ def get_1_from_3_letter_code(res_name: str, chain_type: str, use_closest_canonic
     Returns:
     - str: The corresponding 1-letter code. Returns "X" if the residue name or chain type is not supported.
     """
-    if chain_type == "polypeptide(D)" or chain_type == "polypeptide(L)":
+    chain_type = chain_type.lower()
+    if chain_type == "polypeptide(d)" or chain_type == "polypeptide(l)":
         # Proteins
         if use_closest_canonical:
             return protein_letters_3to1_extended.get(res_name, "X")
