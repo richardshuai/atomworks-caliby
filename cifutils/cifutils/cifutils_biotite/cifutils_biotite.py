@@ -346,13 +346,12 @@ class CIFParser:
                     # Merge the chains with asym IDs for this operation with chains from other operations
                     assemblies[_id] = assemblies[_id] + sub_assembly if _id in assemblies else sub_assembly
 
-                # Create a composite chain_id, transformation_id annotation for ease of access
-
-                chain_full_id = np.char.add(
+                # Create a composite chain_id, transformation_id annotation for ease of access (named chain instance ID, e.g., chain_iid)
+                chain_iid = np.char.add(
                     np.char.add(assemblies[_id].chain_id.astype("<U20"), "_"),
                     assemblies[_id].transformation_id.astype(str),
                 )
-                assemblies[_id].set_annotation("chain_full_id", chain_full_id)
+                assemblies[_id].set_annotation("chain_iid", chain_iid)
 
                 # For molecules with multiple transformations, we need to check for non-polymers at symmetry centers
                 if len(operations) > 1 and patch_symmetry_centers:
@@ -1169,7 +1168,7 @@ class CIFParser:
             # For each clashing chain, we check whether any non-polymer is clashing with a symmetric copy of itself
             # We count the clashes with each symmetric copy of itself and remove those that have a clash ratio above the threshold
             # We keep the identity transformation, or the lowest transformation ID in the case of multiple symmetric copies
-            chain_full_ids_to_remove = []
+            chain_iids_to_remove = []
             for chain_id in clashing_chain_ids:
                 chain_mask = non_polymers.chain_id == chain_id
                 mask = chain_mask & clashing_atom_mask  # Mask for clashing atoms in the current chain
@@ -1198,19 +1197,17 @@ class CIFParser:
                     )
                     threshold = clash_ratio * np.sum(chain_mask & transformation_mask)
 
-                    # For each transformation ID with a clash ratio above the threshold, note the chain_full_id to remove, and remove from the list to check
+                    # For each transformation ID with a clash ratio above the threshold, note the chain_iid to remove, and remove from the list to check
                     transformation_ids_to_remove = [
                         trans_id for trans_id, count in clash_count_by_transformation_id.items() if count > threshold
                     ]
-                    chain_full_ids_to_remove.extend(
-                        [f"{chain_id}_{trans_id}" for trans_id in transformation_ids_to_remove]
-                    )
+                    chain_iids_to_remove.extend([f"{chain_id}_{trans_id}" for trans_id in transformation_ids_to_remove])
                     transformation_ids_to_check = [
                         id_ for id_ in transformation_ids_to_check if str(id_) not in transformation_ids_to_remove
                     ]
 
             # Filter and return
-            keep_mask = ~np.isin(atom_array.chain_full_id, chain_full_ids_to_remove)
+            keep_mask = ~np.isin(atom_array.chain_iid, chain_iids_to_remove)
             atom_array_stack = atom_array_stack[:, keep_mask]
             return atom_array_stack
 
