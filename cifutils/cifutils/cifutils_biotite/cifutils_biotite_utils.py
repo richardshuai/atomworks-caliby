@@ -137,40 +137,6 @@ def get_3_from_1_letter_code(
         return unknown_protein_three_letter
 
 
-def get_3_from_1_letter_code_bytes(
-    letter: bytes,
-    chain_type: str,
-    gap_one_letter: bytes = b"-",
-    gap_three_letter: bytes = b"<G>",
-    unknown_protein_three_letter: bytes = b"UNK",
-    unknown_rna_three_letter: bytes = b"RX",
-    unknown_dna_three_letter: bytes = b"DX",
-) -> bytes:
-    """
-    Converts a 1-letter residue name to its 3-letter code based on the chain type, using byte strings.
-
-    This function is similar to `get_3_from_1_letter_code` but operates on byte strings.
-    """
-    chain_type = chain_type.lower()
-
-    # Convert gaps (b"-") to b"<G>", or whatever is specified
-    if letter == gap_one_letter:
-        return gap_three_letter
-
-    if chain_type == "polypeptide(d)" or chain_type == "polypeptide(l)":
-        # Proteins
-        return protein_letters_1to3_bytes.get(letter, unknown_protein_three_letter)
-    elif chain_type == "polydeoxyribonucleotide":
-        # DNA
-        return dna_letters_1to3_bytes.get(letter, unknown_dna_three_letter)
-    elif chain_type == "polyribonucleotide":
-        # RNA
-        return rna_letters_1to3_bytes.get(letter, unknown_rna_three_letter)
-    else:
-        logger.warning(f"Unsupported chain type: {chain_type}")
-        return unknown_protein_three_letter
-
-
 def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
     """Convert a CIF block to a dictionary."""
     if exists(cif_block.get(category)):
