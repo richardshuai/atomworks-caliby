@@ -1,6 +1,10 @@
 import pytest
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
-from cifutils.cifutils_biotite.cifutils_biotite_utils import get_3_from_1_letter_code, get_1_from_3_letter_code
+from cifutils.cifutils_biotite.cifutils_biotite_utils import (
+    get_3_from_1_letter_code,
+    get_1_from_3_letter_code,
+    get_3_from_1_letter_code_bytes,
+)
 import numpy as np
 import re
 
@@ -138,3 +142,18 @@ def test_get_3_from_1_letter_code(letter, chain_type, expected_three_letter):
 )
 def test_get_1_from_3_letter_code(three_letter_code, chain_type, expected_one_letter):
     assert get_1_from_3_letter_code(three_letter_code, chain_type) == expected_one_letter
+
+
+# Convert test cases to byte strings
+PROTEIN_TEST_CASES_BYTES = [(x.encode("utf-8"), y, z.encode("utf-8")) for x, y, z in PROTEIN_TEST_CASES]
+DNA_TEST_CASES_BYTES = [(x.encode("utf-8"), y, z.encode("utf-8")) for x, y, z in DNA_TEST_CASES]
+RNA_TEST_CASES_BYTES = [(x.encode("utf-8"), y, z.encode("utf-8")) for x, y, z in RNA_TEST_CASES]
+UNKNOWN_TEST_CASES_BYTES = [(x.encode("utf-8"), y, z.encode("utf-8")) for x, y, z in UNKNOWN_TEST_CASES]
+
+
+@pytest.mark.parametrize(
+    "letter, chain_type, expected_three_letter",
+    PROTEIN_TEST_CASES_BYTES + DNA_TEST_CASES_BYTES + RNA_TEST_CASES_BYTES + UNKNOWN_TEST_CASES_BYTES,
+)
+def test_get_3_from_1_letter_code_bytes(letter, chain_type, expected_three_letter):
+    assert get_3_from_1_letter_code_bytes(letter, chain_type) == expected_three_letter

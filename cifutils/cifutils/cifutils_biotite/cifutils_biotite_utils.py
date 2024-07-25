@@ -39,6 +39,11 @@ dna_letters_1to3 = {
     "T": "DT",
 }
 
+# Create dictionaries that support byte strings
+protein_letters_1to3_bytes = {k.encode("utf-8"): v.encode("utf-8") for k, v in protein_letters_1to3.items()}
+rna_letters_1to3_bytes = {k.encode("utf-8"): v.encode("utf-8") for k, v in rna_letters_1to3.items()}
+dna_letters_1to3_bytes = {k.encode("utf-8"): v.encode("utf-8") for k, v in dna_letters_1to3.items()}
+
 
 def get_1_from_3_letter_code(
     res_name: str,
@@ -127,6 +132,40 @@ def get_3_from_1_letter_code(
     elif chain_type == "polyribonucleotide":
         # RNA
         return rna_letters_1to3.get(letter, unknown_rna_three_letter)
+    else:
+        logger.warning(f"Unsupported chain type: {chain_type}")
+        return unknown_protein_three_letter
+
+
+def get_3_from_1_letter_code_bytes(
+    letter: bytes,
+    chain_type: str,
+    gap_one_letter: bytes = b"-",
+    gap_three_letter: bytes = b"<GAP>",
+    unknown_protein_three_letter: bytes = b"UNK",
+    unknown_rna_three_letter: bytes = b"RX",
+    unknown_dna_three_letter: bytes = b"DX",
+) -> bytes:
+    """
+    Converts a 1-letter residue name to its 3-letter code based on the chain type, using byte strings.
+
+    This function is similar to `get_3_from_1_letter_code` but operates on byte strings.
+    """
+    chain_type = chain_type.lower()
+
+    # Convert gaps (b"-") to b"<GAP>", or whatever is specified
+    if letter == gap_one_letter:
+        return gap_three_letter
+
+    if chain_type == "polypeptide(d)" or chain_type == "polypeptide(l)":
+        # Proteins
+        return protein_letters_1to3_bytes.get(letter, unknown_protein_three_letter)
+    elif chain_type == "polydeoxyribonucleotide":
+        # DNA
+        return dna_letters_1to3_bytes.get(letter, unknown_dna_three_letter)
+    elif chain_type == "polyribonucleotide":
+        # RNA
+        return rna_letters_1to3_bytes.get(letter, unknown_rna_three_letter)
     else:
         logger.warning(f"Unsupported chain type: {chain_type}")
         return unknown_protein_three_letter
