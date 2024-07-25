@@ -1,5 +1,6 @@
 import pytest
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
+from cifutils.cifutils_biotite.cifutils_biotite_utils import get_3_from_1_letter_code, get_1_from_3_letter_code
 import numpy as np
 import re
 
@@ -7,7 +8,7 @@ TEST_CASES = ["2e2h", "4cpa", "1en2", "1aqc", "1ivo", "3k4a", "1cbn", "133d", "1
 
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
-def test_one_letter_sequences(pdb_id: str):
+def test_parser_one_letter_sequence_outputs(pdb_id: str):
     path = get_digs_path(pdb_id)
     result = CIF_PARSER_BIOTITE.parse(
         path,
@@ -64,3 +65,76 @@ def test_one_letter_sequences(pdb_id: str):
                 chain_type == "polypeptide(D)" or chain_type == "polypeptide(L)"
             ):
                 assert unprocessed_cleaned == processed_cleaned
+
+
+# Define test cases for proteins
+PROTEIN_TEST_CASES = [
+    ("A", "polypeptide(D)", "ALA"),
+    ("C", "polypeptide(D)", "CYS"),
+    ("D", "polypeptide(D)", "ASP"),
+    ("E", "polypeptide(D)", "GLU"),
+    ("F", "polypeptide(D)", "PHE"),
+    ("G", "polypeptide(D)", "GLY"),
+    ("H", "polypeptide(D)", "HIS"),
+    ("I", "polypeptide(D)", "ILE"),
+    ("K", "polypeptide(D)", "LYS"),
+    ("L", "polypeptide(D)", "LEU"),
+    ("M", "polypeptide(D)", "MET"),
+    ("N", "polypeptide(D)", "ASN"),
+    ("P", "polypeptide(D)", "PRO"),
+    ("Q", "polypeptide(D)", "GLN"),
+    ("R", "polypeptide(D)", "ARG"),
+    ("S", "polypeptide(D)", "SER"),
+    ("T", "polypeptide(D)", "THR"),
+    ("V", "polypeptide(D)", "VAL"),
+    ("W", "polypeptide(D)", "TRP"),
+    ("Y", "polypeptide(D)", "TYR"),
+    ("-", "polypeptide(D)", "<GAP>"),
+]
+
+# Define test cases for DNA
+DNA_TEST_CASES = [
+    ("A", "polydeoxyribonucleotide", "DA"),
+    ("C", "polydeoxyribonucleotide", "DC"),
+    ("G", "polydeoxyribonucleotide", "DG"),
+    ("T", "polydeoxyribonucleotide", "DT"),
+    ("-", "polydeoxyribonucleotide", "<GAP>"),
+]
+
+# Define test cases for RNA
+RNA_TEST_CASES = [
+    ("A", "polyribonucleotide", "A"),
+    ("C", "polyribonucleotide", "C"),
+    ("G", "polyribonucleotide", "G"),
+    ("U", "polyribonucleotide", "U"),
+    ("-", "polyribonucleotide", "<GAP>"),
+]
+
+# Define test cases for unknown letters
+UNKNOWN_TEST_CASES = [
+    ("B", "polypeptide(D)", "UNK"),
+    ("Z", "polypeptide(D)", "UNK"),
+    ("X", "polypeptide(D)", "UNK"),
+    ("B", "polydeoxyribonucleotide", "DX"),
+    ("Z", "polydeoxyribonucleotide", "DX"),
+    ("X", "polydeoxyribonucleotide", "DX"),
+    ("B", "polyribonucleotide", "RX"),
+    ("Z", "polyribonucleotide", "RX"),
+    ("X", "polyribonucleotide", "RX"),
+]
+
+
+@pytest.mark.parametrize(
+    "letter, chain_type, expected_three_letter",
+    PROTEIN_TEST_CASES + DNA_TEST_CASES + RNA_TEST_CASES + UNKNOWN_TEST_CASES,
+)
+def test_get_3_from_1_letter_code(letter, chain_type, expected_three_letter):
+    assert get_3_from_1_letter_code(letter, chain_type) == expected_three_letter
+
+
+# We can't test the reverse mapping for unknown letters (all map to "X")
+@pytest.mark.parametrize(
+    "expected_one_letter, chain_type, three_letter_code", PROTEIN_TEST_CASES + DNA_TEST_CASES + RNA_TEST_CASES
+)
+def test_get_1_from_3_letter_code(three_letter_code, chain_type, expected_one_letter):
+    assert get_1_from_3_letter_code(three_letter_code, chain_type) == expected_one_letter
