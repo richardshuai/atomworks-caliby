@@ -93,7 +93,7 @@ PROTEIN_TEST_CASES = [
     ("V", "polypeptide(D)", "VAL"),
     ("W", "polypeptide(D)", "TRP"),
     ("Y", "polypeptide(D)", "TYR"),
-    ("-", "polypeptide(D)", "<GAP>"),
+    ("-", "polypeptide(D)", "<G>"),
 ]
 
 # Define test cases for DNA
@@ -102,7 +102,7 @@ DNA_TEST_CASES = [
     ("C", "polydeoxyribonucleotide", "DC"),
     ("G", "polydeoxyribonucleotide", "DG"),
     ("T", "polydeoxyribonucleotide", "DT"),
-    ("-", "polydeoxyribonucleotide", "<GAP>"),
+    ("-", "polydeoxyribonucleotide", "<G>"),
 ]
 
 # Define test cases for RNA
@@ -111,7 +111,7 @@ RNA_TEST_CASES = [
     ("C", "polyribonucleotide", "C"),
     ("G", "polyribonucleotide", "G"),
     ("U", "polyribonucleotide", "U"),
-    ("-", "polyribonucleotide", "<GAP>"),
+    ("-", "polyribonucleotide", "<G>"),
 ]
 
 # Define test cases for unknown letters

@@ -49,7 +49,7 @@ def get_1_from_3_letter_code(
     res_name: str,
     chain_type: str,
     use_closest_canonical: bool = False,
-    gap_three_letter: str = "<GAP>",
+    gap_three_letter: str = "<G>",
     gap_one_letter: str = "-",
 ) -> str:
     """
@@ -60,13 +60,13 @@ def get_1_from_3_letter_code(
     - res_name (str): The 3-letter residue name.
     - chain_type (str): The type of chain, e.g., "polypeptide(D)", "polypeptide(L)", "polydeoxyribonucleotide", or "polyribonucleotide".
     - use_closest_canonical (bool): Whether to use the closest canonical mapping (from BioPython). Defaults to False.
-    - gap_three_letter (str): The three-letter code for a gap. Defaults to "<GAP>".
+    - gap_three_letter (str): The three-letter code for a gap. Defaults to "<G>".
     - gap_one_letter (str): The one-letter code for a gap. Defaults to "-" (as is standard within MSAs).
 
     Returns:
     - str: The corresponding 1-letter code. Returns "X" if the residue name or chain type is not supported.
     """
-    # Convert gaps ("<GAP>") to "-", or whatever is specified
+    # Convert gaps ("<G>") to "-", or whatever is specified
     if res_name == gap_three_letter:
         return gap_one_letter
 
@@ -96,7 +96,7 @@ def get_3_from_1_letter_code(
     letter: str,
     chain_type: str,
     gap_one_letter: str = "-",
-    gap_three_letter: str = "<GAP>",
+    gap_three_letter: str = "<G>",
     unknown_protein_three_letter: str = "UNK",
     unknown_rna_three_letter: str = "RX",
     unknown_dna_three_letter: str = "DX",
@@ -109,7 +109,7 @@ def get_3_from_1_letter_code(
     - letter (str): The 1-letter residue name.
     - chain_type (str): The type of chain, e.g., "polypeptide(D)", "polypeptide(L)", "polydeoxyribonucleotide", or "polyribonucleotide".
     - gap_one_letter (str): The one-letter code for a gap. Defaults to "-" (as is standard within MSAs).
-    - gap_three_letter (str): The three-letter code for a gap. Defaults to "<GAP>".
+    - gap_three_letter (str): The three-letter code for a gap. Defaults to "<G>".
     - unknown_protein_three_letter (str): The three-letter code for an unknown protein residue. Defaults to "UNK_PROT".
     - unknown_rna_three_letter (str): The three-letter code for an unknown RNA residue. Defaults to "UNK_RNA".
     - unknown_dna_three_letter (str): The three-letter code for an unknown DNA residue. Defaults to "UNK_DNA".
@@ -119,7 +119,7 @@ def get_3_from_1_letter_code(
     """
     chain_type = chain_type.lower()
 
-    # Convert gaps (-) to "<GAP>", or whatever is specified
+    # Convert gaps (-) to "<G>", or whatever is specified
     if letter == gap_one_letter:
         return gap_three_letter
 
@@ -141,7 +141,7 @@ def get_3_from_1_letter_code_bytes(
     letter: bytes,
     chain_type: str,
     gap_one_letter: bytes = b"-",
-    gap_three_letter: bytes = b"<GAP>",
+    gap_three_letter: bytes = b"<G>",
     unknown_protein_three_letter: bytes = b"UNK",
     unknown_rna_three_letter: bytes = b"RX",
     unknown_dna_three_letter: bytes = b"DX",
@@ -153,7 +153,7 @@ def get_3_from_1_letter_code_bytes(
     """
     chain_type = chain_type.lower()
 
-    # Convert gaps (b"-") to b"<GAP>", or whatever is specified
+    # Convert gaps (b"-") to b"<G>", or whatever is specified
     if letter == gap_one_letter:
         return gap_three_letter
 
