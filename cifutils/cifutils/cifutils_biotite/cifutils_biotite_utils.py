@@ -98,7 +98,7 @@ def get_3_from_1_letter_code(
     gap_one_letter: str = "-",
     gap_three_letter: str = "<G>",
     unknown_protein_three_letter: str = "UNK",
-    unknown_rna_three_letter: str = "RX",
+    unknown_rna_three_letter: str = "X",
     unknown_dna_three_letter: str = "DX",
 ) -> str:
     """

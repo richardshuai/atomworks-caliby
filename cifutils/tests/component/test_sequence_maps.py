@@ -121,9 +121,9 @@ UNKNOWN_TEST_CASES = [
     ("B", "polydeoxyribonucleotide", "DX"),
     ("Z", "polydeoxyribonucleotide", "DX"),
     ("X", "polydeoxyribonucleotide", "DX"),
-    ("B", "polyribonucleotide", "RX"),
-    ("Z", "polyribonucleotide", "RX"),
-    ("X", "polyribonucleotide", "RX"),
+    ("B", "polyribonucleotide", "X"),
+    ("Z", "polyribonucleotide", "X"),
+    ("X", "polyribonucleotide", "X"),
 ]
 
 
