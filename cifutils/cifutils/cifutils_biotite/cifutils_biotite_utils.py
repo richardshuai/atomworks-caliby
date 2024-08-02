@@ -111,8 +111,8 @@ def get_3_from_1_letter_code(
     - gap_one_letter (str): The one-letter code for a gap. Defaults to "-" (as is standard within MSAs).
     - gap_three_letter (str): The three-letter code for a gap. Defaults to "<G>".
     - unknown_protein_three_letter (str): The three-letter code for an unknown protein residue. Defaults to "UNK_PROT".
-    - unknown_rna_three_letter (str): The three-letter code for an unknown RNA residue. Defaults to "UNK_RNA".
-    - unknown_dna_three_letter (str): The three-letter code for an unknown DNA residue. Defaults to "UNK_DNA".
+    - unknown_rna_three_letter (str): The three-letter code for an unknown RNA residue. Defaults to "X" (which is standard)
+    - unknown_dna_three_letter (str): The three-letter code for an unknown DNA residue. Defaults to "DX" (which is standard)
 
     Returns:
     - str: The corresponding 3-letter code. Returns "UNK" if the letter or chain type is not supported.

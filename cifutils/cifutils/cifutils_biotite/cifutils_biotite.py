@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from os import PathLike
 from collections import Counter
+from datetime import datetime
 
 from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     apply_transformation,
@@ -38,7 +39,7 @@ import biotite.structure.io.pdbx as pdbx
 from biotite.structure.io.pdbx import CIFBlock
 from biotite.structure import AtomArray, Atom, AtomArrayStack
 from biotite.file import InvalidFileError
-from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
+from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS, AF3_EXCLUDED_LIGANDS
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,7 @@ class CIFParser:
         add_bonds: bool = True,
         remove_waters: bool = True,
         remove_crystallization_aids: bool = True,
+        remove_af3_excluded_ligands: bool = False,
         patch_symmetry_centers: bool = True,
         build_assembly: Literal["first", "all"] | list[str] | None = "all",
         fix_arginines: bool = True,
@@ -116,6 +118,7 @@ class CIFParser:
         - add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
         - remove_waters (bool, optional): Whether to remove water molecules from the structure.
         - remove_crystallization_aids (bool, optional): Whether to exclude crystallization aids and ions from the structure. Uses the AF-3 exclusion list.
+        - remove_af3_excluded_ligands (bool, optional): Whether to exclude ligands from the AF-3 exclusion list. The AF-3 excluded ligands are a superset of the crystallization aids and ions.
         - patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed.
         - build_assembly (str, optional): Which assembly to build, if any. Options are None (e.g., asymmetric unit), "first", "all", or a list of assembly IDs.
         - fix_argenines (bool, optional): Whether to fix arginine naming ambiguity, see the AF-3 supplement for details.
@@ -193,6 +196,12 @@ class CIFParser:
             if remove_crystallization_aids:
                 atom_array = self._remove_crystallization_aids_and_ions(atom_array)
                 ignored_res.extend(CRYSTALLIZATION_AIDS)
+
+            # Remove AF-3 excluded ligands from the atom array
+            # TODO: Write into a more generic exclude function, such that we can exclude any ligand
+            if remove_af3_excluded_ligands:
+                atom_array = self._remove_af3_exluded_ligands(atom_array)
+                ignored_res.extend(AF3_EXCLUDED_LIGANDS)
 
             # Replace non-polymeric chain sequence ids with author sequence ids
             atom_array = self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
@@ -274,6 +283,12 @@ class CIFParser:
 
         # Remove atoms from the atom array that are crystallization aids
         atom_array = atom_array[~np.isin(atom_array.res_name, CRYSTALLIZATION_AIDS)]
+
+        return atom_array
+
+    def _remove_af3_exluded_ligands(self, atom_array: AtomArray) -> AtomArray:
+        """Remove ligands from the AF-3 exclusion list from the atom array."""
+        atom_array = atom_array[~np.isin(atom_array.res_name, AF3_EXCLUDED_LIGANDS)]
 
         return atom_array
 
@@ -714,7 +729,7 @@ class CIFParser:
                 a_res_name = converted_res.get(row["ptnr1_label_comp_id"], row["ptnr1_label_comp_id"])
                 b_res_name = converted_res.get(row["ptnr2_label_comp_id"], row["ptnr2_label_comp_id"])
 
-                # Check if res_name is water or a crystallization aid, in which case we early exit:
+                # Check if res_name is ignored (e.g., water, crystallization aids, ignored ligands), in which case we early exit:
                 if (a_res_name in ignored_res) or (b_res_name in ignored_res):
                     # skip
                     continue
@@ -1095,9 +1110,16 @@ class CIFParser:
             else None
         )
 
-        # The relevant release date is the first `pdbx_audit_revision_history.revision_date` entry
+        # The relevant release date is the smallest `pdbx_audit_revision_history.revision_date` entry
         revision_dates = cif_block["pdbx_audit_revision_history"]["revision_date"].as_array()
-        metadata["release_date"] = revision_dates[0] if revision_dates is not None else None
+        if revision_dates is not None:
+            # Convert string dates to datetime objects
+            date_objects = [datetime.strptime(date, "%Y-%m-%d") for date in revision_dates]
+            # Find the smallest date, convert back to string
+            smallest_date = min(date_objects)
+            metadata["release_date"] = smallest_date.strftime("%Y-%m-%d")
+        else:
+            metadata["release_date"] = None
 
         # Resolution
         metadata["resolution"] = None
