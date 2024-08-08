@@ -31,3 +31,7 @@ def test_prior_bugs(pdb_id: str):
         fix_arginines=True,
     )
     assert result is not None  # Check if processing runs through
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

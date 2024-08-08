@@ -8,13 +8,14 @@ import logging
 import pickle
 import time
 from functools import lru_cache
-from typing import Sequence, Literal
+from typing import Literal
 
 import numpy as np
 import pandas as pd
 from os import PathLike
 from collections import Counter
 from datetime import datetime
+from pathlib import Path
 
 from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     apply_transformation,
@@ -49,9 +50,8 @@ __all__ = ["CIFParser"]
 class CIFParser:
     def __init__(
         self,
-        by_residue_pickle="/projects/ml/RF2_allatom/cifutils_biotite/ligands_by_residue_ideal_v2024_06_10.pkl",
+        by_residue_ligand_dir="/projects/ml/RF2_allatom/cifutils_biotite/ccd_library",
         by_atom_pickle="/projects/ml/RF2_allatom/cifutils_biotite/ligands_by_atom_ideal_v2024_06_10.pkl",
-        residues_to_skip: Sequence[str] = None,
     ):
         """
         Initialize a CIFParser object.
@@ -59,19 +59,10 @@ class CIFParser:
         Args:
         - by_residue_pickle (str, optional): Path to the pre-compiled residue-level CCD and OB data built from `make_residue_library_from_ccd.py`.
         - by_atom_pickle (str, optional): Path to the pre-compiled atom-level CCD and OB data built from `make_residue_library_from_ccd.py`.
-        - residues_to_skip (list, optional): List of residue names to skip.
         """
+        self.by_residue_ligand_dir = by_residue_ligand_dir
 
-        # Step 1: Parse pre-compiled library (from the CCD, augmented with OpenBabel) of all residues observed in the PDB
-        logger.info(f"Loading residue-level CCD and OB data from {by_residue_pickle}...")
-        start_time = time.time()
-        with open(by_residue_pickle, "rb") as file:
-            self.data_by_residue = pickle.load(file)
-        end_time = time.time()
-        loading_time = end_time - start_time
-        logger.info(f"Precompiled CCD data loaded successfully in {round(loading_time)} seconds.")
-
-        # Step 2: Preparse atom-centric transformation of the precompiled library
+        # Preparse atom-centric transformation of the precompiled library (this file is small, so we don't need to split into separate files like we do for residues)
         logger.info(f"Loading atom-level CCD and OB data from {by_atom_pickle}...")
         start_time = time.time()
         with open(by_atom_pickle, "rb") as file:
@@ -80,13 +71,6 @@ class CIFParser:
         loading_time = end_time - start_time
         logger.info(f"Built atom-level dataframe in {round(loading_time)} seconds.")
 
-        # Residues to be ignored during parsing are deleted from the precomputed library
-        if exists(residues_to_skip):
-            self.data_by_residue = self.data_by_residue[~self.data_by_residue["id"].isin(residues_to_skip)]
-            self.data_by_atom = self.data_by_atom[~self.data_by_atom["residue_name"].isin(residues_to_skip)]
-
-        # Set indices
-        self.data_by_residue.set_index("id", inplace=True)
         # For backwards compatability
         self.extra_info = {}
 
@@ -94,6 +78,27 @@ class CIFParser:
         """Validate the arguments passed to the CIFParser object."""
         if not add_missing_atoms and add_bonds:
             raise ValueError("add_bonds cannot be True if add_missing_atoms is False")
+
+    @lru_cache(maxsize=1000)
+    def _data_by_residue(self, residue_name: str) -> dict:
+        """Loads the data for a given residue from the precompiled library."""
+        # Find the residue in the precompiled library
+        path = Path(self.by_residue_ligand_dir) / f"{residue_name}.pkl"
+        assert path.exists(), f"Residue {residue_name} not found in precompiled library."
+
+        # Load and return the residue data
+        return pd.read_pickle(path)
+
+    @lru_cache(maxsize=1000)
+    def _residue_file_exists(self, residue_name: str) -> bool:
+        """Check if a residue file exists in the precompiled library."""
+        path = Path(self.by_residue_ligand_dir) / f"{residue_name}.pkl"
+        return path.exists()
+
+    @lru_cache(maxsize=None)
+    def _all_precompiled_residues(self) -> list[str]:
+        """List all residues in the precompiled library."""
+        return [path.stem for path in Path(self.by_residue_ligand_dir).glob("*.pkl")]
 
     def parse(
         self,
@@ -121,7 +126,7 @@ class CIFParser:
         - remove_af3_excluded_ligands (bool, optional): Whether to exclude ligands from the AF-3 exclusion list. The AF-3 excluded ligands are a superset of the crystallization aids and ions.
         - patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed.
         - build_assembly (str, optional): Which assembly to build, if any. Options are None (e.g., asymmetric unit), "first", "all", or a list of assembly IDs.
-        - fix_argenines (bool, optional): Whether to fix arginine naming ambiguity, see the AF-3 supplement for details.
+        - fix_arginines (bool, optional): Whether to fix arginine naming ambiguity, see the AF-3 supplement for details.
         - convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE) residues to methionine (MET) residues.
         - model (int, optional): The model number to parse from the CIF file for NMR entries. Defaults to all models (None).
 
@@ -270,7 +275,8 @@ class CIFParser:
 
     def _remove_atoms_with_unmatched_residues(self, atom_array: AtomArray) -> AtomArray:
         """Remove atoms from the atom array that do not have a corresponding residue in the precompiled CCD data."""
-        unknown_residues = np.setdiff1d(np.unique(atom_array.res_name), self.data_by_residue.index.to_numpy())
+        all_residues = self._all_precompiled_residues()
+        unknown_residues = np.setdiff1d(np.unique(atom_array.res_name), np.array(all_residues))
 
         for unknown_residue in unknown_residues:
             mask = atom_array.res_name != unknown_residue
@@ -384,10 +390,10 @@ class CIFParser:
         Returns:
         - AtomList: An AtomList object initialized with zero coordinates.
         """
-        if residue_name not in self.data_by_residue.index:
+        if not self._residue_file_exists(residue_name):
             raise ValueError(f"Residue {residue_name} not found in precompiled CCD data.")
 
-        ccd_atoms = self.data_by_residue.loc[residue_name]["atoms"]
+        ccd_atoms = self._data_by_residue(residue_name)["atoms"]
         atom_list = [
             struc.Atom(
                 [0.0, 0.0, 0.0],
@@ -544,7 +550,7 @@ class CIFParser:
         Returns:
         - tuple: Three arrays representing the atom indices and bond types within the residue frame.
         """
-        residue_data = self.data_by_residue.loc[residue_name]
+        residue_data = self._data_by_residue(residue_name)
         # Create a mapping of atom IDs to indices
         atom_id_to_index = {atom_id: index for index, atom_id in enumerate(residue_data["atoms"].keys())}
         atom_a_indices = []
@@ -632,8 +638,8 @@ class CIFParser:
                 0
             ]  # current_res.res_name is a list of identical values, so we just take the first one
             if (
-                residue_name in self.data_by_residue.index
-                and len(self.data_by_residue.loc[residue_name]["intra_residue_bonds"]) > 0
+                self._residue_file_exists(residue_name)
+                and len(self._data_by_residue(residue_name)["intra_residue_bonds"]) > 0
             ):
                 atom_a_local_indices, atom_b_local_indices, bond_types = self._get_intra_residue_bonds(residue_name)
                 atom_a_intra_residue_indices.append(current_res.index[atom_a_local_indices])
@@ -956,7 +962,7 @@ class CIFParser:
             polymer_seq_df = polymer_seq_df[~duplicates]
 
         # Filter out residues that are not in the precompiled CCD data (e.g., remove unknown residues)
-        polymer_seq_df = polymer_seq_df[polymer_seq_df["residue_name"].isin(self.data_by_residue.index)]
+        polymer_seq_df = polymer_seq_df[polymer_seq_df["residue_name"].apply(self._residue_file_exists)]
 
         # Map entity_id to lists of residue names and residue IDs
         polymer_seq_df["entity_id"] = polymer_seq_df["entity_id"].astype(float)
@@ -1021,9 +1027,9 @@ class CIFParser:
         # Store information about each present residue in a dictionary
         residue_info_dict = {
             residue_name: {
-                "planars": self.data_by_residue.loc[residue_name]["planars"],
-                "chirals": self.data_by_residue.loc[residue_name]["chirals"],
-                "automorphisms": self.data_by_residue.loc[residue_name]["automorphisms"],
+                "planars": self._data_by_residue(residue_name)["planars"],
+                "chirals": self._data_by_residue(residue_name)["chirals"],
+                "automorphisms": self._data_by_residue(residue_name)["automorphisms"],
             }
             for residue_name in unique_residues
         }

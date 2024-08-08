@@ -1,5 +1,7 @@
 """Pre-process the Chemical Component Dictionary (CCD) with OpenBabel to create a residue library for use in the CIF parser."""
 
+# TODO: Save as a parquet rather than a pickle
+
 from __future__ import annotations
 import glob
 import logging
@@ -324,7 +326,7 @@ def save_ligands_to_pickles(ligands, params):
 
 
 def main(
-    ligand_dir: str = "/home/smathis/code/ccd",  # /projects/ml/ligand_datasets/pdb/ligands
+    ligand_dir: str = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_ligands_2024_05_31/ccd",
     out_dir: str = ".",
     max_automorphisms: int = 2000,
     include_automorphisms: bool = True,
