@@ -103,6 +103,7 @@ class CIFParser:
     def parse(
         self,
         filename: PathLike,
+        *,
         add_missing_atoms: bool = True,
         add_bonds: bool = True,
         remove_waters: bool = True,
@@ -112,6 +113,7 @@ class CIFParser:
         build_assembly: Literal["first", "all"] | list[str] | None = "all",
         fix_arginines: bool = True,
         convert_mse_to_met: bool = False,
+        add_hydrogens: bool = True,
         model: int | None = None,
     ) -> dict:
         """
@@ -128,6 +130,7 @@ class CIFParser:
         - build_assembly (str, optional): Which assembly to build, if any. Options are None (e.g., asymmetric unit), "first", "all", or a list of assembly IDs.
         - fix_arginines (bool, optional): Whether to fix arginine naming ambiguity, see the AF-3 supplement for details.
         - convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE) residues to methionine (MET) residues.
+        - add_hydrogens (bool, optional): Whether to add hydrogens to the structure. Defaults to True.
         - model (int, optional): The model number to parse from the CIF file for NMR entries. Defaults to all models (None).
 
         Returns:
@@ -141,8 +144,12 @@ class CIFParser:
         'modified_residues': A dictionary mapping modified residue names to their canonical name(s).
         'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
         """
+        # Save add hydrogens as a class variable, as it is used in multiple functions
+        self.add_hydrogens = add_hydrogens
+
         self._validate_arguments(add_missing_atoms, add_bonds)
-        # ... init internal processing variables
+
+        # Initialize internal processing variables
         converted_res = {}
         ignored_res = []
 
@@ -179,7 +186,7 @@ class CIFParser:
                 altloc="occupancy",
                 model=1,
             )
-
+        
         # Ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
         if not isinstance(atom_array_stack, AtomArrayStack):
             atom_array_stack = struc.stack([atom_array_stack])
@@ -192,21 +199,14 @@ class CIFParser:
         for model_idx in range(atom_array_stack.stack_depth()):
             atom_array = atom_array_stack[model_idx]
 
+            # Remove hydrogens (most examples will not have any hydrogens; only NMR studies and small molecules)
+            if not self.add_hydrogens:
+                atom_array = atom_array[~np.isin(atom_array.element, ["H", "D"])]
+
             # Remove waters
             if remove_waters:
                 atom_array = atom_array[atom_array.res_name != "HOH"]
                 ignored_res.append("HOH")
-
-            # Remove crystallization aids and ions from the atom array
-            if remove_crystallization_aids:
-                atom_array = self._remove_crystallization_aids_and_ions(atom_array)
-                ignored_res.extend(CRYSTALLIZATION_AIDS)
-
-            # Remove AF-3 excluded ligands from the atom array
-            # TODO: Write into a more generic exclude function, such that we can exclude any ligand
-            if remove_af3_excluded_ligands:
-                atom_array = self._remove_af3_exluded_ligands(atom_array)
-                ignored_res.extend(AF3_EXCLUDED_LIGANDS)
 
             # Replace non-polymeric chain sequence ids with author sequence ids
             atom_array = self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
@@ -225,6 +225,17 @@ class CIFParser:
             # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
             if add_missing_atoms:
                 atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
+            
+            # Remove crystallization aids and ions from the atom array
+            if remove_crystallization_aids:
+                atom_array = self._remove_crystallization_aids_and_ions(atom_array)
+                ignored_res.extend(CRYSTALLIZATION_AIDS)
+
+            # Remove AF-3 excluded ligands from the atom array
+            # TODO: Write into a more generic exclude function, such that we can exclude any ligand
+            if remove_af3_excluded_ligands:
+                atom_array = self._remove_af3_exluded_ligands(atom_array)
+                ignored_res.extend(AF3_EXCLUDED_LIGANDS)
 
             # Resolve arginine naming ambiguity
             if fix_arginines:
@@ -411,6 +422,11 @@ class CIFParser:
             )
             for atom_name, atom_data in ccd_atoms.items()
         ]
+
+        # Remove hydrogens, if necessary
+        if not self.add_hydrogens:
+            atom_list = [atom for atom in atom_list if atom.element != 1]
+
         return atom_list
 
     def _add_missing_atoms(self, atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
@@ -551,6 +567,19 @@ class CIFParser:
         - tuple: Three arrays representing the atom indices and bond types within the residue frame.
         """
         residue_data = self._data_by_residue(residue_name)
+
+        # If we aren't adding hydrogens, we need to remove any bonds to hydrogens, and any hydrogen atoms from the atom list
+        if not self.add_hydrogens:
+            residue_data["intra_residue_bonds"] = [
+                # NOTE: We are assuming that all, and only, hydrogen atoms are named with an 'H' prefix
+                bond for bond in residue_data["intra_residue_bonds"] if not bond["atom_a_id"].startswith("H") and not bond["atom_b_id"].startswith("H")
+            ]
+            residue_data["atoms"] = {
+                atom_id: atom_data
+                for atom_id, atom_data in residue_data["atoms"].items()
+                if not atom_data["element"] == 1
+            }
+        
         # Create a mapping of atom IDs to indices
         atom_id_to_index = {atom_id: index for index, atom_id in enumerate(residue_data["atoms"].keys())}
         atom_a_indices = []

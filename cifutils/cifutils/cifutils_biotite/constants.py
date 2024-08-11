@@ -171,7 +171,7 @@ AF3_EXCLUDED_LIGANDS = [
     "SAR",
     "SCN",
     "SEO",
-    "SEP",
+    # "SEP", # Phosphoserine; a commonly occuring PTM in proteins, useful in cellular signaling pathways
     "SIN",
     "SO4",
     "SPD",
@@ -183,7 +183,7 @@ AF3_EXCLUDED_LIGANDS = [
     "TAR",
     "TBU",
     "TME",
-    "TPO",
+    # "TPO", # Phosphothreonine; a commonly occuring PTM in proteins, useful in cellular signaling pathways
     "TRS",
     "UNK",
     "UNL",
