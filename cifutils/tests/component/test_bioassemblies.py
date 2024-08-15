@@ -55,8 +55,8 @@ def test_assembly_atom_coordinates(pdb_id: str):
         filename=path,
         build_assembly="first",
         fix_arginines=False,
-        remove_crystallization_aids=False,
         remove_waters=False,
+        residues_to_remove=[],
     )
     atom_array = cifutils_assembly["assemblies"]["1"][0]
     resolved_atoms = atom_array[atom_array.occupancy > 0]

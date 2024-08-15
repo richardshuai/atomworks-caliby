@@ -15,7 +15,7 @@ def test_ec_numbers(test_case: dict):
         add_missing_atoms=False,
         add_bonds=False,
         remove_waters=False,
-        remove_crystallization_aids=False,
+        residues_to_remove=[],
         build_assembly=None,
         patch_symmetry_centers=False,
         fix_arginines=False,

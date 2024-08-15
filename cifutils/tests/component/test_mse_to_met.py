@@ -23,7 +23,6 @@ def test_mse_to_met_pdb(pdb_id: str):
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,
-        remove_crystallization_aids=True,
         build_assembly="all",
         patch_symmetry_centers=True,
         fix_arginines=True,

@@ -262,7 +262,7 @@ def test_parsing(test_case: dict[str, Any]):
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=False,
-        remove_crystallization_aids=False,
+        residues_to_remove=[],
         patch_symmetry_centers=False,
         build_assembly=None,
         fix_arginines=False,

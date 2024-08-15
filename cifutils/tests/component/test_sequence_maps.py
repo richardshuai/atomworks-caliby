@@ -18,7 +18,6 @@ def test_parser_one_letter_sequence_outputs(pdb_id: str):
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,
-        remove_crystallization_aids=True,
         build_assembly="all",
         patch_symmetry_centers=True,
         fix_arginines=False,

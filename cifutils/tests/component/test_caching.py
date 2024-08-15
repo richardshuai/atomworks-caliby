@@ -1,5 +1,5 @@
 import pytest
-from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE, assert_same_atom_array
 import time
 
 TEST_CASES = [
@@ -23,7 +23,6 @@ def test_caching(pdb_id: str, tmp_path):
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,
-        remove_crystallization_aids=True,
         build_assembly="all",
         patch_symmetry_centers=True,
         fix_arginines=True,
@@ -45,7 +44,6 @@ def test_caching(pdb_id: str, tmp_path):
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,
-        remove_crystallization_aids=True,
         build_assembly="all",
         patch_symmetry_centers=True,
         fix_arginines=True,
@@ -64,7 +62,6 @@ def test_caching(pdb_id: str, tmp_path):
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,
-        remove_crystallization_aids=True,
         build_assembly="all",
         patch_symmetry_centers=True,
         fix_arginines=True,
@@ -74,7 +71,9 @@ def test_caching(pdb_id: str, tmp_path):
 
     # Assert that the assembly data is the same
     assert normal_result["assemblies"] == cached_result["assemblies"]
+    assert_same_atom_array(normal_result["assemblies"]["1"], cached_result["assemblies"]["1"])
     assert save_cache_result["assemblies"] == cached_result["assemblies"]
+    assert_same_atom_array(save_cache_result["assemblies"]["1"], cached_result["assemblies"]["1"])
 
     # Assert that the cached result is at least twice as fast as the normal result
     assert cached_elapsed_time < normal_elapsed_time / 2
