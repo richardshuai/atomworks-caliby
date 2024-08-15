@@ -21,7 +21,7 @@ TEST_CASES = [
 def test_prior_bugs(pdb_id: str):
     path = get_digs_path(pdb_id)
     result = CIF_PARSER_BIOTITE.parse(
-        path,
+        filename=path,
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,

@@ -21,13 +21,13 @@ def test_assembly_counts(test_case: dict):
     filename = get_digs_path(pdbid)
 
     # test the different build_assembly options
-    out_no_assembly = CIF_PARSER_BIOTITE.parse(filename, build_assembly=None)
+    out_no_assembly = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly=None)
     assert len(out_no_assembly["assemblies"]) == 0
 
-    out_first = CIF_PARSER_BIOTITE.parse(filename, build_assembly="first")
+    out_first = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly="first")
     assert len(out_first["assemblies"]) == 1
 
-    out_all = CIF_PARSER_BIOTITE.parse(filename, build_assembly="all")
+    out_all = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly="all")
     assert len(out_all["assemblies"]) == n_assemblies
 
 
@@ -52,7 +52,7 @@ def test_assembly_atom_coordinates(pdb_id: str):
 
     # Cifutils
     cifutils_assembly = CIF_PARSER_BIOTITE.parse(
-        path,
+        filename=path,
         build_assembly="first",
         fix_arginines=False,
         remove_crystallization_aids=False,

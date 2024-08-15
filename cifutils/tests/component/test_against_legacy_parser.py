@@ -105,40 +105,6 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
             )
             bonds.append(bond)
 
-        # Build chirals, automorphisms, planars
-        residue_info = result_dict["residue_info"]
-        chirals = []
-        automorphisms = []
-        planars = []
-        ids, names = struc.get_residues(chain_atoms)
-        for residue_id, residue_name in zip(ids, names):
-            # Chirals
-            for chiral_center_list in residue_info[residue_name]["chirals"]:
-                chiral_center = [(chain_id, str(residue_id), residue_name, atom) for atom in chiral_center_list]
-                if chiral_center:
-                    chirals.append(chiral_center)
-
-            # Automorphisms
-            automorphism_list = residue_info[residue_name]["automorphisms"]
-            residue_automorphism_list = []
-            for automorphism in automorphism_list:
-                automorphism = [(chain_id, str(residue_id), residue_name, atom) for atom in automorphism]
-                if automorphism:
-                    residue_automorphism_list.append(automorphism)
-            if len(residue_automorphism_list) > 0:
-                automorphisms.append(residue_automorphism_list)
-
-            # Planars
-            for planar_list in residue_info[residue_name]["planars"]:
-                planar = [(chain_id, str(residue_id), residue_name, atom) for atom in planar_list]
-                if planar:
-                    planars.append(planar)
-
-        # Filter chirals. If we can't match all atoms, we discard the chiral
-        chirals = [c for c in chirals if all([ci in legacy_atoms.keys() for ci in c])]
-
-        # Filter planar. If we can't match all atoms, we discard the planar
-        planars = [c for c in planars if all([ci in legacy_atoms.keys() for ci in c])]
 
         chain = cifutils_legacy.Chain(
             id=chain_id,
@@ -146,33 +112,13 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
             sequence=chain_data["unprocessed_entity_canonical_sequence"],
             atoms=legacy_atoms,
             bonds=bonds,
-            chirals=chirals,
-            planars=planars,
-            automorphisms=automorphisms,
+            chirals=None,
+            planars=None,
+            automorphisms=None,
         )
         chains[chain_id] = chain
 
     return chains
-
-
-def validate_modified_residues(modres_legacy, converted_modres):
-    """
-    Validates that the converted_modres dictionary can be transformed to match the modres_legacy dictionary.
-    We must handle cases where a modified residue is derived from multiple canonical residues, which the legacy format does not support.
-
-    Args:
-    - modres_legacy (dict): The legacy dictionary mapping modified residue names to their canonical names.
-    - converted_modres (dict): The dictionary with lists of canonical residue names for each modified residue.
-    """
-    derived_modres = {}
-    for key, value_list in converted_modres.items():
-        mod_res_name = key[2]  # key: (chain_id, res_id, mod_res_name)
-        sorted_list = sorted(value_list)
-        last_element = sorted_list[-1]
-        derived_modres[mod_res_name] = last_element
-
-    assert derived_modres == modres_legacy
-
 
 def validate_chains(pdb_id, chains_legacy, converted_chains):
     for chain_id, converted_chain in converted_chains.items():
@@ -283,26 +229,6 @@ def validate_chains(pdb_id, chains_legacy, converted_chains):
                 legacy_bond.intra == converted_bond.intra
             ), f"Intra-residue flag mismatch for bond {bond_id} within chain {chain_id} in PDB ID {pdb_id}"
 
-        # Compare chirals
-        legacy_chain_chirals = {tuple(sorted(chiral_center)) for chiral_center in legacy_chain.chirals}
-        converted_chain_chirals = {tuple(sorted(chiral_center)) for chiral_center in converted_chain.chirals}
-        assert legacy_chain_chirals == converted_chain_chirals, "Chirals mismatch."
-
-        # Compare automorphisms
-        legacy_chain_automorphisms = sorted(
-            [sorted(map(tuple, inner_list)) for inner_list in legacy_chain.automorphisms]
-        )
-        converted_chain_automorphisms = sorted(
-            [sorted(map(tuple, inner_list)) for inner_list in converted_chain.automorphisms]
-        )
-        assert legacy_chain_automorphisms == converted_chain_automorphisms, "Automorphisms mismatch."
-
-        # Compare planars
-        legacy_chain_planars = set(frozenset(planars) for planars in legacy_chain.planars)
-        converted_chain_planars = set(frozenset(planars) for planars in converted_chain.planars)
-        assert legacy_chain_planars == converted_chain_planars, "Planars mismatch."
-
-
 @pytest.fixture(scope="module")
 def cif_parser_legacy():
     return cifutils_legacy.CIFParser()
@@ -320,7 +246,6 @@ def test_parsing(test_case: dict[str, Any]):
     - Atoms
     - Bonds
     - Metadata
-    - Modified residues
 
     Does not compare:
     - Assembly (handled by test_bioassemblies.py)
@@ -333,7 +258,7 @@ def test_parsing(test_case: dict[str, Any]):
 
     # Parse with cifutils_biotite
     result_dict = CIF_PARSER_BIOTITE.parse(
-        filename,
+        filename=filename,
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=False,
@@ -355,6 +280,3 @@ def test_parsing(test_case: dict[str, Any]):
     assert result_dict["metadata"]["method"] == meta_legacy["method"], "Method mismatch."
     assert result_dict["metadata"]["resolution"] == meta_legacy["resolution"], "Resolution mismatch."
     assert result_dict["metadata"]["deposition_date"] == meta_legacy["date"], "Date mismatch."
-
-    # Validate modified residues
-    validate_modified_residues(modres_legacy, result_dict["modified_residues"])

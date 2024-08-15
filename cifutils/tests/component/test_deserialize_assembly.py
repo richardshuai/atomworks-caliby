@@ -12,5 +12,5 @@ TEST_CASES = [
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_deserialize_assembly(pdb_id: str):
     digs_path = get_digs_path(pdb_id)
-    result = CIF_PARSER_BIOTITE.parse(digs_path, build_assembly="first")
+    result = CIF_PARSER_BIOTITE.parse(filename=digs_path, build_assembly="first")
     assert result is not None

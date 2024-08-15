@@ -1,6 +1,7 @@
 """Pre-process the Chemical Component Dictionary (CCD) with OpenBabel to create a residue library for use in the CIF parser."""
 
-# TODO: Save as a parquet rather than a pickle
+# TODO: Remove dependency on `cifutils_legacy`
+# TODO: Update to reflect new cifutils structure, where we save individual residue files to a directory, indexed by three-letter residue code
 
 from __future__ import annotations
 import glob
@@ -18,13 +19,11 @@ from fire import Fire
 from datetime import datetime
 
 import cifutils.cifutils_legacy.cifutils_legacy as cifutils_legacy
-import cifutils.cifutils_legacy.obutils as obutils
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-def get_leaving_atoms_from_graph(atom_name, graph):
+def get_leaving_atoms_from_graph(atom_name: str, graph: nx.Graph) -> list:
     """
     Identifies leaving groups connected to a given atom in the molecular graph.
 
@@ -60,7 +59,7 @@ def get_leaving_atoms_from_graph(atom_name, graph):
     return list(leaving_group)
 
 
-def read_sdf_file(sdfname, obConversion):
+def read_sdf_file(sdfname: str, obConversion: openbabel.OBConversion) -> openbabel.OBMol:
     """
     Reads an SDF file and returns an OBMol object.
 
@@ -76,7 +75,7 @@ def read_sdf_file(sdfname, obConversion):
     return obmol
 
 
-def _coords_are_valid(obmol, cif):
+def _coords_are_valid(obmol: openbabel.OBMol, cif: dict) -> bool:
     """
     Validates the coordinates of the molecule against the CIF data.
 
@@ -93,7 +92,7 @@ def _coords_are_valid(obmol, cif):
     return ((xyz - cif["xyz"])[~np.isnan(cif["xyz"])] < 1e-3).all()
 
 
-def extract_residue_details(obmol, atom_id, leaving, pdbx_align, params):
+def extract_residue_details(obmol: openbabel.OBMol, atom_id: list[str], leaving: list[bool], pdbx_align: list[int]) -> dict:
     """
     Extracts detailed information about the residue from the OBMol object.
 
@@ -102,7 +101,6 @@ def extract_residue_details(obmol, atom_id, leaving, pdbx_align, params):
     atom_id (List[str]): List of atom IDs.
     leaving (List[bool]): List of leaving flags for each atom.
     pdbx_align (List[int]): List of alignment indices.
-    params (dict): Dictionary of parameters.
 
     Returns:
     dict: Dictionary containing residue details.
@@ -149,48 +147,26 @@ def extract_residue_details(obmol, atom_id, leaving, pdbx_align, params):
             }
         )
 
-    automorphisms = []
-    chirals = []
-    planars = []
-
-    if params["include_automorphisms"]:
-        automorphisms = obutils.FindAutomorphisms(
-            obmol, heavy=True, maxmem=20 * (2**30), max_automorphs=params["max_automorphisms"]
-        )
-        mask = (automorphisms[:1] == automorphisms).all(dim=0)
-        automorphisms = automorphisms[:, ~mask]
-
-    if params["include_chirals"]:
-        chirals = obutils.GetChirals(obmol, heavy=True)
-
-    if params["include_planars"]:
-        planars = obutils.GetPlanars(obmol, heavy=True)
-
     G = nx.Graph()
     G.add_nodes_from([(a["id"], {"leaving": a["leaving_atom_flag"]}) for a in residue_atoms.values()])
     G.add_edges_from([(bond["atom_a_id"], bond["atom_b_id"]) for bond in bonds])
     for k, v in residue_atoms.items():
         v["leaving_group"] = get_leaving_atoms_from_graph(k, G)
 
-    anames = np.array(atom_id)
     return {
         "name": obmol.GetTitle(),
         "intra_residue_bonds": bonds,
-        "automorphisms": anames[automorphisms].tolist() if params["include_automorphisms"] else [],
-        "chirals": anames[chirals].tolist() if params["include_chirals"] else [],
-        "planars": anames[planars].tolist() if params["include_planars"] else [],
         "atoms": residue_atoms,
     }
 
 
-def process_single_ligand(sdfname, obConversion, params, debug: bool = True):
+def process_single_ligand(sdfname: str, obConversion: openbabel.OBConversion, debug: bool = True):
     """
     Processes a single SDF file to extract ligand details.
 
     Parameters:
     sdfname (str): The name of the SDF file.
     obConversion (openbabel.OBConversion): Open Babel conversion object.
-    params (dict): Dictionary of parameters.
 
     Returns:
     tuple: A tuple containing the ligand ID and its details.
@@ -204,6 +180,7 @@ def process_single_ligand(sdfname, obConversion, params, debug: bool = True):
         raise ValueError(f"Invalid SDF file name: {sdfname}")
 
     try:
+        # TODO: Replace this function with one using `biotite`
         cif = cifutils_legacy.ParsePDBLigand(cifname)
         if debug:
             logger.debug(f"Successfully parsed: {sdfname}")
@@ -225,18 +202,16 @@ def process_single_ligand(sdfname, obConversion, params, debug: bool = True):
         atom_id=cif["atom_id"].tolist(),
         leaving=cif["leaving"].tolist(),
         pdbx_align=cif["pdbx_align"].tolist(),
-        params=params,
     )
     return id, ligand_details
 
 
-def process_ligands(sdfnames, params, debug: bool = True):
+def process_ligands(sdfnames: list, debug: bool = True):
     """
     Processes a list of SDF files to create a dictionary of ligands with their details.
 
     Parameters:
     sdfnames (list): List of SDF file names.
-    params (dict): Dictionary of parameters.
 
     Returns:
     list: List containing tuples of ligand ID and ligand details.
@@ -248,7 +223,7 @@ def process_ligands(sdfnames, params, debug: bool = True):
     logger.info(f"Processing {len(sdfnames)} ligands with ...")
 
     for sdfname in tqdm(sdfnames, desc="Processing ligands"):
-        result = process_single_ligand(sdfname, obConversion, params, debug=debug)
+        result = process_single_ligand(sdfname, obConversion, debug=debug)
         if result:
             id, ligand_details = result
             ligands.append((id, ligand_details))
@@ -290,40 +265,6 @@ def save_ligands_to_pickles(ligands, params):
     with open(params["by_residues_filename"], "wb") as outfile:
         pickle.dump(by_residue_df, outfile, protocol=pickle.HIGHEST_PROTOCOL)
     logger.info(f"Ligands grouped by residue saved to {params['by_residues_filename']}")
-
-    # Function to process each row and extract necessary information
-    def process_row(row):
-        residue_name = row["id"]
-        atoms_data = row["atoms"]
-        chiral_centers = set()
-        if params["include_chirals"]:
-            chiral_centers = set(chiral[0] for chiral in row["chirals"])
-
-        atom_records = []
-        for atom_id, atom_info in atoms_data.items():
-            atom_record = {
-                "residue_name": residue_name,
-                "atom_id": atom_id,
-                "leaving_atom_flag": atom_info["leaving_atom_flag"],
-                "leaving_group": atom_info["leaving_group"],
-                "is_metal": atom_info["is_metal"],
-                "charge": atom_info["charge"],
-                "hybridization": atom_info["hyb"],
-                "n_hydrogens": atom_info["nhyd"],
-                "hvy_degree": atom_info["hvydeg"],
-                "pdbx_align": atom_info["align"],
-            }
-            if params["include_chirals"]:
-                atom_record["is_chiral_center"] = atom_id in chiral_centers
-            atom_records.append(atom_record)
-        return atom_records
-
-    # Apply the function to each row and concatenate the results into a DataFrame
-    by_atom_df = pd.concat([pd.DataFrame(process_row(row)) for _, row in by_residue_df.iterrows()], ignore_index=True)
-    with open(params["by_atoms_filename"], "wb") as outfile:
-        pickle.dump(by_atom_df, outfile, protocol=pickle.HIGHEST_PROTOCOL)
-    logger.info(f"Ligands grouped by atoms saved to {params['by_atoms_filename']}")
-
 
 def main(
     ligand_dir: str = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_ligands_2024_05_31/ccd",

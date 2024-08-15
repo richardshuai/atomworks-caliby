@@ -13,7 +13,7 @@ def test_multiple_models(test_case: dict):
     pdb_id = test_case["pdb_id"]
     path = get_digs_path(pdb_id)
     result = CIF_PARSER_BIOTITE.parse(
-        path,
+        filename=path,
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,

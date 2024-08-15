@@ -14,7 +14,7 @@ TEST_CASES = ["2e2h", "4cpa", "1en2", "1aqc", "1ivo", "3k4a", "1cbn", "133d", "1
 def test_parser_one_letter_sequence_outputs(pdb_id: str):
     path = get_digs_path(pdb_id)
     result = CIF_PARSER_BIOTITE.parse(
-        path,
+        filename=path,
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,

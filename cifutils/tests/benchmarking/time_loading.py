@@ -5,7 +5,7 @@ from cifutils.cifutils_legacy import cifutils_legacy
 
 # Initialize parsers
 cifutils_legacy_parser = cifutils_legacy.CIFParser()
-cifutils_biotite_parser = cifutils_biotite.CIFParser(add_bonds=True, add_missing_atoms=True, build_assembly="first")
+cifutils_biotite_parser = cifutils_biotite.CIFParser()
 
 
 def load_with_cifutils_legacy(pdbids):

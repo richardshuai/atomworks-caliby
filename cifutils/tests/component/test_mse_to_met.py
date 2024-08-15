@@ -19,7 +19,7 @@ def test_mse_to_met_residue():
 def test_mse_to_met_pdb(pdb_id: str):
     path = get_digs_path(pdb_id)
     result = CIF_PARSER_BIOTITE.parse(
-        path,
+        filename=path,
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,

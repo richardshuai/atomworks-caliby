@@ -11,7 +11,7 @@ CRYSTALLIZATION_AIDS_PDB_IDS_TO_TEST = ["101M", "1AH8", "1ATG", "1ARX"]
 def test_remove_crystallization_aids(pdbid: str):
     # Not excluding crystallization aids
     out1 = CIF_PARSER_BIOTITE.parse(
-        get_digs_path(pdbid), remove_crystallization_aids=False, remove_af3_excluded_ligands=False
+        filename=get_digs_path(pdbid), remove_crystallization_aids=False, remove_af3_excluded_ligands=False
     )
     assert np.any(
         np.isin(out1["atom_array_stack"].res_name, CRYSTALLIZATION_AIDS)
@@ -19,7 +19,7 @@ def test_remove_crystallization_aids(pdbid: str):
 
     # Excluding crystallization aids
     out2 = CIF_PARSER_BIOTITE.parse(
-        get_digs_path(pdbid), remove_crystallization_aids=True, remove_af3_excluded_ligands=False
+        filename=get_digs_path(pdbid), remove_crystallization_aids=True, remove_af3_excluded_ligands=False
     )
     assert not np.any(
         np.isin(out2["atom_array_stack"].res_name, CRYSTALLIZATION_AIDS)
@@ -33,7 +33,7 @@ EXCLUDED_LIGAND_PDB_IDS_TO_TEST = ["1A7S", "1AIJ"]
 def test_remove_af3_excluded_ligands(pdbid: str):
     # Not excluding AF3 ligands
     out1 = CIF_PARSER_BIOTITE.parse(
-        get_digs_path(pdbid), remove_af3_excluded_ligands=False, remove_crystallization_aids=False
+        filename=get_digs_path(pdbid), remove_af3_excluded_ligands=False, remove_crystallization_aids=False
     )
     assert np.any(
         np.isin(out1["atom_array_stack"].res_name, AF3_EXCLUDED_LIGANDS)
@@ -41,7 +41,7 @@ def test_remove_af3_excluded_ligands(pdbid: str):
 
     # Excluding AF3 ligands
     out2 = CIF_PARSER_BIOTITE.parse(
-        get_digs_path(pdbid), remove_af3_excluded_ligands=True, remove_crystallization_aids=False
+        filename=get_digs_path(pdbid), remove_af3_excluded_ligands=True, remove_crystallization_aids=False
     )
     assert not np.any(
         np.isin(out2["atom_array_stack"].res_name, AF3_EXCLUDED_LIGANDS)

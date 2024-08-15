@@ -5,8 +5,6 @@ Retains all functionality of orginal library, with increased performance and add
 
 from __future__ import annotations
 import logging
-import pickle
-import time
 from functools import lru_cache
 from typing import Literal
 
@@ -18,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 from cifutils.cifutils_biotite.cifutils_biotite_utils import (
-    apply_transformation,
+    apply_assembly_transformation,
     category_to_df,
     category_to_dict,
     deduplicate_iterator,
@@ -26,7 +24,6 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     get_bond_type_from_order_and_is_aromatic,
     parse_transformations,
     read_cif_file,
-    build_modified_residues_dict,
     get_std_alt_atom_id_conversion,
     standardize_heavy_atom_ids,
     resolve_arginine_naming_ambiguity,
@@ -34,10 +31,11 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     get_1_from_3_letter_code,
 )
 from cifutils.cifutils_biotite.common import exists
+from cifutils.cifutils_biotite.transforms import get_chain_info, get_metadata, load_monomer_sequence_information_from_category, update_nonpoly_seq_ids
 
 import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
-from biotite.structure.io.pdbx import CIFBlock
+from biotite.structure.io.pdbx import CIFBlock, CIFCategory
 from biotite.structure import AtomArray, Atom, AtomArrayStack
 from biotite.file import InvalidFileError
 from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS, AF3_EXCLUDED_LIGANDS
@@ -50,34 +48,38 @@ __all__ = ["CIFParser"]
 class CIFParser:
     def __init__(
         self,
-        by_residue_ligand_dir="/projects/ml/RF2_allatom/cifutils_biotite/ccd_library",
-        by_atom_pickle="/projects/ml/RF2_allatom/cifutils_biotite/ligands_by_atom_ideal_v2024_06_10.pkl",
+        by_residue_ligand_dir: str = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_library",
     ):
         """
         Initialize a CIFParser object.
 
         Args:
-        - by_residue_pickle (str, optional): Path to the pre-compiled residue-level CCD and OB data built from `make_residue_library_from_ccd.py`.
-        - by_atom_pickle (str, optional): Path to the pre-compiled atom-level CCD and OB data built from `make_residue_library_from_ccd.py`.
+        - by_residue_ligand_dir (str, optional): Directory path to the pre-compiled residue-level CCD and OB data built from `make_residue_library_from_ccd.py`.
         """
         self.by_residue_ligand_dir = by_residue_ligand_dir
-
-        # Preparse atom-centric transformation of the precompiled library (this file is small, so we don't need to split into separate files like we do for residues)
-        logger.info(f"Loading atom-level CCD and OB data from {by_atom_pickle}...")
-        start_time = time.time()
-        with open(by_atom_pickle, "rb") as file:
-            self.data_by_atom = pickle.load(file)
-        end_time = time.time()
-        loading_time = end_time - start_time
-        logger.info(f"Built atom-level dataframe in {round(loading_time)} seconds.")
 
         # For backwards compatability
         self.extra_info = {}
 
-    def _validate_arguments(self, add_missing_atoms: bool, add_bonds: bool):
+    def _validate_arguments(self, **kwargs):
         """Validate the arguments passed to the CIFParser object."""
+        add_missing_atoms = kwargs.get('add_missing_atoms')
+        add_bonds = kwargs.get('add_bonds')
+        load_from_cache = kwargs.get('load_from_cache')
+        save_to_cache = kwargs.get('save_to_cache')
+        cache_dir = kwargs.get('cache_dir')
+
         if not add_missing_atoms and add_bonds:
             raise ValueError("add_bonds cannot be True if add_missing_atoms is False")
+
+        if not add_missing_atoms and add_bonds:
+            raise ValueError("add_bonds cannot be True if add_missing_atoms is False")
+        
+        if load_from_cache and not cache_dir:
+            raise ValueError("Must provide a cache directory to load from cache")
+        
+        if save_to_cache and not cache_dir:
+            raise ValueError("Must provide a cache directory to save to cache")
 
     @lru_cache(maxsize=1000)
     def _data_by_residue(self, residue_name: str) -> dict:
@@ -96,14 +98,79 @@ class CIFParser:
         return path.exists()
 
     @lru_cache(maxsize=None)
+    def _get_known_residues(self) -> set[str]:
+        """Return a set of all residue names in the precompiled library for membership checking."""
+        return {path.stem for path in Path(self.by_residue_ligand_dir).glob("*.pkl")}
+
+    @lru_cache(maxsize=None)
     def _all_precompiled_residues(self) -> list[str]:
         """List all residues in the precompiled library."""
         return [path.stem for path in Path(self.by_residue_ligand_dir).glob("*.pkl")]
+    
+    def parse(self, load_from_cache: bool = False, save_to_cache: bool = False, cache_dir: PathLike = None, **kwargs):
+        """
+        Entrypoint for CIF parsing, which can either:
+            - Directly parse from CIF, using the specified keyword arguments; or,
+            - Load the CIF from a cached directory, re-building bioassemblies on-the-fly
 
-    def parse(
+        In addition to the arguments in `parse_cif_from_rcsb`, this function can also include the following arguments:
+            - load_from_cache (bool, optional): Whether to load pre-compiled results from cache. Defaults to False.
+            - save_to_cache (bool, optional): Whether to save pre-compiled results to cache. Defaults to False.
+            - cache_dir (PathLike, optional): Directory path to save pre-compiled results. Defaults to None.
+        """
+        self._validate_arguments(**kwargs)
+
+        if cache_dir:
+            cache_dir = Path(cache_dir)
+            # Make the cache directory if it doesn't exist
+            cache_dir.mkdir(parents=True, exist_ok=True)
+
+        if load_from_cache and cache_dir:
+            # Load from cache
+            cache_file_path = cache_dir / f"{Path(kwargs['filename']).stem}.pkl"
+            if cache_file_path.exists():
+                # Load the result from the cache
+                result =  pd.read_pickle(cache_file_path)
+
+                # Build assemblies
+                atom_array_stack = result["atom_array_stack"]
+
+                if "assembly_gen_category" in result["extra_info"]:
+                    assembly_gen_category = result["extra_info"]["assembly_gen_category"]
+                    struct_oper_category = result["extra_info"]["struct_oper_category"]
+                    assemblies = self._build_assembly(
+                        assembly_gen_category=assembly_gen_category,
+                        struct_oper_category=struct_oper_category,
+                        atom_array_stack=atom_array_stack,
+                        assembly_ids=kwargs.get("build_assembly", "all"),
+                        patch_symmetry_centers=kwargs.get("patch_symmetry_centers", True),
+                    )
+                else:
+                    assemblies = atom_array_stack
+
+                # Return updated result
+                result["assemblies"] = assemblies
+                return result
+
+        # Parse from CIF
+        result = self.parse_cif_from_rcsb(save_to_cache=save_to_cache, **kwargs)
+        if save_to_cache and cache_dir:
+            # We want our cache to include:
+            #   (1) All keys in `result` excep the assemblies and 
+            #   (2) The information needed to rebuild the assemblies, which is stored in `result["extra_info"]`
+            cache_file_path = cache_dir / f"{Path(kwargs['filename']).stem}.pkl"
+            if not cache_file_path.exists():
+                # Save the result to the cache, excluding the assemblies
+                result_to_cache = {k: v for k, v in result.items() if k != "assemblies"}
+                pd.to_pickle(result_to_cache, cache_file_path)
+            
+        return result
+
+    def parse_cif_from_rcsb(
         self,
+        save_to_cache: bool,
         filename: PathLike,
-        *,
+        assume_residues_all_resolved: bool = False,
         add_missing_atoms: bool = True,
         add_bonds: bool = True,
         remove_waters: bool = True,
@@ -117,10 +184,12 @@ class CIFParser:
         model: int | None = None,
     ) -> dict:
         """
-        Parse the CIF file and return chain information, residue information, atom array, metadata, and legacy data.
+        Parse the CIF file (must contain information from the PDB) and return chain information, residue information, atom array, metadata, and legacy data.
 
         Args:
+        - save_to_cache (bool): Whether to save the results to cache.
         - filename (str): Path to the CIF file. May be any format of CIF file (e.g., gz, bcif, etc.).
+        - assume_residues_all_resolved (bool): Whether we can assume when parsing that all residues are represented, and all atoms are present. Required for distillation examples that do not have all RCSB fields. Defaults to False.
         - add_missing_atoms (bool, optional): Whether to add missing atoms to the structure, including relevant OpenBabel atom-level data.
         - add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
         - remove_waters (bool, optional): Whether to remove water molecules from the structure.
@@ -136,18 +205,14 @@ class CIFParser:
         Returns:
         - dict: A dictionary containing the following keys:
         'chain_info': A dictionary mapping chain ID to sequence, type, entity ID, EC number, and other information.
-        'residue_info': A dictionary mapping residue name to reference structure (atoms, bonds, automorphisms, etc.).
         'ligand_info': A dictionary containing ligand of interest information.
         'atom_array_stack': An AtomArrayStack instance representing the asymmetric unit.
         'assemblies': A dictionary mapping assembly IDs to AtomArrayStack instances.
         'metadata': A dictionary containing metadata about the structure (e.g., resolution, deposition date, etc.).
-        'modified_residues': A dictionary mapping modified residue names to their canonical name(s).
-        'extra_info': A dictionary with legacy information for cross-compatibility; should not typically be used.
+        'extra_info': A dictionary with information for cross-compatibility and caching. Should typically not be used directly.
         """
         # Save add hydrogens as a class variable, as it is used in multiple functions
         self.add_hydrogens = add_hydrogens
-
-        self._validate_arguments(add_missing_atoms, add_bonds)
 
         # Initialize internal processing variables
         converted_res = {}
@@ -157,7 +222,8 @@ class CIFParser:
         cif_block = cif_file.block
 
         # Load metadata
-        metadata = self._get_metadata(cif_block)
+        fallback_filename = Path(filename).stem
+        metadata = get_metadata(cif_block, fallback_id=fallback_filename)
 
         # Load structure using the RCSB labels for sequence ids, and later update for non-polymers
 
@@ -192,7 +258,8 @@ class CIFParser:
             atom_array_stack = struc.stack([atom_array_stack])
 
         # Load chain information from the first model (uses atom_array to build chain list)
-        chain_info_dict = self._get_chain_info(cif_block, atom_array_stack[0])
+        # NOTE: If not loading from RCSB (e.g., distillation), then the chain_info_dict will be empty
+        chain_info_dict = get_chain_info(cif_block, atom_array_stack[0])
 
         # Loop through models
         models = []
@@ -209,14 +276,17 @@ class CIFParser:
                 ignored_res.append("HOH")
 
             # Replace non-polymeric chain sequence ids with author sequence ids
-            atom_array = self._update_nonpoly_seq_ids(atom_array, chain_info_dict)
+            atom_array = update_nonpoly_seq_ids(atom_array, chain_info_dict)
 
             # Remove unmatched residues from the atom array
             atom_array = self._remove_atoms_with_unmatched_residues(atom_array)
 
-            # Load monomer sequence information into chain_info_dict and residue details (e.g., automorphisms) into residue_info_dict
-            chain_info_dict, residue_info_dict = self._load_monomer_sequence_information(
-                cif_block, chain_info_dict, atom_array
+            # Load monomer sequence information into chain_info_dict
+            chain_info_dict = load_monomer_sequence_information_from_category(
+                cif_block = cif_block, 
+                chain_info_dict = chain_info_dict, 
+                atom_array = atom_array, 
+                known_residues = self._get_known_residues()
             )
 
             # Handle sequence heterogeneity by selecting the residue that appears last
@@ -257,31 +327,37 @@ class CIFParser:
 
         # Build the assembly and add the transformation_id annotation (defaults to identity)
         if exists(build_assembly):
-            assemblies = self._build_assembly(
-                cif_block,
-                processed_atom_array_stack,
-                assembly_ids=build_assembly,
-                patch_symmetry_centers=patch_symmetry_centers,
-            )
+            if "pdbx_struct_assembly" not in cif_block.keys():
+                assemblies = atom_array_stack
+            else:
+                assembly_gen_category = cif_block["pdbx_struct_assembly_gen"]
+                struct_oper_category = cif_block["pdbx_struct_oper_list"]
+                assemblies = self._build_assembly(
+                    assembly_gen_category=assembly_gen_category,
+                    struct_oper_category=struct_oper_category,
+                    atom_array_stack=processed_atom_array_stack,
+                    assembly_ids=build_assembly,
+                    patch_symmetry_centers=patch_symmetry_centers,
+                )
+
+                # If we're caching, we need to store the assembly information in extra_info
+                if save_to_cache:
+                    self.extra_info["assembly_gen_category"] = assembly_gen_category
+                    self.extra_info["struct_oper_category"] = struct_oper_category
         else:
             assemblies = {}
 
         # Get ligand of interest information
         loi_info = self._get_ligand_of_interest_info(cif_block)
 
-        # Modified residue information
-        modified_residues_dict = build_modified_residues_dict(cif_block, chain_info_dict)
-
         # Add final sequence information to chain_info_dict
         return {
             "chain_info": chain_info_dict,
-            "residue_info": residue_info_dict,
             "ligand_info": loi_info,
             "atom_array_stack": processed_atom_array_stack,
             "assemblies": assemblies,
             "metadata": metadata,
-            "modified_residues": modified_residues_dict,
-            "extra_info": {**self.extra_info},  # modified residues, struct_conn bonds
+            "extra_info": {**self.extra_info}, 
         }
 
     def _remove_atoms_with_unmatched_residues(self, atom_array: AtomArray) -> AtomArray:
@@ -303,7 +379,7 @@ class CIFParser:
 
         return atom_array
 
-    def _remove_af3_exluded_ligands(self, atom_array: AtomArray) -> AtomArray:
+    def _remove_af3_exluded_ligands(atom_array: AtomArray) -> AtomArray:
         """Remove ligands from the AF-3 exclusion list from the atom array."""
         atom_array = atom_array[~np.isin(atom_array.res_name, AF3_EXCLUDED_LIGANDS)]
 
@@ -311,7 +387,8 @@ class CIFParser:
 
     def _build_assembly(
         self,
-        cif_block: CIFBlock,
+        assembly_gen_category: CIFCategory,
+        struct_oper_category: CIFCategory,
         atom_array_stack: AtomArrayStack,
         assembly_ids: Literal["all", "first"] | list[str] = "first",
         patch_symmetry_centers: bool = True,
@@ -330,12 +407,7 @@ class CIFParser:
         - AtomArray: The atom array with the biological assembly built and transformation_id annotations updated.
         """
 
-        if "pdbx_struct_assembly" not in cif_block.keys():
-            return atom_array_stack
-
         # Parse CIF blocks and select assembly (either by passed assembly_id or the first assembly)
-        assembly_gen_category = cif_block["pdbx_struct_assembly_gen"]
-        struct_oper_category = cif_block["pdbx_struct_oper_list"]
         available_assembly_ids = assembly_gen_category["assembly_id"].as_array(str)
 
         # parse `assembly_ids` option
@@ -367,7 +439,7 @@ class CIFParser:
                 # Filter affected asym IDs
                 sub_structure = atom_array_stack[..., np.isin(atom_array_stack.chain_id, asym_ids)]
                 for operation in operations:
-                    sub_assembly = apply_transformation(sub_structure, transformations, operation)
+                    sub_assembly = apply_assembly_transformation(sub_structure, transformations, operation)
                     # Add transformation ID annotation (e.g., 1 for identity operation)
                     if len(operation) > 1:
                         # Rarely, operation expressions will have multiple elements defining their name
@@ -936,241 +1008,6 @@ class CIFParser:
         # Remove rows from atom_array with the deletion mask
         return atom_array[mask]
 
-    def _update_nonpoly_seq_ids(self, atom_array: AtomArray, chain_info_dict: dict) -> None:
-        """
-        Updates the sequence IDs of non-polymeric chains in the atom array.
-        Additionally, adds an annotation to the atom array to indicate whether a chain is a polymer.
-
-        Args:
-        - atom_array (AtomArray): The atom array containing the chain information.
-        - chain_info_dict (dict): Dictionary containing the sequence details of each chain.
-
-        Returns:
-        - AtomArray: The updated atom array with the sequence IDs updated for non-polymeric chains.
-        """
-        # For non-polymeric chains, we use the author sequence ids
-        author_seq_ids = atom_array.get_annotation("auth_seq_id")
-        chain_ids = atom_array.get_annotation("chain_id")
-
-        # Create mask based on the is_polymer column
-        non_polymer_mask = ~np.array([chain_info_dict[chain_id]["is_polymer"] for chain_id in chain_ids])
-
-        # Update the atom_array_label with the (1-indexed) author sequence ids
-        atom_array.res_id[non_polymer_mask] = author_seq_ids[non_polymer_mask]
-
-        return atom_array
-
-    def _load_monomer_sequence_information(
-        self, cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray
-    ) -> tuple[dict, dict]:
-        """
-        Load monomer sequence information into a chain_info_dict.
-
-        For polymers, uses the 'entity_poly_seq' category in the CIF block to get the sequence.
-        For non-polymers, uses the atom array to get the sequence.
-
-        Args:
-            cif_block (CIFBlock): The CIF block containing the monomer sequence information.
-            chain_info_dict (dict): The dictionary where the monomer sequence information will be stored.
-            atom_array (AtomArray): The atom array used to get the sequence for non-polymers.
-
-        Returns:
-            tuple: The updated chain_info_dict with monomer sequence information and a dictionary with residue information.
-        """
-        # Handle polymers by using `entity_poly_seq`
-        polymer_seq_df = category_to_df(cif_block, "entity_poly_seq")
-        polymer_seq_df = polymer_seq_df.loc[:, ["entity_id", "num", "mon_id"]].rename(
-            columns={"num": "residue_id", "mon_id": "residue_name"}
-        )
-
-        # Keep only the last occurrence of each residue
-        duplicates = polymer_seq_df.duplicated(subset=["entity_id", "residue_id"], keep="last")
-        entities_with_sequence_heterogeneity = polymer_seq_df[duplicates]["entity_id"].unique()
-        if duplicates.any():
-            logger.info("Sequence heterogeneity detected, keeping only the last occurrence of each residue.")
-            polymer_seq_df = polymer_seq_df[~duplicates]
-
-        # Filter out residues that are not in the precompiled CCD data (e.g., remove unknown residues)
-        polymer_seq_df = polymer_seq_df[polymer_seq_df["residue_name"].apply(self._residue_file_exists)]
-
-        # Map entity_id to lists of residue names and residue IDs
-        polymer_seq_df["entity_id"] = polymer_seq_df["entity_id"].astype(float)
-        polymer_entity_id_to_residue_names_and_ids = {
-            entity_id: {"residue_names": group["residue_name"].tolist(), "residue_ids": None}
-            for entity_id, group in polymer_seq_df.groupby("entity_id")
-        }
-
-        # Build up the chain_info_dict with the sequence information
-        unique_residues = {
-            residue
-            for residues in polymer_entity_id_to_residue_names_and_ids.values()
-            for residue in residues["residue_names"]
-        }
-        for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
-            entity_id = int(chain_info_dict[chain_id]["entity_id"])
-            if entity_id in polymer_entity_id_to_residue_names_and_ids:
-                # For polymers, we use the stored entity residue list
-                residue_names = polymer_entity_id_to_residue_names_and_ids[entity_id]["residue_names"]
-                chain_type = chain_info_dict[chain_id]["type"]
-                if residue_names:
-                    chain_info_dict[chain_id]["residue_name_list"] = residue_names
-                    chain_info_dict[chain_id]["residue_id_list"] = polymer_entity_id_to_residue_names_and_ids[
-                        entity_id
-                    ]["residue_ids"]
-
-                    # Create the processed single-letter sequence representations
-                    processed_entity_non_canonical_sequence = [
-                        get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=False)
-                        for residue in residue_names
-                    ]
-                    processed_entity_canonical_sequence = [
-                        get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=True)
-                        for residue in residue_names
-                    ]
-                    chain_info_dict[chain_id]["processed_entity_non_canonical_sequence"] = "".join(
-                        processed_entity_non_canonical_sequence
-                    )
-                    chain_info_dict[chain_id]["processed_entity_canonical_sequence"] = "".join(
-                        processed_entity_canonical_sequence
-                    )
-            else:
-                # For non-polymers, we must re-compute every time, since entities are not guaranteed to have the same monomer sequence (e.g., for H2O chains)
-                chain_atom_array = atom_array[atom_array.chain_id == chain_id]
-                residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
-                # We don't need to filter out unmatched residues for non-polymers here, since we handled that by filtering the AtomArray earlier
-                chain_info_dict[chain_id]["residue_name_list"] = residue_name_list
-                chain_info_dict[chain_id]["residue_id_list"] = residue_id_list
-                unique_residues.update(residue_name_list)
-
-            chain_info_dict[chain_id]["has_sequence_heterogeneity"] = (
-                str(entity_id) in entities_with_sequence_heterogeneity
-            )
-
-        # Remove entries from chain_info_dict that have no residues
-        chain_info_dict = {
-            chain_id: chain_info
-            for chain_id, chain_info in chain_info_dict.items()
-            if "residue_name_list" in chain_info
-        }
-
-        # Store information about each present residue in a dictionary
-        residue_info_dict = {
-            residue_name: {
-                "planars": self._data_by_residue(residue_name)["planars"],
-                "chirals": self._data_by_residue(residue_name)["chirals"],
-                "automorphisms": self._data_by_residue(residue_name)["automorphisms"],
-            }
-            for residue_name in unique_residues
-        }
-
-        return chain_info_dict, residue_info_dict
-
-    def _get_chain_info(self, cif_block: CIFBlock, atom_array: AtomArray) -> dict:
-        """
-        Extracts chain information from the CIF block.
-
-        Args:
-        - cif_block (CIFBlock): Parsed CIF block.
-        - atom_array (AtomArray): Atom array containing the chain information.
-
-        Returns:
-        - dict: Dictionary containing the sequence details of each chain.
-        """
-        chain_info_dict = {}
-
-        # Step 1: Build a mapping of chain id to entity id from the `atom_site`
-        chain_ids = atom_array.get_annotation("chain_id")
-        entity_ids = atom_array.get_annotation("label_entity_id").astype(str)
-        unique_chain_entity_map = {chain_id: entity_id for chain_id, entity_id in zip(chain_ids, entity_ids)}
-
-        # Step 2: Load additional chain information
-        entity_df = category_to_df(cif_block, "entity")
-        entity_df["id"] = entity_df["id"].astype(str)
-        entity_df.rename(columns={"type": "entity_type", "pdbx_ec": "ec_numbers"}, inplace=True)
-        entity_dict = entity_df.set_index("id").to_dict(orient="index")
-
-        # From `entity_poly`
-        polymer_df = category_to_df(cif_block, "entity_poly")
-        polymer_df = polymer_df[
-            ["entity_id", "type", "pdbx_seq_one_letter_code", "pdbx_seq_one_letter_code_can", "pdbx_strand_id"]
-        ]
-        polymer_df.rename(
-            columns={
-                "type": "polymer_type",
-                "pdbx_seq_one_letter_code": "non_canonical_sequence",
-                "pdbx_seq_one_letter_code_can": "canonical_sequence",
-            },
-            inplace=True,
-        )
-        polymer_df["entity_id"] = polymer_df["entity_id"].astype(str)
-        polymer_dict = polymer_df.set_index("entity_id").to_dict(orient="index")
-
-        # Step 3: Merge additional information into the dictionary
-        for chain_id, entity_id in unique_chain_entity_map.items():
-            chain_info = entity_dict.get(entity_id, {})
-            polymer_info = polymer_dict.get(entity_id, {})
-            if chain_info.get("ec_numbers", "?") != "?":
-                ec_numbers = [ec.strip() for ec in chain_info.get("ec_numbers", "").split(",")]
-            else:
-                ec_numbers = []
-
-            chain_info_dict[chain_id] = {
-                "entity_id": entity_id,
-                "type": polymer_info.get("polymer_type", chain_info.get("entity_type", "")),
-                "unprocessed_entity_canonical_sequence": polymer_info.get("canonical_sequence", "").replace("\n", ""),
-                "unprocessed_entity_non_canonical_sequence": polymer_info.get("non_canonical_sequence", "").replace(
-                    "\n", ""
-                ),
-                "is_polymer": chain_info.get("entity_type") == "polymer",
-                "ec_numbers": ec_numbers,
-            }
-
-        return chain_info_dict
-
-    def _get_metadata(self, cif_block: CIFBlock) -> dict:
-        """Extract metadata from the CIF block."""
-        metadata = {}
-        metadata["pdb_id"] = cif_block["entry"]["id"].as_item().lower()
-        exptl = cif_block["exptl"] if "exptl" in cif_block.keys() else None
-        status = cif_block["pdbx_database_status"] if "pdbx_database_status" in cif_block.keys() else None
-        refine = cif_block["refine"] if "refine" in cif_block.keys() else None
-        em_reconstruction = cif_block["em_3d_reconstruction"] if "em_3d_reconstruction" in cif_block.keys() else None
-
-        # Method
-        metadata["method"] = ",".join(exptl["method"].as_array()).replace(" ", "_") if exptl else None
-        # Initial deposition date and release date to the PDB
-        metadata["deposition_date"] = (
-            status["recvd_initial_deposition_date"].as_item()
-            if status and "recvd_initial_deposition_date" in status
-            else None
-        )
-
-        # The relevant release date is the smallest `pdbx_audit_revision_history.revision_date` entry
-        revision_dates = cif_block["pdbx_audit_revision_history"]["revision_date"].as_array()
-        if revision_dates is not None:
-            # Convert string dates to datetime objects
-            date_objects = [datetime.strptime(date, "%Y-%m-%d") for date in revision_dates]
-            # Find the smallest date, convert back to string
-            smallest_date = min(date_objects)
-            metadata["release_date"] = smallest_date.strftime("%Y-%m-%d")
-        else:
-            metadata["release_date"] = None
-
-        # Resolution
-        metadata["resolution"] = None
-        if refine:
-            try:
-                metadata["resolution"] = float(refine["ls_d_res_high"].as_item())
-            except (KeyError, ValueError):
-                pass
-
-        if metadata["resolution"] is None and em_reconstruction:
-            try:
-                metadata["resolution"] = float(em_reconstruction["resolution"].as_item())
-            except (KeyError, ValueError):
-                pass
-
-        return metadata
 
     @staticmethod
     def _maybe_patch_non_polymer_at_symmetry_center(
