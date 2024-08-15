@@ -1,5 +1,5 @@
 import pytest
-from cifutils.cifutils_biotite import cifutils_biotite_utils
+from cifutils.cifutils_biotite.utils import cifutils_biotite_utils
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE, assert_same_atom_array
 from biotite.structure.io import pdbx
 

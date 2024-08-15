@@ -1,5 +1,6 @@
 """
 Transforms operating on the parsed CIF block. 
+These transforms are used to extract information from the CIF block and return a dictionary containing parsed, and processed, information.
 """
 
 from __future__ import annotations
@@ -15,16 +16,13 @@ from datetime import datetime
 from pathlib import Path
 import toolz
 
-from cifutils.cifutils_biotite.cifutils_biotite_utils import (
+from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
     apply_assembly_transformation,
     deduplicate_iterator,
     fix_bonded_atom_charges,
     get_bond_type_from_order_and_is_aromatic,
     parse_transformations,
     read_cif_file,
-    get_std_alt_atom_id_conversion,
-    standardize_heavy_atom_ids,
-    mse_to_met,
     get_1_from_3_letter_code,
 )
 from cifutils.cifutils_biotite.common import exists
@@ -35,6 +33,8 @@ from biotite.structure.io.pdbx import CIFBlock, CIFCategory
 from biotite.structure import AtomArray, Atom, AtomArrayStack
 from biotite.file import InvalidFileError
 from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS, AF3_EXCLUDED_LIGANDS
+from cifutils.cifutils_biotite.transforms.atom_array import mse_to_met
+from cifutils.cifutils_biotite.utils.atom_matching_utils import get_std_alt_atom_id_conversion, standardize_heavy_atom_ids
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,13 @@ logger = logging.getLogger(__name__)
 def category_to_df(cif_block: CIFBlock, category: str) -> pd.DataFrame | None:
     """Convert a CIF block to a pandas DataFrame."""
     return pd.DataFrame(category_to_dict(cif_block, category)) if category in cif_block.keys() else None
+
+def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
+    """Convert a CIF block to a dictionary."""
+    if exists(cif_block.get(category)):
+        return toolz.valmap(lambda x: x.as_array(), dict(cif_block[category]))
+    else:
+        return {}
 
 def get_chain_info(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
     """
@@ -178,30 +185,6 @@ def get_metadata(cif_block: CIFBlock, fallback_id: str = None) -> dict:
 
     return metadata
 
-def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
-    """
-    Updates the sequence IDs of non-polymeric chains in the atom array.
-    Additionally, adds an annotation to the atom array to indicate whether a chain is a polymer.
-
-    Args:
-    - atom_array (AtomArray): The atom array containing the chain information.
-    - chain_info_dict (dict): Dictionary containing the sequence details of each chain.
-
-    Returns:
-    - AtomArray: The updated atom array with the sequence IDs updated for non-polymeric chains.
-    """
-    # For non-polymeric chains, we use the author sequence ids
-    author_seq_ids = atom_array.get_annotation("auth_seq_id")
-    chain_ids = atom_array.get_annotation("chain_id")
-
-    # Create mask based on the is_polymer column
-    non_polymer_mask = ~np.array([chain_info_dict[chain_id]["is_polymer"] for chain_id in chain_ids])
-
-    # Update the atom_array_label with the (1-indexed) author sequence ids
-    atom_array.res_id[non_polymer_mask] = author_seq_ids[non_polymer_mask]
-
-    return atom_array
-
 def load_monomer_sequence_information_from_category(
     cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray, known_residues: set
 ) -> dict:
@@ -305,10 +288,29 @@ def load_monomer_sequence_information_from_category(
 
     return chain_info_dict 
 
+def get_ligand_of_interest_info(cif_block: CIFBlock) -> dict:
+    """Extract ligand of interest information from a CIF block.
 
-def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
-    """Convert a CIF block to a dictionary."""
-    if exists(cif_block.get(category)):
-        return toolz.valmap(lambda x: x.as_array(), dict(cif_block[category]))
-    else:
-        return {}
+    Reference:
+        - https://pdb101.rcsb.org/learn/guide-to-understanding-pdb-data/small-molecule-ligands
+    """
+
+    # Extract binary flag for whether the ligand of interest is specified
+    # NOTE: This is being used in addition to the below as it has slightly higher coverage across the PDB
+    # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_pdbx_entry_details.has_ligand_of_interest.html
+    has_loi = (
+        category_to_dict(cif_block, "pdbx_entry_details").get("has_ligand_of_interest", np.array(["N"]))[0] == "Y"
+    )
+
+    # Extract which ligand is of interest if specified
+    # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_pdbx_entity_instance_feature.feature_type.html
+    entity_instance_feature = category_to_dict(cif_block, "pdbx_entity_instance_feature")
+    comp_id_names = entity_instance_feature.get("comp_id", np.array([], dtype="<U3"))
+    comp_id_mask = entity_instance_feature.get("feature_type", np.array([])) == "SUBJECT OF INVESTIGATION"
+
+    return {
+        "ligand_of_interest": comp_id_names[comp_id_mask],
+        "has_ligand_of_interest": has_loi | (len(comp_id_names) > 0),
+    }
+
+

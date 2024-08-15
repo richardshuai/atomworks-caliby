@@ -8,27 +8,25 @@ import logging
 from functools import lru_cache
 from typing import Literal
 from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS, AF3_EXCLUDED_LIGANDS
+from cifutils.cifutils_biotite.utils.atom_matching_utils import standardize_heavy_atom_ids
 
 import numpy as np
 import pandas as pd
 from os import PathLike
-from collections import Counter
 from pathlib import Path
 
-from cifutils.cifutils_biotite.cifutils_biotite_utils import (
+from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
     apply_assembly_transformation,
     deduplicate_iterator,
     fix_bonded_atom_charges,
     get_bond_type_from_order_and_is_aromatic,
     parse_transformations,
     read_cif_file,
-    get_std_alt_atom_id_conversion,
-    standardize_heavy_atom_ids,
-    mse_to_met,
 )
 from cifutils.cifutils_biotite.common import exists
-from cifutils.cifutils_biotite.transforms.categories import get_chain_info, get_metadata, load_monomer_sequence_information_from_category, update_nonpoly_seq_ids
-from cifutils.cifutils_biotite.transforms.atom_array import remove_atoms_by_residue_names, resolve_arginine_naming_ambiguity
+from cifutils.cifutils_biotite.transforms.categories import get_chain_info, get_metadata, load_monomer_sequence_information_from_category, get_ligand_of_interest_info
+from cifutils.cifutils_biotite.transforms.atom_array import mse_to_met, remove_atoms_by_residue_names, resolve_arginine_naming_ambiguity, keep_last_residue, update_nonpoly_seq_ids, maybe_patch_non_polymer_at_symmetry_center
+from cifutils.cifutils_biotite.utils.bond_utils import add_bonds_from_struct_conn
 
 import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
@@ -36,13 +34,9 @@ from biotite.structure.io.pdbx import CIFBlock, CIFCategory
 from biotite.structure import AtomArray, Atom, AtomArrayStack
 from biotite.file import InvalidFileError
 
-from cifutils.cifutils_biotite.transforms.categories import category_to_dict
-from cifutils.cifutils_biotite.transforms.categories import category_to_df
-
 logger = logging.getLogger(__name__)
 
 __all__ = ["CIFParser"]
-
 
 class CIFParser:
     def __init__(
@@ -287,7 +281,7 @@ class CIFParser:
             )
 
             # Handle sequence heterogeneity by selecting the residue that appears last
-            atom_array = self._keep_last_residue(atom_array)
+            atom_array = keep_last_residue(atom_array)
 
             # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
             if add_missing_atoms:
@@ -346,7 +340,7 @@ class CIFParser:
             assemblies = {}
 
         # Get ligand of interest information
-        loi_info = self._get_ligand_of_interest_info(cif_block)
+        loi_info = get_ligand_of_interest_info(cif_block)
 
         # Add final sequence information to chain_info_dict
         return {
@@ -432,7 +426,7 @@ class CIFParser:
 
                 # For molecules with multiple transformations, we need to check for non-polymers at symmetry centers
                 if len(operations) > 1 and patch_symmetry_centers:
-                    assemblies[_id] = self._maybe_patch_non_polymer_at_symmetry_center(assemblies[_id])
+                    assemblies[_id] = maybe_patch_non_polymer_at_symmetry_center(assemblies[_id])
         return assemblies
 
     @lru_cache(maxsize=None)
@@ -474,46 +468,62 @@ class CIFParser:
 
         return atom_list
 
-
-    @lru_cache(maxsize=None)
-    def _get_intra_residue_bonds(self, residue_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _add_bonds(
+        self,
+        cif_block: CIFBlock,
+        atom_array: AtomArray,
+        chain_info_dict: dict,
+        converted_res: dict = {},
+        ignored_res: list = [],
+    ) -> AtomArray:
         """
-        Retrieve intra-residue bonds for a given residue.
+        Add bonds to the atom array using precomputed CCD data and the mmCIF `struct_conn` field.
 
         Args:
-        - residue_name (str): The name of the residue.
+        - cif_block (CIFBlock): The CIF file block containing the structure data.
+        - atom_array (AtomArray): The atom array to which the bonds will be added.
+        - chain_info_dict (dict): A dictionary containing information about the chains in the structure.
 
         Returns:
-        - tuple: Three arrays representing the atom indices and bond types within the residue frame.
+        - AtomArray: The updated atom array with bonds added.
         """
-        residue_data = self._data_by_residue(residue_name)
+        # Step 0: Add index to atom_array for ease of access
+        atom_array.set_annotation("index", np.arange(len(atom_array)))
 
-        # If we aren't adding hydrogens, we need to remove any bonds to hydrogens, and any hydrogen atoms from the atom list
-        if not self.add_hydrogens:
-            residue_data["intra_residue_bonds"] = [
-                # NOTE: We are assuming that all, and only, hydrogen atoms are named with an 'H' prefix
-                bond for bond in residue_data["intra_residue_bonds"] if not bond["atom_a_id"].startswith("H") and not bond["atom_b_id"].startswith("H")
-            ]
-            residue_data["atoms"] = {
-                atom_id: atom_data
-                for atom_id, atom_data in residue_data["atoms"].items()
-                if not atom_data["element"] == 1
-            }
-        
-        # Create a mapping of atom IDs to indices
-        atom_id_to_index = {atom_id: index for index, atom_id in enumerate(residue_data["atoms"].keys())}
-        atom_a_indices = []
-        atom_b_indices = []
-        bond_types = []
-        for bond in residue_data["intra_residue_bonds"]:
-            atom_a_index = atom_id_to_index[bond["atom_a_id"]]
-            atom_b_index = atom_id_to_index[bond["atom_b_id"]]
-            bond_type = get_bond_type_from_order_and_is_aromatic(bond["order"], bond["is_aromatic"])
-            atom_a_indices.append(atom_a_index)
-            atom_b_indices.append(atom_b_index)
-            bond_types.append(bond_type)
-        return np.array(atom_a_indices), np.array(atom_b_indices), np.array(bond_types)
+        # Step 1: Add inter-residue and inter-chain bonds from the `struct_conn` category in the CIF file
+        leaving_atom_indices = []
+        struct_conn_bonds, struct_conn_leaving_atom_indices = add_bonds_from_struct_conn(
+            cif_block, chain_info_dict, atom_array, converted_res, ignored_res
+        )
+        self.extra_info["struct_conn_bonds"] = struct_conn_bonds
 
+        if exists(struct_conn_leaving_atom_indices) and len(struct_conn_leaving_atom_indices) > 0:
+            leaving_atom_indices.append(np.concatenate(struct_conn_leaving_atom_indices))
+
+        # Step 2: Add inter-residue and intra-residue bonds
+        inter_and_intra_residue_bonds = []
+        for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
+            chain_bonds, chain_leaving_atom_indices = self._get_inter_and_intra_residue_bonds(
+                atom_array, chain_id, chain_info_dict[chain_id]["type"]
+            )
+            if exists(chain_bonds):
+                inter_and_intra_residue_bonds.append(chain_bonds)
+            if exists(chain_leaving_atom_indices) and len(chain_leaving_atom_indices) > 0:
+                leaving_atom_indices.append(chain_leaving_atom_indices)
+
+        if len(struct_conn_bonds) == 0:
+            combined_bonds = np.vstack(inter_and_intra_residue_bonds)
+        else:
+            combined_bonds = np.vstack((np.vstack(inter_and_intra_residue_bonds), struct_conn_bonds))
+
+        # Step 3: Add the bonds to the atom array
+        bond_list = struc.BondList(len(atom_array), combined_bonds)
+        atom_array.bonds = bond_list
+
+        # Delete leaving atoms and bonds to leaving atoms
+        leaving_atoms = np.unique(np.concatenate(leaving_atom_indices))
+        all_atom_indices = atom_array.index
+        return atom_array[np.setdiff1d(all_atom_indices, leaving_atoms, True)]
     def _get_inter_and_intra_residue_bonds(
         self, atom_array: AtomArray, chain_id: str, chain_type: str
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -590,7 +600,7 @@ class CIFParser:
                 self._residue_file_exists(residue_name)
                 and len(self._data_by_residue(residue_name)["intra_residue_bonds"]) > 0
             ):
-                atom_a_local_indices, atom_b_local_indices, bond_types = self._get_intra_residue_bonds(residue_name)
+                atom_a_local_indices, atom_b_local_indices, bond_types = self.get_intra_residue_bonds(residue_name, self.add_hydrogens)
                 atom_a_intra_residue_indices.append(current_res.index[atom_a_local_indices])
                 atom_b_intra_residue_indices.append(current_res.index[atom_b_local_indices])
                 intra_residue_bond_types.append(bond_types)
@@ -616,370 +626,168 @@ class CIFParser:
         else:
             return intra_residue_bonds, leaving_atom_indices
 
-    def _get_ligand_of_interest_info(self, cif_block: CIFBlock) -> dict:
-        """Extract ligand of interest information from a CIF block.
-
-        Reference:
-            - https://pdb101.rcsb.org/learn/guide-to-understanding-pdb-data/small-molecule-ligands
+    @lru_cache(maxsize=None)
+    def get_intra_residue_bonds(self, residue_name: dict, add_hydrogens: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-
-        # Extract binary flag for whether the ligand of interest is specified
-        # NOTE: This is being used in addition to the below as it has slightly higher coverage across the PDB
-        # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_pdbx_entry_details.has_ligand_of_interest.html
-        has_loi = (
-            category_to_dict(cif_block, "pdbx_entry_details").get("has_ligand_of_interest", np.array(["N"]))[0] == "Y"
-        )
-
-        # Extract which ligand is of interest if specified
-        # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_pdbx_entity_instance_feature.feature_type.html
-        entity_instance_feature = category_to_dict(cif_block, "pdbx_entity_instance_feature")
-        comp_id_names = entity_instance_feature.get("comp_id", np.array([], dtype="<U3"))
-        comp_id_mask = entity_instance_feature.get("feature_type", np.array([])) == "SUBJECT OF INVESTIGATION"
-
-        return {
-            "ligand_of_interest": comp_id_names[comp_id_mask],
-            "has_ligand_of_interest": has_loi | (len(comp_id_names) > 0),
-        }
-
-    def _add_bonds_from_struct_conn(
-        self,
-        cif_block: CIFBlock,
-        chain_info_dict: dict,
-        atom_array: AtomArray,
-        converted_res: dict = {},
-        ignored_res: list = [],
-    ) -> tuple[list[list[int]], list[int]]:
-        """
-        Adds bonds from the 'struct_conn' category of a CIF block to an atom array. Only covalent bonds are considered.
+        Retrieve intra-residue bonds for a given residue.
 
         Args:
-        - cif_block (CIFBlock): The CIF block for the entry.
-        - chain_info_dif (Dict): A dictionary containing information about the chains.
-        - atom_array (AtomArray): The atom array used to get atom indices.
-        - converted_res (dict): A dictionary of residues that have been converted to a different residue name.
-        - ignored_res (list): A list of residues that should be ignored.
+            residue_data (dict): Dictionary containing keys for the intra-residue bonds and constituent atoms, derived from OpenBabel.
+            add_hydrogens (bool): Whether or not hydrogens are being added to the structure. Relevant for bond removal.
 
         Returns:
-        - struct_conn_bonds: A List of bonds to be added to the atom array.
-        - leaving_atom_indices: A List of indices of atoms that are leaving groups for bookkeeping.
+            tuple: Three arrays representing the atom indices and bond types within the residue frame.
         """
-        if "struct_conn" not in cif_block:
-            return [], []
+        residue_data = self._data_by_residue(residue_name)
 
-        struct_conn_df = category_to_df(cif_block, "struct_conn")
-        struct_conn_df = struct_conn_df[
-            struct_conn_df["conn_type_id"].str.startswith("covale")
-        ]  # Only consider covalent bonds (throw out disulfide bods, metal coordination covalent bonds, hydrogen bonds)
-
-        struct_conn_bonds = []
-        leaving_atom_indices = []
-
-        if not struct_conn_df.empty:
-            logger.debug(f"Attempting to add {len(struct_conn_df)} bonds from `struct_conn`")
-            for _, row in struct_conn_df.iterrows():
-                a_chain_id = row["ptnr1_label_asym_id"]
-                b_chain_id = row["ptnr2_label_asym_id"]
-                a_atom_id = row["ptnr1_label_atom_id"]
-                b_atom_id = row["ptnr2_label_atom_id"]
-                a_res_name = converted_res.get(row["ptnr1_label_comp_id"], row["ptnr1_label_comp_id"])
-                b_res_name = converted_res.get(row["ptnr2_label_comp_id"], row["ptnr2_label_comp_id"])
-
-                # Check if res_name is ignored (e.g., water, crystallization aids, ignored ligands), in which case we early exit:
-                if (a_res_name in ignored_res) or (b_res_name in ignored_res):
-                    # skip
-                    continue
-
-                # Check if the chains for each of the residues exist in the structure
-                if (a_chain_id not in chain_info_dict) or (b_chain_id not in chain_info_dict):
-                    # skip, but warn
-                    logger.warning(
-                        f"Found covalent bond involving chains {a_chain_id} and {b_chain_id}, but at least one "
-                        "chain was removed during cleaning. This is likely because the chain is made up of a "
-                        "residue that is not in the pre-compiled CCD. This should automatically"
-                        f"be resolved once you update your CCD."
-                    )
-                    continue
-
-                a_seq_id = (
-                    row["ptnr1_label_seq_id"] if chain_info_dict[a_chain_id]["is_polymer"] else row["ptnr1_auth_seq_id"]
-                )
-                b_seq_id = (
-                    row["ptnr2_label_seq_id"] if chain_info_dict[b_chain_id]["is_polymer"] else row["ptnr2_auth_seq_id"]
-                )
-
-                # Get the indices of the atoms and append to the list
-                residue_a = atom_array[
-                    (atom_array.chain_id == a_chain_id)
-                    & (atom_array.res_id == int(a_seq_id))
-                    & (atom_array.res_name == a_res_name)
-                ]
-                residue_b = atom_array[
-                    (atom_array.chain_id == b_chain_id)
-                    & (atom_array.res_id == int(b_seq_id))
-                    & (atom_array.res_name == b_res_name)
-                ]
-
-                # Ensure that the we picked the correct residue (to handle sequence heterogeneity; see PDB ID `3nez` for an example)
-                #  (short circuit eval to avoid indexing errors in cases where we don't have one of the residues due to seq. heterogeneity
-                #   - e.g. 3nez)
-                if (
-                    (len(residue_a) == 0)
-                    or (len(residue_b) == 0)
-                    or (a_res_name != residue_a.res_name[0])
-                    or (b_res_name != residue_b.res_name[0])
-                ):
-                    # skip, but warn
-                    logger.warning(
-                        f"Covalent bond involving residues {a_chain_id}:{a_seq_id}:{a_res_name} and "
-                        f"{b_chain_id}:{b_seq_id}:{b_res_name} was found in `struct_conn`, but the "
-                        f"residues are not present in the atom array. This is likely due to "
-                        f"resolved sequence heterogeneity which removed one of the residues."
-                    )
-                    continue
-
-                # Get the atoms that participate in the bond
-                atom_a = self._get_matching_atom(residue_a, a_atom_id)
-                atom_b = self._get_matching_atom(residue_b, b_atom_id)
-
-                struct_conn_bonds.append([atom_a.index[0], atom_b.index[0], struc.BondType.SINGLE])
-
-                # Leaving group bookkeeping
-                leaving_atom_indices.append(residue_a.index[np.isin(residue_a.atom_name, atom_a.leaving_group[0])])
-                leaving_atom_indices.append(residue_b.index[np.isin(residue_b.atom_name, atom_b.leaving_group[0])])
-
-                # Fix charges
-                atom_a_updates = fix_bonded_atom_charges(atom_a[0])
-                atom_a.charge, atom_a.hyb, atom_a.nhyd = (
-                    np.array([atom_a_updates["charge"]]),
-                    np.array([atom_a_updates["hyb"]]),
-                    np.array([atom_a_updates["nhyd"]]),
-                )
-
-                atom_b_updates = fix_bonded_atom_charges(atom_b[0])
-                atom_b.charge, atom_b.hyb, atom_b.nhyd = (
-                    np.array([atom_b_updates["charge"]]),
-                    np.array([atom_b_updates["hyb"]]),
-                    np.array([atom_b_updates["nhyd"]]),
-                )
-
-        # Add to legacy
-        self.extra_info["struct_conn_bonds"] = struct_conn_bonds
-
-        return struct_conn_bonds, leaving_atom_indices
-
-    def _add_bonds(
-        self,
-        cif_block: CIFBlock,
-        atom_array: AtomArray,
-        chain_info_dict: dict,
-        converted_res: dict = {},
-        ignored_res: list = [],
-    ) -> AtomArray:
-        """
-        Add bonds to the atom array using precomputed CCD data and the mmCIF `struct_conn` field.
-
-        Args:
-        - cif_block (CIFBlock): The CIF file block containing the structure data.
-        - atom_array (AtomArray): The atom array to which the bonds will be added.
-        - chain_info_dict (dict): A dictionary containing information about the chains in the structure.
-
-        Returns:
-        - AtomArray: The updated atom array with bonds added.
-        """
-        # Step 0: Add index to atom_array for ease of access
-        atom_array.set_annotation("index", np.arange(len(atom_array)))
-
-        # Step 1: Add inter-residue and inter-chain bonds from the `struct_conn` category in the CIF file
-        leaving_atom_indices = []
-        struct_conn_bonds, struct_conn_leaving_atom_indices = self._add_bonds_from_struct_conn(
-            cif_block, chain_info_dict, atom_array, converted_res, ignored_res
-        )
-        if exists(struct_conn_leaving_atom_indices) and len(struct_conn_leaving_atom_indices) > 0:
-            leaving_atom_indices.append(np.concatenate(struct_conn_leaving_atom_indices))
-
-        # Step 2: Add inter-residue and intra-residue bonds
-        inter_and_intra_residue_bonds = []
-        for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
-            chain_bonds, chain_leaving_atom_indices = self._get_inter_and_intra_residue_bonds(
-                atom_array, chain_id, chain_info_dict[chain_id]["type"]
-            )
-            if exists(chain_bonds):
-                inter_and_intra_residue_bonds.append(chain_bonds)
-            if exists(chain_leaving_atom_indices) and len(chain_leaving_atom_indices) > 0:
-                leaving_atom_indices.append(chain_leaving_atom_indices)
-
-        if len(struct_conn_bonds) == 0:
-            combined_bonds = np.vstack(inter_and_intra_residue_bonds)
-        else:
-            combined_bonds = np.vstack((np.vstack(inter_and_intra_residue_bonds), struct_conn_bonds))
-
-        # Step 3: Add the bonds to the atom array
-        bond_list = struc.BondList(len(atom_array), combined_bonds)
-        atom_array.bonds = bond_list
-
-        # Delete leaving atoms and bonds to leaving atoms
-        leaving_atoms = np.unique(np.concatenate(leaving_atom_indices))
-        all_atom_indices = atom_array.index
-        return atom_array[np.setdiff1d(all_atom_indices, leaving_atoms, True)]
-
-    def _keep_last_residue(self, atom_array: AtomArray) -> AtomArray:
-        """
-        Removes duplicate residues in the atom array, keeping only the last occurrence.
-
-        Args:
-        - atom_array (AtomArray): The atom array containing the chain information.
-
-        Returns:
-        - AtomArray: The atom array with duplicate residues removed.
-        """
-        atom_df = pd.DataFrame(
-            {
-                "chain_id": atom_array.chain_id,
-                "res_id": atom_array.res_id,
-                "res_name": atom_array.res_name,
+        # If we aren't adding hydrogens, we need to remove any bonds to hydrogens, and any hydrogen atoms from the atom list
+        if not add_hydrogens:
+            residue_data["intra_residue_bonds"] = [
+                # NOTE: We are assuming that all, and only, hydrogen atoms are named with an 'H' prefix
+                bond for bond in residue_data["intra_residue_bonds"] if not bond["atom_a_id"].startswith("H") and not bond["atom_b_id"].startswith("H")
+            ]
+            residue_data["atoms"] = {
+                atom_id: atom_data
+                for atom_id, atom_data in residue_data["atoms"].items()
+                if not atom_data["element"] == 1
             }
-        )
+        
+        # Create a mapping of atom IDs to indices
+        atom_id_to_index = {atom_id: index for index, atom_id in enumerate(residue_data["atoms"].keys())}
+        atom_a_indices = []
+        atom_b_indices = []
+        bond_types = []
+        for bond in residue_data["intra_residue_bonds"]:
+            atom_a_index = atom_id_to_index[bond["atom_a_id"]]
+            atom_b_index = atom_id_to_index[bond["atom_b_id"]]
+            bond_type = get_bond_type_from_order_and_is_aromatic(bond["order"], bond["is_aromatic"])
+            atom_a_indices.append(atom_a_index)
+            atom_b_indices.append(atom_b_index)
+            bond_types.append(bond_type)
+        return np.array(atom_a_indices), np.array(atom_b_indices), np.array(bond_types)
 
-        # Get the mask of duplicates based on the combination of chain_id, res_id, and res_name
-        collapsed_df = atom_df.drop_duplicates(subset=["chain_id", "res_id", "res_name"])
-
-        # Get duplicates based on res_id, keeping the last
-        duplicate_mask = collapsed_df.duplicated(subset=["chain_id", "res_id"], keep="last")
-        duplicates_df = collapsed_df[duplicate_mask]
-
-        # Perform a left merge to find rows in atom_df that are also in duplicates_df
-        merged_df = atom_df.merge(duplicates_df, on=["chain_id", "res_id", "res_name"], how="left", indicator=True)
-
-        # Create a mask where True indicates the row is not in duplicates_df
-        mask = merged_df["_merge"] == "left_only"
-
-        # Remove rows from atom_array with the deletion mask
-        return atom_array[mask]
-
-
-    @staticmethod
-    def _maybe_patch_non_polymer_at_symmetry_center(
-        atom_array_stack: AtomArrayStack, clash_distance: float = 1.0, clash_ratio: float = 0.5
-    ) -> AtomArrayStack:
+    def _add_missing_atoms(self, atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
         """
-        In some PDB entries, non-polymer molecules are placed at the symmetry center and clash with themselves when
-        transformed via symmetry operations. We should remove the duplicates in these cases, keeping the identity copy.
+        Add missing atoms to a polymer chain based on its sequence.
 
-        We consider a non-polymer to be clashing with itself if at least `clash_ratio` of its atoms clash with the symmetric copy.
+        Iterates through the residues in a given chain, identifies missing atoms based on the reference residue,
+        and inserts the missing atoms into the atom array. Also augments atom data with Open Babel data.
 
-        Examples:
-        — PDB ID `7mub` has a potassium ion at the symmetry center that when reflected with the symmetry operation clashes with itself.
-        — PDB ID `1xan` has a ligand at a symmetry center that similarly when refelcted clashes with itself.
-
-        Arguments:
-        — atom_array (AtomArray): The atom array to be patched.
-        — clash_distance (float): The distance threshold for two atoms to be considered clashing.
-        - clash_ratio (float): The percentage of atoms that must clash for the molecule to be considered clashing.
+        Args:
+        - atom_array (AtomArray): An array of atom objects representing the current state of the polymer chain.
+        - chain_info_dict (dict): A dictionary containing chain information, including whether the chain is a polymer and the sequence of residues.
 
         Returns:
-        — AtomArray: The patched atom array.
+        - AtomArray: An updated array of atom objects with the missing atoms added.
         """
-        # Select one model AtomArray to simplify computations
-        atom_array = atom_array_stack[0]
+        full_atom_list = []
+        residue_ids = []
+        chain_ids = []
+        # NOTE: We need deduplicate_iterator() since biotite considers a decrease in sequence_id as a new chain (see `5xnl`)
+        for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
+            # Iterate through the sequence and create all atoms with zero coordinates
+            residue_name_list = chain_info_dict[chain_id]["residue_name_list"]
+            for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
+                residue_atom_list = self._build_residue_atoms(residue_name)
+                if chain_info_dict[chain_id]["is_polymer"]:
+                    # We assign the residue ID as the sequential index for polymers, consistent with the PDB label ids (but not author ids)
+                    residue_ids.append(np.full(len(residue_atom_list), residue_index_sequential))
+                else:
+                    residue_id_nonpoly = chain_info_dict[chain_id]["residue_id_list"][
+                        residue_index_sequential - 1
+                    ]  # Recall that residue_index_sequential is 1-indexed
+                    residue_ids.append(np.full(len(residue_atom_list), residue_id_nonpoly))
+                chain_ids.append(np.full(len(residue_atom_list), chain_id))
+                full_atom_list.append(residue_atom_list)
 
-        # Filter to only atoms with coordinates to avoid non-physical clashes at the origin
-        resolved_atom_array = atom_array[atom_array.occupancy > 0]
+        # Create atom array object and flatten residue_ids and chain_ids
+        full_atom_array = struc.array(np.concatenate(full_atom_list))
+        full_atom_array.chain_id = np.concatenate(chain_ids)
+        full_atom_array.res_id = np.concatenate(residue_ids)
+        # Shenanigans to fix the data type of element
+        elements = full_atom_array.element.astype(int)
+        full_atom_array.del_annotation("element")
+        full_atom_array.add_annotation("element", dtype=int)
+        full_atom_array.set_annotation("element", elements)
 
-        if not np.any(~resolved_atom_array.is_polymer):
-            return atom_array_stack  # Early exit
-        else:
-            non_polymers = resolved_atom_array[~resolved_atom_array.is_polymer]  # [n]
+        # Standardize heavy atom naming
+        atom_array.atom_name = standardize_heavy_atom_ids(atom_array)
+        full_atom_array.atom_name = standardize_heavy_atom_ids(full_atom_array)
 
-            # Build cell list for rapid distance computations
-            cell_list = struc.CellList(non_polymers, cell_size=3.0)
-
-            # Quick check to see whether any non-polymer is closer than 0.05A to any other.
-            clash_matrix = cell_list.get_atoms(non_polymers.coord, clash_distance, as_mask=True)  # [n, n]
-            identity_matrix = np.identity(len(non_polymers), dtype=bool)
-            if np.array_equal(clash_matrix, identity_matrix):
-                return atom_array_stack  # Early exit
-            else:
-                # Remove identity matrix so we don't count self-clashes
-                clash_matrix = clash_matrix & ~identity_matrix
-            logger.debug("Found clashing non-polymer at a symmetry center, resolving.")
-
-            # Get list of chain_ids with clashing atoms (for computational efficiency)
-            clashing_atom_mask = np.sum(clash_matrix, axis=1) > 0
-            clashing_chain_ids = np.unique(non_polymers.chain_id[clashing_atom_mask])
-
-            # For each clashing chain, we check whether any non-polymer is clashing with a symmetric copy of itself
-            # We count the clashes with each symmetric copy of itself and remove those that have a clash ratio above the threshold
-            # We keep the identity transformation, or the lowest transformation ID in the case of multiple symmetric copies
-            chain_iids_to_remove = []
-            for chain_id in clashing_chain_ids:
-                chain_mask = non_polymers.chain_id == chain_id
-                mask = chain_mask & clashing_atom_mask  # Mask for clashing atoms in the current chain
-                chain_clash_matrix = clash_matrix[mask][:, mask]
-
-                # Loop through possible transformation ID's
-                transformation_ids_to_check = sorted(
-                    np.unique(non_polymers.transformation_id[mask].astype(str)).tolist()
+        # Compute index mapping between `full_atom_array`
+        # ... get lookup table of id -> idx for full_atom_array
+        id_to_idx_full_atom_array = {
+            id: idx
+            for idx, id in enumerate(
+                zip(
+                    full_atom_array.chain_id,
+                    full_atom_array.res_id,
+                    full_atom_array.res_name,
+                    full_atom_array.atom_name,
                 )
-                while transformation_ids_to_check:
-                    transformation_id = str(transformation_ids_to_check.pop(0))
-                    transformation_mask = non_polymers.transformation_id == str(transformation_id)
-                    # Create matrix where the rows correspond to the atoms of the current transformation and the columns corresponded to the other transformations
-                    chain_clash_matrix = clash_matrix[mask & transformation_mask][
-                        :, mask & ~transformation_mask
-                    ]  # [current transformation clashing atoms, other transformations clashing atoms]
-                    # We can then count clashes by transformation ID
-                    transformation_id_matrix = np.tile(
-                        non_polymers.transformation_id[mask & ~transformation_mask], (chain_clash_matrix.shape[0], 1)
-                    )
+            )
+        }
+        assert len(id_to_idx_full_atom_array) == len(full_atom_array), "Duplicate atom ids in `full_atom_array`!"
 
-                    # Apply chain_clash_matrix to transformation_id_matrix so we can count clashes by transformation ID
-                    clashing_transformation_ids = np.where(chain_clash_matrix, transformation_id_matrix, None).flatten()
-                    clash_count_by_transformation_id = Counter(
-                        clashing_transformation_ids[clashing_transformation_ids != np.array(None)]
-                    )
-                    threshold = clash_ratio * np.sum(chain_mask & transformation_mask)
-
-                    # For each transformation ID with a clash ratio above the threshold, note the chain_iid to remove, and remove from the list to check
-                    transformation_ids_to_remove = [
-                        trans_id for trans_id, count in clash_count_by_transformation_id.items() if count > threshold
-                    ]
-                    chain_iids_to_remove.extend([f"{chain_id}_{trans_id}" for trans_id in transformation_ids_to_remove])
-                    transformation_ids_to_check = [
-                        id_ for id_ in transformation_ids_to_check if str(id_) not in transformation_ids_to_remove
-                    ]
-
-            # Filter and return
-            keep_mask = ~np.isin(atom_array.chain_iid, chain_iids_to_remove)
-            atom_array_stack = atom_array_stack[:, keep_mask]
-            return atom_array_stack
-
-    @staticmethod
-    def _get_matching_atom(res: AtomArray, atom_name: str, try_alt_atom_id: bool = True) -> Atom:
-        """Selects a `single` atom from a residue that matches the given atom name or alternative atom id.
-        If none or more are found it raises an error.
-        """
-        # If the atom name exists, simply select it
-        res_name = res.res_name[0]
-        atom = res[res.atom_name == atom_name]
-
-        if len(atom) == 0 and try_alt_atom_id:
-            # if the atom name does not exist, try the alternative atom id
-            # as the alternative atom id's are sometimes used and try to
-            # match the alternative atom id
-            std_alt_map = get_std_alt_atom_id_conversion(res_name)
-            if atom_name in std_alt_map["std_to_alt"]:
-                # ... try looking for the atom by its standard name
-                atom = res[res.atom_name == std_alt_map["std_to_alt"][atom_name]]
-            elif atom_name in std_alt_map["alt_to_std"]:
-                # ... otherwise try looking for the atom by its alternative name
-                atom = res[res.atom_name == std_alt_map["alt_to_std"][atom_name]]
+        # ... inspect all present atoms in `atom_array` and get the matching idx in `full_atom_array`
+        full_atom_array_match_idx = []
+        atom_array_match_idx = []
+        _failed_to_match = []
+        for idx, id in enumerate(
+            zip(atom_array.chain_id, atom_array.res_id, atom_array.res_name, atom_array.atom_name)
+        ):
+            if id in id_to_idx_full_atom_array:
+                full_atom_array_match_idx.append(id_to_idx_full_atom_array[id])
+                atom_array_match_idx.append(idx)
             else:
-                # ... set atom to be empty to trigger error
-                atom = []
+                _failed_to_match.append(idx)
+                logger.warning(f"Atom {id} not found in `full_atom_array`!")
 
-        if len(atom) != 1:
-            # Check if we found a matching atom, otherwise error
-            msg = f"Found {len(atom)} matching atoms for {atom_name} in {res_name}:\n{res}\n\n"
-            raise ValueError(msg)
+        # ... turn arrays into np arrays
+        full_atom_array_match_idx = np.array(full_atom_array_match_idx)
+        atom_array_match_idx = np.array(atom_array_match_idx)
 
-        return atom
+        # ... verify that there is a 1-to-1 mapping between the two arrays
+        if not len(full_atom_array_match_idx) == len(atom_array_match_idx):
+            unique, counts = np.unique(full_atom_array_match_idx, return_counts=True)
+            # ... find duplicates in `full_atom_array_match_idx` for error message
+            duplicates = unique[counts > 1]
+            duplicates_id = full_atom_array[full_atom_array_match_idx][duplicates]
+            raise ValueError(
+                f"Mismatch between `full_atom_array` and `atom_array`! Found {len(duplicates)} duplicates in `full_atom_array_match_idx`:\n{duplicates_id}"
+            )
+
+        # Carry over the annotations from `atom_array` to `full_atom_array` for corresponding atoms
+        # ... initialize
+        b_factor = np.zeros(len(full_atom_array), dtype=np.float32)
+        occupancy = np.zeros(len(full_atom_array), dtype=np.float32)
+        # ... carry over annotations
+        full_atom_array.coord[full_atom_array_match_idx] = atom_array[atom_array_match_idx].coord
+        b_factor[full_atom_array_match_idx] = atom_array[atom_array_match_idx].b_factor
+        occupancy[full_atom_array_match_idx] = atom_array[atom_array_match_idx].occupancy
+        full_atom_array.set_annotation("b_factor", b_factor)
+        full_atom_array.set_annotation("occupancy", occupancy)
+        # ... polymer annotation
+        full_atom_array.add_annotation("is_polymer", dtype=bool)
+        polymer_chain_ids = [chain_id for chain_id, chain_info in chain_info_dict.items() if chain_info["is_polymer"]]
+        polymer_mask = np.isin(full_atom_array.chain_id, polymer_chain_ids)
+        full_atom_array.set_annotation("is_polymer", polymer_mask)
+
+        # If any heavy atom in a residue cannot be matched, then mask the whole residue
+        if len(_failed_to_match) > 0:
+            failing_atoms = atom_array[np.array(_failed_to_match)]
+            is_heavy = ~np.isin(failing_atoms.element, ["H", "D", "T"])
+            if len(failing_atoms[is_heavy]) > 0:
+                for atom in failing_atoms[is_heavy]:
+                    chain_id, res_id, res_name = atom.chain_id, atom.res_id, atom.res_name
+                    residue_mask = (
+                        (full_atom_array.chain_id == chain_id)
+                        & (full_atom_array.res_id == res_id)
+                        & (full_atom_array.res_name == res_name)
+                    )
+                    full_atom_array.occupancy[residue_mask] = 0
+                logger.warning(
+                    f"Masked residues for {len(failing_atoms[is_heavy])} heavy atoms in `atom_array` that failed to match."
+                )
+
+        return full_atom_array

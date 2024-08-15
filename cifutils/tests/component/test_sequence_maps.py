@@ -1,6 +1,6 @@
 import pytest
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
-from cifutils.cifutils_biotite.cifutils_biotite_utils import (
+from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
     get_3_from_1_letter_code,
     get_1_from_3_letter_code,
 )

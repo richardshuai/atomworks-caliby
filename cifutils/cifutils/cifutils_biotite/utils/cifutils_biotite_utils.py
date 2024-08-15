@@ -1,3 +1,6 @@
+"""
+General utility functions for working with CIF files in Biotite. 
+"""
 from __future__ import annotations
 import gzip
 from collections import OrderedDict
@@ -8,9 +11,6 @@ import biotite.structure.io.pdbx as pdbx
 import numpy as np
 from biotite.structure.atoms import repeat
 from biotite.structure.io.pdbx import CIFFile, BinaryCIFFile
-from cifutils.cifutils_biotite.common import exists
-from functools import cache
-from biotite.structure.atoms import AtomArray
 import logging
 from Bio.Data.PDBData import (
     protein_letters_3to1_extended,
@@ -208,7 +208,6 @@ def parse_transformations(struct_oper):
         transformation_dict[id] = (rotation_matrix, translation_vector)
     return transformation_dict
 
-
 def apply_assembly_transformation(structure, transformation_dict, operation):
     """
     Get subassembly by applying the given operation to the input
@@ -288,102 +287,3 @@ def fix_bonded_atom_charges(atom):
     return {"charge": atom.charge, "hyb": atom.hyb, "nhyd": atom.nhyd}
 
 
-@cache
-def get_std_alt_atom_id_conversion(res_name: str) -> dict:
-    std_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "atom_id")
-    alt_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "alt_atom_id")
-
-    assert exists(std_atom_ids) and (
-        len(std_atom_ids) > 0
-    ), f"{res_name} info does not exist in biotite's CCD. Try to update it to fix this assertion."
-    assert len(std_atom_ids) == len(
-        alt_atom_ids
-    ), f"{res_name} has {len(std_atom_ids)} standard atom ids and {len(alt_atom_ids)} alternative atom ids"
-
-    mapping = {"std_to_alt": dict(zip(std_atom_ids, alt_atom_ids)), "alt_to_std": dict(zip(alt_atom_ids, std_atom_ids))}
-
-    return mapping
-
-
-def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
-    _found_alt_atom_ids = 0
-    atom_name_all = []
-    for res in struc.residue_iter(atom_array):
-        res_name = res.res_name
-
-        # NOTE: We do not rename any H atoms, as we only care about
-        #  covalent bonds in the struct_conn category later and so
-        #  we will never have to match up H's.
-        is_heavy = res.element != 1  # 1 is hydrogen, deuterium, tritium here
-        is_heavy &= ~np.isin(res.element, ["H", "D", "H2", "T", "1"])
-
-        atom_name = res.atom_name
-
-        # Check if an atom array uses standard atom ids
-        try:
-            mapping = get_std_alt_atom_id_conversion(res_name[0])
-        except AssertionError as e:
-            # deal with residues which do not yet exist in biotite's CCD
-            # skip, but warn
-            logger.warning(
-                f"{e.__class__.__name__}: {e}. Trying to continue processing, but consider updating biotite's CCD."
-            )
-            atom_name_all.append(atom_name)
-            continue
-
-        std_atoms = np.array(list(mapping["std_to_alt"].keys()))
-        if not np.all(np.isin(atom_name[is_heavy], std_atoms)):
-            _found_alt_atom_ids += 1
-            # Convert to standard atom ids
-            atom_name_renamed = np.array(
-                [mapping["alt_to_std"].get(atom_id, atom_id) for atom_id in atom_name[is_heavy]]
-            )
-
-            # Ensure that renaming created no dupliates
-            if len(np.unique(atom_name_renamed)) != len(atom_name_renamed):
-                # if updates resulted in non-unique atom names, warn the user and
-                # proceed with old atom names
-                logger.error(
-                    "Duplicate atom names found after renaming. This is likely because a mix of "
-                    "standard and alternative atom ids was used in the input residue. Trying to "
-                    "proceed without renaming."
-                )
-            else:
-                # if updates are unique, rename and proceed
-                atom_name[is_heavy] = atom_name_renamed
-
-        atom_name_all.append(atom_name)
-
-    if _found_alt_atom_ids > 0:
-        logger.debug(f"Found {_found_alt_atom_ids} alternative atom ids.")
-
-    return np.concatenate(atom_name_all)
-
-
-def mse_to_met(atom_array: AtomArray) -> AtomArray:
-    """
-    Convert MSE to MET for arginine residues.
-    """
-    mse_mask = atom_array.res_name == "MSE"
-    if np.any(mse_mask):
-        se_mask = (atom_array.atom_name == "SE") & mse_mask
-        logger.debug(f"Converting {np.sum(se_mask)} MSE residues to MET.")
-
-        # Update residue name, hetero flag, and element
-        atom_array.res_name[mse_mask] = "MET"
-        atom_array.hetero[mse_mask] = False
-        atom_array.atom_name[se_mask] = "SD"
-
-        # ... handle cases for integer or string representatiosn of element
-        _elt_prev = atom_array.element[se_mask][0]
-        if _elt_prev == "SE":
-            atom_array.element[se_mask] = "S"
-        elif _elt_prev == 34:
-            atom_array.element[se_mask] = 16
-        elif _elt_prev == "34":
-            atom_array.element[se_mask] = "16"
-
-        # Reorder atoms for canonical MET ordering
-        atom_array[mse_mask] = atom_array[mse_mask][struc.info.standardize_order(atom_array[mse_mask])]
-
-    return atom_array
