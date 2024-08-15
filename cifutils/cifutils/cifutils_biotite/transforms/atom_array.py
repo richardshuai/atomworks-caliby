@@ -9,6 +9,12 @@ import pandas as pd
 import biotite.structure as struc
 from collections import Counter
 import logging
+from biotite.structure.io.pdbx import CIFBlock
+from cifutils.cifutils_biotite.utils.bond_utils import add_bonds_from_struct_conn, get_inter_and_intra_residue_bonds
+from cifutils.cifutils_biotite.common import exists
+from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
+    deduplicate_iterator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -239,3 +245,70 @@ def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> Atom
     atom_array.res_id[non_polymer_mask] = author_seq_ids[non_polymer_mask]
 
     return atom_array
+
+def add_bonds_to_bondlist(
+    cif_block: CIFBlock,
+    atom_array: AtomArray,
+    chain_info_dict: dict,
+    add_hydrogens: bool,
+    known_residues: list[str],
+    get_intra_residue_bonds: callable,
+    converted_res: dict = {},
+    ignored_res: list = [],
+) -> AtomArray:
+    """
+    Add bonds to the atom array using precomputed CCD data and the mmCIF `struct_conn` field.
+
+    Args:
+        cif_block (CIFBlock): The CIF file block containing the structure data.
+        atom_array (AtomArray): The atom array to which the bonds will be added.
+        chain_info_dict (dict): A dictionary containing information about the chains in the structure.
+        add_hydrogens (bool): Whether to add hydrogens to the atom array.
+        converted_res (dict): A dictionary containing the residue conversions.
+        ignored_res (list): A list of residues to ignore when adding bonds.
+
+    Returns:
+        AtomArray: The updated atom array with bonds added.
+    """
+    # Step 0: Add index to atom_array for ease of access
+    atom_array.set_annotation("index", np.arange(len(atom_array)))
+
+    # Step 1: Add inter-residue and inter-chain bonds from the `struct_conn` category in the CIF file
+    leaving_atom_indices = []
+    struct_conn_bonds, struct_conn_leaving_atom_indices = add_bonds_from_struct_conn(
+        cif_block, chain_info_dict, atom_array, converted_res, ignored_res
+    )
+    # self.extra_info["struct_conn_bonds"] = struct_conn_bonds
+
+    if exists(struct_conn_leaving_atom_indices) and len(struct_conn_leaving_atom_indices) > 0:
+        leaving_atom_indices.append(np.concatenate(struct_conn_leaving_atom_indices))
+
+    # Step 2: Add inter-residue and intra-residue bonds
+    inter_and_intra_residue_bonds = []
+    for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
+        chain_bonds, chain_leaving_atom_indices = get_inter_and_intra_residue_bonds(
+            atom_array=atom_array, 
+            chain_id=chain_id, 
+            chain_type=chain_info_dict[chain_id]["type"],
+            known_residues=known_residues,
+            get_intra_residue_bonds=get_intra_residue_bonds,
+            add_hydrogens=add_hydrogens,
+        )
+        if exists(chain_bonds):
+            inter_and_intra_residue_bonds.append(chain_bonds)
+        if exists(chain_leaving_atom_indices) and len(chain_leaving_atom_indices) > 0:
+            leaving_atom_indices.append(chain_leaving_atom_indices)
+
+    if len(struct_conn_bonds) == 0:
+        combined_bonds = np.vstack(inter_and_intra_residue_bonds)
+    else:
+        combined_bonds = np.vstack((np.vstack(inter_and_intra_residue_bonds), struct_conn_bonds))
+
+    # Step 3: Add the bonds to the atom array
+    bond_list = struc.BondList(len(atom_array), combined_bonds)
+    atom_array.bonds = bond_list
+
+    # Delete leaving atoms and bonds to leaving atoms
+    leaving_atoms = np.unique(np.concatenate(leaving_atom_indices))
+    all_atom_indices = atom_array.index
+    return atom_array[np.setdiff1d(all_atom_indices, leaving_atoms, True)]

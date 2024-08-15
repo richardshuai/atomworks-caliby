@@ -5,9 +5,13 @@ Regression tests for complex cases to ensure consistent behavior.
 import pickle
 import pytest
 from pathlib import Path
-from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE, assert_same_atom_array
+from tests.conftest import get_digs_path, assert_same_atom_array
 from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
+from cifutils.cifutils_biotite.cifutils_biotite import CIFParser as CIFParserBiotite
 from assertpy import assert_that
+
+# Re-instantiate the parser to avoid cached data
+CIF_PARSER_BIOTITE = CIFParserBiotite()
 
 TEST_CASES = [
     "6mub",  # Symmetry center clash
@@ -17,7 +21,6 @@ TEST_CASES = [
     "1twr",  # Residue name not in biotite's CCD
     "6q9t",  # Contains residue `QUK` which uses a mix of `std` and `alt` atom ids
 ]
-
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_regression_against_stored_result(pdb_id: str):
@@ -69,4 +72,5 @@ def test_regression_against_stored_result(pdb_id: str):
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    # pytest.main([__file__])
+    test_regression_against_stored_result("6q9t")

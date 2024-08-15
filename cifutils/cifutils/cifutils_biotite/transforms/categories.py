@@ -224,8 +224,8 @@ def load_monomer_sequence_information_from_category(
         logger.info("Sequence heterogeneity detected, keeping only the last occurrence of each residue.")
         polymer_seq_df = polymer_seq_df[~duplicates]
 
-    # Filter out residues that are not in the precompiled CCD data (e.g., remove unknown residues)
-    polymer_seq_df = polymer_seq_df[polymer_seq_df["residue_name"].apply(lambda x: x in known_residues)]
+    # Map any polymer residues not in the precompiled CCD data to "UNK"
+    polymer_seq_df["residue_name"] = polymer_seq_df["residue_name"].apply(lambda x: x if x in known_residues else "UNK")
 
     # Map entity_id to lists of residue names and residue IDs
     polymer_seq_df["entity_id"] = polymer_seq_df["entity_id"].astype(float)
@@ -271,6 +271,7 @@ def load_monomer_sequence_information_from_category(
             # For non-polymers, we must re-compute every time, since entities are not guaranteed to have the same monomer sequence (e.g., for H2O chains)
             chain_atom_array = atom_array[atom_array.chain_id == chain_id]
             residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
+
             # We don't need to filter out unmatched residues for non-polymers here, since we handled that by filtering the AtomArray earlier
             chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
             chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)

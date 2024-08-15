@@ -10,7 +10,6 @@ MULTIPLE_ASSEMBLY_TEST_CASES = [
 
 ASSEMBLY_ATOM_COORDINATES_TEST_CASES = ["1A8O", "1RXZ", "4NDZ", "5XNL", "6DMG", "2E2H"]
 
-
 @pytest.mark.parametrize("test_case", MULTIPLE_ASSEMBLY_TEST_CASES)
 def test_assembly_counts(test_case: dict):
     # unpack test case
@@ -21,13 +20,13 @@ def test_assembly_counts(test_case: dict):
     filename = get_digs_path(pdbid)
 
     # test the different build_assembly options
-    out_no_assembly = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly=None)
+    out_no_assembly = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly=None, residues_to_remove=[])
     assert len(out_no_assembly["assemblies"]) == 0
 
-    out_first = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly="first")
+    out_first = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly="first", residues_to_remove=[])
     assert len(out_first["assemblies"]) == 1
 
-    out_all = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly="all")
+    out_all = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly="all", residues_to_remove=[])
     assert len(out_all["assemblies"]) == n_assemblies
 
 
