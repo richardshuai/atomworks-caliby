@@ -23,9 +23,7 @@ def test_patch_symmetry_centers(test_case: dict):
 
     # Parse the file
     filename = get_digs_path(pdbid)
-    out = CIF_PARSER_BIOTITE.parse(
-        filename=filename, build_assembly="first", remove_waters=True
-    )
+    out = CIF_PARSER_BIOTITE.parse(filename=filename, build_assembly="first", remove_waters=True)
     chain_iids = np.unique(out["assemblies"]["1"].chain_iid).tolist()
 
     # Ensure that we excluded clashing chains

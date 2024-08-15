@@ -92,8 +92,18 @@ class CIFParser:
 
     @lru_cache(maxsize=None)
     def _all_precompiled_residues(self) -> list[str]:
-        """Return a list of all residues in the precompiled library."""
-        return [path.stem for path in Path(self.by_residue_ligand_dir).glob("*.pkl")]
+        """Return a list of all supported residues in the precompiled library."""
+        # Get all residues in the precompiled library
+        all_residues = [path.stem.upper() for path in Path(self.by_residue_ligand_dir).glob("*.pkl")]
+
+        # Remove unsupported residues
+        supported_residues = [residue for residue in all_residues if residue not in self.residues_to_remove]
+        
+        # Sanity check -- ensure that we removed at least one residue, if we provided a list of residues to remove
+        if len(self.residues_to_remove) > 0:
+            assert len(supported_residues) < len(all_residues), "No residues were removed from the precompiled library with the provided residues_to_remove list."
+
+        return supported_residues
     
     def parse(self, load_from_cache: bool = False, save_to_cache: bool = False, cache_dir: PathLike = None, **kwargs):
         """
@@ -171,43 +181,71 @@ class CIFParser:
         model: int | None = None,
     ) -> dict:
         """
-        Parse the CIF file (must contain information from the PDB) and return chain information, residue information, atom array, metadata, and legacy data.
+        Parse the CIF file (must contain information from the PDB) and return 
+        chain information, residue information, atom array, metadata, and 
+        legacy data.
 
         Args:
-            - save_to_cache (bool): Whether to save the results to cache.
-            - filename (str): Path to the CIF file. May be any format of CIF file (e.g., gz, bcif, etc.).
-            - assume_residues_all_resolved (bool): Whether we can assume when parsing that all residues are represented, and all atoms are present. Required for distillation examples that do not have all RCSB fields. Defaults to False.
-            - add_missing_atoms (bool, optional): Whether to add missing atoms to the structure, including relevant OpenBabel atom-level data.
-            - add_bonds (bool, optional): Whether to add bonds to the structure. Cannot be True if `add_missing_atoms` is False.
-            - remove_waters (bool, optional): Whether to remove water molecules from the structure.
-            - residues_to_remove (list, optional): A list of residue names to remove from the structure. Defaults to crystallization aids.
-            - patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed.
-            - build_assembly (str, optional): Which assembly to build, if any. Options are None (e.g., asymmetric unit), "first", "all", or a list of assembly IDs.
-            - fix_arginines (bool, optional): Whether to fix arginine naming ambiguity, see the AF-3 supplement for details.
-            - convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE) residues to methionine (MET) residues.
-            - add_hydrogens (bool, optional): Whether to add hydrogens to the structure. Defaults to True.
-            - model (int, optional): The model number to parse from the CIF file for NMR entries. Defaults to all models (None).
+            save_to_cache (bool): Whether to save the results to cache.
+            filename (str): Path to the CIF file. May be any format of CIF file 
+                (e.g., gz, bcif, etc.).
+            assume_residues_all_resolved (bool): Whether we can assume when 
+                parsing that all residues are represented, and all atoms are 
+                present. Required for distillation examples that do not have 
+                all RCSB fields. Defaults to False.
+            add_missing_atoms (bool, optional): Whether to add missing atoms to 
+                the structure, including relevant OpenBabel atom-level data.
+            add_bonds (bool, optional): Whether to add bonds to the structure. 
+                Cannot be True if `add_missing_atoms` is False.
+            remove_waters (bool, optional): Whether to remove water molecules 
+                from the structure.
+            residues_to_remove (list, optional): A list of residue names to 
+                remove from the structure. Defaults to crystallization aids. 
+                NOTE: Exclusion of polymer residues and common multi-chain 
+                ligands must be done with care to avoid sequence gaps.
+            patch_symmetry_centers (bool, optional): Whether to patch 
+                non-polymer residues at symmetry centers that clash with 
+                themselves when transformed.
+            build_assembly (str, optional): Which assembly to build, if any. 
+                Options are None (e.g., asymmetric unit), "first", "all", or a 
+                list of assembly IDs.
+            fix_arginines (bool, optional): Whether to fix arginine naming 
+                ambiguity, see the AF-3 supplement for details.
+            convert_mse_to_met (bool, optional): Whether to convert 
+                selenomethionine (MSE) residues to methionine (MET) residues.
+            add_hydrogens (bool, optional): Whether to add hydrogens to the 
+                structure. Defaults to True.
+            model (int, optional): The model number to parse from the CIF file 
+                for NMR entries. Defaults to all models (None).
 
         Returns:
             dict: A dictionary containing the following keys:
-                'chain_info': A dictionary mapping chain ID to sequence, type, entity ID, EC number, and other information.
-                'ligand_info': A dictionary containing ligand of interest information.
-                'atom_array_stack': An AtomArrayStack instance representing the asymmetric unit.
-                'assemblies': A dictionary mapping assembly IDs to AtomArrayStack instances.
-                'metadata': A dictionary containing metadata about the structure (e.g., resolution, deposition date, etc.).
-                'extra_info': A dictionary with information for cross-compatibility and caching. Should typically not be used directly.
+                'chain_info': A dictionary mapping chain ID to sequence, type, 
+                    entity ID, EC number, and other information.
+                'ligand_info': A dictionary containing ligand of interest 
+                    information.
+                'atom_array_stack': An AtomArrayStack instance representing the 
+                    asymmetric unit.
+                'assemblies': A dictionary mapping assembly IDs to 
+                    AtomArrayStack instances.
+                'metadata': A dictionary containing metadata about the 
+                    structure (e.g., resolution, deposition date, etc.).
+                'extra_info': A dictionary with information for 
+                    cross-compatibility and caching. Should typically not be 
+                    used directly.
         """
-        # Save add hydrogens as a class variable, as it is used in multiple functions
+        # Set class variables for universal access
         self.add_hydrogens = add_hydrogens
+        self.residues_to_remove = [residue.upper() for residue in residues_to_remove]
 
-        # Initialize internal processing variables
+        # Initialize internal processing variables, which we will later populate
         converted_res = {}
         ignored_res = []
 
         cif_file = read_cif_file(filename)
         cif_block = cif_file.block
 
-        # Load metadata
+        # Load metadata (either from RCSB standard fields, or from the custom `extra_metadata` field)
         fallback_filename = Path(filename).stem
         metadata = get_metadata(cif_block, fallback_id=fallback_filename)
 

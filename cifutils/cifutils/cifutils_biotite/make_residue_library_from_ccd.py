@@ -23,6 +23,7 @@ import cifutils.cifutils_legacy.cifutils_legacy as cifutils_legacy
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def get_leaving_atoms_from_graph(atom_name: str, graph: nx.Graph) -> list:
     """
     Identifies leaving groups connected to a given atom in the molecular graph.
@@ -92,7 +93,9 @@ def _coords_are_valid(obmol: openbabel.OBMol, cif: dict) -> bool:
     return ((xyz - cif["xyz"])[~np.isnan(cif["xyz"])] < 1e-3).all()
 
 
-def extract_residue_details(obmol: openbabel.OBMol, atom_id: list[str], leaving: list[bool], pdbx_align: list[int]) -> dict:
+def extract_residue_details(
+    obmol: openbabel.OBMol, atom_id: list[str], leaving: list[bool], pdbx_align: list[int]
+) -> dict:
     """
     Extracts detailed information about the residue from the OBMol object.
 
@@ -265,6 +268,7 @@ def save_ligands_to_pickles(ligands, params):
     with open(params["by_residues_filename"], "wb") as outfile:
         pickle.dump(by_residue_df, outfile, protocol=pickle.HIGHEST_PROTOCOL)
     logger.info(f"Ligands grouped by residue saved to {params['by_residues_filename']}")
+
 
 def main(
     ligand_dir: str = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_ligands_2024_05_31/ccd",

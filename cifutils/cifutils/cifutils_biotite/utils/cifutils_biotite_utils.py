@@ -1,6 +1,7 @@
 """
-General utility functions for working with CIF files in Biotite. 
+General utility functions for working with CIF files in Biotite.
 """
+
 from __future__ import annotations
 import gzip
 from collections import OrderedDict
@@ -208,6 +209,7 @@ def parse_transformations(struct_oper):
         transformation_dict[id] = (rotation_matrix, translation_vector)
     return transformation_dict
 
+
 def apply_assembly_transformation(structure, transformation_dict, operation):
     """
     Get subassembly by applying the given operation to the input
@@ -285,5 +287,3 @@ def fix_bonded_atom_charges(atom):
         # Additional logic for other cases if needed
         pass
     return {"charge": atom.charge, "hyb": atom.hyb, "nhyd": atom.nhyd}
-
-

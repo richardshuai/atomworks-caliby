@@ -6,22 +6,21 @@ These operations should take as input, and return, `AtomArray` objects.
 from biotite.structure import AtomArray, AtomArrayStack
 import numpy as np
 import pandas as pd
-from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import deduplicate_iterator
-from cifutils.cifutils_biotite.utils.atom_matching_utils import standardize_heavy_atom_ids
 import biotite.structure as struc
 from collections import Counter
 import logging
 
 logger = logging.getLogger(__name__)
 
+
 def remove_atoms_by_residue_names(atom_array: AtomArray, residues_to_remove: list) -> AtomArray:
     """
     Remove atoms from the AtomArray that have residue names in the residues_to_remove list.
-    
+
     Parameters:
         atom_array (AtomArray): The array of atoms.
         residues_to_remove (list): A list of residue names to be removed from the atom array.
-    
+
     Returns:
         AtomArray: The filtered atom array.
     """
@@ -87,6 +86,7 @@ def mse_to_met(atom_array: AtomArray) -> AtomArray:
 
     return atom_array
 
+
 def keep_last_residue(atom_array: AtomArray) -> AtomArray:
     """
     Removes duplicate residues in the atom array, keeping only the last occurrence.
@@ -120,6 +120,7 @@ def keep_last_residue(atom_array: AtomArray) -> AtomArray:
 
     # Remove rows from atom_array with the deletion mask
     return atom_array[mask]
+
 
 def maybe_patch_non_polymer_at_symmetry_center(
     atom_array_stack: AtomArrayStack, clash_distance: float = 1.0, clash_ratio: float = 0.5
@@ -180,9 +181,7 @@ def maybe_patch_non_polymer_at_symmetry_center(
             chain_clash_matrix = clash_matrix[mask][:, mask]
 
             # Loop through possible transformation ID's
-            transformation_ids_to_check = sorted(
-                np.unique(non_polymers.transformation_id[mask].astype(str)).tolist()
-            )
+            transformation_ids_to_check = sorted(np.unique(non_polymers.transformation_id[mask].astype(str)).tolist())
             while transformation_ids_to_check:
                 transformation_id = str(transformation_ids_to_check.pop(0))
                 transformation_mask = non_polymers.transformation_id == str(transformation_id)

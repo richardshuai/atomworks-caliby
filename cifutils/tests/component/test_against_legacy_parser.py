@@ -1,7 +1,6 @@
 from __future__ import annotations
 import pytest
 from cifutils.cifutils_legacy import cifutils_legacy
-import biotite.structure as struc
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE, CIF_PARSER_LEGACY
 from typing import Any
 import logging
@@ -105,7 +104,6 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
             )
             bonds.append(bond)
 
-
         chain = cifutils_legacy.Chain(
             id=chain_id,
             type=chain_data["type"],
@@ -119,6 +117,7 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
         chains[chain_id] = chain
 
     return chains
+
 
 def validate_chains(pdb_id, chains_legacy, converted_chains):
     for chain_id, converted_chain in converted_chains.items():
@@ -228,6 +227,7 @@ def validate_chains(pdb_id, chains_legacy, converted_chains):
             assert (
                 legacy_bond.intra == converted_bond.intra
             ), f"Intra-residue flag mismatch for bond {bond_id} within chain {chain_id} in PDB ID {pdb_id}"
+
 
 @pytest.fixture(scope="module")
 def cif_parser_legacy():

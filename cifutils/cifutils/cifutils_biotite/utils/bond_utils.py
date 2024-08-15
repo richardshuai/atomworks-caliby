@@ -1,25 +1,20 @@
 """
-Utility functions for the detection, and creation, of bonds in a structure. 
+Utility functions for the detection, and creation, of bonds in a structure.
 """
+
 import numpy as np
-from biotite.structure import AtomArray, Atom, AtomArrayStack
+from biotite.structure import AtomArray
 import biotite.structure as struc
-from cifutils.cifutils_biotite.common import exists
-from biotite.structure.io.pdbx import CIFBlock, CIFCategory
+from biotite.structure.io.pdbx import CIFBlock
 import logging
 from cifutils.cifutils_biotite.utils.atom_matching_utils import get_matching_atom
-from functools import lru_cache
 from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
-    apply_assembly_transformation,
-    deduplicate_iterator,
     fix_bonded_atom_charges,
-    get_bond_type_from_order_and_is_aromatic,
-    parse_transformations,
-    read_cif_file,
 )
 from cifutils.cifutils_biotite.transforms.categories import category_to_df
 
 logger = logging.getLogger(__name__)
+
 
 def add_bonds_from_struct_conn(
     cif_block: CIFBlock,

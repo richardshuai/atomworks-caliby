@@ -1,6 +1,7 @@
 """
 Utility functions to support proper matching and resolution of residue atoms in a structure.
 """
+
 from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import logger
 import numpy as np
 from biotite.structure.atoms import AtomArray
@@ -8,6 +9,7 @@ from cifutils.cifutils_biotite.common import exists
 import biotite.structure as struc
 from functools import cache
 from biotite.structure import Atom
+
 
 def get_matching_atom(res: AtomArray, atom_name: str, try_alt_atom_id: bool = True) -> Atom:
     """Selects a `single` atom from a residue that matches the given atom name or alternative atom id.

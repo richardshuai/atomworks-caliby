@@ -3,8 +3,9 @@ from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 import numpy as np
 
 TEST_CASES = [
-    "2w3o", 
+    "2w3o",
 ]
+
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_prior_bugs(pdb_id: str):
@@ -19,10 +20,11 @@ def test_prior_bugs(pdb_id: str):
         fix_arginines=True,
         add_hydrogens=False,
     )
-    atom_array_no_hydrogens = result_no_hydrogens['assemblies']['1']
+    atom_array_no_hydrogens = result_no_hydrogens["assemblies"]["1"]
 
     # Assert that the atom array has no hydrogens
     assert np.any(atom_array_no_hydrogens.element != "1")
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

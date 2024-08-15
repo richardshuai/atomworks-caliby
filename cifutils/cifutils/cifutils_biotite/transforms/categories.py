@@ -1,40 +1,25 @@
 """
-Transforms operating on the parsed CIF block. 
-These transforms are used to extract information from the CIF block and return a dictionary containing parsed, and processed, information.
+Transforms operating on Biotite's CIFBlock and CIFCategory objects.
+These transforms are used to extract information from the CIFBlock and return a dictionary containing processed information.
 """
 
 from __future__ import annotations
 import logging
-from functools import lru_cache
-from typing import Literal
 
 import numpy as np
 import pandas as pd
-from os import PathLike
-from collections import Counter
 from datetime import datetime
-from pathlib import Path
 import toolz
 
 from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
-    apply_assembly_transformation,
     deduplicate_iterator,
-    fix_bonded_atom_charges,
-    get_bond_type_from_order_and_is_aromatic,
-    parse_transformations,
-    read_cif_file,
     get_1_from_3_letter_code,
 )
 from cifutils.cifutils_biotite.common import exists
 
 import biotite.structure as struc
-import biotite.structure.io.pdbx as pdbx
-from biotite.structure.io.pdbx import CIFBlock, CIFCategory
-from biotite.structure import AtomArray, Atom, AtomArrayStack
-from biotite.file import InvalidFileError
-from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS, AF3_EXCLUDED_LIGANDS
-from cifutils.cifutils_biotite.transforms.atom_array import mse_to_met
-from cifutils.cifutils_biotite.utils.atom_matching_utils import get_std_alt_atom_id_conversion, standardize_heavy_atom_ids
+from biotite.structure.io.pdbx import CIFBlock
+from biotite.structure import AtomArray
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +28,14 @@ def category_to_df(cif_block: CIFBlock, category: str) -> pd.DataFrame | None:
     """Convert a CIF block to a pandas DataFrame."""
     return pd.DataFrame(category_to_dict(cif_block, category)) if category in cif_block.keys() else None
 
+
 def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
     """Convert a CIF block to a dictionary."""
     if exists(cif_block.get(category)):
         return toolz.valmap(lambda x: x.as_array(), dict(cif_block[category]))
     else:
         return {}
+
 
 def get_chain_info(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
     """
@@ -116,6 +103,7 @@ def get_chain_info(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
 
     return chain_info_dict
 
+
 def get_metadata(cif_block: CIFBlock, fallback_id: str = None) -> dict:
     """
     Extract metadata from the CIF block.
@@ -127,10 +115,16 @@ def get_metadata(cif_block: CIFBlock, fallback_id: str = None) -> dict:
     metadata = {}
 
     # Assert that if the "entry.id" field is NOT present, a fallback ID is provided
-    assert ("entry" in cif_block.keys() and "id" in cif_block["entry"].keys()) or fallback_id is not None, "No ID found in CIF block or provided as fallback."
+    assert (
+        "entry" in cif_block.keys() and "id" in cif_block["entry"].keys()
+    ) or fallback_id is not None, "No ID found in CIF block or provided as fallback."
 
     # Set the ID field, using the fallback if necessary
-    metadata["id"] = cif_block["entry"]["id"].as_item().lower() if "entry" in cif_block.keys() and "id" in cif_block["entry"].keys() else fallback_id.lower()
+    metadata["id"] = (
+        cif_block["entry"]["id"].as_item().lower()
+        if "entry" in cif_block.keys() and "id" in cif_block["entry"].keys()
+        else fallback_id.lower()
+    )
 
     # +---------------- Look for standard RCSB metadata categories, default to None if not found ----------------+
     exptl = cif_block["exptl"] if "exptl" in cif_block.keys() else None
@@ -142,7 +136,9 @@ def get_metadata(cif_block: CIFBlock, fallback_id: str = None) -> dict:
     em_reconstruction = cif_block["em_3d_reconstruction"] if "em_3d_reconstruction" in cif_block.keys() else None
 
     # Method
-    metadata["method"] = ",".join(exptl["method"].as_array()).replace(" ", "_") if exptl and "method" in exptl.keys() else None
+    metadata["method"] = (
+        ",".join(exptl["method"].as_array()).replace(" ", "_") if exptl and "method" in exptl.keys() else None
+    )
 
     # Initial deposition date and release date to the PDB
     metadata["deposition_date"] = (
@@ -152,7 +148,10 @@ def get_metadata(cif_block: CIFBlock, fallback_id: str = None) -> dict:
     )
 
     # The relevant release date is the smallest `pdbx_audit_revision_history.revision_date` entry
-    if "pdbx_audit_revision_history" in cif_block.keys() and "revision_date" in cif_block["pdbx_audit_revision_history"]:
+    if (
+        "pdbx_audit_revision_history" in cif_block.keys()
+        and "revision_date" in cif_block["pdbx_audit_revision_history"]
+    ):
         revision_dates = cif_block["pdbx_audit_revision_history"]["revision_date"].as_array()
     else:
         revision_dates = None
@@ -185,16 +184,19 @@ def get_metadata(cif_block: CIFBlock, fallback_id: str = None) -> dict:
 
     return metadata
 
+
 def load_monomer_sequence_information_from_category(
-    cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray, known_residues: set
+    cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray, known_residues: list
 ) -> dict:
     """
     Load monomer sequence information into a chain_info_dict, using:
-        (a) The CIFCategory as the ground-truth for polymere.
+        (a) The CIFCategory 'entity_poly_seq' as the sequence ground-truth for polymere.
         (b) The AtomArray as the ground-truth for non-polymers.
 
-    For polymers, uses the 'entity_poly_seq' category in the CIF block to get the sequence.
-    For non-polymers, uses the atom array to get the sequence.
+    We must rely on the CIFCategory 'entity_poly_seq' for polymers, as the AtomArray may not contain the full sequence information (e.g., unresolved residues)
+    For non-polymers, there's no standard equivalent to 'entity_poly_seq', so we must use the AtomArray to get the sequence information.
+
+    When loading both polymer and non-polymer sequences, we also filter out unknown or otherwise ignored residues.
 
     Args:
         cif_block (CIFBlock): The CIF block containing the monomer sequence information.
@@ -208,7 +210,6 @@ def load_monomer_sequence_information_from_category(
 
     # Assert that entity_poly_seq category is present
     assert "entity_poly_seq" in cif_block.keys(), "entity_poly_seq category not found in CIF block."
-
 
     # Handle polymers by using `entity_poly_seq`
     polymer_seq_df = category_to_df(cif_block, "entity_poly_seq")
@@ -247,9 +248,9 @@ def load_monomer_sequence_information_from_category(
             chain_type = chain_info_dict[chain_id]["type"]
             if residue_names:
                 chain_info_dict[chain_id]["residue_name_list"] = residue_names
-                chain_info_dict[chain_id]["residue_id_list"] = polymer_entity_id_to_residue_names_and_ids[
-                    entity_id
-                ]["residue_ids"]
+                chain_info_dict[chain_id]["residue_id_list"] = polymer_entity_id_to_residue_names_and_ids[entity_id][
+                    "residue_ids"
+                ]
 
                 # Create the processed single-letter sequence representations
                 processed_entity_non_canonical_sequence = [
@@ -271,22 +272,19 @@ def load_monomer_sequence_information_from_category(
             chain_atom_array = atom_array[atom_array.chain_id == chain_id]
             residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
             # We don't need to filter out unmatched residues for non-polymers here, since we handled that by filtering the AtomArray earlier
-            chain_info_dict[chain_id]["residue_name_list"] = residue_name_list
-            chain_info_dict[chain_id]["residue_id_list"] = residue_id_list
+            chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
+            chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)
             unique_residues.update(residue_name_list)
 
-        chain_info_dict[chain_id]["has_sequence_heterogeneity"] = (
-            str(entity_id) in entities_with_sequence_heterogeneity
-        )
+        chain_info_dict[chain_id]["has_sequence_heterogeneity"] = str(entity_id) in entities_with_sequence_heterogeneity
 
     # Remove entries from chain_info_dict that have no residues
     chain_info_dict = {
-        chain_id: chain_info
-        for chain_id, chain_info in chain_info_dict.items()
-        if "residue_name_list" in chain_info
+        chain_id: chain_info for chain_id, chain_info in chain_info_dict.items() if "residue_name_list" in chain_info
     }
 
-    return chain_info_dict 
+    return chain_info_dict
+
 
 def get_ligand_of_interest_info(cif_block: CIFBlock) -> dict:
     """Extract ligand of interest information from a CIF block.
@@ -298,9 +296,7 @@ def get_ligand_of_interest_info(cif_block: CIFBlock) -> dict:
     # Extract binary flag for whether the ligand of interest is specified
     # NOTE: This is being used in addition to the below as it has slightly higher coverage across the PDB
     # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_pdbx_entry_details.has_ligand_of_interest.html
-    has_loi = (
-        category_to_dict(cif_block, "pdbx_entry_details").get("has_ligand_of_interest", np.array(["N"]))[0] == "Y"
-    )
+    has_loi = category_to_dict(cif_block, "pdbx_entry_details").get("has_ligand_of_interest", np.array(["N"]))[0] == "Y"
 
     # Extract which ligand is of interest if specified
     # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_pdbx_entity_instance_feature.feature_type.html
@@ -309,8 +305,6 @@ def get_ligand_of_interest_info(cif_block: CIFBlock) -> dict:
     comp_id_mask = entity_instance_feature.get("feature_type", np.array([])) == "SUBJECT OF INVESTIGATION"
 
     return {
-        "ligand_of_interest": comp_id_names[comp_id_mask],
+        "ligand_of_interest": list(comp_id_names[comp_id_mask]),
         "has_ligand_of_interest": has_loi | (len(comp_id_names) > 0),
     }
-
-
