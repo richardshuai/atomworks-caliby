@@ -7,18 +7,16 @@ from __future__ import annotations
 import logging
 from functools import lru_cache
 from typing import Literal
+from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS, AF3_EXCLUDED_LIGANDS
 
 import numpy as np
 import pandas as pd
 from os import PathLike
 from collections import Counter
-from datetime import datetime
 from pathlib import Path
 
 from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     apply_assembly_transformation,
-    category_to_df,
-    category_to_dict,
     deduplicate_iterator,
     fix_bonded_atom_charges,
     get_bond_type_from_order_and_is_aromatic,
@@ -26,19 +24,20 @@ from cifutils.cifutils_biotite.cifutils_biotite_utils import (
     read_cif_file,
     get_std_alt_atom_id_conversion,
     standardize_heavy_atom_ids,
-    resolve_arginine_naming_ambiguity,
     mse_to_met,
-    get_1_from_3_letter_code,
 )
 from cifutils.cifutils_biotite.common import exists
-from cifutils.cifutils_biotite.transforms import get_chain_info, get_metadata, load_monomer_sequence_information_from_category, update_nonpoly_seq_ids
+from cifutils.cifutils_biotite.transforms.categories import get_chain_info, get_metadata, load_monomer_sequence_information_from_category, update_nonpoly_seq_ids
+from cifutils.cifutils_biotite.transforms.atom_array import remove_atoms_by_residue_names, resolve_arginine_naming_ambiguity
 
 import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
 from biotite.structure.io.pdbx import CIFBlock, CIFCategory
 from biotite.structure import AtomArray, Atom, AtomArrayStack
 from biotite.file import InvalidFileError
-from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS, AF3_EXCLUDED_LIGANDS
+
+from cifutils.cifutils_biotite.transforms.categories import category_to_dict
+from cifutils.cifutils_biotite.transforms.categories import category_to_df
 
 logger = logging.getLogger(__name__)
 
@@ -98,13 +97,8 @@ class CIFParser:
         return path.exists()
 
     @lru_cache(maxsize=None)
-    def _get_known_residues(self) -> set[str]:
-        """Return a set of all residue names in the precompiled library for membership checking."""
-        return {path.stem for path in Path(self.by_residue_ligand_dir).glob("*.pkl")}
-
-    @lru_cache(maxsize=None)
     def _all_precompiled_residues(self) -> list[str]:
-        """List all residues in the precompiled library."""
+        """Return a list of all residues in the precompiled library."""
         return [path.stem for path in Path(self.by_residue_ligand_dir).glob("*.pkl")]
     
     def parse(self, load_from_cache: bool = False, save_to_cache: bool = False, cache_dir: PathLike = None, **kwargs):
@@ -153,7 +147,7 @@ class CIFParser:
                 return result
 
         # Parse from CIF
-        result = self.parse_cif_from_rcsb(save_to_cache=save_to_cache, **kwargs)
+        result = self.parse_from_cif(save_to_cache=save_to_cache, **kwargs)
         if save_to_cache and cache_dir:
             # We want our cache to include:
             #   (1) All keys in `result` excep the assemblies and 
@@ -166,16 +160,17 @@ class CIFParser:
             
         return result
 
-    def parse_cif_from_rcsb(
+    def parse_from_cif(
         self,
-        save_to_cache: bool,
         filename: PathLike,
-        assume_residues_all_resolved: bool = False,
+        save_to_cache: bool,
+        assume_residues_all_resolved: bool = False, # TODO: Implement
         add_missing_atoms: bool = True,
         add_bonds: bool = True,
         remove_waters: bool = True,
-        remove_crystallization_aids: bool = True,
-        remove_af3_excluded_ligands: bool = False,
+        residues_to_remove: list[str] = CRYSTALLIZATION_AIDS + AF3_EXCLUDED_LIGANDS,
+        remove_crystallization_aids: bool = True, # TODO: Remove
+        remove_af3_excluded_ligands: bool = False, # TODO: Remove
         patch_symmetry_centers: bool = True,
         build_assembly: Literal["first", "all"] | list[str] | None = "all",
         fix_arginines: bool = True,
@@ -279,14 +274,16 @@ class CIFParser:
             atom_array = update_nonpoly_seq_ids(atom_array, chain_info_dict)
 
             # Remove unmatched residues from the atom array
-            atom_array = self._remove_atoms_with_unmatched_residues(atom_array)
+            excluded_residues = set(atom_array.res_name) - set(self._all_precompiled_residues())
+            atom_array = remove_atoms_by_residue_names(atom_array, list(excluded_residues))
 
             # Load monomer sequence information into chain_info_dict
+            # NOTE: We MAY NOT delete atoms from the AtomArray after this step, as it may modify the sequence
             chain_info_dict = load_monomer_sequence_information_from_category(
                 cif_block = cif_block, 
                 chain_info_dict = chain_info_dict, 
                 atom_array = atom_array, 
-                known_residues = self._get_known_residues()
+                known_residues = self._all_precompiled_residues()
             )
 
             # Handle sequence heterogeneity by selecting the residue that appears last
@@ -294,17 +291,18 @@ class CIFParser:
 
             # Create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
             if add_missing_atoms:
+                # Add missing atoms to the atom array, using the reference residue as a template
                 atom_array = self._add_missing_atoms(atom_array, chain_info_dict)
             
             # Remove crystallization aids and ions from the atom array
             if remove_crystallization_aids:
-                atom_array = self._remove_crystallization_aids_and_ions(atom_array)
+                atom_array = remove_atoms_by_residue_names(atom_array, CRYSTALLIZATION_AIDS)
                 ignored_res.extend(CRYSTALLIZATION_AIDS)
 
             # Remove AF-3 excluded ligands from the atom array
-            # TODO: Write into a more generic exclude function, such that we can exclude any ligand
+            # Remove excluded ligands from the Atom Array
             if remove_af3_excluded_ligands:
-                atom_array = self._remove_af3_exluded_ligands(atom_array)
+                atom_array = remove_atoms_by_residue_names(atom_array, AF3_EXCLUDED_LIGANDS)
                 ignored_res.extend(AF3_EXCLUDED_LIGANDS)
 
             # Resolve arginine naming ambiguity
@@ -359,31 +357,6 @@ class CIFParser:
             "metadata": metadata,
             "extra_info": {**self.extra_info}, 
         }
-
-    def _remove_atoms_with_unmatched_residues(self, atom_array: AtomArray) -> AtomArray:
-        """Remove atoms from the atom array that do not have a corresponding residue in the precompiled CCD data."""
-        all_residues = self._all_precompiled_residues()
-        unknown_residues = np.setdiff1d(np.unique(atom_array.res_name), np.array(all_residues))
-
-        for unknown_residue in unknown_residues:
-            mask = atom_array.res_name != unknown_residue
-            atom_array = atom_array[mask]
-
-        return atom_array
-
-    def _remove_crystallization_aids_and_ions(self, atom_array: AtomArray) -> AtomArray:
-        """Remove crystallization aids and ions from the atom array."""
-
-        # Remove atoms from the atom array that are crystallization aids
-        atom_array = atom_array[~np.isin(atom_array.res_name, CRYSTALLIZATION_AIDS)]
-
-        return atom_array
-
-    def _remove_af3_exluded_ligands(atom_array: AtomArray) -> AtomArray:
-        """Remove ligands from the AF-3 exclusion list from the atom array."""
-        atom_array = atom_array[~np.isin(atom_array.res_name, AF3_EXCLUDED_LIGANDS)]
-
-        return atom_array
 
     def _build_assembly(
         self,
@@ -501,131 +474,6 @@ class CIFParser:
 
         return atom_list
 
-    def _add_missing_atoms(self, atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
-        """
-        Add missing atoms to a polymer chain based on its sequence.
-
-        Iterates through the residues in a given chain, identifies missing atoms based on the reference residue,
-        and inserts the missing atoms into the atom array. Also augments atom data with Open Babel data.
-
-        Args:
-        - atom_array (AtomArray): An array of atom objects representing the current state of the polymer chain.
-        - chain_info_dict (dict): A dictionary containing chain information, including whether the chain is a polymer and the sequence of residues.
-
-        Returns:
-        - AtomArray: An updated array of atom objects with the missing atoms added.
-        """
-        full_atom_list = []
-        residue_ids = []
-        chain_ids = []
-        # NOTE: We need deduplicate_iterator() since biotite considers a decrease in sequence_id as a new chain (see `5xnl`)
-        for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
-            # Iterate through the sequence and create all atoms with zero coordinates
-            residue_name_list = chain_info_dict[chain_id]["residue_name_list"]
-            for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
-                residue_atom_list = self._build_residue_atoms(residue_name)
-                if chain_info_dict[chain_id]["is_polymer"]:
-                    # We assign the residue ID as the sequential index for polymers, consistent with the PDB label ids (but not author ids)
-                    residue_ids.append(np.full(len(residue_atom_list), residue_index_sequential))
-                else:
-                    residue_id_nonpoly = chain_info_dict[chain_id]["residue_id_list"][
-                        residue_index_sequential - 1
-                    ]  # Recall that residue_index_sequential is 1-indexed
-                    residue_ids.append(np.full(len(residue_atom_list), residue_id_nonpoly))
-                chain_ids.append(np.full(len(residue_atom_list), chain_id))
-                full_atom_list.append(residue_atom_list)
-
-        # Create atom array object and flatten residue_ids and chain_ids
-        full_atom_array = struc.array(np.concatenate(full_atom_list))
-        full_atom_array.chain_id = np.concatenate(chain_ids)
-        full_atom_array.res_id = np.concatenate(residue_ids)
-        # Shenanigans to fix the data type of element
-        elements = full_atom_array.element.astype(int)
-        full_atom_array.del_annotation("element")
-        full_atom_array.add_annotation("element", dtype=int)
-        full_atom_array.set_annotation("element", elements)
-
-        # Standardize heavy atom naming
-        atom_array.atom_name = standardize_heavy_atom_ids(atom_array)
-        full_atom_array.atom_name = standardize_heavy_atom_ids(full_atom_array)
-
-        # Compute index mapping between `full_atom_array`
-        # ... get lookup table of id -> idx for full_atom_array
-        id_to_idx_full_atom_array = {
-            id: idx
-            for idx, id in enumerate(
-                zip(
-                    full_atom_array.chain_id,
-                    full_atom_array.res_id,
-                    full_atom_array.res_name,
-                    full_atom_array.atom_name,
-                )
-            )
-        }
-        assert len(id_to_idx_full_atom_array) == len(full_atom_array), "Duplicate atom ids in `full_atom_array`!"
-
-        # ... inspect all present atoms in `atom_array` and get the matching idx in `full_atom_array`
-        full_atom_array_match_idx = []
-        atom_array_match_idx = []
-        _failed_to_match = []
-        for idx, id in enumerate(
-            zip(atom_array.chain_id, atom_array.res_id, atom_array.res_name, atom_array.atom_name)
-        ):
-            if id in id_to_idx_full_atom_array:
-                full_atom_array_match_idx.append(id_to_idx_full_atom_array[id])
-                atom_array_match_idx.append(idx)
-            else:
-                _failed_to_match.append(idx)
-                logger.warning(f"Atom {id} not found in `full_atom_array`!")
-
-        # ... turn arrays into np arrays
-        full_atom_array_match_idx = np.array(full_atom_array_match_idx)
-        atom_array_match_idx = np.array(atom_array_match_idx)
-
-        # ... verify that there is a 1-to-1 mapping between the two arrays
-        if not len(full_atom_array_match_idx) == len(atom_array_match_idx):
-            unique, counts = np.unique(full_atom_array_match_idx, return_counts=True)
-            # ... find duplicates in `full_atom_array_match_idx` for error message
-            duplicates = unique[counts > 1]
-            duplicates_id = full_atom_array[full_atom_array_match_idx][duplicates]
-            raise ValueError(
-                f"Mismatch between `full_atom_array` and `atom_array`! Found {len(duplicates)} duplicates in `full_atom_array_match_idx`:\n{duplicates_id}"
-            )
-
-        # Carry over the annotations from `atom_array` to `full_atom_array` for corresponding atoms
-        # ... initialize
-        b_factor = np.zeros(len(full_atom_array), dtype=np.float32)
-        occupancy = np.zeros(len(full_atom_array), dtype=np.float32)
-        # ... carry over annotations
-        full_atom_array.coord[full_atom_array_match_idx] = atom_array[atom_array_match_idx].coord
-        b_factor[full_atom_array_match_idx] = atom_array[atom_array_match_idx].b_factor
-        occupancy[full_atom_array_match_idx] = atom_array[atom_array_match_idx].occupancy
-        full_atom_array.set_annotation("b_factor", b_factor)
-        full_atom_array.set_annotation("occupancy", occupancy)
-        # ... polymer annotation
-        full_atom_array.add_annotation("is_polymer", dtype=bool)
-        polymer_chain_ids = [chain_id for chain_id, chain_info in chain_info_dict.items() if chain_info["is_polymer"]]
-        polymer_mask = np.isin(full_atom_array.chain_id, polymer_chain_ids)
-        full_atom_array.set_annotation("is_polymer", polymer_mask)
-
-        # If any heavy atom in a residue cannot be matched, then mask the whole residue
-        if len(_failed_to_match) > 0:
-            failing_atoms = atom_array[np.array(_failed_to_match)]
-            is_heavy = ~np.isin(failing_atoms.element, ["H", "D", "T"])
-            if len(failing_atoms[is_heavy]) > 0:
-                for atom in failing_atoms[is_heavy]:
-                    chain_id, res_id, res_name = atom.chain_id, atom.res_id, atom.res_name
-                    residue_mask = (
-                        (full_atom_array.chain_id == chain_id)
-                        & (full_atom_array.res_id == res_id)
-                        & (full_atom_array.res_name == res_name)
-                    )
-                    full_atom_array.occupancy[residue_mask] = 0
-                logger.warning(
-                    f"Masked residues for {len(failing_atoms[is_heavy])} heavy atoms in `atom_array` that failed to match."
-                )
-
-        return full_atom_array
 
     @lru_cache(maxsize=None)
     def _get_intra_residue_bonds(self, residue_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
