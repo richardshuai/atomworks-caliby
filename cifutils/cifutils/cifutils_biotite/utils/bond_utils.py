@@ -28,13 +28,13 @@ def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, call
     """
 
     @lru_cache(maxsize=None)
-    def get_intra_residue_bonds(residue_name: dict, add_hydrogens: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_intra_residue_bonds(residue_name: dict, keep_hydrogens: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Retrieve intra-residue bonds for a given residue.
 
         Args:
             residue_data (dict): Dictionary containing keys for the intra-residue bonds and constituent atoms, derived from OpenBabel.
-            add_hydrogens (bool): Whether or not hydrogens are being added to the structure. Relevant for bond removal.
+            keep_hydrogens (bool): Whether or not hydrogens are being added to the structure. Relevant for bond removal.
 
         Returns:
             tuple: Three arrays representing the atom indices and bond types within the residue frame.
@@ -42,7 +42,7 @@ def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, call
         residue_data = data_by_residue(residue_name)
 
         # If we aren't adding hydrogens, we need to remove any bonds to hydrogens, and any hydrogen atoms from the atom list
-        if not add_hydrogens:
+        if not keep_hydrogens:
             residue_data["intra_residue_bonds"] = [
                 # NOTE: We are assuming that all, and only, hydrogen atoms are named with an 'H' prefix
                 bond
@@ -186,7 +186,7 @@ def get_inter_and_intra_residue_bonds(
     chain_type: str,
     known_residues: list[str],
     get_intra_residue_bonds: callable,
-    add_hydrogens: bool,
+    keep_hydrogens: bool,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Adds inter-residue and intra_residue bonds to an atom array for a given chain.
@@ -197,7 +197,7 @@ def get_inter_and_intra_residue_bonds(
         chain_type (str): The type of the chain, used to determine the type of bond.
         known_residues (list): A list of valid residue names.
         get_intra_residue_bonds (str): A function that takes as input a residue name and returns tuples of intra-residue bonds.
-        add_hydrogens (str): Whether we are adding hydrogens to the residues (relevant for removing leaving groups).
+        keep_hydrogens (str): Whether we are adding hydrogens to the residues (relevant for removing leaving groups).
 
     Returns:
         intra_residue_bonds: An np.array of intra-residue bonds to be added to the atom array.
@@ -247,7 +247,7 @@ def get_inter_and_intra_residue_bonds(
         ]  # current_res.res_name is a list of identical values, so we just take the first one
         if residue_name in known_residues:
             atom_a_local_indices, atom_b_local_indices, bond_types = get_intra_residue_bonds(
-                residue_name, add_hydrogens
+                residue_name, keep_hydrogens
             )
             if atom_a_local_indices.size and atom_b_local_indices.size and bond_types.size:
                 atom_a_intra_residue_indices.append(current_res.index[atom_a_local_indices])

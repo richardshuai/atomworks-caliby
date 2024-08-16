@@ -222,10 +222,26 @@ def maybe_patch_non_polymer_at_symmetry_center(
         return atom_array_stack
 
 
+def add_polymer_annotation(atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
+    """
+    Adds an annotation to the atom array to indicate whether a chain is a polymer.
+
+    Args:
+        atom_array (AtomArray): The atom array containing the chain information.
+        chain_info_dict (dict): Dictionary containing the sequence details of each chain.
+
+    Returns:
+        AtomArray: The updated atom array with the polymer annotation added.
+    """
+    chain_ids = atom_array.get_annotation("chain_id")
+    is_polymer = np.array([chain_info_dict[chain_id]["is_polymer"] for chain_id in chain_ids])
+    atom_array.set_annotation("is_polymer", is_polymer)
+    return atom_array
+
+
 def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
     """
-    Updates the sequence IDs of non-polymeric chains in the atom array.
-    Additionally, adds an annotation to the atom array to indicate whether a chain is a polymer.
+    Updates the sequence IDs of non-polymeric chains in the atom array to the author sequence IDs.
 
     Args:
         atom_array (AtomArray): The atom array containing the chain information.
@@ -251,7 +267,7 @@ def add_bonds_to_bondlist(
     cif_block: CIFBlock,
     atom_array: AtomArray,
     chain_info_dict: dict,
-    add_hydrogens: bool,
+    keep_hydrogens: bool,
     known_residues: list[str],
     get_intra_residue_bonds: callable,
     converted_res: dict = {},
@@ -264,7 +280,7 @@ def add_bonds_to_bondlist(
         cif_block (CIFBlock): The CIF file block containing the structure data.
         atom_array (AtomArray): The atom array to which the bonds will be added.
         chain_info_dict (dict): A dictionary containing information about the chains in the structure.
-        add_hydrogens (bool): Whether to add hydrogens to the atom array.
+        keep_hydrogens (bool): Whether to add hydrogens to the atom array.
         known_residues (list): A list of known residues.
         get_intra_residue_bonds (callable): A function that returns the intra-residue bonds for a given residue.
         converted_res (dict): A dictionary containing the residue conversions.
@@ -294,7 +310,7 @@ def add_bonds_to_bondlist(
             chain_type=chain_info_dict[chain_id]["type"],
             known_residues=known_residues,
             get_intra_residue_bonds=get_intra_residue_bonds,
-            add_hydrogens=add_hydrogens,
+            keep_hydrogens=keep_hydrogens,
         )
         if exists(chain_bonds):
             inter_and_intra_residue_bonds.append(chain_bonds)

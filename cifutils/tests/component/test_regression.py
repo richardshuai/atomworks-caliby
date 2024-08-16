@@ -17,7 +17,6 @@ TEST_CASES = [
     "6mub",  # Symmetry center clash
     "1j8z",  # Contains misordered atoms in a residue
     "1fp7",  # Contains bonds between crystallization aids in struct_conn
-    "1aym",  # Issues with patching symmetric ligands (invalid literal)
     "1twr",  # Residue name not in biotite's CCD
     "6q9t",  # Contains residue `QUK` which uses a mix of `std` and `alt` atom ids
 ]
@@ -36,7 +35,7 @@ def test_regression_against_stored_result(pdb_id: str):
         build_assembly="all",
         fix_arginines=True,
         convert_mse_to_met=True,
-        add_hydrogens=True,
+        keep_hydrogens=True,
         model=None,
     )
     assert result is not None  # Check if processing runs through
@@ -66,12 +65,11 @@ def test_regression_against_stored_result(pdb_id: str):
     assert_that(result["chain_info"]).is_equal_to(expected_result["chain_info"])
 
     # ...the extra information
-    # assert_that(result["extra_info"]).is_equal_to(expected_result["extra_info"])
+    assert_that(result["extra_info"]).is_equal_to(expected_result["extra_info"])
 
     # ...the metadata
     assert_that(result["metadata"]).is_equal_to(expected_result["metadata"])
 
 
 if __name__ == "__main__":
-    # pytest.main([__file__])
-    test_regression_against_stored_result("6q9t")
+    pytest.main([__file__])

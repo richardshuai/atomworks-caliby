@@ -37,7 +37,7 @@ def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray
         return {}
 
 
-def get_chain_info(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
+def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
     """
     Extracts chain information from the CIF block.
 
@@ -49,10 +49,6 @@ def get_chain_info(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
         dict: Dictionary containing the sequence details of each chain.
     """
     chain_info_dict = {}
-
-    # If "entity" and "entity_poly" are not present, we cannot extract chain information, and return an empty dictionary
-    if "entity" not in cif_block or "entity_poly" not in cif_block:
-        return chain_info_dict
 
     # Step 1: Build a mapping of chain id to entity id from the `atom_site`
     chain_ids = atom_array.get_annotation("chain_id")
@@ -104,9 +100,20 @@ def get_chain_info(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
     return chain_info_dict
 
 
-def get_metadata(cif_block: CIFBlock, fallback_id: str = None) -> dict:
+def get_metadata_from_category(cif_block: CIFBlock, fallback_id: str = None) -> dict:
     """
     Extract metadata from the CIF block.
+    If the `entry.id` field is not present in the CIF block, the `fallback_id` is used instead (e.g., the filename of the CIF).
+
+    From RCSB CIF files, this function extracts:
+        - ID (e.g., PDB ID)
+        - Method (e.g., X-ray, NMR, etc.)
+        - Deposition date (initial)
+        - Release date (smallest revision date)
+        - Resolution (e.g., 5.0, 3.0, etc.)
+
+    For custom CIF files (e.g., distillation), this function extracts:
+        - Extra metadata (all other categories)
 
     Arguments:
         cif_block (CIFBlock): The CIF block to extract metadata from.
@@ -180,7 +187,9 @@ def get_metadata(cif_block: CIFBlock, fallback_id: str = None) -> dict:
             pass
 
     # Serialize the catch-all metadata cateogry, if it exists (we can later load with CIFCategory.deserialize() at will)
-    metadata["extra_metadata"] = cif_block["metadata"].serialize() if "extra_metadata" in cif_block.keys() else None
+    metadata["extra_metadata"] = (
+        cif_block["extra_metadata"].serialize() if "extra_metadata" in cif_block.keys() else None
+    )
 
     return metadata
 
@@ -202,11 +211,12 @@ def load_monomer_sequence_information_from_category(
         cif_block (CIFBlock): The CIF block containing the monomer sequence information.
         chain_info_dict (dict): The dictionary where the monomer sequence information will be stored.
         atom_array (AtomArray): The atom array used to get the sequence for non-polymers.
-        known_residues (set): The set of known residues to filter out unknown residues.
+        known_residues (list): The set of known residues to filter out unknown residues.
 
     Returns:
         The updated chain_info_dict with monomer sequence information.
     """
+    known_residues = set(known_residues)
 
     # Assert that entity_poly_seq category is present
     assert "entity_poly_seq" in cif_block.keys(), "entity_poly_seq category not found in CIF block."
@@ -230,16 +240,11 @@ def load_monomer_sequence_information_from_category(
     # Map entity_id to lists of residue names and residue IDs
     polymer_seq_df["entity_id"] = polymer_seq_df["entity_id"].astype(float)
     polymer_entity_id_to_residue_names_and_ids = {
-        entity_id: {"residue_names": group["residue_name"].tolist(), "residue_ids": None}
+        entity_id: {"residue_names": group["residue_name"].tolist(), "residue_ids": group["residue_id"].tolist()}
         for entity_id, group in polymer_seq_df.groupby("entity_id")
     }
 
     # Build up the chain_info_dict with the sequence information
-    unique_residues = {
-        residue
-        for residues in polymer_entity_id_to_residue_names_and_ids.values()
-        for residue in residues["residue_names"]
-    }
     for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
         entity_id = int(chain_info_dict[chain_id]["entity_id"])
         if entity_id in polymer_entity_id_to_residue_names_and_ids:
@@ -275,10 +280,8 @@ def load_monomer_sequence_information_from_category(
             # Map any non-polymer residues not in the precompiled CCD data to "UNL" (unknown ligand)
             residue_name_list = [residue if residue in known_residues else "UNL" for residue in residue_name_list]
 
-            # We don't need to filter out unmatched residues for non-polymers here, since we handled that by filtering the AtomArray earlier
             chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
             chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)
-            unique_residues.update(residue_name_list)
 
         chain_info_dict[chain_id]["has_sequence_heterogeneity"] = str(entity_id) in entities_with_sequence_heterogeneity
 

@@ -18,7 +18,7 @@ def test_prior_bugs(pdb_id: str):
         build_assembly="all",
         patch_symmetry_centers=True,
         fix_arginines=True,
-        add_hydrogens=False,
+        keep_hydrogens=False,
     )
     atom_array_no_hydrogens = result_no_hydrogens["assemblies"]["1"]
 

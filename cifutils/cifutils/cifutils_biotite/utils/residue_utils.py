@@ -28,13 +28,13 @@ def cached_residue_utils_factory(known_residues: list[str], data_by_residue: cal
     known_residues_set = set(known_residues)
 
     @lru_cache(maxsize=None)
-    def build_residue_atoms(residue_name: str, add_hydrogens: bool) -> list[Atom]:
+    def build_residue_atoms(residue_name: str, keep_hydrogens: bool) -> list[Atom]:
         """
         Build a list of atoms for a given residue name from CCD data.
 
         Args:
             residue_name (str): The name of the residue.
-            add_hydrogens (bool): Whether to add hydrogens to the residue.
+            keep_hydrogens (bool): Whether to add hydrogens to the residue.
 
         Returns:
             list[Atom]: A list of Atom objects initialized with zero coordinates.
@@ -57,7 +57,7 @@ def cached_residue_utils_factory(known_residues: list[str], data_by_residue: cal
         ]
 
         # Remove hydrogens, if necessary
-        if not add_hydrogens:
+        if not keep_hydrogens:
             atom_list = [atom for atom in atom_list if atom.element != 1]
 
         return atom_list
@@ -66,7 +66,7 @@ def cached_residue_utils_factory(known_residues: list[str], data_by_residue: cal
 
 
 def add_missing_atoms_as_unresolved(
-    atom_array: AtomArray, chain_info_dict: dict, add_hydrogens: bool, build_residue_atoms: callable
+    atom_array: AtomArray, chain_info_dict: dict, keep_hydrogens: bool, build_residue_atoms: callable
 ) -> AtomArray:
     """
     Add missing atoms to a polymer chain based on its sequence.
@@ -77,10 +77,12 @@ def add_missing_atoms_as_unresolved(
     Args:
         atom_array (AtomArray): An array of atom objects representing the current state of the polymer chain.
         chain_info_dict (dict): A dictionary containing chain information, including whether the chain is a polymer and the sequence of residues.
-        add_hydrogens (bool): Whether to add hydrogens when building the residue atoms. Most, if not all, hydrogens will be unresolved.
+        keep_hydrogens (bool): Whether to add hydrogens when building the residue atoms. Most, if not all, hydrogens will be unresolved.
 
     Returns:
         AtomArray: An updated array of atom objects with the missing atoms added.
+
+    TODO: Break into two functions, one that adds missing atoms, and another that adds the OpenBabel annotations (e.g., leaving group) that we need to make bonds.
     """
     full_atom_list = []
     residue_ids = []
@@ -92,8 +94,9 @@ def add_missing_atoms_as_unresolved(
         if chain_info_dict[chain_id]["is_polymer"]:
             # For polymer chains, we can just assign the residue ID based on the sequential index, and don't need to worry about UNL (unknown ligands)
             # NOTE: In the future, we may want to allow more flexibility for polymers (e.g., custom NCAA); for now, they will raise an error in `build_residue_atoms`
+            # We could achieve this through adding a "NCR"  (non-canonical residue) name, for instance, which would behavior similarly to "UNL"
             for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
-                residue_atom_list = build_residue_atoms(residue_name, add_hydrogens)
+                residue_atom_list = build_residue_atoms(residue_name, keep_hydrogens)
                 # We assign the residue ID as the sequential index for polymers, consistent with the PDB label ids (but not author ids)
                 residue_ids.append(np.full(len(residue_atom_list), residue_index_sequential))
 
@@ -102,7 +105,7 @@ def add_missing_atoms_as_unresolved(
         else:
             # For non-polymer chains, we need to assign the residue ID based on the residue ID list, and handle UNL (unknown ligands)
             for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
-                residue_id_nonpoly = chain_info_dict[chain_id]["residue_id_list"][
+                residue_id_original = chain_info_dict[chain_id]["residue_id_list"][
                     residue_index_sequential - 1
                 ]  # Recall that residue_index_sequential is 1-indexed
                 if residue_name == "UNL":
@@ -111,7 +114,7 @@ def add_missing_atoms_as_unresolved(
                     unknown_residue_atom_array = atom_array[
                         (atom_array.chain_id == chain_id)
                         & (atom_array.res_name == residue_name)
-                        & (atom_array.res_id == residue_id_nonpoly)
+                        & (atom_array.res_id == residue_id_original)
                     ]
 
                     # ...limit the annotations to only those in the new AtomArray
@@ -148,9 +151,9 @@ def add_missing_atoms_as_unresolved(
                     # ...decompose into a list of atoms
                     residue_atom_list = [atom for atom in unknown_residue_atom_array]
                 else:
-                    residue_atom_list = build_residue_atoms(residue_name, add_hydrogens)
+                    residue_atom_list = build_residue_atoms(residue_name, keep_hydrogens)
                 # Preserve the residue ID for non-polymer chains (e.g., often starts at 101)
-                residue_ids.append(np.full(len(residue_atom_list), residue_id_nonpoly))
+                residue_ids.append(np.full(len(residue_atom_list), residue_id_original))
 
                 chain_ids.append(np.full(len(residue_atom_list), chain_id))
                 full_atom_list.append(residue_atom_list)
@@ -211,22 +214,18 @@ def add_missing_atoms_as_unresolved(
         )
 
     # Carry over the annotations from `atom_array` to `full_atom_array` for corresponding atoms
-    # ... initialize
-    b_factor = np.zeros(len(full_atom_array), dtype=np.float32)
-    occupancy = np.zeros(len(full_atom_array), dtype=np.float32)
-    # ... carry over annotations
+    # ...always carry over coordinates and occupancy
     full_atom_array.coord[full_atom_array_match_idx] = atom_array[atom_array_match_idx].coord
-    b_factor[full_atom_array_match_idx] = atom_array[atom_array_match_idx].b_factor
+    occupancy = np.zeros(len(full_atom_array), dtype=np.float32)
     occupancy[full_atom_array_match_idx] = atom_array[atom_array_match_idx].occupancy
-    full_atom_array.set_annotation("b_factor", b_factor)
     full_atom_array.set_annotation("occupancy", occupancy)
-    # ... polymer annotation
-    full_atom_array.add_annotation("is_polymer", dtype=bool)
-    polymer_chain_ids = [chain_id for chain_id, chain_info in chain_info_dict.items() if chain_info["is_polymer"]]
-    polymer_mask = np.isin(full_atom_array.chain_id, polymer_chain_ids)
-    full_atom_array.set_annotation("is_polymer", polymer_mask)
+    # ...carry over b_factor, if present
+    if "b_factor" in atom_array.get_annotation_categories():
+        b_factor = np.zeros(len(full_atom_array), dtype=np.float32)
+        b_factor[full_atom_array_match_idx] = atom_array[atom_array_match_idx].b_factor
+        full_atom_array.set_annotation("b_factor", b_factor)
 
-    # If any heavy atom in a residue cannot be matched, then mask the whole residue
+    # If any heavy atom in a residue cannot be matched, then mask the whole residue (i.e., set occupancy to 0)
     if len(_failed_to_match) > 0:
         failing_atoms = atom_array[np.array(_failed_to_match)]
         is_heavy = ~np.isin(failing_atoms.element, ["H", "D", "T"])
@@ -242,5 +241,10 @@ def add_missing_atoms_as_unresolved(
             logger.warning(
                 f"Masked residues for {len(failing_atoms[is_heavy])} heavy atoms in `atom_array` that failed to match."
             )
+
+    # ...ensure no hydrogens are present in the full atom array, if we're not keeping hydrogens
+    if not keep_hydrogens:
+        # It's possible, especially with unknown ligands, that some hydrogens snuck through
+        full_atom_array = full_atom_array[full_atom_array.element != "1"]
 
     return full_atom_array

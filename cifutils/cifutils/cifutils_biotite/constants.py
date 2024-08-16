@@ -18,6 +18,136 @@ ELEMENT_NAME_TO_ATOMIC_NUMBER = {
 """Map canonical 2 letter element names to their atomic numbers."""
 # fmt: on
 
+CHEM_COMP_TYPES = tuple(
+    [
+        chemtype.upper()
+        for chemtype in (
+            "D-beta-peptide, C-gamma linking",
+            "D-gamma-peptide, C-delta linking",
+            "D-peptide COOH carboxy terminus",
+            "D-peptide NH3 amino terminus",
+            "D-peptide linking",
+            "D-saccharide",
+            "D-saccharide, alpha linking",
+            "D-saccharide, beta linking",
+            "DNA OH 3 prime terminus",
+            "DNA OH 5 prime terminus",
+            "DNA linking",
+            "L-DNA linking",
+            "L-RNA linking",
+            "L-beta-peptide, C-gamma linking",
+            "L-gamma-peptide, C-delta linking",
+            "L-peptide COOH carboxy terminus",
+            "L-peptide NH3 amino terminus",
+            "L-peptide linking",
+            "L-saccharide",
+            "L-saccharide, alpha linking",
+            "L-saccharide, beta linking",
+            "RNA OH 3 prime terminus",
+            "RNA OH 5 prime terminus",
+            "RNA linking",
+            "non-polymer",
+            "other",
+            "peptide linking",
+            "peptide-like",
+            "saccharide",
+        )
+    ]
+)
+"""Allowed Chemical Component Types for residues in the PDB + `mask`.
+
+Reference:
+    - http://mmcif.rcsb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_chem_comp.type.html
+"""
+
+AA_LIKE_CHEM_TYPES = set(
+    [
+        chemtype.upper()
+        for chemtype in (
+            "D-beta-peptide, C-gamma linking",
+            "D-gamma-peptide, C-delta linking",
+            "D-peptide COOH carboxy terminus",
+            "D-peptide NH3 amino terminus",
+            "D-peptide linking",
+            "L-beta-peptide, C-gamma linking",
+            "L-gamma-peptide, C-delta linking",
+            "L-peptide COOH carboxy terminus",
+            "L-peptide NH3 amino terminus",
+            "L-peptide linking",
+            "peptide linking",
+            "peptide-like",
+        )
+    ]
+)
+
+POLYPEPTIDE_L_CHEM_TYPES = set(
+    [
+        chemtype.upper()
+        for chemtype in (
+            "L-beta-peptide, C-gamma linking",
+            "L-gamma-peptide, C-delta linking",
+            "L-peptide COOH carboxy terminus",
+            "L-peptide NH3 amino terminus",
+            "L-peptide linking",
+        )
+    ]
+)
+
+POLYPEPTIDE_D_CHEM_TYPES = set(
+    [
+        chemtype.upper()
+        for chemtype in (
+            "D-beta-peptide, C-gamma linking",
+            "D-gamma-peptide, C-delta linking",
+            "D-peptide COOH carboxy terminus",
+            "D-peptide NH3 amino terminus",
+            "D-peptide linking",
+        )
+    ]
+)
+
+RNA_LIKE_CHEM_TYPES = set(
+    [
+        chemtype.upper()
+        for chemtype in (
+            "L-RNA linking",
+            "RNA OH 3 prime terminus",
+            "RNA OH 5 prime terminus",
+            "RNA linking",
+        )
+    ]
+)
+
+DNA_LIKE_CHEM_TYPES = set(
+    [
+        chemtype.upper()
+        for chemtype in (
+            "DNA OH 3 prime terminus",
+            "DNA OH 5 prime terminus",
+            "DNA linking",
+            "L-DNA linking",
+        )
+    ]
+)
+
+CARBOHYDRATE_LIKE_CHEM_TYPES = set(
+    [
+        chemtype.upper()
+        for chemtype in (
+            "D-saccharide",
+            "D-saccharide, alpha linking",
+            "D-saccharide, beta linking",
+            "L-saccharide",
+            "L-saccharide, alpha linking",
+            "L-saccharide, beta linking",
+            "saccharide",
+        )
+    ]
+)
+
+LIGAND_LIKE_CHEM_TYPES = set([chemtype.upper() for chemtype in ("non-polymer", "other")])
+
+MASK_LIKE_CHEM_TYPES = set([chemtype.upper() for chemtype in ("mask",)])
 
 # NOTE: Not currently used; only if we want to incorporate GLX and ASX
 DICT_THREE_TO_ONE = {

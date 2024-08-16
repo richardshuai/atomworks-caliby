@@ -22,11 +22,11 @@ import pandas as pd
 from os import PathLike
 from pathlib import Path
 
-from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import read_cif_file
+from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import read_cif_file, load_structure
 from cifutils.cifutils_biotite.common import exists
 from cifutils.cifutils_biotite.transforms.categories import (
-    get_chain_info,
-    get_metadata,
+    get_chain_info_from_category,
+    get_metadata_from_category,
     load_monomer_sequence_information_from_category,
     get_ligand_of_interest_info,
 )
@@ -37,13 +37,17 @@ from cifutils.cifutils_biotite.transforms.atom_array import (
     keep_last_residue,
     update_nonpoly_seq_ids,
     add_bonds_to_bondlist,
+    add_polymer_annotation,
+)
+from cifutils.cifutils_biotite.utils.non_rcsb_utils import (
+    load_monomer_sequence_information_from_atom_array,
+    infer_chain_info_from_atom_array,
 )
 from cifutils.cifutils_biotite.utils.bond_utils import cached_bond_utils_factory
 from cifutils.cifutils_biotite.utils.assembly_utils import build_bioassembly_from_asym_unit
 from cifutils.cifutils_biotite.utils.residue_utils import cached_residue_utils_factory, add_missing_atoms_as_unresolved
 
 import biotite.structure as struc
-import biotite.structure.io.pdbx as pdbx
 from biotite.structure import AtomArrayStack
 from biotite.file import InvalidFileError
 
@@ -75,9 +79,6 @@ class CIFParser:
         load_from_cache = kwargs.get("load_from_cache")
         save_to_cache = kwargs.get("save_to_cache")
         cache_dir = kwargs.get("cache_dir")
-
-        if not add_missing_atoms and add_bonds:
-            raise ValueError("add_bonds cannot be True if add_missing_atoms is False")
 
         if not add_missing_atoms and add_bonds:
             raise ValueError("add_bonds cannot be True if add_missing_atoms is False")
@@ -138,10 +139,12 @@ class CIFParser:
             cache_dir = Path(cache_dir)
             # Make the cache directory if it doesn't exist
             cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_file_path = (
+                cache_dir / f"{Path(kwargs['filename']).stem}_assembly_{kwargs.get('build_assembly', 'all')}.pkl"
+            )
 
         if load_from_cache and cache_dir:
             # Load from cache
-            cache_file_path = cache_dir / f"{Path(kwargs['filename']).stem}.pkl"
             if cache_file_path.exists():
                 # Load the result from the cache
                 result = pd.read_pickle(cache_file_path)
@@ -171,8 +174,7 @@ class CIFParser:
         if save_to_cache and cache_dir:
             # We want our cache to include:
             #   (1) All keys in `result` excep the assemblies and
-            #   (2) The information needed to rebuild the assemblies, which is stored in `result["extra_info"]`
-            cache_file_path = cache_dir / f"{Path(kwargs['filename']).stem}.pkl"
+            #   (2) The information needed to rebuild the assembly(s), which is stored in `result["extra_info"]`
             if not cache_file_path.exists():
                 # Save the result to the cache, excluding the assemblies
                 result_to_cache = {k: v for k, v in result.items() if k != "assemblies"}
@@ -193,7 +195,7 @@ class CIFParser:
         build_assembly: Literal["first", "all"] | list[str] | None = "all",
         fix_arginines: bool = True,
         convert_mse_to_met: bool = False,
-        add_hydrogens: bool = True,
+        keep_hydrogens: bool = True,
         model: int | None = None,
     ) -> dict:
         """
@@ -227,7 +229,7 @@ class CIFParser:
                 AF-3 supplement for details. Defaults to True.
             convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE)
                 residues to methionine (MET) residues. Defaults to False.
-            add_hydrogens (bool, optional): Whether to add hydrogens to the structure
+            keep_hydrogens (bool, optional): Whether to add hydrogens to the structure
                 (e.g., when adding missing atoms). Defaults to True.
             model (int, optional): The model number to parse from the CIF file for NMR entries.
                 Defaults to all models (None).
@@ -259,32 +261,32 @@ class CIFParser:
 
         # ...load metadata into "metadata" key (either from RCSB standard fields, or from the custom `extra_metadata` field)
         fallback_filename = Path(filename).stem
-        data_dict["metadata"] = get_metadata(data_dict["cif_block"], fallback_id=fallback_filename)
+        data_dict["metadata"] = get_metadata_from_category(data_dict["cif_block"], fallback_id=fallback_filename)
 
         # ...load structure into the "atom_array_stack" key using the RCSB labels for sequence ids, and later update for non-polymers
         common_extra_fields = [
             "label_entity_id",
             "auth_seq_id",  # for non-polymer residue indexing
             "atom_id",
-            "b_factor",
-            "occupancy",
         ]
+        if not assume_residues_all_resolved:
+            # If we're not assuming residues are all resolved, we need to load the b_factor and occupancy fields
+            common_extra_fields += ["b_factor", "occupancy"]
+
         try:
-            atom_array_stack = pdbx.get_structure(
+            atom_array_stack = load_structure(
                 data_dict["cif_block"],
-                extra_fields=common_extra_fields,
-                use_author_fields=False,
-                altloc="occupancy",
-                model=model,
+                common_extra_fields,
+                assume_residues_all_resolved,
+                model,
             )
         except InvalidFileError:
             logger.warning(f"Invalid file error encountered for {filename}; loading with only one model")
-            # Try again, choosing only one model
-            atom_array_stack = pdbx.get_structure(
+            # Try again, choosing only the first model
+            atom_array_stack = load_structure(
                 data_dict["cif_block"],
-                extra_fields=common_extra_fields,
-                use_author_fields=True,
-                altloc="occupancy",
+                common_extra_fields,
+                assume_residues_all_resolved,
                 model=1,
             )
 
@@ -295,7 +297,14 @@ class CIFParser:
 
         # ...load chain information from the first model (uses atom_array to build chain list)
         # NOTE: If not loading from RCSB (e.g., distillation), then the chain_info_dict will be empty
-        data_dict["chain_info_dict"] = get_chain_info(data_dict["cif_block"], data_dict["atom_array_stack"][0])
+        if "entity" and "entity_poly" in data_dict["cif_block"].keys():
+            # We can get the chain information directly from the CIF file
+            data_dict["chain_info_dict"] = get_chain_info_from_category(
+                data_dict["cif_block"], data_dict["atom_array_stack"][0]
+            )
+        else:
+            # We must infer the chain information from the AtomArray residue names (not bulletproof)
+            data_dict["chain_info_dict"] = infer_chain_info_from_atom_array(data_dict["atom_array_stack"][0])
 
         # ...loop through models
         models = []
@@ -303,7 +312,7 @@ class CIFParser:
             atom_array = data_dict["atom_array_stack"][model_idx]
 
             # ...optionally, remove hydrogens (most examples will not have any hydrogens; only NMR studies and small molecules)
-            if not add_hydrogens:
+            if not keep_hydrogens:
                 atom_array = atom_array[~np.isin(atom_array.element, ["H", "D"])]
 
             # ...optionally, remove waters
@@ -322,12 +331,20 @@ class CIFParser:
 
             # ...load monomer sequence information into chain_info_dict
             # NOTE: We MAY NOT delete polymer atoms from the AtomArray after this step, as the sequences won't be updated
-            data_dict["chain_info_dict"] = load_monomer_sequence_information_from_category(
-                cif_block=data_dict["cif_block"],
-                chain_info_dict=data_dict["chain_info_dict"],
-                atom_array=atom_array,
-                known_residues=self._all_precompiled_residues(),
-            )
+            if not assume_residues_all_resolved:
+                # Use the `entity_poly_seq` category as ground-truth for polymers, and the AtomArray as ground-truth for non-polymers
+                data_dict["chain_info_dict"] = load_monomer_sequence_information_from_category(
+                    cif_block=data_dict["cif_block"],
+                    chain_info_dict=data_dict["chain_info_dict"],
+                    atom_array=atom_array,
+                    known_residues=self._all_precompiled_residues(),
+                )
+            else:
+                # Use the AtomArray as ground-truth for all residues
+                data_dict["chain_info_dict"] = load_monomer_sequence_information_from_atom_array(
+                    chain_info_dict=data_dict["chain_info_dict"],
+                    atom_array=atom_array,
+                )
 
             # ...handle sequence heterogeneity by selecting the residue that appears last
             atom_array = keep_last_residue(atom_array)
@@ -339,14 +356,13 @@ class CIFParser:
                     known_residues=self._all_precompiled_residues(),
                     data_by_residue=self._data_by_residue,
                 )
-                # Create cached function to get intra-residue bonds
-                self._get_intra_residue_bonds = cached_bond_utils_factory(
-                    data_by_residue=self._data_by_residue,
-                )
                 # Add missing atoms to the atom array, using the reference residue as a template
                 atom_array = add_missing_atoms_as_unresolved(
-                    atom_array, data_dict["chain_info_dict"], add_hydrogens, self._build_residue_atoms
+                    atom_array, data_dict["chain_info_dict"], keep_hydrogens, self._build_residue_atoms
                 )
+
+            # ...add the is_polymer annotation to the AtomArray
+            atom_array = add_polymer_annotation(atom_array, data_dict["chain_info_dict"])
 
             # ...optionally, resolve arginine naming ambiguity (AF3-style)
             if fix_arginines:
@@ -359,11 +375,16 @@ class CIFParser:
 
             # ...optionally, generate and add bonds to the atom array bond list
             if add_bonds:
+                # Create cached function to get intra-residue bonds
+                self._get_intra_residue_bonds = cached_bond_utils_factory(
+                    data_by_residue=self._data_by_residue,
+                )
+
                 atom_array = add_bonds_to_bondlist(
                     cif_block=data_dict["cif_block"],
                     atom_array=atom_array,
                     chain_info_dict=data_dict["chain_info_dict"],
-                    add_hydrogens=add_hydrogens,  # needed for leaving group resolution
+                    keep_hydrogens=keep_hydrogens,  # needed for leaving group resolution
                     known_residues=self._all_precompiled_residues(),
                     get_intra_residue_bonds=self._get_intra_residue_bonds,
                     converted_res=_converted_res,  # needed for leaving group resolution
