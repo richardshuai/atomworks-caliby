@@ -9,8 +9,6 @@ from pathlib import Path
 from os import PathLike
 import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
-import numpy as np
-from biotite.structure.atoms import repeat
 from biotite.structure.io.pdbx import CIFFile, BinaryCIFFile
 import logging
 from Bio.Data.PDBData import (
@@ -191,30 +189,3 @@ def read_cif_file(filename: PathLike) -> CIFFile | BinaryCIFFile:
         raise ValueError(f"Unsupported file format {file_ext} in {filename}")
 
     return cif_file
-
-
-def fix_bonded_atom_charges(atom):
-    """
-    Fix charges and hydrogen counts for cases when
-    charged a atom is connected by an inter-residue bond.
-
-    Args:
-        atom (Atom): The atom object to be modified.
-
-    Returns:
-        dict: A dictionary with updated 'charge', 'hyb', and 'nhyd' values.
-    """
-    if atom.element == 7 and atom.charge == 1 and atom.hyb == 3 and atom.nhyd == 2 and atom.hvydeg == 2:  # -(NH2+)-
-        return {"charge": 0, "hyb": 2, "nhyd": 0}
-    elif (
-        atom.element == 7 and atom.charge == 1 and atom.hyb == 3 and atom.nhyd == 3 and atom.hvydeg == 0
-    ):  # free NH3+ group
-        return {"charge": 0, "hyb": 2, "nhyd": 2}
-    elif atom.element == 8 and atom.charge == -1 and atom.hyb == 3 and atom.nhyd == 0:
-        return {"charge": 0, "hyb": atom.hyb, "nhyd": atom.nhyd}
-    elif atom.element == 8 and atom.charge == -1 and atom.hyb == 2 and atom.nhyd == 0:  # O-linked connections
-        return {"charge": 0, "hyb": atom.hyb, "nhyd": atom.nhyd}
-    elif atom.charge != 0:
-        # Additional logic for other cases if needed
-        pass
-    return {"charge": atom.charge, "hyb": atom.hyb, "nhyd": atom.nhyd}

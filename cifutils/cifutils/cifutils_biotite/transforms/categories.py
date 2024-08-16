@@ -42,11 +42,11 @@ def get_chain_info(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
     Extracts chain information from the CIF block.
 
     Args:
-    - cif_block (CIFBlock): Parsed CIF block.
-    - atom_array (AtomArray): Atom array containing the chain information.
+        cif_block (CIFBlock): Parsed CIF block.
+        atom_array (AtomArray): Atom array containing the chain information.
 
     Returns:
-    - dict: Dictionary containing the sequence details of each chain.
+        dict: Dictionary containing the sequence details of each chain.
     """
     chain_info_dict = {}
 
@@ -109,8 +109,8 @@ def get_metadata(cif_block: CIFBlock, fallback_id: str = None) -> dict:
     Extract metadata from the CIF block.
 
     Arguments:
-        - cif_block (CIFBlock): The CIF block to extract metadata from.
-        - fallback_id (str): A fallback ID to use if the `entry.id` field is not present in the CIF block.
+        cif_block (CIFBlock): The CIF block to extract metadata from.
+        fallback_id (str): A fallback ID to use if the `entry.id` field is not present in the CIF block.
     """
     metadata = {}
 
@@ -224,7 +224,7 @@ def load_monomer_sequence_information_from_category(
         logger.info("Sequence heterogeneity detected, keeping only the last occurrence of each residue.")
         polymer_seq_df = polymer_seq_df[~duplicates]
 
-    # Map any polymer residues not in the precompiled CCD data to "UNK"
+    # Map any polymer residues not in the precompiled CCD data to "UNK" (unknown polymer residue)
     polymer_seq_df["residue_name"] = polymer_seq_df["residue_name"].apply(lambda x: x if x in known_residues else "UNK")
 
     # Map entity_id to lists of residue names and residue IDs
@@ -271,6 +271,9 @@ def load_monomer_sequence_information_from_category(
             # For non-polymers, we must re-compute every time, since entities are not guaranteed to have the same monomer sequence (e.g., for H2O chains)
             chain_atom_array = atom_array[atom_array.chain_id == chain_id]
             residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
+
+            # Map any non-polymer residues not in the precompiled CCD data to "UNL" (unknown ligand)
+            residue_name_list = [residue if residue in known_residues else "UNL" for residue in residue_name_list]
 
             # We don't need to filter out unmatched residues for non-polymers here, since we handled that by filtering the AtomArray earlier
             chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)

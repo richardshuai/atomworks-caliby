@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 # Test cases to compare against the legacy parser
 TEST_CASES_PARSER = [
+    {"pdb_id": "3ne7", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
     {"pdb_id": "2k0a"},
     {"pdb_id": "3k4a", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
     {
@@ -50,7 +51,6 @@ TEST_CASES_PARSER = [
     {"pdb_id": "1azx"},
     {"pdb_id": "2e2h"},
     {"pdb_id": "1q1k"},
-    {"pdb_id": "3ne7", "rename_atoms": {"MSE": {"H2": "HN2"}}},  # MSE uses legacy atom name `HN2`
 ]
 
 
@@ -76,15 +76,15 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
                 xyz=[round(coord, 3) for coord in atom.coord.tolist()],
                 occ=round(float(atom.occupancy), 2),
                 bfac=round(float(atom.b_factor), 2),
-                charge=atom.charge,
+                charge=None,
                 leaving=atom.leaving_atom_flag,
                 leaving_group=[rename_atoms.get(atom.res_name, {}).get(a, a) for a in atom.leaving_group],
                 parent=None,  # We don't have this information in biotite, but could if necessary
                 metal=atom.is_metal,
-                hyb=atom.hyb,
-                nhyd=atom.nhyd,
-                hvydeg=atom.hvydeg,
-                align=atom.align,
+                hyb=None,
+                nhyd=None,
+                hvydeg=None,
+                align=None,
                 hetero=None,  # We don't have this information in biotite, but could if necessary
             )
 
@@ -121,6 +121,10 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
 
 def validate_chains(pdb_id, chains_legacy, converted_chains):
     for chain_id, converted_chain in converted_chains.items():
+        if chain_id not in chains_legacy:
+            # Handle the case where the chain is not present in the legacy parser, e.g., unknown ligands
+            continue
+
         legacy_chain = chains_legacy[chain_id]
         converted_atoms = converted_chain.atoms
         legacy_atoms = legacy_chain.atoms
@@ -161,21 +165,6 @@ def validate_chains(pdb_id, chains_legacy, converted_chains):
             assert (
                 legacy_atom.metal == converted_atom.metal
             ), f"Metal flag mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert (
-                legacy_atom.hyb == converted_atom.hyb
-            ), f"Hybridization mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert (
-                legacy_atom.nhyd == converted_atom.nhyd
-            ), f"Number of hydrogens mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert (
-                legacy_atom.hvydeg == converted_atom.hvydeg
-            ), f"Heavy degree mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert (
-                legacy_atom.align == converted_atom.align
-            ), f"Alignment flag mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert (
-                legacy_atom.charge == converted_atom.charge
-            ), f"Charge mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
 
             # # We need to handle the situation where the occupancy is 0.5 and there is an equally-occupied alternative location
             # # Biotite will not pick between the two alternative locations deterministically
@@ -280,3 +269,7 @@ def test_parsing(test_case: dict[str, Any]):
     assert result_dict["metadata"]["method"] == meta_legacy["method"], "Method mismatch."
     assert result_dict["metadata"]["resolution"] == meta_legacy["resolution"], "Resolution mismatch."
     assert result_dict["metadata"]["deposition_date"] == meta_legacy["date"], "Date mismatch."
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

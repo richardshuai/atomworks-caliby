@@ -1,6 +1,7 @@
 """
 Utility functions for computing bioassemblies based on rototranslations of the asymmetric unit.
 """
+
 import biotite.structure.io.pdbx as pdbx
 from biotite.structure.io.pdbx import CIFCategory
 from biotite.structure import AtomArrayStack
@@ -9,21 +10,17 @@ from cifutils.cifutils_biotite.transforms.atom_array import maybe_patch_non_poly
 import numpy as np
 from biotite.structure.atoms import repeat
 
-def _matrix_rotate(v, matrix):
+
+def _matrix_rotate(v: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     """
     Perform a rotation using a rotation matrix.
 
-    Parameters
-    ----------
-    v : ndarray
-        The coordinates to rotate.
-    matrix : ndarray
-        The rotation matrix.
+    Args
+        v (ndarray): The coordinates to rotate.
+        matrix (ndarray): The rotation matrix.
 
-    Returns
-    -------
-    rotated : ndarray
-        The rotated coordinates.
+    Returns:
+        ndarray: The rotated coordinates.
     """
     # For proper rotation reshape into a maximum of 2 dimensions
     orig_ndim = v.ndim
@@ -37,7 +34,8 @@ def _matrix_rotate(v, matrix):
         v = v.reshape(*orig_shape)
     return v
 
-def _parse_transformations(struct_oper):
+
+def _parse_transformations(struct_oper: CIFCategory) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     """
     Get transformation operation in terms of rotation matrix and
     translation for each operation ID in `pdbx_struct_oper_list`.
@@ -54,7 +52,9 @@ def _parse_transformations(struct_oper):
     return transformation_dict
 
 
-def _apply_assembly_transformation(structure, transformation_dict, operation):
+def _apply_assembly_transformation(
+    structure: AtomArrayStack, transformation_dict: dict, operation: tuple[str]
+) -> AtomArrayStack:
     """
     Get subassembly by applying the given operation to the input
     structure containing affected asym IDs.

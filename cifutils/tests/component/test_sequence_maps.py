@@ -1,5 +1,5 @@
 import pytest
-from tests.conftest import get_digs_path 
+from tests.conftest import get_digs_path
 from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
     get_3_from_1_letter_code,
     get_1_from_3_letter_code,
@@ -12,6 +12,18 @@ SEQUENCE_TEST_CASES = ["155c", "2e2h", "4cpa", "1en2", "1aqc", "1ivo", "3k4a", "
 
 # Re-instantiate the parser to avoid cached data
 CIF_PARSER_BIOTITE = CIFParserBiotite()
+
+
+def non_canonical_sequence_length(s):
+    """
+    Calculate the length of a non-canonical sequence string.
+
+    Example:
+        >>> custom_length("(ABC)FDS(DCS)")
+        5
+    """
+    return len(re.sub(r"\(.*?\)", "(", s))
+
 
 @pytest.mark.parametrize("pdb_id", SEQUENCE_TEST_CASES)
 def test_parser_one_letter_sequence_outputs(pdb_id: str):
@@ -47,6 +59,7 @@ def test_parser_one_letter_sequence_outputs(pdb_id: str):
             processed_entity_non_canonical_sequence = chain_details["processed_entity_non_canonical_sequence"]
 
             # Ensure that we didn't lose any residues during processing (e.g., unknown residues)
+            assert non_canonical_sequence_length(unprocessed_entity_non_canonical_sequence) == num_residues
 
             # Ensure that the processed canonical and non-canonical sequences have the same length
             assert len(processed_entity_canonical_sequence) == len(processed_entity_non_canonical_sequence)
@@ -145,6 +158,7 @@ def test_get_3_from_1_letter_code(letter, chain_type, expected_three_letter):
 )
 def test_get_1_from_3_letter_code(three_letter_code, chain_type, expected_one_letter):
     assert get_1_from_3_letter_code(three_letter_code, chain_type) == expected_one_letter
+
 
 if __name__ == "__main__":
     test_parser_one_letter_sequence_outputs("155c")

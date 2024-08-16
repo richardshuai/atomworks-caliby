@@ -10,6 +10,7 @@ MULTIPLE_ASSEMBLY_TEST_CASES = [
 
 ASSEMBLY_ATOM_COORDINATES_TEST_CASES = ["1A8O", "1RXZ", "4NDZ", "5XNL", "6DMG", "2E2H"]
 
+
 @pytest.mark.parametrize("test_case", MULTIPLE_ASSEMBLY_TEST_CASES)
 def test_assembly_counts(test_case: dict):
     # unpack test case

@@ -141,13 +141,13 @@ def maybe_patch_non_polymer_at_symmetry_center(
     — PDB ID `7mub` has a potassium ion at the symmetry center that when reflected with the symmetry operation clashes with itself.
     — PDB ID `1xan` has a ligand at a symmetry center that similarly when refelcted clashes with itself.
 
-    Arguments:
-    — atom_array (AtomArray): The atom array to be patched.
-    — clash_distance (float): The distance threshold for two atoms to be considered clashing.
-    - clash_ratio (float): The percentage of atoms that must clash for the molecule to be considered clashing.
+    Args:
+        atom_array (AtomArray): The atom array to be patched.
+        clash_distance (float): The distance threshold for two atoms to be considered clashing.
+        clash_ratio (float): The percentage of atoms that must clash for the molecule to be considered clashing.
 
     Returns:
-    — AtomArray: The patched atom array.
+        AtomArray: The patched atom array.
     """
     # Select one model AtomArray to simplify computations
     atom_array = atom_array_stack[0]
@@ -246,6 +246,7 @@ def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> Atom
 
     return atom_array
 
+
 def add_bonds_to_bondlist(
     cif_block: CIFBlock,
     atom_array: AtomArray,
@@ -264,6 +265,8 @@ def add_bonds_to_bondlist(
         atom_array (AtomArray): The atom array to which the bonds will be added.
         chain_info_dict (dict): A dictionary containing information about the chains in the structure.
         add_hydrogens (bool): Whether to add hydrogens to the atom array.
+        known_residues (list): A list of known residues.
+        get_intra_residue_bonds (callable): A function that returns the intra-residue bonds for a given residue.
         converted_res (dict): A dictionary containing the residue conversions.
         ignored_res (list): A list of residues to ignore when adding bonds.
 
@@ -278,7 +281,6 @@ def add_bonds_to_bondlist(
     struct_conn_bonds, struct_conn_leaving_atom_indices = add_bonds_from_struct_conn(
         cif_block, chain_info_dict, atom_array, converted_res, ignored_res
     )
-    # self.extra_info["struct_conn_bonds"] = struct_conn_bonds
 
     if exists(struct_conn_leaving_atom_indices) and len(struct_conn_leaving_atom_indices) > 0:
         leaving_atom_indices.append(np.concatenate(struct_conn_leaving_atom_indices))
@@ -287,8 +289,8 @@ def add_bonds_to_bondlist(
     inter_and_intra_residue_bonds = []
     for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
         chain_bonds, chain_leaving_atom_indices = get_inter_and_intra_residue_bonds(
-            atom_array=atom_array, 
-            chain_id=chain_id, 
+            atom_array=atom_array,
+            chain_id=chain_id,
             chain_type=chain_info_dict[chain_id]["type"],
             known_residues=known_residues,
             get_intra_residue_bonds=get_intra_residue_bonds,

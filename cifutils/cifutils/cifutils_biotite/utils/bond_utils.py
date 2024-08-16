@@ -10,7 +10,6 @@ from biotite.structure.io.pdbx import CIFBlock
 import logging
 from cifutils.cifutils_biotite.utils.atom_matching_utils import get_matching_atom
 from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
-    fix_bonded_atom_charges,
     get_bond_type_from_order_and_is_aromatic,
 )
 from cifutils.cifutils_biotite.transforms.categories import category_to_df
@@ -18,14 +17,16 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
+
 def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, callable]:
-    """ 
+    """
     Factory function to build cached helper functions for for constructing bonds.
     We must invoke closure since functions are not hashable and cannot be used as keys in lru_cache.
 
     Args:
         data_by_residue (callable): A function that returns CCD data for a given residue name.
     """
+
     @lru_cache(maxsize=None)
     def get_intra_residue_bonds(residue_name: dict, add_hydrogens: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -44,14 +45,16 @@ def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, call
         if not add_hydrogens:
             residue_data["intra_residue_bonds"] = [
                 # NOTE: We are assuming that all, and only, hydrogen atoms are named with an 'H' prefix
-                bond for bond in residue_data["intra_residue_bonds"] if not bond["atom_a_id"].startswith("H") and not bond["atom_b_id"].startswith("H")
+                bond
+                for bond in residue_data["intra_residue_bonds"]
+                if not bond["atom_a_id"].startswith("H") and not bond["atom_b_id"].startswith("H")
             ]
             residue_data["atoms"] = {
                 atom_id: atom_data
                 for atom_id, atom_data in residue_data["atoms"].items()
                 if not atom_data["element"] == 1
             }
-        
+
         # Create a mapping of atom IDs to indices
         atom_id_to_index = {atom_id: index for index, atom_id in enumerate(residue_data["atoms"].keys())}
         atom_a_indices = []
@@ -67,6 +70,7 @@ def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, call
         return np.array(atom_a_indices), np.array(atom_b_indices), np.array(bond_types)
 
     return get_intra_residue_bonds
+
 
 def add_bonds_from_struct_conn(
     cif_block: CIFBlock,
@@ -173,28 +177,14 @@ def add_bonds_from_struct_conn(
             leaving_atom_indices.append(residue_a.index[np.isin(residue_a.atom_name, atom_a.leaving_group[0])])
             leaving_atom_indices.append(residue_b.index[np.isin(residue_b.atom_name, atom_b.leaving_group[0])])
 
-            # Fix charges
-            atom_a_updates = fix_bonded_atom_charges(atom_a[0])
-            atom_a.charge, atom_a.hyb, atom_a.nhyd = (
-                np.array([atom_a_updates["charge"]]),
-                np.array([atom_a_updates["hyb"]]),
-                np.array([atom_a_updates["nhyd"]]),
-            )
-
-            atom_b_updates = fix_bonded_atom_charges(atom_b[0])
-            atom_b.charge, atom_b.hyb, atom_b.nhyd = (
-                np.array([atom_b_updates["charge"]]),
-                np.array([atom_b_updates["hyb"]]),
-                np.array([atom_b_updates["nhyd"]]),
-            )
-
     return struct_conn_bonds, leaving_atom_indices
 
+
 def get_inter_and_intra_residue_bonds(
-    atom_array: AtomArray, 
-    chain_id: str, 
-    chain_type: str, 
-    known_residues: list[str], 
+    atom_array: AtomArray,
+    chain_id: str,
+    chain_type: str,
+    known_residues: list[str],
     get_intra_residue_bonds: callable,
     add_hydrogens: bool,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -248,32 +238,17 @@ def get_inter_and_intra_residue_bonds(
                 inter_residue_bonds.append([atom_a.index[0], atom_b.index[0], struc.BondType.SINGLE])
 
                 # Leaving group bookkeeping
-                leaving_atom_indices.append(
-                    current_res.index[np.isin(current_res.atom_name, atom_a.leaving_group[0])]
-                )
+                leaving_atom_indices.append(current_res.index[np.isin(current_res.atom_name, atom_a.leaving_group[0])])
                 leaving_atom_indices.append(next_res.index[np.isin(next_res.atom_name, atom_b.leaving_group[0])])
-
-                # Fix charges
-                atom_a_updates = fix_bonded_atom_charges(atom_a[0])
-                atom_a.charge, atom_a.hyb, atom_a.nhyd = (
-                    np.array([atom_a_updates["charge"]]),
-                    np.array([atom_a_updates["hyb"]]),
-                    np.array([atom_a_updates["nhyd"]]),
-                )
-
-                atom_b_updates = fix_bonded_atom_charges(atom_b[0])
-                atom_b.charge, atom_b.hyb, atom_b.nhyd = (
-                    np.array([atom_b_updates["charge"]]),
-                    np.array([atom_b_updates["hyb"]]),
-                    np.array([atom_b_updates["nhyd"]]),
-                )
 
         # Add intra-residue bonds for the current residue
         residue_name = current_res.res_name[
             0
         ]  # current_res.res_name is a list of identical values, so we just take the first one
-        if (residue_name in known_residues):
-            atom_a_local_indices, atom_b_local_indices, bond_types = get_intra_residue_bonds(residue_name, add_hydrogens)
+        if residue_name in known_residues:
+            atom_a_local_indices, atom_b_local_indices, bond_types = get_intra_residue_bonds(
+                residue_name, add_hydrogens
+            )
             if atom_a_local_indices.size and atom_b_local_indices.size and bond_types.size:
                 atom_a_intra_residue_indices.append(current_res.index[atom_a_local_indices])
                 atom_b_intra_residue_indices.append(current_res.index[atom_b_local_indices])
