@@ -1,9 +1,10 @@
 import pytest
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
+from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
 
 TEST_CASES = [
-    "1zy8",  # Models with different number of atoms; raises an InvalidFileError from Biotite (but we should just choose the first model)
     "5e5j",  # Comes from more than 1 experimental method (X-ray & neutron scattering)
+    "1zy8",  # Models with different number of atoms; raises an InvalidFileError from Biotite (but we should just choose the first model)
     "1j8z",  # Contains misordered atoms in a residue
     "2fs3",  # Contains an unusual operation expression for assembly building
     "1fp7",  # Contains bonds between crystallization aids in struct_conn
@@ -22,12 +23,18 @@ def test_prior_bugs(pdb_id: str):
     path = get_digs_path(pdb_id)
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
+        save_to_cache=False,
+        assume_residues_all_resolved=False,
         add_missing_atoms=True,
         add_bonds=True,
         remove_waters=True,
-        build_assembly="all",
+        residues_to_remove=CRYSTALLIZATION_AIDS,
         patch_symmetry_centers=True,
+        build_assembly="all",
         fix_arginines=True,
+        convert_mse_to_met=True,
+        keep_hydrogens=False,
+        model=None,
     )
     assert result is not None  # Check if processing runs through
 

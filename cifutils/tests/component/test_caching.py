@@ -68,10 +68,9 @@ def test_caching(pdb_id: str, tmp_path):
     cached_elapsed_time = end_time - start_time
 
     # Assert that the assembly data is the same
-    assert normal_result["assemblies"] == cached_result["assemblies"]
-    assert_same_atom_array(normal_result["assemblies"]["1"], cached_result["assemblies"]["1"])
-    assert save_cache_result["assemblies"] == cached_result["assemblies"]
-    assert_same_atom_array(save_cache_result["assemblies"]["1"], cached_result["assemblies"]["1"])
+    for assembly_id in normal_result["assemblies"]:
+        assert_same_atom_array(normal_result["assemblies"][assembly_id], cached_result["assemblies"][assembly_id])
+        assert_same_atom_array(save_cache_result["assemblies"][assembly_id], cached_result["assemblies"][assembly_id])
 
     # Assert that the cached result is at least twice as fast as the normal result
     assert cached_elapsed_time < normal_elapsed_time / 2

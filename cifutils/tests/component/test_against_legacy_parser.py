@@ -77,8 +77,8 @@ def convert_cifutils_biotite_to_legacy(result_dict, rename_atoms={}):
                 occ=round(float(atom.occupancy), 2),
                 bfac=round(float(atom.b_factor), 2),
                 charge=None,
-                leaving=atom.leaving_atom_flag,
-                leaving_group=[rename_atoms.get(atom.res_name, {}).get(a, a) for a in atom.leaving_group],
+                leaving=None,
+                leaving_group=None,
                 parent=None,  # We don't have this information in biotite, but could if necessary
                 metal=atom.is_metal,
                 hyb=None,
@@ -157,23 +157,8 @@ def validate_chains(pdb_id, chains_legacy, converted_chains):
                 legacy_atom.occ == converted_atom.occ
             ), f"Occupancy mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
             assert (
-                legacy_atom.leaving == converted_atom.leaving
-            ), f"Leaving atom flag mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert sorted(legacy_atom.leaving_group) == sorted(
-                converted_atom.leaving_group
-            ), f"Leaving group mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            assert (
                 legacy_atom.metal == converted_atom.metal
             ), f"Metal flag mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-
-            # # We need to handle the situation where the occupancy is 0.5 and there is an equally-occupied alternative location
-            # # Biotite will not pick between the two alternative locations deterministically
-            # # In that instance, the b-factors may be uncorrelated, so we don't check
-            # if legacy_atom.occ == 0.5 and converted_atom.occ == 0.5:
-            #     assert np.allclose(
-            #         legacy_atom.xyz, converted_atom.xyz, atol=10
-            #     ), f"(Partial occupancy) Approximate XYZ mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"
-            # else:
             assert (
                 legacy_atom.xyz == converted_atom.xyz
             ), f"XYZ mismatch for atom {atom_id} within chain {chain_id} in PDB ID {pdb_id}"

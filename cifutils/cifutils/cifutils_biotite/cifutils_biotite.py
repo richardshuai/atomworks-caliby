@@ -122,7 +122,9 @@ class CIFParser:
 
         return supported_residues
 
-    def parse(self, load_from_cache: bool = False, save_to_cache: bool = False, cache_dir: PathLike = None, **kwargs):
+    def parse(
+        self, *, load_from_cache: bool = False, save_to_cache: bool = False, cache_dir: PathLike = None, **kwargs
+    ):
         """
         Entrypoint for CIF parsing, which can either:
             - Directly parse from CIF, using the specified keyword arguments; or,
@@ -184,9 +186,10 @@ class CIFParser:
 
     def parse_from_cif(
         self,
+        *,
         filename: PathLike,
         save_to_cache: bool,
-        assume_residues_all_resolved: bool = False,  # TODO: Implement
+        assume_residues_all_resolved: bool = False,
         add_missing_atoms: bool = True,
         add_bonds: bool = True,
         remove_waters: bool = True,
@@ -399,7 +402,8 @@ class CIFParser:
         # ...optionally, build assemblies and add the transformation_id annotation (defaults to identity)
         if exists(build_assembly):
             if "pdbx_struct_assembly" not in data_dict["cif_block"].keys():
-                data_dict["assemblies"] = atom_array_stack
+                # If there are no assemblies, we just return the atom array stack as the only assembly
+                data_dict["assemblies"] = {"1": atom_array_stack}
             else:
                 assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
                 struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
@@ -420,6 +424,22 @@ class CIFParser:
 
         # ...get ligand of interest information
         data_dict["loi_info"] = get_ligand_of_interest_info(data_dict["cif_block"])
+
+        # ...remove annotations that are no longer needed to save memory
+        unneeded_annotations = [
+            "ins_code",
+            "hetero",
+            "leaving_atom_flag",
+            "leaving_group",
+            "index",
+        ]
+        for annotation in unneeded_annotations:
+            if annotation in data_dict["atom_array_stack"].get_annotation_categories():
+                data_dict["atom_array_stack"].del_annotation(annotation)
+            if "assemblies" in data_dict:
+                for assembly in data_dict["assemblies"].values():
+                    if annotation in assembly.get_annotation_categories():
+                        assembly.del_annotation(annotation)
 
         # ...and subset to only the keys we want to return, verbosely for clarity
         return {

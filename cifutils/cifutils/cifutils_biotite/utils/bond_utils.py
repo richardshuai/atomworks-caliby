@@ -41,13 +41,13 @@ def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, call
         """
         residue_data = data_by_residue(residue_name)
 
-        # If we aren't adding hydrogens, we need to remove any bonds to hydrogens, and any hydrogen atoms from the atom list
+        # If we aren't adding hydrogens, we need to remove any bonds to hydrogen/deuterium, and any hydrogen/deuterium atoms from the atom list
         if not keep_hydrogens:
             residue_data["intra_residue_bonds"] = [
-                # NOTE: We are assuming that all, and only, hydrogen atoms are named with an 'H' prefix
                 bond
                 for bond in residue_data["intra_residue_bonds"]
-                if not bond["atom_a_id"].startswith("H") and not bond["atom_b_id"].startswith("H")
+                if not residue_data["atoms"][bond["atom_a_id"]]["element"] == 1
+                and not residue_data["atoms"][bond["atom_b_id"]]["element"] == 1
             ]
             residue_data["atoms"] = {
                 atom_id: atom_data
@@ -61,6 +61,10 @@ def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, call
         atom_b_indices = []
         bond_types = []
         for bond in residue_data["intra_residue_bonds"]:
+            if bond["atom_a_id"] not in atom_id_to_index or bond["atom_b_id"] not in atom_id_to_index:
+                # Skip, e.g., if the atom is a hydrogen atom that was removed
+                continue
+
             atom_a_index = atom_id_to_index[bond["atom_a_id"]]
             atom_b_index = atom_id_to_index[bond["atom_b_id"]]
             bond_type = get_bond_type_from_order_and_is_aromatic(bond["order"], bond["is_aromatic"])
