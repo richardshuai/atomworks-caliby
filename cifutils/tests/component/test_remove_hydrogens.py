@@ -1,6 +1,5 @@
 import pytest
-from tests.conftest import get_digs_path, assert_same_atom_array
-from cifutils.cifutils_biotite.cifutils_biotite import CIFParser as CIFParserBiotite
+from tests.conftest import get_digs_path, assert_same_atom_array, CIF_PARSER_BIOTITE
 import numpy as np
 
 TEST_CASES = [
@@ -9,11 +8,10 @@ TEST_CASES = [
 
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
-def test_prior_bugs(pdb_id: str):
+def test_remove_hydrogens(pdb_id: str):
     path = get_digs_path(pdb_id)
 
     # First, we load without hydrogens...
-    CIF_PARSER_BIOTITE = CIFParserBiotite()
     result_no_hydrogens = CIF_PARSER_BIOTITE.parse(
         filename=path,
         add_missing_atoms=True,
@@ -30,7 +28,6 @@ def test_prior_bugs(pdb_id: str):
     assert np.any(atom_array_no_hydrogens.element != "1")
 
     # Then, we load with hydrogens...
-    CIF_PARSER_BIOTITE = CIFParserBiotite()
     result_with_hydrogens = CIF_PARSER_BIOTITE.parse(
         filename=path,
         add_missing_atoms=True,

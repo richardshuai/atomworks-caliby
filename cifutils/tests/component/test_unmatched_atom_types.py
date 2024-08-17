@@ -1,9 +1,5 @@
 import numpy as np
-from tests.conftest import TEST_DATA_DIR
-from cifutils.cifutils_biotite.cifutils_biotite import CIFParser as CIFParserBiotite
-
-# Re-instantiate the parser to avoid cached data
-CIF_PARSER_BIOTITE = CIFParserBiotite()
+from tests.conftest import TEST_DATA_DIR, CIF_PARSER_BIOTITE
 
 
 def test_unmatched_atom_types():

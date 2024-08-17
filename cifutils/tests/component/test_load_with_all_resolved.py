@@ -1,12 +1,9 @@
 import pytest
-from cifutils.cifutils_biotite.cifutils_biotite import CIFParser as CIFParserBiotite
+from tests.conftest import CIF_PARSER_BIOTITE
 from pathlib import Path
 
 DIR = Path(__file__).parent.parent / "data"
 CIF_PATHS = [DIR / "example_distillation_output.cif"]
-
-# Re-instantiate the parser to avoid cached data
-CIF_PARSER_BIOTITE = CIFParserBiotite()
 
 
 @pytest.mark.parametrize("path", CIF_PATHS)

@@ -96,7 +96,7 @@ def add_missing_atoms_as_unresolved(
             # NOTE: In the future, we may want to allow more flexibility for polymers (e.g., custom NCAA); for now, they will raise an error in `build_residue_atoms`
             # We could achieve this through adding a "NCR"  (non-canonical residue) name, for instance, which would behavior similarly to "UNL"
             for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
-                residue_atom_list = build_residue_atoms(residue_name, keep_hydrogens)
+                residue_atom_list = build_residue_atoms(residue_name=residue_name, keep_hydrogens=keep_hydrogens)
                 # We assign the residue ID as the sequential index for polymers, consistent with the PDB label ids (but not author ids)
                 residue_ids.append(np.full(len(residue_atom_list), residue_index_sequential))
 

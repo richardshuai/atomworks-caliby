@@ -1,17 +1,13 @@
 import pytest
-from tests.conftest import get_digs_path
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
     get_3_from_1_letter_code,
     get_1_from_3_letter_code,
 )
-from cifutils.cifutils_biotite.cifutils_biotite import CIFParser as CIFParserBiotite
 import numpy as np
 import re
 
 SEQUENCE_TEST_CASES = ["155c", "2e2h", "4cpa", "1en2", "1aqc", "1ivo", "3k4a", "1cbn", "133d", "1l2y", "3nez"]
-
-# Re-instantiate the parser to avoid cached data
-CIF_PARSER_BIOTITE = CIFParserBiotite()
 
 
 def non_canonical_sequence_length(s):

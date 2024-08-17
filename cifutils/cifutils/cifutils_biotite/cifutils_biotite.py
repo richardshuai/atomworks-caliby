@@ -106,13 +106,13 @@ class CIFParser:
         return path.exists()
 
     @lru_cache(maxsize=None)
-    def _all_precompiled_residues(self) -> list[str]:
+    def _all_precompiled_residues(self, residues_to_remove: tuple) -> list[str]:
         """Return a list of all supported residues in the precompiled library."""
         # Get all residues in the precompiled library
         all_residues = [path.stem.upper() for path in Path(self.by_residue_ligand_dir).glob("*.pkl")]
 
         # Remove unsupported residues
-        supported_residues = [residue for residue in all_residues if residue not in self._residues_to_remove]
+        supported_residues = [residue for residue in all_residues if residue not in residues_to_remove]
 
         # Sanity check -- ensure that we removed at least one residue, if we provided a list of residues to remove
         if len(self._residues_to_remove) > 0:
@@ -340,7 +340,7 @@ class CIFParser:
                     cif_block=data_dict["cif_block"],
                     chain_info_dict=data_dict["chain_info_dict"],
                     atom_array=atom_array,
-                    known_residues=self._all_precompiled_residues(),
+                    known_residues=self._all_precompiled_residues(tuple(self._residues_to_remove)),
                 )
             else:
                 # Use the AtomArray as ground-truth for all residues
@@ -356,7 +356,7 @@ class CIFParser:
             if add_missing_atoms:
                 # Create cached function to build residues
                 self._build_residue_atoms = cached_residue_utils_factory(
-                    known_residues=self._all_precompiled_residues(),
+                    known_residues=self._all_precompiled_residues(tuple(self._residues_to_remove)),
                     data_by_residue=self._data_by_residue,
                 )
                 # Add missing atoms to the atom array, using the reference residue as a template
@@ -388,7 +388,7 @@ class CIFParser:
                     atom_array=atom_array,
                     chain_info_dict=data_dict["chain_info_dict"],
                     keep_hydrogens=keep_hydrogens,  # needed for leaving group resolution
-                    known_residues=self._all_precompiled_residues(),
+                    known_residues=self._all_precompiled_residues(tuple(self._residues_to_remove)),
                     get_intra_residue_bonds=self._get_intra_residue_bonds,
                     converted_res=_converted_res,  # needed for leaving group resolution
                     ignored_res=_ignored_res,  # needed for leaving group resolution

@@ -5,13 +5,10 @@ Regression tests for complex cases to ensure consistent behavior.
 import pickle
 import pytest
 from pathlib import Path
-from tests.conftest import get_digs_path, assert_same_atom_array
+from tests.conftest import get_digs_path, assert_same_atom_array, CIF_PARSER_BIOTITE
 from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
-from cifutils.cifutils_biotite.cifutils_biotite import CIFParser as CIFParserBiotite
-from assertpy import assert_that
 
-# Re-instantiate the parser to avoid cached data
-CIF_PARSER_BIOTITE = CIFParserBiotite()
+from assertpy import assert_that
 
 TEST_CASES = [
     "6mub",  # Symmetry center clash
