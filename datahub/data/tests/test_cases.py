@@ -65,6 +65,7 @@ FULL_PDB_EDGE_CASE_LIST = [
     "5RX1",  # For chirals featurization test
     "7D9H",  # Used to test datasets
     "5S4P",  # Used to test datasets
+    "4GQA",  # Used to test atom arrays
 ]
 """
 A list of manually selected PDB IDs that are known to be tricky for a large variety of 

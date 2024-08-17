@@ -28,16 +28,18 @@ This README provides an overview of the pipeline used for processing PDB files, 
 4. **Annotate the Clusters**
    - **Script:** `annotate_clusters.py`
    - **Description:** Annotates the clusters with relevant information.
+   - **Environment:** Run on `jojo` with `tmux`
    - **Duration:** Approximately ~5 minutes
    - **Example:** `python annotate_clusters.py --pn_units_df /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_05/pn_units_df_clustered.parquet --replace_df`
 
 5. **Generate Interfaces DataFrame**
    - **Script:** `generate_interfaces_df.py`
    - **Description:** Generates the interfaces dataframe using the annotated clusters.
+   - **Environment:** Run on `jojo` with `tmux`
    - **Duration:** Approximately ~10 minutes
    - **Example:** `python generate_interfaces_df.py --input_path /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_05/pn_units_df_clustered.parquet --output_path /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_05/interfaces_df.parquet`
 
 ## Contributing
 A helpful contribution would be a unified script that launches timed jobs that perform the above steps sequentially, notifying the user when the process is complete.
 
-Written by Nate Corley and Simon Mathis, summer 2024, to reproduce the AF-3 data pipeline.
+The initial version of this codebase was written by [Nate Corley](mailto:ncorley@uw.edu) and [Simon Mathis](mailto:simon.mathis@gmail.com) in the summer of 2024, in preparation for training an AF3-like structure prediction model. We hope that others will contribute to improve, and extend, our codebase.

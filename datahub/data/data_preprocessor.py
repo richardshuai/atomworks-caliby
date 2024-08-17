@@ -68,7 +68,6 @@ class DataPreprocessor:
         self.add_bonds = kwargs.get("add_bonds", True)
         self.remove_waters = kwargs.get("remove_waters", True)
         self.remove_crystallization_aids = kwargs.get("remove_crystallization_aids", True)
-        self.remove_af3_excluded_ligands = kwargs.get("remove_af3_excluded_ligands", True)
         self.patch_symmetry_centers = kwargs.get("patch_symmetry_centers", True)
         self.build_assembly = kwargs.get("build_assembly", "all")
         self.fix_arginines = kwargs.get("fix_arginines", True)
