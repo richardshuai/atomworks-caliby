@@ -95,7 +95,7 @@ def get_chem_comp_type(res_name: str) -> str:
     if exists(chemcomp_type):
         return chemcomp_type[0].upper()
     else:
-        logger.warning(f"Chemical component type for `{res_name}` not found in CCD. Using 'other'.")
+        logger.info(f"Chemical component type for `{res_name}` not found in CCD. Using 'other'.")
         return "other".upper()
 
 

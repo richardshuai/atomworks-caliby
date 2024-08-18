@@ -122,7 +122,7 @@ def add_bonds_from_struct_conn(
             # Check if the chains for each of the residues exist in the structure
             if (a_chain_id not in chain_info_dict) or (b_chain_id not in chain_info_dict):
                 # skip, but warn
-                logger.warning(
+                logger.info(
                     f"Found covalent bond involving chains {a_chain_id} and {b_chain_id}, but at least one "
                     "chain was removed during cleaning. This is likely because the chain is made up of a "
                     "residue that is not in the pre-compiled CCD. This should automatically"
@@ -159,7 +159,7 @@ def add_bonds_from_struct_conn(
                 or (b_res_name != residue_b.res_name[0])
             ):
                 # skip, but warn
-                logger.warning(
+                logger.info(
                     f"Covalent bond involving residues {a_chain_id}:{a_seq_id}:{a_res_name} and "
                     f"{b_chain_id}:{b_seq_id}:{b_res_name} was found in `struct_conn`, but the "
                     f"residues are not present in the atom array. This is likely due to "

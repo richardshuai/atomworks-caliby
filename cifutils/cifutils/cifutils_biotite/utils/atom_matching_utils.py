@@ -79,7 +79,7 @@ def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
         except AssertionError as e:
             # deal with residues which do not yet exist in biotite's CCD
             # skip, but warn
-            logger.warning(
+            logger.info(
                 f"{e.__class__.__name__}: {e}. Trying to continue processing, but consider updating biotite's CCD."
             )
             atom_name_all.append(atom_name)

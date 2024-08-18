@@ -197,7 +197,7 @@ def add_missing_atoms_as_unresolved(
             atom_array_match_idx.append(idx)
         else:
             _failed_to_match.append(idx)
-            logger.warning(f"Atom {id} not found in `full_atom_array`!")
+            logger.info(f"Atom {id} not found in `full_atom_array`!")
 
     # ... turn arrays into np arrays
     full_atom_array_match_idx = np.array(full_atom_array_match_idx)
