@@ -1,0 +1,105 @@
+"""PyTest function to check the assignment of PN unit IDs."""
+
+import pytest
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
+import numpy as np
+
+PN_UNIT_IID_TEST_CASES = [
+    {
+        "pdb_id": "4ndz",
+        "assembly_id": "1",
+        "pn_unit_iids": ["A_1", "B_1", "C_1", "G_1,R_1", "H_1", "J_1", "Q_1", "S_1", "I_1,T_1", "U_1"],
+        "q_pn_unit_iid": "C_1",
+    },  # Covalently bonded ligands
+    {
+        "pdb_id": "4ndz",
+        "assembly_id": "2",
+        "q_pn_unit_iid": "D_1",
+        "pn_unit_iids": [
+            "D_1",
+            "E_1",
+            "F_1",
+            "K_1",
+            "L_1,W_1",
+            "M_1",
+            "N_1,Y_1",
+            "O_1",
+            "P_1",
+            "V_1",
+            "X_1",
+            "Z_1",
+        ],
+    },  # Covalently bonded ligands, query PN unit of C_1, near the center
+    {
+        "pdb_id": "4ndz",
+        "assembly_id": "1",
+        "q_pn_unit_iid": "Q_1",
+        "pn_unit_iids": ["A_1", "B_1", "C_1", "G_1,R_1", "H_1", "I_1,T_1", "J_1", "Q_1", "S_1", "U_1"],
+    },  # Covalently bonded ligands, query PN unit of Q_1, off to the side
+    {
+        "pdb_id": "3ne7",
+        "assembly_id": "1",
+        "q_pn_unit_iid": "A_1",
+        "pn_unit_iids": ["A_1", "B_1", "C_1,D_1", "E_1", "H_1"],  # NOTE: E, H, and D are AF-3 excluded ligands
+    },  # Covalently bonded ligands
+    {
+        "pdb_id": "1ivo",
+        "assembly_id": "1",
+        "q_pn_unit_iid": "A_1",
+        "pn_unit_iids": [
+            "A_1",
+            "B_1",
+            "C_1",
+            "D_1",
+            "E_1",
+            "F_1",
+            "G_1",
+            "H_1",
+            "I_1",
+            "J_1",
+            "K_1",
+            "L_1",
+            "M_1",
+        ],
+    },  # Oligosaccharides covalently bonded to residues (glycoprotein)
+    {
+        "pdb_id": "1a8o",
+        "assembly_id": "1",
+        "q_pn_unit_iid": "A_1",
+        "pn_unit_iids": ["A_1", "A_2"],
+    },  # Simple assembly with non-trivial symmetry
+    {
+        "pdb_id": "1rxz",
+        "assembly_id": "1",
+        "q_pn_unit_iid": "A_1",
+        "pn_unit_iids": [
+            "A_1",
+            "A_2",
+            "A_3",
+            "B_1",
+            "B_2",
+            "B_3",
+        ],  # More complex assembly with non-trivial symmetry
+    },
+]
+
+
+@pytest.mark.parametrize("test_case", PN_UNIT_IID_TEST_CASES)
+def test_identifiers(test_case):
+    path = get_digs_path(test_case["pdb_id"])
+    result = CIF_PARSER_BIOTITE.parse(
+        filename=path,
+        build_assembly=test_case["assembly_id"],
+    )
+    atom_array = result["assemblies"][test_case["assembly_id"]][0] # Choose first model
+
+    generated_pn_unit_iids = sorted(np.unique(atom_array.pn_unit_iid.astype(str)))
+    reference_pn_unit_iids = sorted(test_case["pn_unit_iids"])
+
+    assert (
+        generated_pn_unit_iids == reference_pn_unit_iids
+    ), f"Generated PN unit instance IDs do not match reference PN unit IIDs for PDB ID {test_case['pdb_id']} and assembly_id {test_case['assembly_id']}."
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-x", "--log-cli-level=WARNING", __file__])

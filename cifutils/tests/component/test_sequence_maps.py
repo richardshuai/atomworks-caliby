@@ -1,8 +1,8 @@
 import pytest
+from cifutils.cifutils_biotite.utils.sequence_utils import get_1_from_3_letter_code
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
-from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
+from cifutils.cifutils_biotite.utils.sequence_utils import (
     get_3_from_1_letter_code,
-    get_1_from_3_letter_code,
 )
 import numpy as np
 import re
