@@ -100,6 +100,57 @@ def test_identifiers(test_case):
         generated_pn_unit_iids == reference_pn_unit_iids
     ), f"Generated PN unit instance IDs do not match reference PN unit IIDs for PDB ID {test_case['pdb_id']} and assembly_id {test_case['assembly_id']}."
 
+MOLECULE_TEST_CASES = [
+    {
+        "pdb_id": "1ivo",
+        "num_molecules": 4,
+        "chain_iid_combinations": [
+            ["A_1", "E_1", "F_1", "G_1", "H_1", "I_1", "J_1"],
+            ["B_1", "K_1", "L_1", "M_1"],
+            ["C_1"],
+            ["D_1"],
+        ],
+    },
+    {
+        "pdb_id": "4js1",
+        "num_molecules": 2,
+        "chain_iid_combinations": [
+            ["A_1", "B_1"],
+            ["C_1"],
+        ],
+    },
+]
+
+
+@pytest.mark.parametrize("test_case", MOLECULE_TEST_CASES)
+def test_add_molecule_annotation(test_case: dict):
+    path = get_digs_path(test_case["pdb_id"])
+    result = CIF_PARSER_BIOTITE.parse(
+        filename=path,
+        build_assembly=test_case["assembly_id"],
+    )
+
+    atom_array = result["assemblies"]["1"][0] # Choose first model
+
+    # Ensure that the number of molecules is correct
+    assert len(np.unique(atom_array.molecule_iid)) == test_case["num_molecules"]
+
+    # Ensure that the pn_unit_iid combinations are correct
+    for chain_iid_combination in test_case["chain_iid_combinations"]:
+        # Create the mask once and reuse it
+        mask = np.isin(atom_array.chain_iid, chain_iid_combination)
+
+        # Select atoms belonging to the molecule
+        molecule_atoms = atom_array[mask]
+
+        # Ensure that the molecule atoms have the same molecule id
+        assert len(np.unique(molecule_atoms.molecule_iid)) == 1
+
+        # Ensure no other atoms have the same molecule id
+        unique_molecule_iid = np.unique(molecule_atoms.molecule_iid)[0]
+        other_atoms = atom_array[~mask]
+        assert not np.any(other_atoms.molecule_iid == unique_molecule_iid)
+
 
 if __name__ == "__main__":
     pytest.main(["-v", "-x", "--log-cli-level=WARNING", __file__])
