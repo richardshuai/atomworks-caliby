@@ -2,6 +2,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import Any
 import numpy as np
+from toolz import reduce
 
 
 def exists(obj: Any) -> bool:
@@ -19,3 +20,11 @@ def deduplicate_iterator(iterator):
 
 def to_hashable(element):
     return element if isinstance(element, (int, str, np.integer, np.str_)) else tuple(element)
+
+
+def sum_string_arrays(*objs: np.ndarray | str) -> np.ndarray:
+    """
+    Sum a list of string arrays / strings into a single string array by concatenating them and
+    determining the shortest string length to set as dtype.
+    """
+    return reduce(np.char.add, objs).astype(object).astype(str)

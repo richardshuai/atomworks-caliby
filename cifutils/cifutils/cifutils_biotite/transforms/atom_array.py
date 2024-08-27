@@ -23,6 +23,7 @@ from cifutils.cifutils_biotite.utils.bond_utils import (
 from cifutils.cifutils_biotite.common import exists, deduplicate_iterator
 from cifutils.cifutils_biotite.enums import ChainType
 from cifutils.cifutils_biotite.utils.selection_utils import annot_start_stop_idxs
+from cifutils.cifutils_biotite.common import sum_string_arrays
 
 logger = logging.getLogger(__name__)
 
@@ -439,9 +440,10 @@ def annotate_entities(
 def add_chain_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack:
     """Adds the chain instance ID (chain_iid) annotation to the AtomArrayStack"""
     # ...concatenate chain_id and transformation_id to create a unique chain instance ID
-    chain_iid = np.char.add(
-        np.char.add(atom_array_stack.chain_id.astype("<U4"), "_"),
-        atom_array_stack.transformation_id.astype("<U3"),
+    chain_iid = sum_string_arrays(
+        atom_array_stack.chain_id,
+        "_",
+        atom_array_stack.transformation_id,
     )
     atom_array_stack.set_annotation("chain_iid", chain_iid)
     return atom_array_stack
@@ -450,11 +452,12 @@ def add_chain_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack
 def add_pn_unit_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack:
     """Adds the polymer/non-polymer unit instance ID (pn_unit_iid) annotation to the AtomArrayStack."""
     # ...create an array that concatenates the pn_unit_id and transformation_id
-    pn_unit_iid = np.char.add(
-        np.char.add(atom_array_stack.pn_unit_id.astype("<U20"), "_"),
-        atom_array_stack.transformation_id.astype("<U3"),
-    ).astype("<U30")
-    atom_array_stack.set_annotation("pn_unit_iid", pn_unit_iid)
+    # TODO: Make string dynamically resize its length to fit the data
+    _temp_pn_unit_iid = sum_string_arrays(atom_array_stack.pn_unit_id, "_", atom_array_stack.transformation_id).astype(
+        "<U30"
+    )
+
+    atom_array_stack.set_annotation("pn_unit_iid", _temp_pn_unit_iid)
 
     # ...iterate through unique pn_unit_iids
     # (We implicitly assume that a given pn_unit_id will have the same transformation_id across all atoms in the unit)
