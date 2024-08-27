@@ -70,8 +70,14 @@ def test_caching(pdb_id: str, tmp_path):
     # Assert that the assembly data is the same
     annotations_to_compare = ["chain_id", "res_name", "res_id", "atom_name", "chain_iid", "pn_unit_id", "pn_unit_iid"]
     for assembly_id in normal_result["assemblies"]:
-        assert_same_atom_array(normal_result["assemblies"][assembly_id], cached_result["assemblies"][assembly_id], annotations_to_compare)
-        assert_same_atom_array(save_cache_result["assemblies"][assembly_id], cached_result["assemblies"][assembly_id], annotations_to_compare)
+        assert_same_atom_array(
+            normal_result["assemblies"][assembly_id], cached_result["assemblies"][assembly_id], annotations_to_compare
+        )
+        assert_same_atom_array(
+            save_cache_result["assemblies"][assembly_id],
+            cached_result["assemblies"][assembly_id],
+            annotations_to_compare,
+        )
 
     # Assert that the cached result is at least twice as fast as the normal result
     assert cached_elapsed_time < normal_elapsed_time / 2

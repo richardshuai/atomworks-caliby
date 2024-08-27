@@ -1,7 +1,13 @@
 from cifutils.cifutils_biotite.utils.io_utils import logger
 
 
-from Bio.Data.PDBData import nucleic_letters_3to1, nucleic_letters_3to1_extended, protein_letters_1to3, protein_letters_3to1, protein_letters_3to1_extended
+from Bio.Data.PDBData import (
+    nucleic_letters_3to1,
+    nucleic_letters_3to1_extended,
+    protein_letters_1to3,
+    protein_letters_3to1,
+    protein_letters_3to1_extended,
+)
 
 
 def get_1_from_3_letter_code(

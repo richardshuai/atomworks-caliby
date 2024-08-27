@@ -5,8 +5,11 @@ Utility functions for computing bioassemblies based on rototranslations of the a
 import biotite.structure.io.pdbx as pdbx
 from biotite.structure.io.pdbx import CIFCategory
 from biotite.structure import AtomArrayStack
-from typing import Literal, Any
-from cifutils.cifutils_biotite.transforms.atom_array import maybe_patch_non_polymer_at_symmetry_center, add_iid_annotations_to_assemblies
+from typing import Literal
+from cifutils.cifutils_biotite.transforms.atom_array import (
+    maybe_patch_non_polymer_at_symmetry_center,
+    add_iid_annotations_to_assemblies,
+)
 import numpy as np
 from biotite.structure.atoms import repeat
 
@@ -142,9 +145,10 @@ def _build_bioassembly_from_asym_unit(
 
     return assemblies
 
+
 def process_assemblies(
-    assembly_gen_category: CIFCategory, 
-    struct_oper_category: CIFCategory, 
+    assembly_gen_category: CIFCategory,
+    struct_oper_category: CIFCategory,
     atom_array_stack: AtomArrayStack,
     patch_symmetry_centers: bool,
     build_assembly: Literal["all", "first"] | list[str] = "first",
@@ -176,5 +180,5 @@ def process_assemblies(
     if patch_symmetry_centers and len(assemblies) > 0:
         for idx, assembly in assemblies.items():
             assemblies[idx] = maybe_patch_non_polymer_at_symmetry_center(assembly)
-    
+
     return assemblies

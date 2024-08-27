@@ -13,11 +13,14 @@ import numpy as np
 
 # General Enum tests
 
+
 def test_chain_type_to_int():
     assert ChainType.DNA.value == 3
 
+
 def test_chain_type_from_int():
     assert ChainType(3) == ChainType.DNA
+
 
 def test_chain_type_from_string():
     assert ChainType.from_string("polydeoxyribonucleotide") == ChainType.DNA
@@ -30,10 +33,12 @@ def test_chain_type_from_string():
 def test_chain_type_get_chain_type_strings():
     assert "polydeoxyribonucleotide" in ChainType.get_chain_type_strings()
 
+
 def test_chain_type_equality():
     assert ChainType.DNA == ChainType(3)
     assert ChainType.DNA == 3
     assert ChainType.DNA == "polydeoxyribonucleotide"
+
 
 CHAIN_TYPE_TEST_CASES = [
     {
@@ -88,6 +93,7 @@ CHAIN_TYPE_TEST_CASES = [
     },
 ]
 
+
 @pytest.mark.parametrize("test_case", CHAIN_TYPE_TEST_CASES)
 def test_chain_types(test_case: dict[str, Any]):
     path = get_digs_path(test_case["pdb_id"])
@@ -96,12 +102,12 @@ def test_chain_types(test_case: dict[str, Any]):
         build_assembly="all",
     )
 
-    atom_array = result["assemblies"]["1"][0] # Choose first model
+    atom_array = result["assemblies"]["1"][0]  # Choose first model
     for pn_unit_id in np.unique(atom_array.pn_unit_id):
         pn_unit_atom_array = atom_array[atom_array.pn_unit_id == pn_unit_id]
         # ...check if all chains in a PN unit have the same type
         assert np.unique(pn_unit_atom_array.chain_type).size == 1
 
         # ...check that the type matches the expected type for chains that we care about
-        if pn_unit_id.astype(str) in test_case["chain_types"]: 
+        if pn_unit_id.astype(str) in test_case["chain_types"]:
             assert ChainType(pn_unit_atom_array.chain_type[0]) == test_case["chain_types"][pn_unit_id.astype(str)]

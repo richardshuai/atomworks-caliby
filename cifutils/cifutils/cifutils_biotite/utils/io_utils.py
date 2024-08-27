@@ -14,6 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def load_structure(cif_block: CIFBlock, common_extra_fields: list, assume_residues_all_resolved: bool, model: int):
     """
     Load example structure into Biotite's AtomArrayStack using the specified fields and assumptions.

@@ -40,5 +40,4 @@ def test_prior_bugs(pdb_id: str):
 
 
 if __name__ == "__main__":
-    # pytest.main([__file__])
-    test_prior_bugs("5ocm")
+    pytest.main([__file__])

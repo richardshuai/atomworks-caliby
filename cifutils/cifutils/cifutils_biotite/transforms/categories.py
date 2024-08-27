@@ -282,7 +282,9 @@ def load_monomer_sequence_information_from_category(
             chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
             chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)
 
-        chain_info_dict[chain_id]["has_sequence_heterogeneity"] = str(rcsb_entity) in entities_with_sequence_heterogeneity
+        chain_info_dict[chain_id]["has_sequence_heterogeneity"] = (
+            str(rcsb_entity) in entities_with_sequence_heterogeneity
+        )
 
     # Remove entries from chain_info_dict that have no residues
     chain_info_dict = {

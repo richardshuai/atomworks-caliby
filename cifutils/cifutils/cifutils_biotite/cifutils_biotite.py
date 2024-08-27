@@ -293,7 +293,7 @@ class CIFParser:
                 assume_residues_all_resolved,
                 model=1,
             )
-        
+
         # ...ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
         if not isinstance(atom_array_stack, AtomArrayStack):
             atom_array_stack = struc.stack([atom_array_stack])
@@ -387,7 +387,7 @@ class CIFParser:
                     data_by_residue=self._data_by_residue,
                 )
 
-                # ...update the AtomArray bondlist 
+                # ...update the AtomArray bondlist
                 atom_array = add_bonds_to_bondlist_and_remove_leaving_atoms(
                     cif_block=data_dict["cif_block"],
                     atom_array=atom_array,

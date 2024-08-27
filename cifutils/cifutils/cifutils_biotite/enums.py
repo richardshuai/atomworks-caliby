@@ -2,10 +2,12 @@
 
 from enum import IntEnum
 
+
 class ChainType(IntEnum):
     """
     IntEnum representing the type of chain in a RCSB mmCIF file from the Protein Data Bank (PDB).
     """
+
     CYCLIC_PSEUDO_PEPTIDE = 0
     OTHER_POLYMER = 1
     PEPTIDE_NUCLEIC_ACID = 2
@@ -53,7 +55,7 @@ class ChainType(IntEnum):
                 # Could not convert the string to a ChainType
                 return False
         return NotImplemented
-    
+
     def __hash__(self):
         return hash(self.value)
 
@@ -71,6 +73,7 @@ class ChainType(IntEnum):
 
     def to_string(self) -> str:
         return ENUM_TO_CHAIN_TYPE_STRING_MAPPING[self]
+
 
 POLYMERS = [
     ChainType.POLYPEPTIDE_D,

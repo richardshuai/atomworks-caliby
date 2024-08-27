@@ -29,3 +29,4 @@ def test_mse_to_met_pdb(pdb_id: str):
         convert_mse_to_met=True,
     )
     assert result is not None  # Check if processing runs through
+

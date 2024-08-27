@@ -12,7 +12,14 @@ import logging
 from biotite.structure.io.pdbx import CIFBlock
 import networkx as nx
 from collections import defaultdict
-from cifutils.cifutils_biotite.utils.bond_utils import add_bonds_from_struct_conn, get_inter_and_intra_residue_bonds, get_coarse_graph_as_nodes_and_edges, get_connected_nodes, hash_graph
+from cifutils.cifutils_biotite.utils.bond_utils import (
+    add_bonds_from_struct_conn,
+    get_inter_and_intra_residue_bonds,
+    get_coarse_graph_as_nodes_and_edges,
+    get_connected_nodes,
+    hash_graph,
+    generate_inter_level_bond_hash,
+)
 from cifutils.cifutils_biotite.common import exists, deduplicate_iterator
 from cifutils.cifutils_biotite.enums import ChainType
 from cifutils.cifutils_biotite.utils.selection_utils import annot_start_stop_idxs
@@ -263,10 +270,11 @@ def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> Atom
 
     return atom_array
 
+
 def add_pn_unit_id_annotation(full_atom_array: AtomArray) -> AtomArray:
     """
-    Adds the polymer/non-polymer unit ID (pn_unit_id) annotation to the AtomArray. 
-    Two covalently bonded ligands are considered one PN unit, but a ligand bonded to a protein is considered two PN units. 
+    Adds the polymer/non-polymer unit ID (pn_unit_id) annotation to the AtomArray.
+    Two covalently bonded ligands are considered one PN unit, but a ligand bonded to a protein is considered two PN units.
     See the README glossary for more details on how we define `chains`, `pn_units`, and `molecules` within this codebase.
 
     Args:
@@ -292,6 +300,7 @@ def add_pn_unit_id_annotation(full_atom_array: AtomArray) -> AtomArray:
 
     return full_atom_array
 
+
 def add_molecule_id_annotation(atom_array: AtomArray) -> AtomArray:
     """Adds the molecule ID (molecule_id) annotation to the AtomArray."""
     # ...initialize the pn_unit_id to chain_id (we will later update for multi-chain non-polymer PN units)
@@ -306,36 +315,43 @@ def add_molecule_id_annotation(atom_array: AtomArray) -> AtomArray:
         molecule_id = idx
         for pn_unit_id in connected_pn_unit:
             atom_array.molecule_id[atom_array.pn_unit_id == pn_unit_id] = molecule_id
-    
+
     return atom_array
+
 
 def add_molecule_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack:
     """Adds the molecule instance ID (molecule_iid) annotation to the AtomArrayStack"""
     # ...count the number of unique molecule ID's
     num_unique_molecule_ids = len(np.unique(atom_array_stack.molecule_id))
     unique_transformation_ids = np.unique(atom_array_stack.transformation_id)
-    transformation_id_int_map = {transformation_id: idx for idx, transformation_id in enumerate(unique_transformation_ids)}
+    transformation_id_int_map = {
+        transformation_id: idx for idx, transformation_id in enumerate(unique_transformation_ids)
+    }
 
     # ...set the molecule instance ID (molecule_iid) to the molecule ID plus stride times transformation ID
     offset = np.array(list(map(transformation_id_int_map.get, atom_array_stack.transformation_id)))
     molecule_iid_arr = atom_array_stack.molecule_id + num_unique_molecule_ids * offset
     atom_array_stack.set_annotation("molecule_iid", molecule_iid_arr)
 
-    # ...sanity check
-    assert num_unique_molecule_ids * len(unique_transformation_ids) == len(np.unique(molecule_iid_arr)), "Inconsistant assignment of molecule_iids!"
-    
     return atom_array_stack
 
-def annotate_entities(atom_array: AtomArray, level: str, lower_level_id: str | list[str], lower_level_entity: str) -> tuple[AtomArray, dict]:
+
+def annotate_entities(
+    atom_array: AtomArray,
+    level: str,
+    lower_level_id: str | list[str],
+    lower_level_entity: str,
+    add_inter_level_bond_hash: bool = True,
+) -> tuple[AtomArray, dict]:
     """
     Annotates entities in an AtomArray at a given `id` level, based on the connectivity and annotations at the lower level.
 
-    The intended use is for example:
-        - For the `molecule` level, `molecule_entities` are generated for each `molecule_id` based on the connectivty 
-            at the `pn_unit` level, the `chain` level, AND the `residue` level
-        - For the `pn_unit` level, `pn_unit_entities` are generated for each `pn_unit_id` based on the connectivty 
-            at the `chain` level, the residue-level, AND the atom-level
-        - For the `chain` level, `chain_entities` are generated for each `chain_id` based on the connectivty at the `residue` 
+    The intended use is, for example:
+        - For the `molecule` level, `molecule_entities` are generated for each `molecule_id` based on the connectivty
+            at the `pn_unit` level.
+        - For the `pn_unit` level, `pn_unit_entities` are generated for each `pn_unit_id` based on the connectivty
+            at the `chain` level.
+        - For the `chain` level, `chain_entities` are generated for each `chain_id` based on the connectivty at the `residue`
             level.
 
     Args:
@@ -343,8 +359,11 @@ def annotate_entities(atom_array: AtomArray, level: str, lower_level_id: str | l
         - level (str): The level at which to annotate entities (e.g., "chain", "pn_unit", "entity")
         - lower_level_id (str | list[str]): A list of annotations to consider for determining segment boundaries at a lower level.
             E.g. "pn_unit_id", "chain_id" or "res_id".
-        - lower_level_entity (str): The annotation to use for identifying entities at the lower level. 
+        - lower_level_entity (str): The annotation to use for identifying entities at the lower level.
             E.g. "pn_unit_entity", "chain_entity" or "res_name".
+        - add_inter_level_bond_hash (bool): Whether to add a hash of the inter-level bonds to the entity hash.
+            For some cases, this may be necessary to distinguish entities (e.g., when determining molecule-level
+            entities). In others (e.g., for polymers), this may be overkill.
 
     Returns:
         - Tuple[AtomArray, dict]: A tuple containing:
@@ -353,7 +372,9 @@ def annotate_entities(atom_array: AtomArray, level: str, lower_level_id: str | l
 
     Example:
         >>> atom_array = AtomArray(...)
-        >>> entities_at_level, entities_info = annotate_entities(atom_array, level="chain", lower_level_id="res_id", lower_level_entity="res_name")
+        >>> entities_at_level, entities_info = annotate_entities(
+        ...     atom_array, level="chain", lower_level_id="res_id", lower_level_entity="res_name"
+        ... )
         >>> print(entities_at_level)
         [0, 0, 1, 1, 2, 2]
         >>> print(entities_info)
@@ -378,16 +399,29 @@ def annotate_entities(atom_array: AtomArray, level: str, lower_level_id: str | l
         instance_graph.add_edges_from(edges)
 
         # ... set node attributes to lower level entities
-        lower_level_iter = struc.resutil.segment_iter(instance, annot_start_stop_idxs(instance, lower_level_id, add_exclusive_stop=True))
-        node_attrs = {idx: lower_level_instance.get_annotation(lower_level_entity)[0] for idx, lower_level_instance in enumerate(lower_level_iter)}
+        lower_level_iter = struc.resutil.segment_iter(
+            instance, annot_start_stop_idxs(instance, lower_level_id, add_exclusive_stop=True)
+        )
+        node_attrs = {
+            idx: lower_level_instance.get_annotation(lower_level_entity)[0]
+            for idx, lower_level_instance in enumerate(lower_level_iter)
+        }
         nx.set_node_attributes(instance_graph, node_attrs, "node")
 
         # ... create the graph hash
         hash = hash_graph(instance_graph, node_attr="node")
 
+        # ... add the inter-level bond hash (only consider the first lower level id; since we hash at the atom-level, this simplication is valid)
+        if add_inter_level_bond_hash:
+            hash += generate_inter_level_bond_hash(
+                atom_array=instance,
+                lower_level_id=lower_level_id[0] if isinstance(lower_level_id, list) else lower_level_id,
+                lower_level_entity=lower_level_entity,
+            )
+
         # ... check if the graph has been seen before
         if hash in _hash_to_entity_id:
-            entity_id = _hash_to_entity_id[hash] 
+            entity_id = _hash_to_entity_id[hash]
         else:
             entity_id = _next_available_entity_id
             _hash_to_entity_id[hash] = entity_id
@@ -401,6 +435,7 @@ def annotate_entities(atom_array: AtomArray, level: str, lower_level_id: str | l
 
     return atom_array, dict(entities_info)
 
+
 def add_chain_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack:
     """Adds the chain instance ID (chain_iid) annotation to the AtomArrayStack"""
     # ...concatenate chain_id and transformation_id to create a unique chain instance ID
@@ -411,6 +446,7 @@ def add_chain_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack
     atom_array_stack.set_annotation("chain_iid", chain_iid)
     return atom_array_stack
 
+
 def add_pn_unit_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack:
     """Adds the polymer/non-polymer unit instance ID (pn_unit_iid) annotation to the AtomArrayStack."""
     # ...create an array that concatenates the pn_unit_id and transformation_id
@@ -419,7 +455,7 @@ def add_pn_unit_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArraySta
         atom_array_stack.transformation_id.astype("<U3"),
     ).astype("<U30")
     atom_array_stack.set_annotation("pn_unit_iid", pn_unit_iid)
-    
+
     # ...iterate through unique pn_unit_iids
     # (We implicitly assume that a given pn_unit_id will have the same transformation_id across all atoms in the unit)
     for pn_unit_iid in np.unique(atom_array_stack.pn_unit_iid):
@@ -429,18 +465,21 @@ def add_pn_unit_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArraySta
         pn_unit_id = pn_unit_atom_array.pn_unit_id[0].astype(str)
 
         # ...split apart the pn_unit_id by commas
-        pn_unit_ids = pn_unit_id.split(',')
+        pn_unit_ids = pn_unit_id.split(",")
 
         # ...add the transformation_id to each pn_unit_id
         pn_unit_iids = [f"{unit_id}_{transformation_id}" for unit_id in pn_unit_ids]
 
         # ...join the instance-level identifiers back into a single string
-        pn_unit_iid_formatted = ','.join(pn_unit_iids)
+        pn_unit_iid_formatted = ",".join(pn_unit_iids)
 
         # ...update the AtomArray with the instance-level identifier
-        atom_array_stack.pn_unit_iid[atom_array_stack.pn_unit_iid == pn_unit_iid] = np.array(pn_unit_iid_formatted, dtype='<U30')
+        atom_array_stack.pn_unit_iid[atom_array_stack.pn_unit_iid == pn_unit_iid] = np.array(
+            pn_unit_iid_formatted, dtype="<U30"
+        )
 
     return atom_array_stack
+
 
 def add_iid_annotations_to_assemblies(assemblies_dict: dict) -> dict:
     """Adds chain, PN unit, and molecule IIDs to assembly AtomArrayStacks."""
@@ -458,6 +497,7 @@ def add_iid_annotations_to_assemblies(assemblies_dict: dict) -> dict:
         assemblies_dict[assembly_id] = assembly
 
     return assemblies_dict
+
 
 def add_chain_type_annotation(atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
     """

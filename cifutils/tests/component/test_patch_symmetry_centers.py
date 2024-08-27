@@ -24,10 +24,7 @@ def test_patch_symmetry_centers(test_case: dict):
     # Parse the file
     filename = get_digs_path(pdbid)
     out = CIF_PARSER_BIOTITE.parse(
-        filename=filename, 
-        build_assembly="first", 
-        remove_waters=True, 
-        patch_symmetry_centers=True
+        filename=filename, build_assembly="first", remove_waters=True, patch_symmetry_centers=True
     )
     chain_iids = np.unique(out["assemblies"]["1"][0].chain_iid.astype(str)).tolist()
 
@@ -38,6 +35,7 @@ def test_patch_symmetry_centers(test_case: dict):
     assert set(chain_iids).intersection(set(test_case["chain_iids_to_include"])) == set(
         test_case["chain_iids_to_include"]
     )
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
