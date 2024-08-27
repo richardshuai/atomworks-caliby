@@ -1,5 +1,6 @@
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
+from biotite.structure import AtomArray
 
 import numpy as np
 import pytest
@@ -45,21 +46,19 @@ MOLECULE_ENTITY_TEST_CASES = [
 ]
 # fmt: on
 
-def validate_molecule_entity_annotations(parser_result: dict, test_case: dict):
-    assembly_atom_array = parser_result["assemblies"]["1"][0] # Check the first model of the first assembly
-
+def validate_molecule_entity_annotations(atom_array: AtomArray, test_case: dict):
     # Check that the number of molecule entitys is correct
-    assert len(np.unique(assembly_atom_array.molecule_entity)) == len(test_case["chains_with_same_molecule_entity"])
+    assert len(np.unique(atom_array.molecule_entity)) == len(test_case["chains_with_same_molecule_entity"])
 
     for chain_ids in test_case["chains_with_same_molecule_entity"]:
-        chains_mask = np.isin(assembly_atom_array.chain_id, chain_ids)
+        chains_mask = np.isin(atom_array.chain_id, chain_ids)
 
         # Check that the ground truth chains with the same molecule entity match the computed molecule entitys 1hge
-        assert len(np.unique(assembly_atom_array.molecule_entity[chains_mask])) == 1
+        assert len(np.unique(atom_array.molecule_entity[chains_mask])) == 1
 
         # Check that no other chains have the same molecule entity
-        molecule_entity = assembly_atom_array.molecule_entity[chains_mask][0]
-        all_chain_ids_with_chain_entity = np.unique(assembly_atom_array.chain_id[assembly_atom_array.molecule_entity == molecule_entity])
+        molecule_entity = atom_array.molecule_entity[chains_mask][0]
+        all_chain_ids_with_chain_entity = np.unique(atom_array.chain_id[atom_array.molecule_entity == molecule_entity])
         assert set(all_chain_ids_with_chain_entity) == set(chain_ids)
 
 @pytest.mark.parametrize("test_case", MOLECULE_ENTITY_TEST_CASES)
@@ -79,7 +78,8 @@ def test_add_molecule_entity_annotation(test_case: dict):
         model=None,
     )
     assert result is not None
-    validate_molecule_entity_annotations(result, test_case)
+    assembly_atom_array = result["assemblies"]["1"][0] # Check the first model of the first assembly
+    validate_molecule_entity_annotations(assembly_atom_array, test_case)
 
 def test_add_molecule_entity_annotation_on_modified_pdb():
     """
@@ -136,7 +136,6 @@ def test_add_molecule_entity_annotation_on_modified_pdb():
 
     # ...and create a new bond between atom A and atom C
     atom_array.bonds.add_bond(atom_a_index, atom_c_index)
-    result["assemblies"]["1"][0] = atom_array
 
     # manual test case
     # fmt: off
@@ -158,13 +157,12 @@ def test_add_molecule_entity_annotation_on_modified_pdb():
     }
     # fmt: on
 
-    validate_molecule_entity_annotations(result, test_case)
+    validate_molecule_entity_annotations(atom_array, test_case)
 
 ADD_CHAIN_ENTITY_TEST_CASES = [
-    {"pdb_id": "1ivo", "equivalent_chains": [["A", "B"], ["C", "D"], ["E"], ["F", "G", "H", "I", "J"]]},
+    {"pdb_id": "1ivo", "equivalent_chains": [["A", "B"], ["C", "D"], ["E"], ["F", "G", "H", "I", "J", "K", "L", "M"]]},
     # TODO: Add more test cases, including ones that were previously failing
 ]
-
 
 @pytest.mark.parametrize("test_case", ADD_CHAIN_ENTITY_TEST_CASES)
 def test_regenerate_and_add_chain_entity_annotation(test_case):
@@ -175,22 +173,22 @@ def test_regenerate_and_add_chain_entity_annotation(test_case):
     """
     path = get_digs_path(test_case["pdb_id"])
     result = CIF_PARSER_BIOTITE.parse(filename=path)
+    atom_array = result["assemblies"]["1"][0] # First model, first assembly
 
-    # Check that all equivalent chains have the same chain_entity in the chain_info dictionary
-    chain_info_dict = result["chain_info"]
     for equivalent_chains in test_case["equivalent_chains"]:
-        chain_entities = [chain_info_dict[chain_id]["entity_id"] for chain_id in equivalent_chains]
-        assert len(set(chain_entities)) == 1, f"Chains {equivalent_chains} do not have the same chain_entity"
+        chain_entity_atom_array = atom_array[np.isin(atom_array.chain_id, equivalent_chains)]
+        chain_entity = np.unique(chain_entity_atom_array.chain_entity)
+        
+        # ...check that all equivalent chains have the same chain_entity
+        assert len(chain_entity) == 1, f"Chains {equivalent_chains} do not have the same chain_entity"
+        
+        # ...that no other chains have the same chain_entity
+        other_chain_atom_array = atom_array[~np.isin(atom_array.chain_id, equivalent_chains)]
+        assert not np.any(other_chain_atom_array.chain_entity == chain_entity), f"Chains {equivalent_chains} share chain_entity with other chains"
 
-    # Check that the chain_entity annotation maps to the correct chain_id
-    atom_array = result["atom_array"]
-    for equivalent_chains in test_case["equivalent_chains"]:
-        chain_entity = chain_info_dict[equivalent_chains[0]]["entity_id"]
-        for chain_id in equivalent_chains:
-            chain_mask = atom_array.chain_id == chain_id
-            assert np.all(
-                atom_array.chain_entity[chain_mask] == chain_entity
-            ), f"Entity ID for chain {chain_id} does not match expected chain_entity"
+        # ...and that all chains with the same chain_entity have the same sequence
+        sequences = [chain_entity_atom_array[chain_entity_atom_array.chain_id == chain_id].res_name for chain_id in equivalent_chains]
+        assert all(np.array_equal(sequences[0], arr) for arr in sequences[1:]), "Sequences are not equal within an entity."
 
 if __name__ == "__main__":
     pytest.main([__file__])

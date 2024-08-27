@@ -6,8 +6,9 @@ import numpy as np
 from biotite.structure import AtomArray, Atom
 import biotite.structure as struc
 import logging
-from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
+from cifutils.cifutils_biotite.common import (
     deduplicate_iterator,
+    exists,
 )
 from functools import lru_cache
 from cifutils.cifutils_biotite.utils.atom_matching_utils import standardize_heavy_atom_ids
@@ -248,3 +249,24 @@ def add_missing_atoms_as_unresolved(
         full_atom_array = full_atom_array[full_atom_array.element != "1"]
 
     return full_atom_array
+
+
+@lru_cache(maxsize=10000)
+def get_chem_comp_type(res_name: str) -> str:
+    """
+    Get the chemical component type for a residue name from the Chemical Component Dictionary (CCD).
+    Can be combined with CHEM_TYPES from `cifutils_biotite.constants` to determine if a residue is a protein, nucleic acid, or carbohydrate.
+
+    Args:
+        res_name (str): The residue name.
+
+    Example:
+        >>> get_chem_comp_type("ALA")
+        'L-PEPTIDE LINKING'
+    """
+    chemcomp_type = struc.info.ccd.get_from_ccd("chem_comp", res_name, "type")
+    if exists(chemcomp_type):
+        return chemcomp_type[0].upper()
+    else:
+        logger.info(f"Chemical component type for `{res_name}` not found in CCD. Using 'other'.")
+        return "other".upper()

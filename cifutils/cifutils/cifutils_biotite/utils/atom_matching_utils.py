@@ -2,7 +2,7 @@
 Utility functions to support proper matching and resolution of residue atoms in a structure.
 """
 
-from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import logger
+from cifutils.cifutils_biotite.utils.io_utils import logger
 import numpy as np
 from biotite.structure.atoms import AtomArray
 from cifutils.cifutils_biotite.common import exists

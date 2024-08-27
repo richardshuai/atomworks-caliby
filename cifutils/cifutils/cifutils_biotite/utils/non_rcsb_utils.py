@@ -5,7 +5,8 @@ Such files do not follow the standard CIF format and thus may require special ha
 
 from biotite.structure import AtomArray
 import biotite.structure as struc
-from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import deduplicate_iterator, get_chem_comp_type
+from cifutils.cifutils_biotite.common import deduplicate_iterator
+from cifutils.cifutils_biotite.utils.residue_utils import get_chem_comp_type
 from cifutils.cifutils_biotite.constants import (
     AA_LIKE_CHEM_TYPES,
     POLYPEPTIDE_L_CHEM_TYPES,
@@ -43,6 +44,7 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
     Such situations may arise when the CIF file is not from the RCSB PDB database (e.g., distillation).
 
     TODO: Tests for this function
+    TODO: Re-write this function to use the ChainType IntEnum
     """
     logger.warning(
         "Could not read ChainType from CIF file, inferring from AtomArray (ensure this is the correct behavior)!"

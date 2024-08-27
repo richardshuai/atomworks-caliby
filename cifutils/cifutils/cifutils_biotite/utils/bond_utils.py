@@ -9,13 +9,34 @@ from cifutils.cifutils_biotite.common import exists
 from biotite.structure.io.pdbx import CIFBlock
 import logging
 from cifutils.cifutils_biotite.utils.atom_matching_utils import get_matching_atom
-from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
-    get_bond_type_from_order_and_is_aromatic,
-)
 from cifutils.cifutils_biotite.transforms.categories import category_to_df
+from cifutils.cifutils_biotite.common import to_hashable
 from functools import lru_cache
+import networkx as nx
 
 logger = logging.getLogger(__name__)
+
+
+def get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
+    """Get the biotite struc.BondType from the bond order and aromaticity."""
+    aromatic_bond_types = {
+        1: struc.BondType.AROMATIC_SINGLE,
+        2: struc.BondType.AROMATIC_DOUBLE,
+        3: struc.BondType.AROMATIC_TRIPLE,
+    }
+
+    non_aromatic_bond_types = {
+        1: struc.BondType.SINGLE,
+        2: struc.BondType.DOUBLE,
+        3: struc.BondType.TRIPLE,
+        4: struc.BondType.QUADRUPLE,
+    }
+
+    return (
+        aromatic_bond_types.get(order, struc.BondType.ANY)
+        if is_aromatic
+        else non_aromatic_bond_types.get(order, struc.BondType.ANY)
+    )
 
 
 def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, callable]:
@@ -274,3 +295,131 @@ def get_inter_and_intra_residue_bonds(
         return np.vstack((np.array(inter_residue_bonds), intra_residue_bonds)), leaving_atom_indices
     else:
         return intra_residue_bonds, leaving_atom_indices
+
+
+def get_coarse_graph_as_nodes_and_edges(atom_array: AtomArray, annotations: str | tuple[str]):
+    """
+    Returns the coarse-grained nodes and edges at the given annotation level based on the atom array's bond connectivity.
+
+    Args:
+        - atom_array (AtomArray): The atom array containing atomic information and bonds.
+        - annotations (str | tuple[str]): A single annotation or a tuple of annotations to be used for node 
+            identification.
+
+    Returns:
+        - nodes (np.ndarray): An array of unique nodes, each represented by a combination of annotations.
+        - edges (np.ndarray): An array of edges, where each edge is a tuple of node indices representing a bond 
+            between two nodes.
+
+    Example:
+        >>> atom_array = cached_parse("5ocm")["atom_array"]
+        >>> nodes, edges = get_coarse_graph(atom_array, ["chain_id", "transformation_id"])
+        >>> print(nodes)
+        array([('A', '1'), ('F', '1'), ('G', '1'), ('H', '1'), ('I', '1'),
+               ('W', '1'), ('X', '1'), ('Y', '1')],
+              dtype=[('chain_id', '<U4'), ('transformation_id', '<U1')])
+        >>> print(edges)
+        array([[0, 0],
+               [1, 1],
+               [2, 2],
+               [3, 3],
+               [5, 5],
+               [6, 6]])
+    """
+    annotations = [annotations] if isinstance(annotations, str) else annotations
+
+    atom1, atom2, _ = atom_array.bonds.as_array().T
+
+    if len(annotations) > 1:
+        _annots = np.zeros(len(atom_array), dtype=[(annot, atom_array.get_annotation(annot).dtype) for annot in annotations])
+        for annot in annotations:
+            _annots[annot] = atom_array.get_annotation(annot)  # [n_atoms, n_annotations]
+    else:
+        _annots = atom_array.get_annotation(annotations[0])  # [n_atoms]
+
+    annot1 = _annots[atom1]  # [n_bonds, n_annotations]
+    annot2 = _annots[atom2]  # [n_bonds, n_annotations]
+
+    nodes = np.unique(_annots, axis=0)  # [n_nodes, n_annotations]
+    self_edges = np.vstack([nodes, nodes]).T  # [n_nodes, 2]
+    edges = np.unique(np.vstack([self_edges, np.vstack([annot1, annot2]).T]), axis=0) # [n_edges, 2]
+
+    # Map nodes to integers
+    node_to_idx = {to_hashable(node): i for i, node in enumerate(nodes)}
+    if len(edges) > 0:
+        edges = np.apply_along_axis(lambda x: (node_to_idx[to_hashable(x[0])], node_to_idx[to_hashable(x[1])]), 1, edges)
+
+    return nodes, edges
+
+def get_connected_nodes(nodes: np.ndarray, edges: np.ndarray):
+    """Returns connected nodes as a mapped list given corresponding arrays of nodes and edges."""
+    # ...make the graph
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+
+    # ...return lists of connected chains
+    return list(map(lambda xs: [nodes[x] for x in xs], nx.connected_components(graph)))
+
+def hash_graph(graph: nx.Graph, node_attr: str | None = None, edge_attr: str | None = None, iterations: int = 3, digest_size: int = 16) -> str:
+    """
+    Computes a hash for a given graph using the Weisfeiler-Lehman (WL) graph hashing algorithm and additionally 
+    adds a node and edge attribute hash, if specified, to deal with common edge cases where WL fails (e.g.
+     disconnected graphs).
+
+    Args:
+        - graph (networkx.Graph): The input graph to be hashed.
+        - node_attr (str | None): The node attribute to be used for hashing. If None, node attributes are ignored.
+        - edge_attr (str | None): The edge attribute to be used for hashing. If None, edge attributes are ignored.
+        - iterations (int): The number of iterations for the WL algorithm. Default is 3.
+        - digest_size (int): The size of the hash digest for WL. Default is 16.
+
+    Returns:
+        - str: The computed hash of the graph.
+
+    Example:
+        >>> import networkx as nx
+        >>> G = nx.gnm_random_graph(10, 15)
+        >>> hash_graph(G)
+        '504894f49dd84b17c391b163af69624b'
+    """ 
+    # ... compute WL-hash
+    hash = nx.algorithms.graph_hashing.weisfeiler_lehman_graph_hash(
+        graph, node_attr=node_attr, edge_attr=edge_attr, iterations=iterations, digest_size=digest_size
+    )
+
+    if node_attr is not None:
+        # ... add number of unique nodes to hash
+        hash += f"_{len(graph.nodes)}"
+        # ... add number of unique node attributes with counts to hash
+        node_attr_dict = nx.get_node_attributes(graph, node_attr)
+        hash += "_" + ",".join([f"{elt}:{count}" for elt, count in zip(*np.unique(list(node_attr_dict.values()), return_counts=True))])
+    if edge_attr is not None:
+        # ... add number of unique edges to hash
+        hash += f"_{len(graph.edges)}"
+    return hash
+
+# def stringify_inter_level_bonds(atom_array: AtomArray, level_id) -> str:
+#     # ... add the inter-lower-level bond information to the hash
+#     bond_a = instance.get_annotation(lower_level_id)[instance.bonds.as_array()][:, 0]
+#     bond_b = instance.get_annotation(lower_level_id)[instance.bonds.as_array()][:, 1]
+#     inter_lower_level_bonds = bond_a != bond_b
+
+#     bond_atom_a = instance[inter_lower_level_bonds[:, 0]]
+#     bond_atom_b = instance[inter_lower_level_bonds[:, 1]]
+
+#     # Create the DataFrame
+#     annotations = [
+#         bond_atom_a.get_annotation(lower_level_entity), 
+#         bond_atom_b.get_annotation(lower_level_entity),
+#         bond_atom_a.res_name,
+#         bond_atom_b.res_name,
+#         bond_atom_a.atom_name,
+#         bond_atom_b.atom_name
+#     ]
+#     df = pd.DataFrame(annotations).T
+
+#     # Sort by the columns one by one
+#     df = df.sort_values(by=[0, 1, 2, 3, 4, 5])
+
+#     # Add the sorted DataFrame to the hash
+#     hash += df.to_string(index=False, header=False)

@@ -22,7 +22,7 @@ import pandas as pd
 from os import PathLike
 from pathlib import Path
 
-from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import read_cif_file, load_structure
+from cifutils.cifutils_biotite.utils.io_utils import read_cif_file, load_structure
 from cifutils.cifutils_biotite.common import exists
 from cifutils.cifutils_biotite.transforms.categories import (
     get_chain_info_from_category,
@@ -36,15 +36,19 @@ from cifutils.cifutils_biotite.transforms.atom_array import (
     resolve_arginine_naming_ambiguity,
     keep_last_residue,
     update_nonpoly_seq_ids,
-    add_bonds_to_bondlist,
+    add_bonds_to_bondlist_and_remove_leaving_atoms,
     add_polymer_annotation,
+    add_pn_unit_id_annotation,
+    add_molecule_id_annotation,
+    add_chain_type_annotation,
+    annotate_entities,
 )
 from cifutils.cifutils_biotite.utils.non_rcsb_utils import (
     load_monomer_sequence_information_from_atom_array,
     infer_chain_info_from_atom_array,
 )
 from cifutils.cifutils_biotite.utils.bond_utils import cached_bond_utils_factory
-from cifutils.cifutils_biotite.utils.assembly_utils import build_bioassembly_from_asym_unit
+from cifutils.cifutils_biotite.utils.assembly_utils import process_assemblies
 from cifutils.cifutils_biotite.utils.residue_utils import cached_residue_utils_factory, add_missing_atoms_as_unresolved
 
 import biotite.structure as struc
@@ -153,15 +157,12 @@ class CIFParser:
 
                 # Build assemblies
                 atom_array_stack = result["atom_array_stack"]
-
                 if "assembly_gen_category" in result["extra_info"]:
-                    assembly_gen_category = result["extra_info"]["assembly_gen_category"]
-                    struct_oper_category = result["extra_info"]["struct_oper_category"]
-                    assemblies = build_bioassembly_from_asym_unit(
-                        assembly_gen_category=assembly_gen_category,
-                        struct_oper_category=struct_oper_category,
+                    assemblies = process_assemblies(
+                        assembly_gen_category=result["extra_info"]["assembly_gen_category"],
+                        struct_oper_category=result["extra_info"]["struct_oper_category"],
                         atom_array_stack=atom_array_stack,
-                        assembly_ids=kwargs.get("build_assembly", "all"),
+                        build_assembly=kwargs.get("build_assembly", "all"),
                         patch_symmetry_centers=kwargs.get("patch_symmetry_centers", True),
                     )
                 else:
@@ -239,7 +240,7 @@ class CIFParser:
 
         Returns:
             dict: A dictionary containing the following keys:
-                'chain_info': A dictionary mapping chain ID to sequence, type, entity ID,
+                'chain_info': A dictionary mapping chain ID to sequence, type, RCSB entity,
                     EC number, and other information.
                 'ligand_info': A dictionary containing ligand of interest information.
                 'atom_array_stack': An AtomArrayStack instance representing the asymmetric unit.
@@ -292,14 +293,13 @@ class CIFParser:
                 assume_residues_all_resolved,
                 model=1,
             )
-
+        
         # ...ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
         if not isinstance(atom_array_stack, AtomArrayStack):
             atom_array_stack = struc.stack([atom_array_stack])
         data_dict["atom_array_stack"] = atom_array_stack
 
         # ...load chain information from the first model (uses atom_array to build chain list)
-        # NOTE: If not loading from RCSB (e.g., distillation), then the chain_info_dict will be empty
         if "entity" and "entity_poly" in data_dict["cif_block"].keys():
             # We can get the chain information directly from the CIF file
             data_dict["chain_info_dict"] = get_chain_info_from_category(
@@ -323,7 +323,7 @@ class CIFParser:
                 atom_array = atom_array[atom_array.res_name != "HOH"]
                 _ignored_res.append("HOH")  # We keep track of removed residues for bond resolution downstream
 
-            # ...replace non-polymeric chain sequence ids with author sequence ids
+            # ...replace non-polymeric chain sequence ids with author sequence ids (since the non-polymer sequence ID's are not informative)
             atom_array = update_nonpoly_seq_ids(atom_array, data_dict["chain_info_dict"])
 
             # ...remove any explicitly excluded residues (e.g., crystallization solvents)
@@ -343,7 +343,7 @@ class CIFParser:
                     known_residues=self._all_precompiled_residues(tuple(self._residues_to_remove)),
                 )
             else:
-                # Use the AtomArray as ground-truth for all residues
+                # Use the AtomArray as ground-truth for all residues (e.g., distillation sets)
                 data_dict["chain_info_dict"] = load_monomer_sequence_information_from_atom_array(
                     chain_info_dict=data_dict["chain_info_dict"],
                     atom_array=atom_array,
@@ -353,6 +353,7 @@ class CIFParser:
             atom_array = keep_last_residue(atom_array)
 
             # ...optionally, create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
+            # NOTE: If adding bonds, we must add missing atoms to ensure we can later remove leaving atoms
             if add_missing_atoms:
                 # Create cached function to build residues
                 self._build_residue_atoms = cached_residue_utils_factory(
@@ -367,6 +368,9 @@ class CIFParser:
             # ...add the is_polymer annotation to the AtomArray
             atom_array = add_polymer_annotation(atom_array, data_dict["chain_info_dict"])
 
+            # ...add the ChainType annotation to the AtomArray
+            atom_array = add_chain_type_annotation(atom_array, data_dict["chain_info_dict"])
+
             # ...optionally, resolve arginine naming ambiguity (AF3-style)
             if fix_arginines:
                 atom_array = resolve_arginine_naming_ambiguity(atom_array)
@@ -378,12 +382,13 @@ class CIFParser:
 
             # ...optionally, generate and add bonds to the atom array bond list
             if add_bonds:
-                # Create cached function to get intra-residue bonds
+                # ...create cached function to get intra-residue bonds
                 self._get_intra_residue_bonds = cached_bond_utils_factory(
                     data_by_residue=self._data_by_residue,
                 )
 
-                atom_array = add_bonds_to_bondlist(
+                # ...update the AtomArray bondlist 
+                atom_array = add_bonds_to_bondlist_and_remove_leaving_atoms(
                     cif_block=data_dict["cif_block"],
                     atom_array=atom_array,
                     chain_info_dict=data_dict["chain_info_dict"],
@@ -394,24 +399,44 @@ class CIFParser:
                     ignored_res=_ignored_res,  # needed for leaving group resolution
                 )
 
+                # ...annotate PN units
+                atom_array = add_pn_unit_id_annotation(atom_array)
+
+                # ...annotate molecules
+                atom_array = add_molecule_id_annotation(atom_array)
+
+                levels = ["chain", "pn_unit", "molecule"]
+                lower_level_ids = ["res_id", "chain_id", "pn_unit_id"]
+                lower_level_entities = ["res_name", "chain_entity", "pn_unit_entity"]
+
+                for level, lower_level_id, lower_level_entity in zip(levels, lower_level_ids, lower_level_entities):
+                    # ...annotate entities at appropriate level
+                    atom_array, _ = annotate_entities(
+                        atom_array=atom_array,
+                        level=level,
+                        lower_level_id=lower_level_id,
+                        lower_level_entity=lower_level_entity,
+                    )
+
             models.append(atom_array)
 
         # ...create an AtomArrayStack from the list of AtomArrays
         data_dict["atom_array_stack"] = struc.stack(models)
 
-        # ...optionally, build assemblies and add the transformation_id annotation (defaults to identity)
+        # ...optionally, build assemblies and add assembly-specifc annotation (instance IDs)
         if exists(build_assembly):
             if "pdbx_struct_assembly" not in data_dict["cif_block"].keys():
-                # If there are no assemblies, we just return the atom array stack as the only assembly
+                # ...if there are no assemblies, return the atom array stack as the only assembly
                 data_dict["assemblies"] = {"1": atom_array_stack}
             else:
+                # ...otherwise, build the assemblies from the CIF file, adding the `iid` annotations as we do so
                 assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
                 struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
-                data_dict["assemblies"] = build_bioassembly_from_asym_unit(
+                data_dict["assemblies"] = process_assemblies(
                     assembly_gen_category=assembly_gen_category,
                     struct_oper_category=struct_oper_category,
                     atom_array_stack=data_dict["atom_array_stack"],
-                    assembly_ids=build_assembly,
+                    build_assembly=build_assembly,
                     patch_symmetry_centers=patch_symmetry_centers,
                 )
 

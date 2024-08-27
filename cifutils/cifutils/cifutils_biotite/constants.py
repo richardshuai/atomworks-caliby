@@ -1,4 +1,4 @@
-from __future__ import annotations
+"""Constants used in the `cifutils` package."""
 
 # fmt: off
 ELEMENT_NAME_TO_ATOMIC_NUMBER = {

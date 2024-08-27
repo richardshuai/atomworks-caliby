@@ -127,10 +127,9 @@ def test_add_molecule_annotation(test_case: dict):
     path = get_digs_path(test_case["pdb_id"])
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
-        build_assembly=test_case["assembly_id"],
     )
 
-    atom_array = result["assemblies"]["1"][0] # Choose first model
+    atom_array = result["assemblies"]["1"][0] # Choose first model in the first assembly
 
     # Ensure that the number of molecules is correct
     assert len(np.unique(atom_array.molecule_iid)) == test_case["num_molecules"]

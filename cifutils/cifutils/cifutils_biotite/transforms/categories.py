@@ -11,11 +11,10 @@ import pandas as pd
 from datetime import datetime
 import toolz
 
-from cifutils.cifutils_biotite.utils.cifutils_biotite_utils import (
-    deduplicate_iterator,
+from cifutils.cifutils_biotite.utils.sequence_utils import (
     get_1_from_3_letter_code,
 )
-from cifutils.cifutils_biotite.common import exists
+from cifutils.cifutils_biotite.common import deduplicate_iterator, exists
 
 import biotite.structure as struc
 from biotite.structure.io.pdbx import CIFBlock
@@ -52,14 +51,14 @@ def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> 
 
     # Step 1: Build a mapping of chain id to entity id from the `atom_site`
     chain_ids = atom_array.get_annotation("chain_id")
-    entity_ids = atom_array.get_annotation("label_entity_id").astype(str)
-    unique_chain_entity_map = {chain_id: entity_id for chain_id, entity_id in zip(chain_ids, entity_ids)}
+    rcsb_entities = atom_array.get_annotation("label_entity_id").astype(str)
+    unique_chain_entity_map = {chain_id: rcsb_entity for chain_id, rcsb_entity in zip(chain_ids, rcsb_entities)}
 
     # Step 2: Load additional chain information
-    entity_df = category_to_df(cif_block, "entity")
-    entity_df["id"] = entity_df["id"].astype(str)
-    entity_df.rename(columns={"type": "entity_type", "pdbx_ec": "ec_numbers"}, inplace=True)
-    entity_dict = entity_df.set_index("id").to_dict(orient="index")
+    rcsb_entity_df = category_to_df(cif_block, "entity")
+    rcsb_entity_df["id"] = rcsb_entity_df["id"].astype(str)
+    rcsb_entity_df.rename(columns={"type": "entity_type", "pdbx_ec": "ec_numbers"}, inplace=True)
+    rcsb_entity_dict = rcsb_entity_df.set_index("id").to_dict(orient="index")
 
     # From `entity_poly`
     polymer_df = category_to_df(cif_block, "entity_poly")
@@ -78,16 +77,16 @@ def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> 
     polymer_dict = polymer_df.set_index("entity_id").to_dict(orient="index")
 
     # Step 3: Merge additional information into the dictionary
-    for chain_id, entity_id in unique_chain_entity_map.items():
-        chain_info = entity_dict.get(entity_id, {})
-        polymer_info = polymer_dict.get(entity_id, {})
+    for chain_id, rscb_entity in unique_chain_entity_map.items():
+        chain_info = rcsb_entity_dict.get(rscb_entity, {})
+        polymer_info = polymer_dict.get(rscb_entity, {})
         if chain_info.get("ec_numbers", "?") != "?":
             ec_numbers = [ec.strip() for ec in chain_info.get("ec_numbers", "").split(",")]
         else:
             ec_numbers = []
 
         chain_info_dict[chain_id] = {
-            "entity_id": entity_id,
+            "rcsb_entity": rscb_entity,
             "type": polymer_info.get("polymer_type", chain_info.get("entity_type", "")),
             "unprocessed_entity_canonical_sequence": polymer_info.get("canonical_sequence", "").replace("\n", ""),
             "unprocessed_entity_non_canonical_sequence": polymer_info.get("non_canonical_sequence", "").replace(
@@ -224,12 +223,12 @@ def load_monomer_sequence_information_from_category(
     # Handle polymers by using `entity_poly_seq`
     polymer_seq_df = category_to_df(cif_block, "entity_poly_seq")
     polymer_seq_df = polymer_seq_df.loc[:, ["entity_id", "num", "mon_id"]].rename(
-        columns={"num": "residue_id", "mon_id": "residue_name"}
+        columns={"entity_id": "rcsb_entity", "num": "residue_id", "mon_id": "residue_name"}
     )
 
     # Keep only the last occurrence of each residue
-    duplicates = polymer_seq_df.duplicated(subset=["entity_id", "residue_id"], keep="last")
-    entities_with_sequence_heterogeneity = polymer_seq_df[duplicates]["entity_id"].unique()
+    duplicates = polymer_seq_df.duplicated(subset=["rcsb_entity", "residue_id"], keep="last")
+    entities_with_sequence_heterogeneity = polymer_seq_df[duplicates]["rcsb_entity"].unique()
     if duplicates.any():
         logger.info("Sequence heterogeneity detected, keeping only the last occurrence of each residue.")
         polymer_seq_df = polymer_seq_df[~duplicates]
@@ -237,23 +236,23 @@ def load_monomer_sequence_information_from_category(
     # Map any polymer residues not in the precompiled CCD data to "UNK" (unknown polymer residue)
     polymer_seq_df["residue_name"] = polymer_seq_df["residue_name"].apply(lambda x: x if x in known_residues else "UNK")
 
-    # Map entity_id to lists of residue names and residue IDs
-    polymer_seq_df["entity_id"] = polymer_seq_df["entity_id"].astype(float)
+    # Map rcsb_entity to lists of residue names and residue IDs
+    polymer_seq_df["rcsb_entity"] = polymer_seq_df["rcsb_entity"].astype(float)
     polymer_entity_id_to_residue_names_and_ids = {
-        entity_id: {"residue_names": group["residue_name"].tolist(), "residue_ids": group["residue_id"].tolist()}
-        for entity_id, group in polymer_seq_df.groupby("entity_id")
+        rcsb_entity: {"residue_names": group["residue_name"].tolist(), "residue_ids": group["residue_id"].tolist()}
+        for rcsb_entity, group in polymer_seq_df.groupby("rcsb_entity")
     }
 
     # Build up the chain_info_dict with the sequence information
     for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
-        entity_id = int(chain_info_dict[chain_id]["entity_id"])
-        if entity_id in polymer_entity_id_to_residue_names_and_ids:
+        rcsb_entity = int(chain_info_dict[chain_id]["rcsb_entity"])
+        if rcsb_entity in polymer_entity_id_to_residue_names_and_ids:
             # For polymers, we use the stored entity residue list
-            residue_names = polymer_entity_id_to_residue_names_and_ids[entity_id]["residue_names"]
+            residue_names = polymer_entity_id_to_residue_names_and_ids[rcsb_entity]["residue_names"]
             chain_type = chain_info_dict[chain_id]["type"]
             if residue_names:
                 chain_info_dict[chain_id]["residue_name_list"] = residue_names
-                chain_info_dict[chain_id]["residue_id_list"] = polymer_entity_id_to_residue_names_and_ids[entity_id][
+                chain_info_dict[chain_id]["residue_id_list"] = polymer_entity_id_to_residue_names_and_ids[rcsb_entity][
                     "residue_ids"
                 ]
 
@@ -283,7 +282,7 @@ def load_monomer_sequence_information_from_category(
             chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
             chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)
 
-        chain_info_dict[chain_id]["has_sequence_heterogeneity"] = str(entity_id) in entities_with_sequence_heterogeneity
+        chain_info_dict[chain_id]["has_sequence_heterogeneity"] = str(rcsb_entity) in entities_with_sequence_heterogeneity
 
     # Remove entries from chain_info_dict that have no residues
     chain_info_dict = {

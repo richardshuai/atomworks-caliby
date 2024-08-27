@@ -5,8 +5,8 @@ Utility functions for computing bioassemblies based on rototranslations of the a
 import biotite.structure.io.pdbx as pdbx
 from biotite.structure.io.pdbx import CIFCategory
 from biotite.structure import AtomArrayStack
-from typing import Literal
-from cifutils.cifutils_biotite.transforms.atom_array import maybe_patch_non_polymer_at_symmetry_center
+from typing import Literal, Any
+from cifutils.cifutils_biotite.transforms.atom_array import maybe_patch_non_polymer_at_symmetry_center, add_iid_annotations_to_assemblies
 import numpy as np
 from biotite.structure.atoms import repeat
 
@@ -77,12 +77,11 @@ def _apply_assembly_transformation(
     return repeat(structure, coord)
 
 
-def build_bioassembly_from_asym_unit(
+def _build_bioassembly_from_asym_unit(
     assembly_gen_category: CIFCategory,
     struct_oper_category: CIFCategory,
     atom_array_stack: AtomArrayStack,
     assembly_ids: Literal["all", "first"] | list[str] = "first",
-    patch_symmetry_centers: bool = True,
 ) -> AtomArrayStack:
     """
     Build the first biological assembly found within the mmCIF file and update the `transformation_id` annotation.
@@ -141,14 +140,41 @@ def build_bioassembly_from_asym_unit(
                 # Merge the chains with asym IDs for this operation with chains from other operations
                 assemblies[_id] = assemblies[_id] + sub_assembly if _id in assemblies else sub_assembly
 
-            # Create a composite chain_id, transformation_id annotation for ease of access (named chain instance ID, e.g., chain_iid)
-            chain_iid = np.char.add(
-                np.char.add(assemblies[_id].chain_id.astype("<U20"), "_"),
-                assemblies[_id].transformation_id.astype(str),
-            )
-            assemblies[_id].set_annotation("chain_iid", chain_iid)
+    return assemblies
 
-            # For molecules with multiple transformations, we need to check for non-polymers at symmetry centers
-            if len(operations) > 1 and patch_symmetry_centers:
-                assemblies[_id] = maybe_patch_non_polymer_at_symmetry_center(assemblies[_id])
+def process_assemblies(
+    assembly_gen_category: CIFCategory, 
+    struct_oper_category: CIFCategory, 
+    atom_array_stack: AtomArrayStack,
+    patch_symmetry_centers: bool,
+    build_assembly: Literal["all", "first"] | list[str] = "first",
+) -> None:
+    """
+    Processes the assemblies from the CIF file and updates the data_dict accordingly.
+
+    Args:
+        assembly_gen_category (CIFCategory): The `pdbx_struct_assembly_gen` category from the CIF file.
+        struct_oper_category (CIFCategory): The `pdbx_struct_oper_list` category from the CIF file.
+        atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied.
+        patch_symmetry_centers (bool): Flag to indicate if symmetry centers should be patched.
+        build_assembly (str, optional): The assembly ID to build. Defaults to "first".
+
+    Returns:
+        assemblies (dict[str, AtomArrayStack]): The dictionary containing the built assemblies.
+    """
+    assemblies = _build_bioassembly_from_asym_unit(
+        assembly_gen_category=assembly_gen_category,
+        struct_oper_category=struct_oper_category,
+        atom_array_stack=atom_array_stack,
+        assembly_ids=build_assembly,
+    )
+
+    # Add instance-level (iid) annotations for chain, PN unit, and molecule
+    assemblies = add_iid_annotations_to_assemblies(assemblies)
+
+    # Optionally, patch symmetry centers for non-polymer residues that clash with themselves
+    if patch_symmetry_centers and len(assemblies) > 0:
+        for idx, assembly in assemblies.items():
+            assemblies[idx] = maybe_patch_non_polymer_at_symmetry_center(assembly)
+    
     return assemblies
