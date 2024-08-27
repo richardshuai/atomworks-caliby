@@ -145,8 +145,14 @@ class CIFParser:
             cache_dir = Path(cache_dir)
             # Make the cache directory if it doesn't exist
             cache_dir.mkdir(parents=True, exist_ok=True)
+
+            # Build the cache file path
+            assembly_info = kwargs.get("build_assembly", "all")
+            if isinstance(assembly_info, list):
+                assembly_info = ",".join(assembly_info)
+
             cache_file_path = (
-                cache_dir / f"{Path(kwargs['filename']).stem}_assembly_{kwargs.get('build_assembly', 'all')}.pkl"
+                cache_dir / f"{Path(kwargs['filename']).stem}_assembly_{assembly_info}.pkl"
             )
 
         if load_from_cache and cache_dir:
