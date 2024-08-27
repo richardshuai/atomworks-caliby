@@ -198,6 +198,21 @@ def add_bonds_from_struct_conn(
             leaving_atom_indices.append(residue_a.index[np.isin(residue_a.atom_name, atom_a.leaving_group[0])])
             leaving_atom_indices.append(residue_b.index[np.isin(residue_b.atom_name, atom_b.leaving_group[0])])
 
+            # Fix charges
+            atom_a_updates = fix_bonded_atom_charges(atom_a[0])
+            atom_a.charge, atom_a.hyb, atom_a.nhyd = (
+                np.array([atom_a_updates["charge"]]),
+                np.array([atom_a_updates["hyb"]]),
+                np.array([atom_a_updates["nhyd"]]),
+            )
+
+            atom_b_updates = fix_bonded_atom_charges(atom_b[0])
+            atom_b.charge, atom_b.hyb, atom_b.nhyd = (
+                np.array([atom_b_updates["charge"]]),
+                np.array([atom_b_updates["hyb"]]),
+                np.array([atom_b_updates["nhyd"]]),
+            )
+
     return struct_conn_bonds, leaving_atom_indices
 
 
@@ -261,6 +276,21 @@ def get_inter_and_intra_residue_bonds(
                 # Leaving group bookkeeping
                 leaving_atom_indices.append(current_res.index[np.isin(current_res.atom_name, atom_a.leaving_group[0])])
                 leaving_atom_indices.append(next_res.index[np.isin(next_res.atom_name, atom_b.leaving_group[0])])
+
+                # Fix charges
+                atom_a_updates = fix_bonded_atom_charges(atom_a[0])
+                atom_a.charge, atom_a.hyb, atom_a.nhyd = (
+                    np.array([atom_a_updates["charge"]]),
+                    np.array([atom_a_updates["hyb"]]),
+                    np.array([atom_a_updates["nhyd"]]),
+                )
+
+                atom_b_updates = fix_bonded_atom_charges(atom_b[0])
+                atom_b.charge, atom_b.hyb, atom_b.nhyd = (
+                    np.array([atom_b_updates["charge"]]),
+                    np.array([atom_b_updates["hyb"]]),
+                    np.array([atom_b_updates["nhyd"]]),
+                )
 
         # Add intra-residue bonds for the current residue
         residue_name = current_res.res_name[
@@ -465,3 +495,30 @@ def generate_inter_level_bond_hash(
         return str(hash(tuple(sorted(bond_tuples))))
     else:
         return ""
+
+
+def fix_bonded_atom_charges(atom):
+    """
+    Fix charges and hydrogen counts for cases when
+    charged a atom is connected by an inter-residue bond.
+
+    Args:
+        atom (Atom): The atom object to be modified.
+
+    Returns:
+        dict: A dictionary with updated 'charge', 'hyb', and 'nhyd' values.
+    """
+    if atom.element == 7 and atom.charge == 1 and atom.hyb == 3 and atom.nhyd == 2 and atom.hvydeg == 2:  # -(NH2+)-
+        return {"charge": 0, "hyb": 2, "nhyd": 0}
+    elif (
+        atom.element == 7 and atom.charge == 1 and atom.hyb == 3 and atom.nhyd == 3 and atom.hvydeg == 0
+    ):  # free NH3+ group
+        return {"charge": 0, "hyb": 2, "nhyd": 2}
+    elif atom.element == 8 and atom.charge == -1 and atom.hyb == 3 and atom.nhyd == 0:
+        return {"charge": 0, "hyb": atom.hyb, "nhyd": atom.nhyd}
+    elif atom.element == 8 and atom.charge == -1 and atom.hyb == 2 and atom.nhyd == 0:  # O-linked connections
+        return {"charge": 0, "hyb": atom.hyb, "nhyd": atom.nhyd}
+    elif atom.charge != 0:
+        # Additional logic for other cases if needed
+        pass
+    return {"charge": atom.charge, "hyb": atom.hyb, "nhyd": atom.nhyd}

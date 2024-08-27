@@ -31,7 +31,6 @@ def load_structure(cif_block: CIFBlock, common_extra_fields: list, assume_residu
     Reference:
         Biotite documentation (https://www.biotite-python.org/apidoc/biotite.structure.io.pdbx.get_structure.html#biotite.structure.io.pdbx.get_structure)
     """
-
     atom_array_stack = pdbx.get_structure(
         cif_block,
         extra_fields=common_extra_fields,

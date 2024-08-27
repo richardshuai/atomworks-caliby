@@ -50,6 +50,10 @@ def cached_residue_utils_factory(known_residues: list[str], data_by_residue: cal
                 res_name=residue_name,
                 atom_name=atom_name,
                 element=atom_data["element"],
+                charge=atom_data["charge"],
+                hyb=atom_data["hyb"],
+                nhyd=atom_data["nhyd"],
+                hvydeg=atom_data["hvydeg"],
                 leaving_atom_flag=atom_data["leaving_atom_flag"],
                 leaving_group=atom_data["leaving_group"],
                 is_metal=atom_data["is_metal"],
@@ -127,6 +131,10 @@ def add_missing_atoms_as_unresolved(
                         "hetero",
                         "atom_name",
                         "element",
+                        "charge",
+                        "nhyd",
+                        "hyb",
+                        "hvydeg",
                         "leaving_atom_flag",
                         "leaving_group",
                         "is_metal",
@@ -143,6 +151,12 @@ def add_missing_atoms_as_unresolved(
                     unknown_residue_atom_array.set_annotation("leaving_group", empty_lists_array)
                     unknown_residue_atom_array.add_annotation("leaving_atom_flag", dtype=bool)
                     unknown_residue_atom_array.add_annotation("is_metal", dtype=bool)
+                    unknown_residue_atom_array.add_annotation("charge", dtype=int) # NOTE: Will be removed in the future
+                    unknown_residue_atom_array.add_annotation(
+                        "hvydeg", dtype=int
+                    )  # NOTE: Will be removed in the future
+                    unknown_residue_atom_array.add_annotation("hyb", dtype=int)  # NOTE: Will be removed in the future
+                    unknown_residue_atom_array.add_annotation("nhyd", dtype=int)  # NOTE: Will be removed in the future
 
                     # ...convert element to int to match the outputs from build_residue_atoms
                     unknown_residue_atom_array.element = np.array(
