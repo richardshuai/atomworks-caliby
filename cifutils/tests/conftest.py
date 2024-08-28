@@ -5,12 +5,10 @@ from pathlib import Path
 from biotite.structure import AtomArray
 import numpy as np
 import biotite.structure as struc
-from cifutils.cifutils_biotite.cifutils_biotite import CIFParser as CIFParserBiotite
-from cifutils.cifutils_legacy.cifutils_legacy import CIFParser as CIFParserLegacy
+from cifutils.cifutils_biotite import CIFParser as CIFParserBiotite
 
 TEST_DATA_DIR = Path(os.path.dirname(__file__)) / "data"
 CIF_PARSER_BIOTITE = CIFParserBiotite()
-CIF_PARSER_LEGACY = CIFParserLegacy()
 
 
 def get_digs_path(pdbid: str) -> str:

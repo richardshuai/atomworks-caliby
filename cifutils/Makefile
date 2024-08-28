@@ -22,7 +22,6 @@ clean:
 ## Format src directory using black
 format:
 	ruff format .
-	ruff check --fix ./cifutils/cifutils_biotite
 	ruff check --fix .
 
 _biotite_access_error:
