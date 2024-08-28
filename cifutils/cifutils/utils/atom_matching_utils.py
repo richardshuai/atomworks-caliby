@@ -2,6 +2,8 @@
 Utility functions to support proper matching and resolution of residue atoms in a structure.
 """
 
+__all__ = ["get_matching_atom", "standardize_heavy_atom_ids", "get_std_alt_atom_id_conversion"]
+
 from cifutils.utils.io_utils import logger
 import numpy as np
 from biotite.structure.atoms import AtomArray
@@ -44,6 +46,25 @@ def get_matching_atom(res: AtomArray, atom_name: str, try_alt_atom_id: bool = Tr
 
 @cache
 def get_std_alt_atom_id_conversion(res_name: str) -> dict:
+    """
+    Get a mapping from standard atom IDs to alternative atom IDs for a given residue name.
+
+    NOTE:
+     - This is a cached function, so the biotite CCD database is only queried once per residue name.
+     - This function requires the IPD's 'in-house' version of biotite, since the `alt_atom_id` field
+       is not available in the standard biotite package (as of v0.41.0, date 2024-06-30)
+     - This function is used for backwards compatibility with older encodings (RF2AA_ATOM36_ENCODING),
+       where the alternative atom names were used instead of the standard atom names for hydrogens.
+       It should not be used for new code.
+
+    Args:
+        res_name (str): The 3-letter residue name (must be in the biotite CCD database).
+
+    Returns:
+        dict: A dictionary with the following keys:
+            - `std_to_alt`: A mapping from standard atom IDs to alternative atom IDs.
+            - `alt_to_std`: A mapping from alternative atom IDs to standard atom IDs.
+    """
     std_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "atom_id")
     alt_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "alt_atom_id")
 

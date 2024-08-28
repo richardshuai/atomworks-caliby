@@ -88,9 +88,6 @@ POLYMERS = [
 PROTEINS = [ChainType.POLYPEPTIDE_D, ChainType.POLYPEPTIDE_L, ChainType.CYCLIC_PSEUDO_PEPTIDE]
 NUCLEIC_ACIDS = [ChainType.DNA, ChainType.RNA, ChainType.DNA_RNA_HYBRID]
 
-# At the time of writing, the supported chain types are: NON_POLYMER, POLYPEPTIDE_L, DNA, RNA
-SUPPORTED_CHAIN_TYPES = [ChainType.NON_POLYMER, ChainType.POLYPEPTIDE_L, ChainType.DNA, ChainType.RNA]
-
 # Define a mapping from chain_type strings to ChainType enums
 # Entity types found at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity.type.html
 # Polymer types found at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v5_next.dic/Items/_entity_poly.type.html

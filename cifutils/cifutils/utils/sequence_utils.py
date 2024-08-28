@@ -1,6 +1,14 @@
+"""Utility functions for working with monomer sequences."""
+
+__all__ = [
+    "get_1_from_3_letter_code",
+    "get_3_from_1_letter_code",
+    "protein_letters_1to3_bytes",
+    "rna_letters_1to3_bytes",
+    "dna_letters_1to3_bytes",
+]
+
 from cifutils.utils.io_utils import logger
-
-
 from Bio.Data.PDBData import (
     nucleic_letters_3to1,
     nucleic_letters_3to1_extended,

@@ -2,6 +2,12 @@
 Utility functions to handle creation and manipulation of residues.
 """
 
+__all__ = [
+    "cached_residue_utils_factory",
+    "add_missing_atoms_as_unresolved",
+    "get_chem_comp_type",
+]
+
 import numpy as np
 from biotite.structure import AtomArray, Atom
 import biotite.structure as struc

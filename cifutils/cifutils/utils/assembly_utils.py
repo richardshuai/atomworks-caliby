@@ -2,6 +2,8 @@
 Utility functions for computing bioassemblies based on rototranslations of the asymmetric unit.
 """
 
+__all__ = ["process_assemblies"]
+
 import biotite.structure.io.pdbx as pdbx
 from biotite.structure.io.pdbx import CIFCategory
 from biotite.structure import AtomArrayStack

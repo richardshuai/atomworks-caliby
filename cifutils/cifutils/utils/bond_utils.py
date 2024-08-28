@@ -2,6 +2,16 @@
 Utility functions for the detection, and creation, of bonds in a structure.
 """
 
+__all__ = [
+    "cached_bond_utils_factory",
+    "add_bonds_from_struct_conn",
+    "get_inter_and_intra_residue_bonds",
+    "get_coarse_graph_as_nodes_and_edges",
+    "get_connected_nodes",
+    "hash_graph",
+    "generate_inter_level_bond_hash",
+]
+
 import numpy as np
 from biotite.structure import AtomArray
 import biotite.structure as struc
@@ -17,7 +27,7 @@ import networkx as nx
 logger = logging.getLogger(__name__)
 
 
-def get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
+def _get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
     """Get the biotite struc.BondType from the bond order and aromaticity."""
     aromatic_bond_types = {
         1: struc.BondType.AROMATIC_SINGLE,
@@ -84,7 +94,7 @@ def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, call
         for bond in residue_data["intra_residue_bonds"]:
             atom_a_index = atom_id_to_index[bond["atom_a_id"]]
             atom_b_index = atom_id_to_index[bond["atom_b_id"]]
-            bond_type = get_bond_type_from_order_and_is_aromatic(bond["order"], bond["is_aromatic"])
+            bond_type = _get_bond_type_from_order_and_is_aromatic(bond["order"], bond["is_aromatic"])
             atom_a_indices.append(atom_a_index)
             atom_b_indices.append(atom_b_index)
             bond_types.append(bond_type)

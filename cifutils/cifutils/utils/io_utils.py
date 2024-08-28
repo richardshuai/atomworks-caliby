@@ -2,7 +2,8 @@
 General utility functions for working with CIF files in Biotite.
 """
 
-from __future__ import annotations
+__all__ = ["load_structure", "read_cif_file"]
+
 import gzip
 import numpy as np
 from pathlib import Path

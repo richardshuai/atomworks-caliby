@@ -3,6 +3,8 @@ Utility functions for handling non-RCSB CIF files.
 Such files do not follow the standard CIF format and thus may require special handling.
 """
 
+__all__ = ["load_monomer_sequence_information_from_atom_array", "infer_chain_info_from_atom_array"]
+
 from biotite.structure import AtomArray
 import biotite.structure as struc
 from cifutils.common import deduplicate_iterator
