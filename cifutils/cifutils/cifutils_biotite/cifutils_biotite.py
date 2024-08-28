@@ -156,27 +156,31 @@ class CIFParser:
             )
 
         if load_from_cache and cache_dir:
-            # Load from cache
-            if cache_file_path.exists():
-                # Load the result from the cache
-                result = pd.read_pickle(cache_file_path)
+            try:
+                # Try to load the result from the cache
+                if cache_file_path.exists():
+                    # Load the result from the cache
+                    result = pd.read_pickle(cache_file_path)
 
-                # Build assemblies
-                atom_array_stack = result["atom_array_stack"]
-                if "assembly_gen_category" in result["extra_info"]:
-                    assemblies = process_assemblies(
-                        assembly_gen_category=result["extra_info"]["assembly_gen_category"],
-                        struct_oper_category=result["extra_info"]["struct_oper_category"],
-                        atom_array_stack=atom_array_stack,
-                        build_assembly=kwargs.get("build_assembly", "all"),
-                        patch_symmetry_centers=kwargs.get("patch_symmetry_centers", True),
-                    )
-                else:
-                    assemblies = atom_array_stack
+                    # Build assemblies
+                    atom_array_stack = result["atom_array_stack"]
+                    if "assembly_gen_category" in result["extra_info"]:
+                        assemblies = process_assemblies(
+                            assembly_gen_category=result["extra_info"]["assembly_gen_category"],
+                            struct_oper_category=result["extra_info"]["struct_oper_category"],
+                            atom_array_stack=atom_array_stack,
+                            build_assembly=kwargs.get("build_assembly", "all"),
+                            patch_symmetry_centers=kwargs.get("patch_symmetry_centers", True),
+                        )
+                    else:
+                        assemblies = atom_array_stack
 
-                # Return updated result
-                result["assemblies"] = assemblies
-                return result
+                    # Return updated result
+                    result["assemblies"] = assemblies
+                    return result
+            except Exception as e:
+                # Log an error, and continue to parse from CIF
+                logger.error(f"Error loading from cache: {e}")
 
         # Parse from CIF
         result = self.parse_from_cif(save_to_cache=save_to_cache, **kwargs)
