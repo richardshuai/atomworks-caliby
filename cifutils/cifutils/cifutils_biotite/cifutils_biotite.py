@@ -151,9 +151,7 @@ class CIFParser:
             if isinstance(assembly_info, list):
                 assembly_info = ",".join(assembly_info)
 
-            cache_file_path = (
-                cache_dir / f"{Path(kwargs['filename']).stem}_assembly_{assembly_info}.pkl"
-            )
+            cache_file_path = cache_dir / f"{Path(kwargs['filename']).stem}_assembly_{assembly_info}.pkl"
 
         if load_from_cache and cache_dir:
             try:

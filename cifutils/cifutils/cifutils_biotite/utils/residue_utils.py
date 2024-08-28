@@ -151,7 +151,9 @@ def add_missing_atoms_as_unresolved(
                     unknown_residue_atom_array.set_annotation("leaving_group", empty_lists_array)
                     unknown_residue_atom_array.add_annotation("leaving_atom_flag", dtype=bool)
                     unknown_residue_atom_array.add_annotation("is_metal", dtype=bool)
-                    unknown_residue_atom_array.add_annotation("charge", dtype=int) # NOTE: Will be removed in the future
+                    unknown_residue_atom_array.add_annotation(
+                        "charge", dtype=int
+                    )  # NOTE: Will be removed in the future
                     unknown_residue_atom_array.add_annotation(
                         "hvydeg", dtype=int
                     )  # NOTE: Will be removed in the future
