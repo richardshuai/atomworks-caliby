@@ -285,8 +285,7 @@ def add_pn_unit_id_annotation(full_atom_array: AtomArray) -> AtomArray:
         full_atom_array (AtomArray): The AtomArray including the `pn_unit_id` annotation.
     """
     # ...initialize the pn_unit_id to chain_id (we will later update for multi-chain non-polymer PN units)
-    full_atom_array.add_annotation("pn_unit_id", dtype="<U20")
-    full_atom_array.pn_unit_id = full_atom_array.chain_id
+    pn_unit_id_annotation = full_atom_array.chain_id.astype(object)
 
     # ...make the NetworkX graph for non-polymer chains
     non_polymer_atom_array = full_atom_array[~full_atom_array.is_polymer]
@@ -295,9 +294,10 @@ def add_pn_unit_id_annotation(full_atom_array: AtomArray) -> AtomArray:
     for connected_chain in connected_chains:
         # ...set the same the pn_unit_id for each chain in the connected chain
         pn_unit_id = ",".join(sorted(connected_chain))
-        assert len(pn_unit_id) < 20, f"pn_unit_id exceeds 20 characters: {pn_unit_id}"
         for chain_id in connected_chain:
-            full_atom_array.pn_unit_id[full_atom_array.chain_id == chain_id] = np.array(pn_unit_id, dtype="<U20")
+            pn_unit_id_annotation[full_atom_array.chain_id == chain_id] = pn_unit_id
+
+    full_atom_array.set_annotation("pn_unit_id", pn_unit_id_annotation.astype(str))
 
     return full_atom_array
 
@@ -452,17 +452,13 @@ def add_chain_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack
 def add_pn_unit_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack:
     """Adds the polymer/non-polymer unit instance ID (pn_unit_iid) annotation to the AtomArrayStack."""
     # ...create an array that concatenates the pn_unit_id and transformation_id
-    # TODO: Make string dynamically resize its length to fit the data
-    _temp_pn_unit_iid = sum_string_arrays(atom_array_stack.pn_unit_id, "_", atom_array_stack.transformation_id).astype(
-        "<U30"
-    )
-
-    atom_array_stack.set_annotation("pn_unit_iid", _temp_pn_unit_iid)
+    _temp_pn_unit_iid = sum_string_arrays(atom_array_stack.pn_unit_id, "_", atom_array_stack.transformation_id)
+    _final_pn_unit_iid = np.full(len(atom_array_stack[0]), fill_value="", dtype=object)
 
     # ...iterate through unique pn_unit_iids
     # (We implicitly assume that a given pn_unit_id will have the same transformation_id across all atoms in the unit)
-    for pn_unit_iid in np.unique(atom_array_stack.pn_unit_iid):
-        pn_unit_atom_array = atom_array_stack[:, atom_array_stack.pn_unit_iid == pn_unit_iid]
+    for pn_unit_iid in np.unique(_temp_pn_unit_iid):
+        pn_unit_atom_array = atom_array_stack[:, _temp_pn_unit_iid == pn_unit_iid]
         # ...get the transformation_id and pn_unit_id (which is the same for all atoms in the unit)
         transformation_id = pn_unit_atom_array.transformation_id[0]
         pn_unit_id = pn_unit_atom_array.pn_unit_id[0].astype(str)
@@ -477,9 +473,9 @@ def add_pn_unit_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArraySta
         pn_unit_iid_formatted = ",".join(pn_unit_iids)
 
         # ...update the AtomArray with the instance-level identifier
-        atom_array_stack.pn_unit_iid[atom_array_stack.pn_unit_iid == pn_unit_iid] = np.array(
-            pn_unit_iid_formatted, dtype="<U30"
-        )
+        _final_pn_unit_iid[_temp_pn_unit_iid == pn_unit_iid] = pn_unit_iid_formatted
+
+    atom_array_stack.set_annotation("pn_unit_iid", _final_pn_unit_iid.astype(str))
 
     return atom_array_stack
 
