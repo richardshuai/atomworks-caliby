@@ -8,8 +8,7 @@ from os import PathLike
 
 import fire
 import pandas as pd
-
-from data.data_constants import ChainType
+from cifutils.enums import ChainType
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +60,11 @@ def add_pn_unit_cluster_column(
 
     df["cluster"] = df.apply(
         lambda x: x[f"{pn_unit_prefix}{cluster_choice_suffixes['peptide']}"]
-        if ChainType.from_int(x[q_pn_unit_type_col]).is_protein() and x[q_pn_unit_sequence_length_col] < 10
+        if ChainType(x[q_pn_unit_type_col]).is_protein() and x[q_pn_unit_sequence_length_col] < 10
         else x[f"{pn_unit_prefix}{cluster_choice_suffixes['protein']}"]
-        if ChainType.from_int(x[q_pn_unit_type_col]).is_protein()
+        if ChainType(x[q_pn_unit_type_col]).is_protein()
         else x[f"{pn_unit_prefix}{cluster_choice_suffixes['nucleic_acid']}"]
-        if ChainType.from_int(x[q_pn_unit_type_col]).is_nucleic_acid()
+        if ChainType(x[q_pn_unit_type_col]).is_nucleic_acid()
         else x[f"{pn_unit_prefix}{cluster_choice_suffixes['ligand']}"],
         axis=1,
     )

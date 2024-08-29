@@ -7,7 +7,49 @@ import pytest
 from data.scripts.generate_interfaces_df import generate_interfaces_df
 from data.scripts.generate_pn_units_df import generate_pn_units_df
 from data.scripts.process_pdbs import run_pipeline as process_pdb
-from data.tests.test_cases import PDB_PROCESSING_TEST_CASES
+
+PDB_PROCESSING_TEST_CASES = [
+    {
+        # Protein-ligand with LOI
+        "pdb_id": "6wjc",
+        "require_matching_interfaces": True,  # Whether we are enumerating all interfaces in `expected_interfaces` or only relevant ones
+        "num_pn_units": 8,
+        "expected_interfaces": [
+            # Protein-protein
+            {"pn_unit_1": "A_1", "pn_unit_2": "B_1"},
+            # Protein-ligand
+            {"pn_unit_1": "A_1", "pn_unit_2": "C_1", "involves_covalent_modification": True},
+            {"pn_unit_1": "A_1", "pn_unit_2": "D_1", "involves_loi": True},
+            {"pn_unit_1": "A_1", "pn_unit_2": "E_1", "involves_loi": True},
+            {"pn_unit_1": "A_1", "pn_unit_2": "F_1", "involves_loi": True},
+            {"pn_unit_1": "A_1", "pn_unit_2": "G_1", "involves_loi": True},
+            {"pn_unit_1": "A_1", "pn_unit_2": "H_1", "involves_loi": True},
+            # Ligand-ligand
+            {"pn_unit_1": "F_1", "pn_unit_2": "G_1", "involves_loi": True},
+        ],
+    },
+    {
+        # Covalent modifications
+        "pdb_id": "1ivo",
+        "require_matching_interfaces": False,
+        "num_pn_units": 13,
+        "expected_interfaces": [
+            {"pn_unit_1": "A_1", "pn_unit_2": "B_1"},
+            {"pn_unit_1": "B_1", "pn_unit_2": "K_1", "involves_covalent_modification": True},
+            {"pn_unit_1": "A_1", "pn_unit_2": "J_1", "involves_covalent_modification": True},
+        ],
+    },
+    {
+        # Homomeric symmetry
+        "pdb_id": "1a8o",
+        "require_matching_interfaces": True,
+        "num_pn_units": 2,
+        "expected_interfaces": [
+            {"pn_unit_1": "A_1", "pn_unit_2": "A_2"},
+        ],
+    },
+    # TODO: Add additional test cases, including clashes, DNA, RNA, multi-chain ligands, etc.
+]
 
 
 # Define a fixture for the temporary directory
@@ -102,11 +144,9 @@ def validate_interfaces_dataframe(interfaces_df, test_cases):
                 interface_df["involves_metal"].iloc[0] == involves_metal
             ), f"{pdb_id}: Metal involvement for interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} is incorrect"
 
-            # Assert that contacting_pn_unit_iids is a subset of close_pn_unit_iids, which in turn is a subset of all_pn_unit_iids
+            # Assert that contacting_pn_unit_iids is a subset of close_pn_unit_iids
             assert (
-                set(interface_df["contacting_pn_unit_iids"].iloc[0])
-                <= set(interface_df["close_pn_unit_iids"].iloc[0])
-                <= set(interface_df["all_pn_unit_iids"].iloc[0])
+                set(interface_df["contacting_pn_unit_iids"].iloc[0]) <= set(interface_df["close_pn_unit_iids"].iloc[0])
             ), f"{pdb_id}: PN units in interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} are not properly categorized"
 
 

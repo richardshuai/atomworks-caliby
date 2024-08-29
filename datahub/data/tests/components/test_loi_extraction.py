@@ -9,7 +9,37 @@ import pandas as pd
 import pytest
 
 from data.tests.conftest import DATA_PREPROCESSOR
-from data.tests.test_cases import LOI_EXTRACTION_TEST_CASES
+
+LOI_EXTRACTION_TEST_CASES = [
+    {
+        # TEST CASE 0
+        "pdb_id": "7lad",
+        "loi": set(["HEM", "XRD"]),
+    },
+    {
+        # TEST CASE 1
+        "pdb_id": "5ocm",
+        "loi": set(),
+    },
+    {
+        # TEST CASE 2
+        "pdb_id": "6wjc",
+        "loi": set(["Y01", "OIN"]),
+    },
+    {
+        # TEST CASE 3
+        "pdb_id": "7mub",
+        "loi": set(["K"]),
+    },
+    {
+        # TEST CASE 4
+        "pdb_id": "1qk0",
+        "loi": set(["IOB", "GLC", "XYS"]),
+        # NOTE: GLC & XYS are only specified in the cif file, not on
+        #  the PDB summary page
+        "has_covalently_bonded_loi": True,
+    },
+]
 
 
 @pytest.mark.parametrize("test_case", LOI_EXTRACTION_TEST_CASES)

@@ -1,10 +1,10 @@
 import data.data_preprocessing_utils as dp
-from data.tests.test_cases import FULL_PDB_EDGE_CASE_LIST
+from data.tests.components.test_prior_bugs_and_edge_cases import EDGE_CASE_LIST
 
 
 def test_ligand_validity_retrieval():
     found_any = False
-    for pdb_id in FULL_PDB_EDGE_CASE_LIST:
+    for pdb_id in EDGE_CASE_LIST:
         # Check that ligand validity scores are properly retrieved
         ligand_validity_scores = dp.get_ligand_validity_scores_from_pdb_id(pdb_id)
         if len(ligand_validity_scores) > 0:

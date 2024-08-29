@@ -1,14 +1,17 @@
 #!/bin/bash
 #SBATCH -p cpu
-#SBATCH --mem-per-cpu=16g
-#SBATCH -a 1-500
-#SBATCH -t 0-8:00:00
+#SBATCH --mem-per-cpu=32g
+#SBATCH -a 1-2000
+#SBATCH -t 0-12:00:00
 #SBATCH -C DB
-#SBATCH -c 8
+#SBATCH -c 2
 #SBATCH -o slurm_logs/slurm_%A_%a.log
 #SBATCH -e slurm_logs/slurm_%A_%a.err
 
 echo "Starting task ${SLURM_ARRAY_TASK_ID} on ${SLURM_JOB_NODELIST}"
+
+# Add rf2aa-dev to the PYTHONPATH
+export PYTHONPATH="${PYTHONPATH}:/home/ncorley/projects/rf2aa-dev"
 
 # Print the path
 echo "PYTHONPATH: ${PYTHONPATH}"
@@ -44,7 +47,7 @@ echo "Saving files to: ${out_dir}"
 echo "Script directory: ${PWD}"
 
 # Run the Python script
-apptainer exec /projects/ml/RF2_allatom/data_preprocessing/rf2aa_new2.sif python "${PWD}/make_msa.py" --out-dir "${out_dir}" --num-workers "${SLURM_CPUS_PER_TASK}" --csv-file "${csv_file}" --mem 128 --task-id "${TASK_ID}" --num-tasks "${NUM_TASKS}"
+apptainer exec /projects/ml/RF2_allatom/spec_files/SE3nv_new_2024_08_18.sif python "${PWD}/make_msa.py" --out-dir "${out_dir}" --num-workers "${SLURM_CPUS_PER_TASK}" --csv-file "${csv_file}" --mem 32 --task-id "${TASK_ID}" --num-tasks "${NUM_TASKS}"
 
 # Example usage:
 # sbatch data/scripts/msa/make_msas_from_csv.sh --out_dir /path/to/output/directory --csv_file /path/to/csv/csv_file.csv

@@ -2,91 +2,25 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import math
 from collections import defaultdict
 
-import biotite.structure as struc
 import networkx as nx
 import numpy as np
 import requests
 from biotite.structure import AtomArray, CellList
+from cifutils.enums import ChainType
 from scipy.spatial.distance import cdist
 
 import data.data_preprocessor  # to avoid circular import
 from data.common import default
-from data.data_constants import FLUORINE_ATOMIC_NUMBER, OXYGEN_ATOMIC_NUMBER, ChainType, ClashSeverity
+from data.data_preprocessing_constants import FLUORINE_ATOMIC_NUMBER, OXYGEN_ATOMIC_NUMBER, ClashSeverity
 
 logger = logging.getLogger(__name__)
 
 
-def hash_string_to_int_64(s):
-    """
-    Hashes a string to a 64-bit integer using SHA-256.
-
-    Args:
-        s (str): The input string to be hashed.
-
-    Returns:
-        int: A 64-bit integer hash of the input string.
-    """
-    # Create a SHA-256 hash of the input string and convert to an integer
-    return int.from_bytes(hashlib.sha256(s.encode()).digest()[:4], "little")
-
-
-def get_non_polymer_pn_unit_masks_and_ids(atom_array: AtomArray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Extracts information about non-polymer PN units (e.g., ligands) from an atom array.
-
-    Parameters:
-    — atom_array (AtomArray): The global AtomArray from which to extract non-polymer PN units.
-
-    Returns:
-    — non_polymer_pn_unit_ids (np.array): An array of polymer/non-polymer unit IDs (unique for each non-polymer PN unit).
-    — non_polymer_pn_unit_iids (np.array): An array of polymer/non-polymer unit instance IDs (combination of polymer/non-polymer unit ID and transformation ID).
-    - pn_unit_id_map (dict): A dictionary mapping hashes of polymer/non-polymer unit IDs to the polymer/non-polymer unit IDs themselves.
-    - pn_unit_iid_map (dict): A dictionary mapping hashes of polymer/non-polymer unit instance IDs to the polymer/non-polymer unit instance IDs themselves.
-    """
-    # Add indices to atom_array so we can track them as we filter
-    atom_array.set_annotation("index", np.arange(atom_array.array_length()))
-
-    non_polymer_pn_unit_ids = np.full(atom_array.array_length(), -1, dtype=np.int64)
-    non_polymer_pn_unit_iids = np.full(atom_array.array_length(), -1, dtype=np.int64)
-
-    # Filter atom array to be only chains of type non_polymer (which includes oligosaccharides, since RCSB labels them as non-polymer)
-    # By doing so, we remove polymer/non-polymer bonds, but keep non-polymer/non-polymer bonds
-    non_polymer_atom_array = atom_array[~atom_array.is_polymer]
-
-    # Loop through non-polymer PN units (one or more connected chains)
-    pn_unit_id_map = {}
-    pn_unit_iid_map = {}
-    for pn_unit_atom_array in struc.molecule_iter(non_polymer_atom_array):
-        # Get constituent chain IDs and chain instance IDs
-        pn_unit_chain_ids = np.unique(pn_unit_atom_array.chain_id)
-        pn_unit_chain_iids = np.unique(pn_unit_atom_array.chain_iid)
-
-        # Assign polymer/non-polymer unit IDs and polymer/non-polymer unit instance IDs
-        pn_unit_id = ",".join(sorted(pn_unit_chain_ids))
-        pn_unit_iid = ",".join(sorted(pn_unit_chain_iids))
-
-        if len(pn_unit_chain_iids) > 2:
-            logger.warning(f"Non-polymer PN unit with more than two chains: {pn_unit_chain_iids}")
-
-        # Hash and update dictionary and arrays
-        pn_unit_id_hash = hash_string_to_int_64(pn_unit_id)
-        pn_unit_iid_hash = hash_string_to_int_64(pn_unit_iid)
-
-        pn_unit_id_map[pn_unit_id_hash] = pn_unit_id
-        pn_unit_iid_map[pn_unit_iid_hash] = pn_unit_iid
-
-        non_polymer_pn_unit_ids[pn_unit_atom_array.index] = np.full(len(pn_unit_atom_array), pn_unit_id_hash)
-        non_polymer_pn_unit_iids[pn_unit_atom_array.index] = np.full(len(pn_unit_atom_array), pn_unit_iid_hash)
-
-    return non_polymer_pn_unit_ids, non_polymer_pn_unit_iids, pn_unit_id_map, pn_unit_iid_map
-
-
-def get_pn_units_with_non_biological_bonds(atom_array, bond_mask) -> np.ndarray:
+def get_pn_units_with_non_biological_bonds(atom_array: AtomArray, bond_mask: np.ndarray) -> np.ndarray:
     """
     Checks for non-biological bonds between PN units within an assembly.
     Note that "inter-PN-unit bonds" in this instance do not include bonds between non-polymers,
@@ -97,12 +31,12 @@ def get_pn_units_with_non_biological_bonds(atom_array, bond_mask) -> np.ndarray:
     - Fluorine-fluorine bonds
     - Bonds involving free oxygen or hydroxyl groups (e.g. HOH, OH, O)
 
-    Arguments:
-    - atom_array: AtomArray containing the relevant structure
-    - bond_mask: Mask of inter-molecular bonds
+    Args:
+        atom_array: AtomArray containing the relevant structure
+        bond_mask: Mask of inter-molecular bonds
 
     Returns:
-    - numpy.ndarray: Array of polymer/non-polymer unit instance IDs that contain non-biological bonds
+        numpy.ndarray: Array of polymer/non-polymer unit instance IDs that contain non-biological bonds
     """
     # Get atoms and residues involved in the inter-molecular bonds
     bonds_to_check = atom_array.bonds.as_array()[bond_mask]
@@ -157,14 +91,14 @@ def get_atom_mask_from_cell_list(
     the computation is split into manageable chunks along the rows of `coord`.
 
     Args:
-    — coord (ndarray): The coordinates of the query PN unit. Shape is (n, 3).
-    — cell_list (CellList): A CellList object that allows efficient vicinity searches.
-    — cell_list_size (int): The number of atoms in the cell list.
-    — clash_distance (float): The distance threshold below which atoms are considered to be clashing.
-    — chunk_size (int): The maximum number of comparisons allowed in a single chunk.
+        coord (ndarray): The coordinates of the query PN unit. Shape is (n, 3).
+        cell_list (CellList): A CellList object that allows efficient vicinity searches.
+        cell_list_size (int): The number of atoms in the cell list.
+        clash_distance (float): The distance threshold below which atoms are considered to be clashing.
+        chunk_size (int): The maximum number of comparisons allowed in a single chunk.
 
     Returns:
-    - ndarray: Mask indicating which atoms in `cell_list` clash with the  atoms in `coord`. Shape is (n, cell_list_size), dtype is bool.
+        ndarray: Mask indicating which atoms in `cell_list` clash with the  atoms in `coord`. Shape is (n, cell_list_size), dtype is bool.
     """
     num_coords = coord.shape[0]
     clashing_atom_mask = np.zeros((num_coords, cell_list_size), dtype=bool)
@@ -190,14 +124,14 @@ def get_pn_units_clashing_with_pn_unit(
     Finds clashes between a query PN unit and the rest of the structure.
     A clash is defined as any pair of atoms from the query PN unit and the rest of the structure that are closer than `clash_distance`.
 
-    Arguments:
-    - query_pn_unit: AtomArray containing the query PN unit that we want to check for clashes
-    - filtered_atom_array: AtomArray containing atoms with non-zero occupancy
-    - cell_list: CellList of structure for rapid distance computations
-    - clash_distance: Distance threshold for clashing atoms
+    Args:
+        query_pn_unit: AtomArray containing the query PN unit that we want to check for clashes
+        filtered_atom_array: AtomArray containing atoms with non-zero occupancy
+        cell_list: CellList of structure for rapid distance computations
+        clash_distance: Distance threshold for clashing atoms
 
     Returns:
-    - Set of polymer/non-polymer unit instance IDs that are clashing with the query PN unit
+        Set of polymer/non-polymer unit instance IDs that are clashing with the query PN unit
     """
     clashing_atom_mask = get_atom_mask_from_cell_list(
         query_pn_unit.coord, cell_list, len(filtered_atom_array), clash_distance
@@ -211,21 +145,23 @@ def get_pn_units_clashing_with_pn_unit(
     return set(np.unique(clashing_atoms.pn_unit_iid))
 
 
-def handle_clashing_pn_units(clashing_pn_units_set, clashing_pn_units_dict, atom_array, pn_unit_iid_map) -> AtomArray:
+def handle_clashing_pn_units(
+    clashing_pn_units_set: set, clashing_pn_units_dict: dict, atom_array: AtomArray, pn_unit_iid_map: dict
+) -> AtomArray:
     """
     Resolves clashing PN units according to the following process:
     1. Sort clashing PN units by the number of atoms within the PN unit
     2. Iterate through the sorted list keeping (1) the larger PN unit (2) the lower transformation number until all clashes are resolved
 
-    Arguments:
-    - clashing_pn_units_set: Set of polymer/non-polymer unit instance IDs that contain clashing atoms
-    - clashing_pn_units_dict: Dictionary mapping polymer/non-polymer unit instance IDs to a list of clashing polymer/non-polymer unit instance IDs
-    - atom_array: AtomArray containing atoms with non-zero occupancy
-    - pn_unit_iid_map: Dictionary mapping hashes of polymer/non-polymer unit instance IDs to the polymer/non-polymer unit instance IDs themselves
+    Args:
+        clashing_pn_units_set: Set of polymer/non-polymer unit instance IDs that contain clashing atoms
+        clashing_pn_units_dict: Dictionary mapping polymer/non-polymer unit instance IDs to a list of clashing polymer/non-polymer unit instance IDs
+        atom_array: AtomArray containing atoms with non-zero occupancy
+        pn_unit_iid_map: Dictionary mapping integer representations of polymer/non-polymer unit instance IDs to the polymer/non-polymer unit instance IDs themselves
 
     Returns:
-    - AtomArray: AtomArray with clashing atoms removed
-    - ClashSeverity: Enum representing the severity of the clash
+        AtomArray: AtomArray with clashing atoms removed
+        ClashSeverity: Enum representing the severity of the clash
     """
     pn_units_to_remove = set()
     pn_units_to_keep = set()
@@ -291,21 +227,21 @@ def get_contacting_pn_units(
     """
     Finds PN units (proteins, nucleic acids, or small molecules) with a minimum number of atoms within a given distance of the query PN unit.
 
-    Arguments:
-    - query_pn_unit: AtomArray containing the query PN unit that we want to check for contacts (could be a single chain or multiple covalently bonded chains)
-    - filtered_atom_array: AtomArray containing the set of atoms to consider when looking for contacts (must correspond to the `cell_list`)
-    - cell_list: CellList of `atom_array` for rapid distance computations; must correspond to the `filtered_atom_array`
-    - contact_distance: Distance threshold for contacting atoms
-    - min_contacts_required: Minimum number of atoms within the cutoff distance to consider a PN unit as a potential partner
-    - mask: Mask of PN units to consider as potential partners within the atom_array. If None, all PN units (except the query) are considered.
-    - calculate_min_distance: Whether to calculate the minimum distance between the query PN unit and each PN unit within the cutoff distance
+    Args:
+        query_pn_unit: AtomArray containing the query PN unit that we want to check for contacts (could be a single chain or multiple covalently bonded chains)
+        filtered_atom_array: AtomArray containing the set of atoms to consider when looking for contacts (must correspond to the `cell_list`)
+        cell_list: CellList of `atom_array` for rapid distance computations; must correspond to the `filtered_atom_array`
+        contact_distance: Distance threshold for contacting atoms
+        min_contacts_required: Minimum number of atoms within the cutoff distance to consider a PN unit as a potential partner
+        mask: Mask of PN units to consider as potential partners within the atom_array. If None, all PN units (except the query) are considered.
+        calculate_min_distance: Whether to calculate the minimum distance between the query PN unit and each PN unit within the cutoff distance
 
     Returns:
-    - list: A list of dictionaries, each containing:
-        - 'pn_unit_iid' (str): A string representing a unique partner PN unit in contact with the query PN unit.
-        - 'num_atoms' (int): Number of non-zero occupancy atoms in the partner PN unit.
-        - 'num_contacts' (int): Number of atoms in the partner PN unit within the contact_distance of the query PN unit.
-        - 'min_distance' (float): Minimum distance between the query PN unit and the partner PN unit.
+        list: A list of dictionaries, each containing:
+            - 'pn_unit_iid' (str): A string representing a unique partner PN unit in contact with the query PN unit.
+            - 'num_atoms' (int): Number of non-zero occupancy atoms in the partner PN unit.
+            - 'num_contacts' (int): Number of atoms in the partner PN unit within the contact_distance of the query PN unit.
+            - 'min_distance' (float): Minimum distance between the query PN unit and the partner PN unit.
     """
     contacting_pn_unit_summary = []
 
@@ -357,19 +293,19 @@ def get_contacting_pn_units(
     return contacting_pn_unit_summary
 
 
-def get_intra_pn_unit_bonds(pn_unit_iid, full_atom_array):
+def get_intra_pn_unit_bonds(pn_unit_iid: str, full_atom_array: AtomArray):
     # NOTE: Not currently used; kept for potential future use
     """
     Retrieve all bonds within the PN unit.
     Includes inter-chain bonds if the PN unit is composed of multiple chains.
     Does NOT include bonds between the PN unit and any other PN units (e.g., protein-ligand bonds).
 
-    Arguments:
-    - pn_unit_iid (str): The polymer/non-polymer unit instance ID (e.g., 'A1', 'C2,B3', etc.)
-    - full_atom_array (AtomArray): The full structure AtomArray. Must include all atoms, including those with zero occupancy.
+    Args:
+        pn_unit_iid (str): The polymer/non-polymer unit instance ID (e.g., 'A1', 'C2,B3', etc.)
+        full_atom_array (AtomArray): The full structure AtomArray. Must include all atoms, including those with zero occupancy.
 
     Returns:
-    - numpy.ndarray: Array of Biotite bond objects (atom_a_index, atom_b_index, bond_type) within the specified PN unit.
+        numpy.ndarray: Array of Biotite bond objects (atom_a_index, atom_b_index, bond_type) within the specified PN unit.
     """
     all_bonds = full_atom_array.bonds.as_array()
     atom_a_indices, atom_b_indices = all_bonds[:, 0], all_bonds[:, 1]
@@ -379,17 +315,17 @@ def get_intra_pn_unit_bonds(pn_unit_iid, full_atom_array):
     return all_bonds[mask]
 
 
-def calculate_molecule_diameter(full_molecule_atoms):
+def calculate_molecule_diameter(full_molecule_atoms: AtomArray):
     # NOTE: Not currently used; kept for potential future use
     """
     Calculates the molecular diameter, defined as the maximum number of bonds between any two vertices
     in the molecule, using a maximum spanning tree.
 
-    Parameters:
-    - full_molecule_atoms (AtomArray): The array of atoms representing the molecule. Must include all atoms, including those with zero occupancy.
+    Args:
+        full_molecule_atoms (AtomArray): The array of atoms representing the molecule. Must include all atoms, including those with zero occupancy.
 
     Returns:
-    - float: The molecular diameter. If the diameter cannot be computed, returns 0.0.
+        float: The molecular diameter. If the diameter cannot be computed, returns 0.0.
     """
     if len(full_molecule_atoms.bonds.as_array() > 0):
         try:
@@ -448,10 +384,10 @@ def get_ligand_validity_scores_from_pdb_id(pdb_id: str) -> list[dict[str, str | 
     Query the RCSB PDB for ligand validity scores for a given PDB ID.
 
     Args:
-        - pdb_id (str): The PDB ID to query.
+        pdb_id (str): The PDB ID to query.
 
     Returns:
-        - records: (list[dict[str, str | int | float | None]]): A list of dictionaries, each containing
+        records: (list[dict[str, str | int | float | None]]): A list of dictionaries, each containing
             the ligand validity scores for a ligand (e.g. RSCC, RSR) as well identifiers such as the
             residue name, chain ID, and entity ID. Can easily be converted to a pandas DataFrame for
             easier handling via `pd.DataFrame(records)`.
@@ -536,17 +472,17 @@ def get_ligand_validity_scores_from_pdb_id(pdb_id: str) -> list[dict[str, str | 
     return records
 
 
-def get_bonded_polymer_pn_units(query_pn_unit_iid, filtered_atom_array) -> set[str]:
+def get_bonded_polymer_pn_units(query_pn_unit_iid: str, filtered_atom_array: AtomArray) -> set[str]:
     """
     Returns a set of polymer PN units that are covalently bonded to a given PN unit.
     For example, useful to detect oligosaccharides that are covalently bonded to a protein.
 
     Args:
-    — query_pn_unit_iid (str): The full ID of the non-polymer PN unit to check for bonds.
-    - filtered_atom_array (AtomArray): AtomArray with non-zero occupancy
+        query_pn_unit_iid (str): The full ID of the non-polymer PN unit to check for bonds.
+        filtered_atom_array (AtomArray): AtomArray with non-zero occupancy
 
     Returns:
-    — set[str]: A set of full IDs of polymer PN units that are covalently bonded to the query PN unit.
+        set[str]: A set of full IDs of polymer PN units that are covalently bonded to the query PN unit.
     """
     # Check if the non polymer is covalently bonded to a polymer
     inter_pn_unit_bonds = filtered_atom_array.bonds.as_array()[

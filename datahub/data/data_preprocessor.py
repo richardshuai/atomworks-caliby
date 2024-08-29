@@ -13,18 +13,18 @@ import logging
 import re
 from os import PathLike
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import biotite.structure as struc
 import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
-from cifutils.cifutils_biotite import cifutils_biotite
-from cifutils.cifutils_biotite.constants import CRYSTALLIZATION_AIDS
+from cifutils.constants import CRYSTALLIZATION_AIDS
+from cifutils.parser import CIFParser
 
 import data.data_preprocessing_utils as dp  # to avoid circular imports
 from data.common import exists
-from data.data_constants import CELL_SIZE, ChainType, ClashSeverity
+from data.data_preprocessing_constants import CELL_SIZE, ChainType, ClashSeverity
 from rf2aa.data_new.utils import hash_sequence
 
 logger = logging.getLogger(__name__)
@@ -44,9 +44,9 @@ class DataPreprocessor:
         # TODO: Initialize the base_cif_dir from Hydra
         base_cif_dir: PathLike = "/databases/rcsb/cif",
         # Misc
-        ignore_residues: list[str] = ["HOH", "DOD", "EDO", "PEG", "GOL"],
+        ignore_residues: list[str] = [],
         # Efficiency
-        polymer_pn_unit_limit: int = 1000,
+        polymer_pn_unit_limit: int = 2000,
         **kwargs,
     ):
         # Cutoff distances
@@ -75,7 +75,7 @@ class DataPreprocessor:
         self.fix_arginines = kwargs.get("fix_arginines", True)
 
         # Initialize parser
-        self.parser = cifutils_biotite.CIFParser()
+        self.parser = CIFParser()
 
         logger.info(f"Initialized DataPreprocessor with the following parameters: {self.__dict__}")
 
@@ -136,91 +136,7 @@ class DataPreprocessor:
         # ----- Filter C: Filter out atoms with zero occupancy ------
         filtered_atom_array = filtered_atom_array[filtered_atom_array.occupancy > 0.0]
 
-        # ----- Filter D: Filter out chains with all "UNK" residues ------
-        # TODO: Find the correct way to filter these out ("UNK" is not right)
-        # unk_mask = filtered_atom_array.res_name == "UNK"
-        # for chain_id in np.unique(filtered_atom_array.chain_id):
-        #     chain_mask = filtered_atom_array.chain_id == chain_id
-        #     if np.all(unk_mask[chain_mask]):
-        #         filtered_atom_array = filtered_atom_array[~chain_mask]
-        #         logger.warning(f"{self.path}: Chain {chain_id} contains only 'UNK' residues; removing")
-
         return filtered_atom_array
-
-    @staticmethod
-    def add_chain_type_annotation(atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
-        """
-        Adds a chain_type annotation to the AtomArray.
-
-        Args:
-            - atom_array (AtomArray): The full atom array.
-            - chain_info_dict (dict): A dictionary mapping chain IDs to chain information,
-              including the chain type (output of CIFUtils Biotite parser).
-
-        Returns:
-            - AtomArray: The AtomArray with the chain_type annotation added.
-        """
-        # Add annotation for chain_type as an integer
-        atom_array.add_annotation("chain_type", dtype=np.int8)
-        for chain_id in np.unique(atom_array.chain_id):
-            chain_type = chain_info_dict[chain_id]["type"]
-            chain_type_enum = ChainType.from_string(chain_type)
-            atom_array.chain_type[atom_array.chain_id == chain_id] = ChainType.to_int(chain_type_enum)
-
-        # Return the modified atom array
-        return atom_array
-
-    @staticmethod
-    def add_pn_unit_annotations(full_atom_array: AtomArray) -> Tuple[AtomArray, Dict[int, str], Dict[int, str]]:
-        """
-        Processes an AtomArray by adding polymer/non-polymer unit ID (pn_unit_id) and polymer/non-polymer unit instance ID (pn_unit_iid) annotations.
-        Two covalently bonded ligands are considered one PN unit, but a ligand bonded to a protein is considered two PN units.
-        See the README glossary for more details on how we define `chains`, `pn_units`, and `molecules` within this codebase.
-
-        Args:
-            - full_atom_array (AtomArray): The AtomArray to process.
-
-        Returns:
-        — full_atom_array (AtomArray): The AtomArray including `non_polymer`, `pn_unit_id`, and `pn_unit_iid` annotations.
-        - pn_unit_id_map (dict): A dictionary mapping hashes of polymer/non-polymer unit IDs to constituent polymer/non-polymer unit instance ID strings.
-        - pn_unit_iid_map (dict): A dictionary hashes of polymer/non-polymer unit instance IDs to polymer/non-polymer unit ID strings.
-        """
-        # Set the pn_unit_id to the hash of chain_id and pn_unit_iid to hash of chain_iid (we will later update for multi-chain non-polymer PN units)
-        full_atom_array.add_annotation("pn_unit_id", dtype=np.int64)
-        full_atom_array.add_annotation("pn_unit_iid", dtype=np.int64)
-
-        pn_unit_id_map = {}
-        pn_unit_iid_map = {}
-        chain_ids = np.unique(full_atom_array.chain_id)
-        # We use hashes to avoid storing strings in the AtomArray, which would consume significant memory
-        for chain_id in chain_ids:
-            chain_id_hash = dp.hash_string_to_int_64(chain_id)
-            full_atom_array.pn_unit_id[full_atom_array.chain_id == chain_id] = chain_id_hash
-            pn_unit_id_map[chain_id_hash] = chain_id
-
-        for chain_iid in np.unique(full_atom_array.chain_iid):
-            chain_iid_hash = dp.hash_string_to_int_64(chain_iid)
-            full_atom_array.pn_unit_iid[full_atom_array.chain_iid == chain_iid] = chain_iid_hash
-            pn_unit_iid_map[chain_iid_hash] = chain_iid
-
-        # Calculate PN unit-level identifiers (only different than chain-level for non-polymers)
-        (
-            non_polymer_pn_unit_ids,
-            non_polymer_pn_unit_iids,
-            non_polymer_pn_unit_id_map,
-            non_polymer_pn_unit_iid_map,
-        ) = dp.get_non_polymer_pn_unit_masks_and_ids(full_atom_array)
-
-        # Combine the PN unit ID map with the non-polymer PN unit ID map
-        pn_unit_id_map.update(non_polymer_pn_unit_id_map)
-        pn_unit_iid_map.update(non_polymer_pn_unit_iid_map)
-
-        # Update the non-polymer annotations
-        non_polymer_mask = ~full_atom_array.is_polymer
-        full_atom_array.pn_unit_id[non_polymer_mask] = non_polymer_pn_unit_ids[non_polymer_mask]
-        full_atom_array.pn_unit_iid[non_polymer_mask] = non_polymer_pn_unit_iids[non_polymer_mask]
-
-        return full_atom_array, pn_unit_id_map, pn_unit_iid_map
 
     @staticmethod
     def get_inter_pn_unit_bond_mask(atom_array: AtomArray) -> np.ndarray:
@@ -311,15 +227,25 @@ class DataPreprocessor:
 
         # ---------- Step 1: Upfront pre-processing ---------- #
 
-        # Remove hydrogens upfront for efficiency
-        # Hydrogens can only form one bond, so they are not relevant for identifying connected chains
-        full_atom_array = full_atom_array[full_atom_array.element != "1"]
+        # Re-map PN unit IDs to integers, and keep a dictionary that maps back to the verbose PN unit IDs
+        # We will use the integer IDs for memory efficiency downstream
+        ids_to_remap = ["pn_unit_id", "pn_unit_iid"]
+        id_map_dict = {}
+        for id_to_remap in ids_to_remap:
+            ids = np.unique(full_atom_array.get_annotation(id_to_remap))
 
-        # Update the full_atom_array with the chain type annotation
-        full_atom_array = DataPreprocessor.add_chain_type_annotation(full_atom_array, chain_info_dict)
+            # ...create the new map
+            mapped_ids = {old_id: new_id for new_id, old_id in enumerate(ids)}
 
-        # Add PN unit-level annotations to the AtomArray; e.g., considering multiple covalently bonded ligands as one PN unit
-        full_atom_array, pn_unit_id_map, pn_unit_iid_map = DataPreprocessor.add_pn_unit_annotations(full_atom_array)
+            # ...apply the new map
+            new_ids = np.array(
+                [mapped_ids[old_id] for old_id in full_atom_array.get_annotation(id_to_remap)], dtype=np.int16
+            )
+            full_atom_array.del_annotation(id_to_remap)  # Remove the old annotation (so that we can change the type)
+            full_atom_array.set_annotation(id_to_remap, new_ids)
+
+            # ...set the reverse map so we can look up the verbose IDs later
+            id_map_dict[id_to_remap] = {new_id: old_id for old_id, new_id in mapped_ids.items()}
 
         # ---------- Step 2: Apply filters to the AtomArray ---------- #
         filtered_atom_array = self._apply_filters(full_atom_array)
@@ -352,10 +278,10 @@ class DataPreprocessor:
         )
         if clashing_pn_units_set:
             logger.warning(
-                f"(PDB ID {self.id}): Clash detected between PN units: {[pn_unit_iid_map[pn_unit] for pn_unit in clashing_pn_units_set]}"
+                f"(PDB ID {self.id}): Clash detected between PN units: {[id_map_dict['pn_unit_iid'][pn_unit] for pn_unit in clashing_pn_units_set]}"
             )
             filtered_atom_array, clash_severity = dp.handle_clashing_pn_units(
-                clashing_pn_units_set, clashing_pn_units_dict, filtered_atom_array, pn_unit_iid_map
+                clashing_pn_units_set, clashing_pn_units_dict, filtered_atom_array, id_map_dict["pn_unit_iid"]
             )
 
             # Remake the cell list, since we have removed atoms
@@ -371,14 +297,13 @@ class DataPreprocessor:
             for pn_unit_iid in pn_unit_iids_to_consider
             if len(filtered_atom_array[filtered_atom_array.pn_unit_iid == pn_unit_iid]) > 0
         ]
-        all_pn_unit_iids = [pn_unit_iid_map[pn_unit] for pn_unit in pn_unit_iids_to_consider]
 
         for query_pn_unit_iid in pn_unit_iids_to_consider:
             query_pn_unit_atom_array = filtered_atom_array[filtered_atom_array.pn_unit_iid == query_pn_unit_iid]
 
             assert len(query_pn_unit_atom_array) > 0, f"Query PN unit {query_pn_unit_iid} has zero atoms"
 
-            query_pn_unit_type = ChainType.from_int(
+            query_pn_unit_type = ChainType(
                 query_pn_unit_atom_array.chain_type[0]
             )  # All chains in a PN unit have the same type
 
@@ -401,7 +326,7 @@ class DataPreprocessor:
                 min_contacts_required=1,
                 calculate_min_distance=False,
             )
-            close_pn_unit_iids = [pn_unit_iid_map[pn_unit["pn_unit_iid"]] for pn_unit in close_pn_unit_iids]
+            close_pn_unit_iids = [id_map_dict["pn_unit_iid"][pn_unit["pn_unit_iid"]] for pn_unit in close_pn_unit_iids]
 
             # Sort contacting PN units by number of contacting atoms and then by minimum distance
             contacting_pn_unit_iids = sorted(
@@ -518,10 +443,11 @@ class DataPreprocessor:
                 "release_date": result_dict["metadata"]["release_date"],
                 "method": result_dict["metadata"]["method"],
                 "num_polymer_pn_units": num_polymer_pn_units,
+                "num_atoms": len(filtered_atom_array),
                 # Query PN unit-level data
-                "q_pn_unit_iid": pn_unit_iid_map[query_pn_unit_iid],
-                "q_pn_unit_id": pn_unit_id_map[query_pn_unit_atom_array.pn_unit_id[0]],
-                "q_pn_unit_type": ChainType.to_int(query_pn_unit_type),
+                "q_pn_unit_iid": id_map_dict["pn_unit_iid"][query_pn_unit_iid],
+                "q_pn_unit_id": id_map_dict["pn_unit_id"][query_pn_unit_atom_array.pn_unit_id[0]],
+                "q_pn_unit_type": query_pn_unit_type.value,
                 "q_pn_unit_transformation_id": query_pn_unit_atom_array.transformation_id[
                     0
                 ],  # All chains in a PN unit have the same transformation ID
@@ -534,7 +460,8 @@ class DataPreprocessor:
                 "q_pn_unit_is_loi": type_specific_criteria.get("is_loi", False),
                 "q_pn_unit_ligand_validity": type_specific_criteria.get("ligand_validity", {}),
                 "q_pn_unit_bonded_polymer_pn_units": {
-                    pn_unit_iid_map[pn_unit] for pn_unit in type_specific_criteria.get("bonded_polymer_pn_units", set())
+                    id_map_dict["pn_unit_iid"][pn_unit]
+                    for pn_unit in type_specific_criteria.get("bonded_polymer_pn_units", set())
                 },  # Covalent modifications
                 "q_pn_unit_non_polymer_res_names": ",".join(type_specific_criteria.get("non_polymer_res_names", [])),
                 # Polymer type-specific criteria
@@ -547,21 +474,19 @@ class DataPreprocessor:
                 "q_pn_unit_processed_entity_canonical_sequence_hash": q_pn_unit_processed_entity_canonical_sequence_hash,
                 "q_pn_unit_processed_entity_non_canonical_sequence_hash": q_pn_unit_processed_entity_non_canonical_sequence_hash,
                 # Partners
-                "q_pn_unit_primary_polymer_partner": pn_unit_iid_map[primary_polymer_partner_pn_unit_iid]
+                "q_pn_unit_primary_polymer_partner": id_map_dict["pn_unit_iid"][primary_polymer_partner_pn_unit_iid]
                 if primary_polymer_partner_pn_unit_iid
                 else None,
                 "q_pn_unit_contacting_pn_unit_iids": json.dumps(
                     [
                         {
-                            "pn_unit_iid": pn_unit_iid_map[partner["pn_unit_iid"]],
+                            "pn_unit_iid": id_map_dict["pn_unit_iid"][partner["pn_unit_iid"]],
                             **{k: v for k, v in partner.items() if k != "pn_unit_iid"},
                         }
                         for partner in contacting_pn_unit_iids
                     ]
                 ),
                 "q_pn_unit_close_pn_unit_iids": json.dumps(close_pn_unit_iids),
-                # All PN units in the example
-                "all_pn_unit_iids": json.dumps(all_pn_unit_iids),
             }
             assembly_records.append(pn_unit_record)
         return assembly_records

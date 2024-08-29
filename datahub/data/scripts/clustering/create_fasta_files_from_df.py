@@ -22,7 +22,7 @@ from pathlib import Path
 import fire
 import pandas as pd
 
-from data.data_constants import NUCLEIC_ACIDS, PROTEINS
+from data.data_preprocessing_constants import NUCLEIC_ACIDS, PROTEINS
 from rf2aa.data_new.utils import hash_sequence
 
 logger = logging.getLogger(__name__)

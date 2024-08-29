@@ -15,10 +15,10 @@ from pathlib import Path
 
 import fire
 import pandas as pd
+from cifutils.enums import ChainType
 from tqdm import tqdm
 
 from data.common import generate_example_id
-from data.data_constants import ChainType
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -97,13 +97,13 @@ def generate_pn_units_df(
     q_pn_unit_type_col = "q_pn_unit_type"
     # Initialize columns for n_prot, n_nuc, n_ligand (required for AF-3 data sampling strategy)
     concatenated_df["n_prot"] = (
-        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType.from_int(x).is_protein()).astype(int)
+        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_protein()).astype(int)
     )
     concatenated_df["n_nuc"] = (
-        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType.from_int(x).is_nucleic_acid()).astype(int)
+        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_nucleic_acid()).astype(int)
     )
     concatenated_df["n_ligand"] = (
-        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType.from_int(x).is_non_polymer()).astype(int)
+        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_non_polymer()).astype(int)
     )
 
     # Add the example_id column (required for testing and reproducibility)

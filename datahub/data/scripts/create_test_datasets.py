@@ -22,13 +22,28 @@ from data.scripts.clustering.annotate_clusters import (
 from data.scripts.clustering.cluster_sequences import cluster_all_sequences
 from data.scripts.confscript import get_all_pdb_ids
 from data.scripts.generate_pn_units_df import generate_pn_units_df
-from data.tests.conftest import aggregate_pdb_ids
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DEFAULT_TEST_DATA_DIR = Path(os.path.dirname(__file__)).parent.parent / "rf2aa" / "data_new" / "tests" / "data"
 DEFAULT_BASE_CIF_DIR = Path("/databases/rcsb/cif")
+
+# fmt: off
+"""
+PDB IDs that we will always include when building test datasets.
+If we use a PDB ID in a Transforms test case, we should add it here.
+"""
+PDB_IDS_TO_INCLUDE_IN_TEST_DATASETS = [
+    "1A80", "1IVO", "3K4A", "3KFA", "6WJC", "1EN2", "1CBN", "133D", "4JS1", 
+    "1L2Y", "2K0A", "4CPA", "1ZY8", "6DMH", "1FU2", "6DMG", "1Y1W", "5XNL", 
+    "2E2H", "4NDZ", "3NE7", "3NEZ", "1RXZ", "3J31", "7MUB", "1QK0", "1DYL", 
+    "7SBV", "3EPC", "6O7K", "104D", "5X3O", "5GAM", "6A5J", "3NE2", "1MNA", 
+    "1HGE", "3EJJ", "112M", "1A3G", "1A2N", "1A2Y", "1BDV", "184D", "4HF4", 
+    "3LPV", "2NVZ", "7KF1", "7CJG", "7B1W", "6ZIE", "7NMJ", "6M2Z", "5OCM", 
+    "3SJM", "4I7Z", "4OLB", "4RES", "6BGN", "6VET", "6ZSJ", "5RX1", "7D9H", 
+    "5S4P", "4GQA"]
+# fmt: on
 
 
 def create_test_datasets(
@@ -49,8 +64,7 @@ def create_test_datasets(
     # Make the test data directory if it doesn't exist
     test_data_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Aggregating PDB IDs from test cases...")
-    master_pdb_id_list = list(aggregate_pdb_ids())
+    master_pdb_id_list = PDB_IDS_TO_INCLUDE_IN_TEST_DATASETS
 
     pn_units_df_path = Path(pn_units_df_path) if pn_units_df_path else None
 

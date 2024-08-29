@@ -14,14 +14,14 @@ __pycache__/
 unit_tests/
 ruff.toml
 */scratch/
-**/wandb/
+*/wandb/
 rf2aa/dataset_20240318.pkl
 *.csv
 *.err
 *.log
 *.json
 data/run.sh
-**/.benchmarks/
+*.benchmarks/
 *.pkl
 *.sif
 *.npy

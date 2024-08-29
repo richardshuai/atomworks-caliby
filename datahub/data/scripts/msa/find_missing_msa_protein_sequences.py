@@ -1,11 +1,11 @@
 """
-Script that, given a directory containing MSA files named by sequence hashes and a dataframe with full sequence information (e.g, "pn_units_df"), finds the missing protein sequences in the MSA files. 
+Script that, given a list of directories containing MSA files named by sequence hashes and a dataframe with full sequence information (e.g, "pn_units_df"), finds the missing protein sequences in the MSA files. 
 
 Example:
-    python find_missing_msa_sequences.py \
-        --df_path /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_05/pn_units_df.parquet \
-        --msa_dir /projects/ml/RF2_allatom/data_preprocessing/msa/protein \
-        --output_path /projects/ml/RF2_allatom/data_preprocessing/msa/missing_protein_sequences.csv
+    python find_missing_msa_protein_sequences.py \
+        --df_path /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/pn_units_df.parquet \
+        --msa_dirs /projects/ml/RF2_allatom/data_preprocessing/msa/protein,/projects/msa/rf2aa_af3/2024_08_12/processed \
+        --output_path /projects/ml/RF2_allatom/data_preprocessing/msa/missing_protein_sequences_08_21.csv
 """
 
 import logging
@@ -14,26 +14,30 @@ from pathlib import Path
 
 import fire
 import pandas as pd
+from cifutils.enums import ChainType
 from tqdm import tqdm
 
-from data.data_constants import ChainType
 from rf2aa.data_new.utils import hash_sequence
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def collect_filenames(msa_dir: Path) -> set:
+def collect_filenames(msa_dirs: list[Path]) -> set:
     """
-    Collect all filenames in the MSA directory into a set for membership checking.
+    Collect all filenames in the MSA directories into a set for membership checking.
 
     Args:
-        msa_dir (Path): The directory to search for filenames.
+        msa_dirs (list[Path]): The directories to search for filenames.
 
     Returns:
         set: A set of filenames.
     """
-    return {file.name for file in msa_dir.glob("**/*") if file.is_file()}
+    filenames = set()
+    for msa_dir in msa_dirs:
+        filenames.update({file.name for file in msa_dir.glob("**/*") if file.is_file()})
+        logger.info(f"Collected {len(filenames)} filenames from {msa_dir}.")
+    return filenames
 
 
 def is_valid_filename(filename: str) -> bool:
@@ -50,9 +54,9 @@ def is_valid_filename(filename: str) -> bool:
     return len(prefix) == 11 and all(c in "0123456789abcdef" for c in prefix)
 
 
-def find_missing_msa_sequences(
+def find_missing_msa_protein_sequences(
     df_path: PathLike | str,
-    msa_dir: PathLike | str,
+    msa_dirs: str,
     output_path: str,
     sequence_column: str = "q_pn_unit_processed_entity_non_canonical_sequence",
 ) -> pd.DataFrame:
@@ -60,20 +64,23 @@ def find_missing_msa_sequences(
     Find the missing sequences in the MSA files.
 
     Args:
-        df (pd.DataFrame): A dataframe containing the full sequence information (e.g., "pn_units_df").
-        msa_dir (PathLike): The directory containing the MSA files named by sequence hashes.
+        df_path (PathLike | str): Path to the dataframe containing the full sequence information (e.g., "pn_units_df").
+        msa_dirs (str): Comma-separated list of directories containing the MSA files named by sequence hashes.
+        output_path (str): Path to save the output CSV file containing the missing sequences.
         sequence_column (str): The column name in the dataframe containing the sequences.
 
     Returns:
         pd.DataFrame: A dataframe containing the missing sequences.
     """
-    # Check paths upfront
-    msa_dir = Path(msa_dir)
+    # Convert msa_dirs string to a list of Path objects
+    msa_dirs = [Path(dir_path) for dir_path in msa_dirs.split(",")]
     output_path = Path(output_path)
     df_path = Path(df_path)
 
+    # Check paths upfront
     assert df_path.exists(), f"Dataframe {df_path} does not exist."
-    assert msa_dir.exists(), f"MSA directory {msa_dir} does not exist."
+    for msa_dir in msa_dirs:
+        assert msa_dir.exists(), f"MSA directory {msa_dir} does not exist."
     assert output_path.parent.exists(), f"Output directory {output_path.parent} does not exist."
 
     # Load dataframe
@@ -89,9 +96,9 @@ def find_missing_msa_sequences(
     # Get the unique sequences in the df
     all_msa_sequences = df[sequence_column].unique()
 
-    # Collect all filenames in the MSA directory into a set for memerbership checking
-    logger.info("Collecting filenames in the MSA directory...")
-    existing_msa_sequence_hashes = collect_filenames(msa_dir)
+    # Collect all filenames in the MSA directories into a set for membership checking
+    logger.info("Collecting filenames in the MSA directories...")
+    existing_msa_sequence_hashes = collect_filenames(msa_dirs)
     logger.info(f"Collected {len(existing_msa_sequence_hashes)} filenames.")
 
     # Checking if hashes are valid
@@ -119,4 +126,4 @@ def find_missing_msa_sequences(
 
 
 if __name__ == "__main__":
-    fire.Fire(find_missing_msa_sequences)
+    fire.Fire(find_missing_msa_protein_sequences)

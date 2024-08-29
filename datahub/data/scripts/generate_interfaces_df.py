@@ -89,7 +89,6 @@ def process_pdb_id_group(group: pd.DataFrame) -> list[dict]:
                 "release_date": pn_unit_1_data["release_date"],  # same entry
                 "method": pn_unit_1_data["method"],  # same entry
                 "num_polymer_pn_units": pn_unit_1_data["num_polymer_pn_units"],  # same entry
-                "all_pn_unit_iids": pn_unit_1_data["all_pn_unit_iids"],
                 # Example ID
                 "example_id": generate_example_id(
                     ["pdb", "interfaces"],

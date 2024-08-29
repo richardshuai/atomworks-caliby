@@ -9,7 +9,38 @@ import pandas as pd
 import pytest
 
 from data.tests.conftest import DATA_PREPROCESSOR
-from data.tests.test_cases import FIND_CONTACTS_TEST_CASES
+
+FIND_CONTACTS_TEST_CASES = [
+    # Defined with:
+    # - contact_distance = 5
+    # - close_distance = 30
+    {
+        # Simple protein complex
+        "pdb_id": "1fu2",
+        "contact_information": [
+            {
+                "assembly_id": "1",
+                "pn_unit_iid": "A_1",
+                "num_contacting_pn_units": 2,
+                "num_contacts": 461,  # 458 for (A,B) and 3 for (A, D)
+                "num_close_pn_units": 11,  # NOTE: 8 if excluding AF-3 exclusion ligands (Na, Cl)
+            }
+        ],
+    },
+    {
+        # RNA complex
+        "pdb_id": "4gxy",
+        "contact_information": [
+            {
+                "assembly_id": "1",
+                "pn_unit_iid": "C_1",
+                "num_contacting_pn_units": 1,
+                "num_contacts": 94,  # 94 for (C, A)
+                "num_close_pn_units": 10,
+            }
+        ],
+    },
+]
 
 
 @pytest.mark.parametrize("test_case", FIND_CONTACTS_TEST_CASES)

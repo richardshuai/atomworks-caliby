@@ -13,7 +13,24 @@ import pandas as pd
 import pytest
 
 from data.tests.conftest import DATA_PREPROCESSOR
-from data.tests.test_cases import FILTERING_CRITERIA_TEST_CASES
+
+FILTERING_CRITERIA_TEST_CASES = [
+    # Clashing test cases
+    {"pdb_id": "6qhp", "pn_units_to_keep": ["A_1"], "pn_units_to_remove": ["C_1"]},
+    {
+        "pdb_id": "3voz",  # NOTE: In this example, the pn_units are bonded via a sulfer bridge, but still clash since we superimpose across the axis of symmetry
+        "pn_units_to_keep": ["B_1", "B_3"],
+        "pn_units_to_remove": ["B_2", "B_4"],
+    },
+    {
+        "pdb_id": "2voy",
+        "pn_units_to_keep": ["D_1", "J_1", "F_1", "C_1", "I_1"],
+        "pn_units_to_remove": ["H_1", "B_1", "A_1"],
+    },
+    # Non-biological bond test cases
+    {"pdb_id": "1pak", "pn_units_to_keep": ["A_1"], "pn_units_to_remove": ["B_1"]},
+    # 2pnf - non-biological bonds
+]
 
 
 @pytest.mark.parametrize("test_case", FILTERING_CRITERIA_TEST_CASES)

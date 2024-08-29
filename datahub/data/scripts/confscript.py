@@ -8,7 +8,7 @@ from typing import List
 
 import pandas as pd
 
-from data.data_constants import ENTRIES_TO_EXCLUDE
+from data.data_preprocessing_constants import ENTRIES_TO_EXCLUDE_FOR_PRE_PROCESSING
 from data.data_preprocessor import DataPreprocessor
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ def process_pdb_ids(
                             f"#----- Processing PDB ID {pdb_id}: {index}/{total_pdb_ids} ({num_examples_processed} parsed by this worker) -----# ({datetime.now()})"
                         )
 
-                    if pdb_id in ENTRIES_TO_EXCLUDE:
+                    if pdb_id in ENTRIES_TO_EXCLUDE_FOR_PRE_PROCESSING:
                         logger.warning(f"Skipping PDB ID {pdb_id} because it is in the exclusion list.")
                     else:
                         signal.signal(signal.SIGALRM, timeout_handler)
