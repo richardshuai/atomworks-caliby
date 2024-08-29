@@ -24,7 +24,7 @@ from cifutils.common import to_hashable
 from functools import lru_cache
 import networkx as nx
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cifutils")
 
 
 def _get_bond_type_from_order_and_is_aromatic(order, is_aromatic):

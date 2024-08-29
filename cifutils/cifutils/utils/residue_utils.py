@@ -20,7 +20,7 @@ from functools import lru_cache
 from cifutils.utils.atom_matching_utils import standardize_heavy_atom_ids
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cifutils")
 
 
 def cached_residue_utils_factory(known_residues: list[str], data_by_residue: callable) -> tuple[callable, callable]:
@@ -261,7 +261,7 @@ def add_missing_atoms_as_unresolved(
                     & (full_atom_array.res_name == res_name)
                 )
                 full_atom_array.occupancy[residue_mask] = 0
-            logger.warning(
+            logger.info(
                 f"Masked residues for {len(failing_atoms[is_heavy])} heavy atoms in `atom_array` that failed to match."
             )
 

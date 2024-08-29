@@ -20,7 +20,7 @@ import biotite.structure.io.pdbx as pdbx
 from os import PathLike
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cifutils")
 
 
 def parse_ccd_ligand_from_cif(cif_path: PathLike) -> dict:

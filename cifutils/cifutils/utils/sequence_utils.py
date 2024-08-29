@@ -61,7 +61,7 @@ def get_1_from_3_letter_code(
         else:
             return nucleic_letters_3to1.get(res_name, "X")
     else:
-        logger.warning(f"Unsupported chain type: {chain_type}")
+        logger.info(f"Unsupported chain type: {chain_type}")
         return "X"
 
 
@@ -121,7 +121,7 @@ def get_3_from_1_letter_code(
         # RNA
         return rna_letters_1to3.get(letter, unknown_rna_three_letter)
     else:
-        logger.warning(f"Unsupported chain type: {chain_type}")
+        logger.info(f"Unsupported chain type: {chain_type}")
         return unknown_protein_three_letter
 
 

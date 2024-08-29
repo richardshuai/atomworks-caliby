@@ -18,7 +18,7 @@ from cifutils.constants import (
 )
 import logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cifutils")
 
 
 def load_monomer_sequence_information_from_atom_array(chain_info_dict: dict, atom_array: AtomArray) -> dict:
@@ -48,7 +48,7 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
     TODO: Tests for this function
     TODO: Re-write this function to use the ChainType IntEnum
     """
-    logger.warning(
+    logger.info(
         "Could not read ChainType from CIF file, inferring from AtomArray (ensure this is the correct behavior)!"
     )
     chain_info_dict = {}

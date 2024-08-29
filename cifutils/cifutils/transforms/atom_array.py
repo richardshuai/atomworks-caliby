@@ -25,7 +25,7 @@ from cifutils.enums import ChainType
 from cifutils.utils.selection_utils import annot_start_stop_idxs
 from cifutils.common import sum_string_arrays
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cifutils")
 
 
 def remove_atoms_by_residue_names(atom_array: AtomArray, residues_to_remove: list) -> AtomArray:
@@ -400,7 +400,7 @@ def annotate_entities(
         instance_graph.add_edges_from(edges)
 
         # ... set node attributes to lower level entities
-        lower_level_iter = struc.resutil.segment_iter(
+        lower_level_iter = struc.segments.segment_iter(
             instance, annot_start_stop_idxs(instance, lower_level_id, add_exclusive_stop=True)
         )
         node_attrs = {

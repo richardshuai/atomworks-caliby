@@ -26,16 +26,13 @@ format:
 
 _biotite_access_error:
 	@echo "==============================================================================="; \
-	echo "Error: Environment variables BIOTITE_INSTALL_TOKEN or GITLAB_USER and GITLAB_TOKEN must be set."; \
+	echo "Error: Environment variables GITLAB_USER and GITLAB_TOKEN must be set."; \
 	echo ""; \
-	echo "Option 1: Set the environment variable BIOTITE_INSTALL_TOKEN. You can ask one of the maintainers for this token."; \
-	echo "Option 2: Set the environment variables GITLAB_USER and GITLAB_TOKEN. You can create a personal access token on GitLab."; \
+	echo "You need to set the environment variables GITLAB_USER and GITLAB_TOKEN."; \
+	echo "You can create a personal access token on GitLab at:"; \
+	echo "   https://git.ipd.uw.edu/-/user_settings/personal_access_tokens"; \
 	echo ""; \
 	echo "To expose these variables, you can use:"; \
-	echo "export BIOTITE_INSTALL_TOKEN=<gitlab-token>"; \
-	echo ""; \
-	echo " ... or ... "; \
-	echo ""; \
 	echo "export GITLAB_USER=<gitlab-username>"; \
 	echo "export GITLAB_TOKEN=<gitlab-token>"; \
 	echo ""; \
@@ -43,29 +40,45 @@ _biotite_access_error:
 	echo "===============================================================================";
 	exit 1;
 
+## Create a new conda environment and install cifutils
+env:
+	@echo "Creating cifutils conda environment: `cifutils`"
+	# Check if the GITLAB_USER and GITLAB_TOKEN are set
+	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
+		$(MAKE) _biotite_access_error; \
+	fi
+	$(CONDA_BINARY) env create -n cifutils --file environment.yaml
+	conda activate cifutils
+	pip install -e ".[dev]"
 
-## Install the production version of the code
+## Install cifutils locally into the current environment
 install:
-	@echo "Installing production version"
-	@pip install --force-reinstall git+https://biotite-install:${BIOTITE_INSTALL_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
-		pip install --force-reinstall git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
-		$(MAKE) _biotite_access_error
-	@pip install .
+	@echo "Installing cifutils"
+	# Check if the GITLAB_USER and GITLAB_TOKEN are set
+	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
+		$(MAKE) _biotite_access_error; \
+	fi
+	# Install the conda requirements in the current activated environment
+	$(CONDA_BINARY) env update --file environment.yaml
+	# Install the pip requirements in the current activated environment
+	pip install -e ".[dev]"
 
+## Build the apptainer image
+apptainer:
+	# Check if the GITLAB_USER and GITLAB_TOKEN are set
+	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
+		$(MAKE) _biotite_access_error; \
+	fi
+	apptainer build --bind $PWD:/cifutils_host cifutils.sif apptainer.spec
 
-
-## Install the development version of the code
-install-dev:
-	@echo "Installing development version"
-	@${CONDA_BINARY} install -c conda-forge openbabel || { \
-		echo "Failed to install openbabel with conda, attempting fallback installation..."; \
-		echo "... ignoring for now as it is only needed for CCD data pre-computation ..."; \
-		exit 1; \
-	}
-	@pip install --force-reinstall git+https://biotite-install:${BIOTITE_INSTALL_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
-		pip install --force-reinstall git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git || \
-		$(MAKE) _biotite_access_error
-	@pip install -e ".[dev]"
+## Run pytest and generate coverage report
+test:
+	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml tests/
+	@if command -v genbadge >/dev/null 2>&1; then \
+		genbadge coverage -i coverage.xml -o assets/coverage-badge.svg; \
+	else \
+		echo "Warning: genbadge not installed. Skipping coverage badge generation."; \
+	fi
 
 #################################################################################
 # Self Documenting Commands                                                     #

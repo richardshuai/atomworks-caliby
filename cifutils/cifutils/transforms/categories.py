@@ -20,7 +20,7 @@ import biotite.structure as struc
 from biotite.structure.io.pdbx import CIFBlock
 from biotite.structure import AtomArray
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cifutils")
 
 
 def category_to_df(cif_block: CIFBlock, category: str) -> pd.DataFrame | None:

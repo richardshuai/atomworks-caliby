@@ -55,7 +55,7 @@ import biotite.structure as struc
 from biotite.structure import AtomArrayStack
 from biotite.file import InvalidFileError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cifutils")
 
 __all__ = ["CIFParser"]
 
@@ -283,7 +283,7 @@ class CIFParser:
         ]
         if not assume_residues_all_resolved:
             # If we're not assuming residues are all resolved, we need to load the b_factor and occupancy fields
-            common_extra_fields += ["b_factor", "occupancy"]
+            common_extra_fields += ["b_factor", "occupancy", "charge"]
 
         try:
             atom_array_stack = load_structure(
@@ -293,7 +293,7 @@ class CIFParser:
                 model,
             )
         except InvalidFileError:
-            logger.warning(f"Invalid file error encountered for {filename}; loading with only one model")
+            logger.info(f"Invalid file error encountered for {filename}; loading with only one model")
             # Try again, choosing only the first model
             atom_array_stack = load_structure(
                 data_dict["cif_block"],

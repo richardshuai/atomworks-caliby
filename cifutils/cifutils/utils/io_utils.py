@@ -13,7 +13,7 @@ from biotite.structure.io.pdbx import CIFFile, BinaryCIFFile, CIFBlock
 import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("cifutils")
 
 
 def load_structure(cif_block: CIFBlock, common_extra_fields: list, assume_residues_all_resolved: bool, model: int):

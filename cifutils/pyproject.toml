@@ -14,20 +14,20 @@ dependencies = [
     # NOTE: Dependency versions specify the minimum versions for the packages 
     #  that were confirmed to work with the codebase. Lower versions might still
     #  work (at your own risk). 
-    # NOTE: Biotite is currently installed manually, because pyproject.toml does not support
-    #  git+http URLS with environment variables. Once the public biotite master is updated
-    #  we can switch back to `biotite>=0.40.0,<1` (or the updated version from then on)
-    # "'git+https://biotite-install:gldt-U-X1vnQm7m5tADMddoUt@git.ipd.uw.edu/ai/biotite'",  # NOTE: Originally "biotite>=0.40.0,<1", but we updated to a local repo to have 
-    "pytest>=8.2.0,<9",
     "pandas>=1.4.2,<2",
-    "torch>=2.2.0,<3",
-    "numpy>=1.21.0,<2",
-    "cytoolz>=0.12.3,<1",  
+    "numpy>=1.25.0,<2",
+    "cytoolz>=0.12.3,<1",
+    "biopython>=1.83,<2",
+    "fire>=0.6.0,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "ruff==0.4.5",
+    "ruff==0.6.2",
+    "pre-commit==3.7.1",
+    "pytest>=8.2.0,<9",
+    "pytest-dotenv>=0.5.2,<1",
+    "pytest-cov>=4.1.0,<5",
 ]
 
 [build-system]

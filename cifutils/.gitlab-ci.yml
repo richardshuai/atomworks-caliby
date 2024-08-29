@@ -1,0 +1,10 @@
+stages:
+  - test
+
+unit-test-job:
+  stage: test
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "specific-branch" && $CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - echo "Running unit tests"
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_tests.sh
