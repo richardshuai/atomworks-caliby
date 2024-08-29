@@ -48,6 +48,7 @@ env:
 		$(MAKE) _biotite_access_error; \
 	fi
 	$(CONDA_BINARY) env create -n cifutils --file environment.yaml
+	conda init
 	conda activate cifutils
 	pip install -e ".[dev]"
 
