@@ -16,6 +16,15 @@ ELEMENT_NAME_TO_ATOMIC_NUMBER = {
     "Rg": 111, "Cn": 112, "Nh": 113, "Fl": 114, "Mc": 115, "Lv": 116, "Ts": 117, "Og": 118
 }
 """Map canonical 2 letter element names to their atomic numbers."""
+
+METAL_ELEMENTS = {
+    "Li", "Na", "K", "Rb", "Cs", "Be", "Mg", "Ca", "Sr", "Ba",
+    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+    "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
+    "La", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+    "Al", "Ga", "In", "Sn", "Tl", "Pb", "Bi",
+}
+"""A set of all metal elements."""
 # fmt: on
 
 CHEM_COMP_TYPES = tuple(
