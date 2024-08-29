@@ -4,7 +4,9 @@ stages:
 unit-test-job:
   stage: test
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
+      when: always
+    - when: never
   script:
     - echo "Running unit tests"
     - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_tests.sh
