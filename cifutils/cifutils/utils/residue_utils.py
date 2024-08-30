@@ -52,7 +52,7 @@ def cached_residue_utils_factory(known_residues: list[str], data_by_residue: cal
         ccd_atoms = data_by_residue(residue_name)["atoms"]
         atom_list = [
             struc.Atom(
-                [0.0, 0.0, 0.0],
+                [np.nan, np.nan, np.nan],
                 res_name=residue_name,
                 atom_name=atom_name,
                 element=atom_data["element"],
