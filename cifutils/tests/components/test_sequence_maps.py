@@ -146,7 +146,7 @@ UNKNOWN_TEST_CASES = [
     PROTEIN_TEST_CASES + DNA_TEST_CASES + RNA_TEST_CASES + UNKNOWN_TEST_CASES,
 )
 def test_get_3_from_1_letter_code(letter, chain_type, expected_three_letter):
-    assert get_3_from_1_letter_code(letter, chain_type) == expected_three_letter
+    assert get_3_from_1_letter_code(letter, ChainType.from_string(chain_type)) == expected_three_letter
 
 
 # We can't test the reverse mapping for unknown letters (all map to "X")

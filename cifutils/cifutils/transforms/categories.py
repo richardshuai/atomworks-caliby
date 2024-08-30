@@ -19,6 +19,7 @@ from cifutils.enums import ChainType
 import biotite.structure as struc
 from biotite.structure.io.pdbx import CIFBlock
 from biotite.structure import AtomArray
+import toolz
 
 logger = logging.getLogger("cifutils")
 
