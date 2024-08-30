@@ -1,1 +1,1 @@
-/projects/ml/RF2_allatom/spec_files/cifutils_2024_08_28.sif pytest tests
+/projects/ml/RF2_allatom/spec_files/cifutils_latest.sif pytest tests
