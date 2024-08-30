@@ -70,7 +70,7 @@ apptainer:
 	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
 		$(MAKE) _biotite_access_error; \
 	fi
-	apptainer build --bind $PWD:/cifutils_host cifutils.sif apptainer.spec
+	apptainer build --bind $(PWD):/cifutils_host cifutils.sif apptainer.spec
 
 ## Run pytest and generate coverage report
 test:
