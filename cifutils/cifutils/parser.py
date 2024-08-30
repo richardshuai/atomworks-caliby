@@ -148,10 +148,10 @@ class CIFParser:
 
             # Build the cache file path
             assembly_info = kwargs.get("build_assembly", "all")
-            if isinstance(assembly_info, list):
+            if isinstance(assembly_info, (list, tuple)):
                 assembly_info = ",".join(assembly_info)
 
-            cache_file_path = cache_dir / f"{Path(kwargs['filename']).stem}_assembly_{assembly_info}.pkl"
+            cache_file_path = cache_dir / f"{Path(kwargs['filename']).stem}_assembly_{assembly_info}.pkl.gz"
 
         if load_from_cache and cache_dir:
             try:
