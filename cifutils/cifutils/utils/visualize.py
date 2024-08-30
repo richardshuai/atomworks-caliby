@@ -1,6 +1,7 @@
 """Utility functions to visualize atom arrays with py3Dmol in Jupyter notebooks."""
 
-import io
+__all__ = ["view"]
+
 import logging
 from itertools import cycle
 
@@ -8,14 +9,11 @@ import biotite.structure as struc
 import numpy as np
 import py3Dmol
 from biotite.structure import AtomArray
-from biotite.structure.io import pdbx
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, METAL_ELEMENTS
+from cifutils.constants import METAL_ELEMENTS
+from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
+from cifutils.utils.io_utils import to_cif
 
-logger = logging.getLogger(__name__)
-
-ATOMIC_NUMBER_TO_ELEMENT = {v: k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()} | {
-    str(v): k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()
-}
+logger = logging.getLogger("cifutils")
 
 IPD_PYMOL_COLORS = [
     "#888888",  # pymol_gray
@@ -39,24 +37,6 @@ IPD_PYMOL_COLORS = [
 ]
 
 _is_metal = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x.capitalize()) in METAL_ELEMENTS)
-
-
-def to_cif(structure: AtomArray) -> str:
-    """Convert an AtomArray structure to a CIF formatted string.
-
-    Args:
-        structure (AtomArray): The atomic structure to be converted.
-
-    Returns:
-        str: The CIF formatted string representation of the structure.
-    """
-    structure = structure.copy()
-    buffer = io.StringIO()
-    cif_file = pdbx.CIFFile()
-    structure.element = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x))(structure.element)
-    pdbx.set_structure(cif_file, structure, data_block="structure", include_bonds=True)
-    cif_file.write(buffer)
-    return buffer.getvalue()
 
 
 def view(

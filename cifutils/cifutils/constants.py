@@ -17,6 +17,11 @@ ELEMENT_NAME_TO_ATOMIC_NUMBER = {
 }
 """Map canonical 2 letter element names to their atomic numbers."""
 
+ATOMIC_NUMBER_TO_ELEMENT = {v: k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()} | {
+    str(v): k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()
+}
+"""Map atomic numbers (int/str) to their canonical 2 letter element names."""
+
 METAL_ELEMENTS = {
     "Li", "Na", "K", "Rb", "Cs", "Be", "Mg", "Ca", "Sr", "Ba",
     "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",

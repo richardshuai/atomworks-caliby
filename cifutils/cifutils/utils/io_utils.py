@@ -2,15 +2,19 @@
 General utility functions for working with CIF files in Biotite.
 """
 
-__all__ = ["load_structure", "read_cif_file"]
+__all__ = ["load_structure", "read_cif_file", "to_cif"]
 
 import gzip
+import io
+from biotite.structure import AtomArray
+from biotite.structure.io import pdbx
 import numpy as np
 from pathlib import Path
 from os import PathLike
-import biotite.structure.io.pdbx as pdbx
 from biotite.structure.io.pdbx import CIFFile, BinaryCIFFile, CIFBlock
 import logging
+
+from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
 
 
 logger = logging.getLogger("cifutils")
@@ -74,3 +78,21 @@ def read_cif_file(filename: PathLike) -> CIFFile | BinaryCIFFile:
         raise ValueError(f"Unsupported file format {file_ext} in {filename}")
 
     return cif_file
+
+
+def to_cif(structure: AtomArray) -> str:
+    """Convert an AtomArray structure to a CIF formatted string.
+
+    Args:
+        structure (AtomArray): The atomic structure to be converted.
+
+    Returns:
+        str: The CIF formatted string representation of the structure.
+    """
+    structure = structure.copy()
+    buffer = io.StringIO()
+    cif_file = pdbx.CIFFile()
+    structure.element = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x))(structure.element)
+    pdbx.set_structure(cif_file, structure, data_block="structure", include_bonds=True)
+    cif_file.write(buffer)
+    return buffer.getvalue()
