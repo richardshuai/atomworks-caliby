@@ -5,7 +5,8 @@ Regression tests for complex cases to ensure consistent behavior.
 import pickle
 import pytest
 from pathlib import Path
-from tests.conftest import get_digs_path, assert_same_atom_array, CIF_PARSER_BIOTITE
+from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 from cifutils.constants import CRYSTALLIZATION_AIDS
 
 from assertpy import assert_that

@@ -1,6 +1,7 @@
 import pytest
 from cifutils.utils import io_utils
-from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE, assert_same_atom_array
+from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 from biotite.structure.io import pdbx
 
 MULTIPLE_ASSEMBLY_TEST_CASES = [

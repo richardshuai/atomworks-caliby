@@ -1,4 +1,5 @@
-from tests.conftest import get_digs_path, TEST_DATA_DIR, assert_same_atom_array, CIF_PARSER_BIOTITE
+from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from tests.conftest import get_digs_path, TEST_DATA_DIR, CIF_PARSER_BIOTITE
 
 
 def test_arginine_renaming():

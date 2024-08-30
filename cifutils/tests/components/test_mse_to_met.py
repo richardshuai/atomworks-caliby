@@ -1,5 +1,6 @@
 import pytest
-from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE, assert_same_atom_array
+from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 from cifutils.transforms.atom_array import mse_to_met
 import biotite.structure as struc
 import numpy as np

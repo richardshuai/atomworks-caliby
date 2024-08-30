@@ -1,5 +1,6 @@
 import pytest
-from tests.conftest import get_digs_path, assert_same_atom_array, CIF_PARSER_BIOTITE
+from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 import numpy as np
 
 TEST_CASES = [
