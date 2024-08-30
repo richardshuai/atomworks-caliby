@@ -9,12 +9,12 @@ import logging
 import numpy as np
 import pandas as pd
 from datetime import datetime
-import toolz
 
 from cifutils.utils.sequence_utils import (
     get_1_from_3_letter_code,
 )
 from cifutils.common import deduplicate_iterator, exists
+from cifutils.enums import ChainType
 
 import biotite.structure as struc
 from biotite.structure.io.pdbx import CIFBlock
@@ -249,7 +249,7 @@ def load_monomer_sequence_information_from_category(
         if rcsb_entity in polymer_entity_id_to_residue_names_and_ids:
             # For polymers, we use the stored entity residue list
             residue_names = polymer_entity_id_to_residue_names_and_ids[rcsb_entity]["residue_names"]
-            chain_type = chain_info_dict[chain_id]["type"]
+            chain_type = ChainType.from_string(chain_info_dict[chain_id]["type"])
             if residue_names:
                 chain_info_dict[chain_id]["residue_name_list"] = residue_names
                 chain_info_dict[chain_id]["residue_id_list"] = polymer_entity_id_to_residue_names_and_ids[rcsb_entity][

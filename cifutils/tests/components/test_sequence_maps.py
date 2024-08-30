@@ -1,6 +1,7 @@
 import pytest
 from cifutils.utils.sequence_utils import get_1_from_3_letter_code
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
+from cifutils.enums import ChainType
 from cifutils.utils.sequence_utils import (
     get_3_from_1_letter_code,
 )
@@ -153,7 +154,7 @@ def test_get_3_from_1_letter_code(letter, chain_type, expected_three_letter):
     "expected_one_letter, chain_type, three_letter_code", PROTEIN_TEST_CASES + DNA_TEST_CASES + RNA_TEST_CASES
 )
 def test_get_1_from_3_letter_code(three_letter_code, chain_type, expected_one_letter):
-    assert get_1_from_3_letter_code(three_letter_code, chain_type) == expected_one_letter
+    assert get_1_from_3_letter_code(three_letter_code, ChainType.from_string(chain_type)) == expected_one_letter
 
 
 if __name__ == "__main__":
