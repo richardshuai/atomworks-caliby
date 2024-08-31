@@ -1,71 +1,9 @@
-from functools import cache, partial
-
-import numpy as np
 import torch
-from cifutils.enums import ChainType
-from cifutils.utils import get_3_from_1_letter_code
 
 from datahub.encoding_definitions import (
-    RF2AA_ATOM36_ENCODING,
     TokenEncoding,
 )
 from datahub.utils.misc import grouped_count, grouped_sum
-
-
-@cache
-def cached_get_3_from_1_letter_code(letter: bytes, chain_type: str, **args):
-    """Cached version of get_3_from_1_letter_code to avoid redundant byte decodings"""
-    return get_3_from_1_letter_code(letter.decode(), chain_type=chain_type, **args)
-
-
-def convert_msa_from_1_to_3_letter_code(one_letter_msa: np.ndarray, chain_type: ChainType) -> np.ndarray:
-    """Convert an MSA (stored as an np.ndarray of bytes) from 1-letter to 3-letter code"""
-    chain_type = ChainType.to_string(chain_type)
-    convert_letter = partial(cached_get_3_from_1_letter_code, chain_type=chain_type)
-
-    # Vectorize the conversion function to apply it to the entire array
-    vectorized_convert_letter = np.vectorize(convert_letter, otypes=[np.bytes_])
-    return vectorized_convert_letter(one_letter_msa)
-
-
-def encode_msa_3_letter_code_with_token_encoding(three_letter_msa: np.ndarray, encoding: TokenEncoding) -> np.ndarray:
-    """Cached encoding of MSA 3-letter codes into integers to avoid redundant byte decodings"""
-
-    @cache
-    def memoized_encode_letter(letter: bytes) -> int:
-        return encoding.token_to_idx[letter.decode()]
-
-    # Vectorize the encoding function to apply it to the entire array
-    vectorized_encode_letter = np.vectorize(memoized_encode_letter, otypes=[np.uint8])
-    return vectorized_encode_letter(three_letter_msa)
-
-
-def encode_msa_like_RF2AA(
-    msa: np.ndarray, chain_type: ChainType, encoding: TokenEncoding = RF2AA_ATOM36_ENCODING
-) -> np.ndarray:
-    """
-    Encode an MSA into a tokenized representation in the style of RF2AA.
-    Notably, maps all gap tokens to unknown tokens (unlike AF2 and AF3).
-
-    Parameters:
-    - msa (np.ndarray): The MSA with 1-letter codes, with elements stored as bytes.
-    - encoding (TokenEncoding): The encoding used to convert 3-letter codes to integers. Default is RF2AA_ATOM36_ENCODING.
-    - chain_type (ChainType): The type of chain, stored as the ChainType enum.
-
-    Returns:
-    - np.ndarray: The encoded MSA as integers.
-    """
-    # Convert the MSA to 3-letter codes
-    three_letter_msa = convert_msa_from_1_to_3_letter_code(msa, chain_type)
-
-    # Convert all gap tokens to unknown tokens, per RF2AA
-    gap_token = b"<G>"
-    unknown_token = b"UNK"
-    three_letter_msa[three_letter_msa == gap_token] = unknown_token
-
-    # Encode the 3-letter codes into integers
-    encoded_msa = encode_msa_3_letter_code_with_token_encoding(three_letter_msa, encoding)
-    return encoded_msa
 
 
 def uniformly_select_msa_cluster_representatives(
@@ -107,7 +45,10 @@ def build_msa_index_can_be_masked(
     """
     Build the mask indicating where we can apply the BERT mask.
 
-    An index can only have a BERT mask applied if:
+    For the QUERY sequence, we can apply the BERT mask to any position that:
+    - Is a protein (i.e., not a small molecule, DNA, or RNA, which we currently do not mask)
+
+    For the MSA, we can apply the BERT mask to any position that:
     - It is not padded due to unpaired sequences
     - It has an MSA (or at least a single-row MSA)
     - It is a protein (we currently do not apply the mask to DNA, RNA, or small molecules)
@@ -115,13 +56,13 @@ def build_msa_index_can_be_masked(
     # ...do not apply a mask where there is padding, if we are ignoring padding
     index_can_be_masked = ~msa_is_padded_mask  # implicitly copies the mask, so we don't need to duplicate
 
-    # ...do not apply the mask where we do not have an MSA (e.g., DNA, small molecules)
-    index_can_be_masked[:, ~token_idx_has_msa] = False
+    # ...outside of the query sequence, do not apply the mask where we do not have an MSA (e.g., DNA, small molecules)
+    index_can_be_masked[1:, ~token_idx_has_msa] = False
 
-    # ...do not apply a mask in any columns where the query sequence token index is greater than the "UNK" protein token (i.e., RNA)
+    # ...do not apply a mask in any columns where the query sequence token index is greater than the "UNK" protein token (i.e., exclude columns for RNA, DNA, and small molecules)
     # NOTE: This exclusion is somewhoat brittle, and may be deprecated if we modify our encoding
-    unk_index = encoding.token_to_idx["UNK"]
-    greater_than_unk_mask = encoded_msa[0] > unk_index
+    unk_amino_acid_index = encoding.token_to_idx["UNK"]
+    greater_than_unk_mask = encoded_msa[0] > unk_amino_acid_index
     index_can_be_masked[:, greater_than_unk_mask] = False
 
     return index_can_be_masked

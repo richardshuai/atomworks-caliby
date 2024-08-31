@@ -1,8 +1,6 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
-from cifutils.enums import ChainType
-from cifutils.utils import get_1_from_3_letter_code
 
 from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
 from datahub.tests.components.msa.test_pair_and_merge_polymer_msas import MSA_PAIRING_PIPELINE_TEST_CASES
@@ -19,6 +17,7 @@ from datahub.transforms.atom_array import (
     sort_poly_then_non_poly,
 )
 from datahub.transforms.base import Compose
+from datahub.transforms.msa._msa_constants import THREE_LETTER_TO_MSA_INTEGER
 from datahub.transforms.msa.msa import LoadPolymerMSAs
 
 
@@ -162,24 +161,19 @@ def test_add_within_poly_res_idx_annotation(pdb_id: str):
         # Get the polymer sequence by indexing into the first row of the MSA (query sequence) with the within_poly_res_id
         polymer_msa = result["polymer_msas_by_chain_id"][chain_id]
         residues_starts = chain_atom_array[struc.get_residue_starts(chain_atom_array)]
-        polymer_sequence_from_msa_indexing = "".join(
-            polymer_msa["msa"][0][residues_starts.within_poly_res_idx].astype(str)
-        )
+        polymer_sequence_from_msa_indexing = polymer_msa["msa"][0][residues_starts.within_poly_res_idx]
 
         # Get the polymer sequence from the atom array, and convert it to a one-letter sequence ()
         polymer_three_letter_sequence_from_atom_array = struc.get_residues(chain_atom_array)[
             1
         ]  # Returns a tuple of (ids, names), so [1] gets the list of names
-        chain_type = ChainType(chain_atom_array.chain_type[0]).to_string()
-        polymer_sequence_from_atom_array = "".join(
-            [
-                get_1_from_3_letter_code(res_name, chain_type)
-                for res_name in polymer_three_letter_sequence_from_atom_array
-            ]
+        polymer_sequence_from_atom_array = np.array(
+            [str(THREE_LETTER_TO_MSA_INTEGER[res_name]) for res_name in polymer_three_letter_sequence_from_atom_array],
+            dtype=np.int8,
         )
 
         # Assert that the MSA sequence is the same as the sequence in the atom array
-        assert polymer_sequence_from_msa_indexing == polymer_sequence_from_atom_array
+        assert np.array_equal(polymer_sequence_from_msa_indexing, polymer_sequence_from_atom_array)
 
 
 def test_renumber_non_polymer_residue_idx():

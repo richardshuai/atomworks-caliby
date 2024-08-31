@@ -36,7 +36,7 @@ def save_failed_example_to_disk(
         None
     """
     # Get wandb run ID if currently in a wandb run
-    if wandb is not None and wandb.run is not None:
+    if wandb is not None and hasattr(wandb, "run") and wandb.run is not None:
         run_id = wandb.run.id
     else:
         run_id = "unknown"

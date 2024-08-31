@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 from functools import reduce
+from typing import Any
 
 import numpy as np
 
+from datahub.transforms.msa._msa_constants import AMINO_ACID_ONE_LETTER_TO_INT
 from datahub.utils.misc import cumcount
 
 logger = logging.getLogger(__name__)
@@ -16,11 +18,18 @@ def _get_matched_indices(msa: dict, shared_tax_ids: np.array) -> np.array:
     """
     Given an MSA with associated tax_ids
         (1) drop all entries that do not appear in `shared_tax_ids` and
-        (2) sort the remaining entries first by `tax_id` (high to low) and then by sequence match (high to low).
+        (2) sort the remaining entries first by `tax_id` (high to low) and then by sequence similarity (high to low).
             The `query` sequence is guaranteed to be sorted in the first position.
 
-    Returns the sorted indices to index into the values of the `msa` dictionary.
-    Entries with `tax_ids` that are not in the `shared_tax_ids` are dropped.
+    NOTE: If the `seq_similarity_with_query_sequence` is provided in the MSA dictionary, it will be used for sorting.
+
+    Args:
+        msa (dict): Dictionary containing 'tax_ids' and 'msa' keys.
+        shared_tax_ids (np.array): Array of tax IDs to keep.
+
+    Returns:
+        np.array: The sorted indices to index into the values of the `msa` dictionary.
+        Entries with `tax_ids` that are not in the `shared_tax_ids` are dropped.
 
     Example:
     >>> msa = {
@@ -37,21 +46,27 @@ def _get_matched_indices(msa: dict, shared_tax_ids: np.array) -> np.array:
     ... }
     >>> shared_tax_ids = [101, 102, 104]
     >>> _get_matched_indices(msa, shared_tax_ids)
-    array([0, 3, 1, 4])
+    array([0, 1, 3, 4])
     """
     query_tax_id = msa["tax_ids"][0]
     mask = np.isin(msa["tax_ids"], shared_tax_ids)
     msa_indices = np.where(mask)[0]
 
     tax_ids = msa["tax_ids"][mask]
-    num_matches = (msa["msa"][mask] == msa["msa"][0:1]).sum(axis=1)
+
+    if "seq_similarity_with_query_sequence" in msa:
+        # Use provided sequence similarity
+        seq_similarity = msa["seq_similarity_with_query_sequence"][mask]
+    else:
+        # Compute sequence similarity if not provided
+        seq_similarity = (msa["msa"][mask] == msa["msa"][0:1]).mean(axis=1)
 
     # Create a priority array that gives higher priority to sequences with the same tax_id as the query
     # This way, we ensure the query sequence is always the first index returned (since its sequence identity is 100%)
     priority = (tax_ids == query_tax_id).astype(int)
 
-    # Perform lexicographic sort with priority, tax_ids, and num_matches
-    sort_indices = np.lexsort((num_matches, tax_ids, priority))[::-1]
+    # Perform lexicographic sort with priority, tax_ids, and seq_similarity
+    sort_indices = np.lexsort((seq_similarity, tax_ids, priority))[::-1]
 
     matched_indices = msa_indices[sort_indices]
     return matched_indices
@@ -64,28 +79,28 @@ def _remove_extraneous_taxid_copies(
     Removes indices in i_paired_a and i_paired_b until the tax_ids in both match not only in tax_id
     but also in repeat number.
 
-    Parameters:
-    msa_a (dict): A dictionary containing:
-        - "tax_ids" (np.ndarray): An array of taxonomic IDs for msa_a.
-    msa_b (dict): A dictionary containing:
-        - "tax_ids" (np.ndarray): An array of taxonomic IDs for msa_b.
-    i_paired_a (np.ndarray): Array of indices for msa_a.
-    i_paired_b (np.ndarray): Array of indices for msa_b.
+    Args:
+        msa_a (dict): A dictionary containing:
+            - "tax_ids" (np.ndarray): An array of taxonomic IDs for msa_a.
+        msa_b (dict): A dictionary containing:
+            - "tax_ids" (np.ndarray): An array of taxonomic IDs for msa_b.
+        i_paired_a (np.ndarray): Array of indices for msa_a.
+        i_paired_b (np.ndarray): Array of indices for msa_b.
 
     Returns:
-    tuple: Two numpy arrays of indices (i_paired_a, i_paired_b) with extraneous copies removed.
+        tuple: Two numpy arrays of indices (i_paired_a, i_paired_b) with extraneous copies removed.
 
     Example:
-    >>> msa_a = {
-    ...     "tax_ids": np.array(["a", "a", "a", "b", "b"]),
-    ... }
-    >>> msa_b = {
-    ...     "tax_ids": np.array(["a", "a", "b", "b", "b"]),
-    ... }
-    >>> i_paired_a = np.array([0, 1, 2, 3, 4])
-    >>> i_paired_b = np.array([0, 1, 2, 3, 4])
-    >>> _remove_extraneous_taxid_copies(msa_a, msa_b, i_paired_a, i_paired_b)
-    (array([0, 1, 3, 4]), array([0, 1, 2, 3]))
+        >>> msa_a = {
+        ...     "tax_ids": np.array(["a", "a", "a", "b", "b"]),
+        ... }
+        >>> msa_b = {
+        ...     "tax_ids": np.array(["a", "a", "b", "b", "b"]),
+        ... }
+        >>> i_paired_a = np.array([0, 1, 2, 3, 4])
+        >>> i_paired_b = np.array([0, 1, 2, 3, 4])
+        >>> _remove_extraneous_taxid_copies(msa_a, msa_b, i_paired_a, i_paired_b)
+        (array([0, 1, 3, 4]), array([0, 1, 2, 3]))
     """
     tax_ids_a = msa_a["tax_ids"][i_paired_a]
     tax_ids_b = msa_b["tax_ids"][i_paired_b]
@@ -107,12 +122,12 @@ def _remove_extraneous_taxid_copies(
 def _get_paired(msa_a: dict, msa_b: dict, shared_tax_ids: np.array) -> tuple[np.ndarray, np.ndarray]:
     """
     Fully vectorized implementation of the following.
-    Given a set of tax_ids that are shared between two MSAs, this
-    function:
+
+    Given a set of tax_ids that are shared between two MSAs, this function:
         1. Finds the indices of the sequences in the MSAs that
             have those tax_ids, and returns them in sorted lexicographic order
             first by tax_id and then by how well the sequence matches the query.
-        3. Removes extraneous copies of tax_ids in the indices found in step 1, such that
+        2. Removes extraneous copies of tax_ids in the indices found in step 1, such that
             both index sets have the same taxids with the same multiplicity.
     """
     i_paired_a = _get_matched_indices(msa_a, shared_tax_ids)
@@ -142,7 +157,7 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
     Args:
         msa_a (dict):
             First MSA to be joined, with keys:
-            - `msa` (N_seq, L_seq)
+            - `msa` (N_seq, L_seq) (Can by any data type, e.g., string, integers, etc.)
             - `ins` (N_seq, L_seq)
             - `tax_id` (N_seq,)
             - `msa_is_padded_mask` (N_seq, L_seq)
@@ -151,35 +166,30 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
         msa_b (dict):
             Second MSA to be joined, with keys `msa`, `ins`, and `tax_ids`.
         unpaired_padding (np.ndarray):
-            Scalar array for unpaired sequences. Should be dtype 'S'.
-            Must be a scalar array, since we enforce numpy string-like types.
+            Scalar array for unpaired sequences. Must match the dtype of the MSA data.
 
     Returns:
         dict: Paired MSA, with keys `msa`, `ins`, `tax_ids`, `any_paired`, `all_paired`, and `msa_is_padded_mask`.
     """
-    # Ensure unpaired_padding has a byte string dtype
-    if not np.issubdtype(unpaired_padding.dtype, np.bytes_):
-        raise ValueError("unpaired_padding must have a byte string dtype")
-
     msa_a_num_residues, msa_b_num_residues = msa_a["msa"].shape[1], msa_b["msa"].shape[1]
     msa_a_num_sequences, msa_b_num_sequences = msa_a["msa"].shape[0], msa_b["msa"].shape[0]
 
-    # Get the tax IDs that are shared between the two MSAs, with duplicates allowed
+    # ...get the tax IDs that are shared between the two MSAs, with duplicates allowed
     shared_tax_ids = msa_a["tax_ids"][np.isin(msa_a["tax_ids"], msa_b["tax_ids"])]
 
-    # Remove shared empty strings
+    # ...remove shared empty strings
     shared_tax_ids = shared_tax_ids[shared_tax_ids != ""]
 
-    # Ensure query sequence is shared
+    # ...ensure query sequence is shared
     query_tax_id = msa_a["tax_ids"][0]
     assert query_tax_id in shared_tax_ids, "Query sequence tax ID must be in the shared tax IDs"
 
-    # Pair sequences, sorting first by tax_id and then by how well the sequence matches the query
+    # ...pair sequences, sorting first by tax_id and then by how well the sequence matches the query
     # Here, we drop out any unpaired sequences (keeping the best match)
     # We also force the query sequence to be the first index returned for both MSAs
     i_paired_a, i_paired_b = _get_paired(msa_a, msa_b, shared_tax_ids)
 
-    # Get indices of sequences that are not paired
+    # ...get indices of sequences that are not paired
     i_unpaired_a = np.setdiff1d(np.arange(msa_a_num_sequences), i_paired_a)
     i_unpaired_b = np.setdiff1d(np.arange(msa_b_num_sequences), i_paired_b)
 
@@ -189,14 +199,14 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
         len(i_unpaired_b),
     )
 
-    # Step 1: Concatenate paired sequences
+    # ...concatenate paired sequences
     msa_paired = np.concatenate([msa_a["msa"][i_paired_a], msa_b["msa"][i_paired_b]], axis=1)
     ins_paired = np.concatenate([msa_a["ins"][i_paired_a], msa_b["ins"][i_paired_b]], axis=1)
     msa_paired_is_padded_mask = np.concatenate(
         [msa_a["msa_is_padded_mask"][i_paired_a], msa_b["msa_is_padded_mask"][i_paired_b]], axis=1
     )
 
-    # Step 2: Pad unpaired sequences with gaps
+    # ...pad unpaired sequences with gaps
     msa_dtype = msa_a["msa"].dtype
     assert msa_dtype == msa_b["msa"].dtype, "MSA data types must match"
 
@@ -233,7 +243,7 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
         axis=1,
     )
 
-    # Create padding masks to keep track of which MSA indices are meaningful
+    # ...create padding masks to keep track of which MSA indices are meaningful
 
     msa_a_unpaired_is_padded_mask = np.concatenate(
         [
@@ -251,7 +261,7 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
         axis=1,
     )
 
-    # Step 3: Stack paired & unpaired
+    # ...stack paired & unpaired
     msa = np.concatenate([msa_paired, msa_a_unpaired, msa_b_unpaired], axis=0)
     ins = np.concatenate([ins_paired, ins_a_unpaired, ins_b_unpaired], axis=0)
     tax_ids = np.concatenate(
@@ -266,7 +276,7 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
         [msa_paired_is_padded_mask, msa_a_unpaired_is_padded_mask, msa_b_unpaired_is_padded_mask], axis=0
     )
 
-    # Label sequences that were paired
+    # ...label sequences that were paired
     any_paired = np.concatenate(
         [
             np.ones(N_paired, dtype=bool),
@@ -282,7 +292,7 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
         ],
     )
 
-    # Assert that the first row is still the query sequence
+    # ...and assert that the first row is still the query sequence as a sanity check
     assert np.all(
         msa[0] == np.concatenate([msa_a["msa"][0], msa_b["msa"][0]])
     ), "Query sequence must be the first row of the MSA"
@@ -299,7 +309,10 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
 
 
 def join_multiple_msas_by_tax_id(
-    msas: list, unpaired_padding: str = "-", dense: bool = False, shuffle_unpaired_sequences: bool = False
+    msas: list,
+    unpaired_padding: Any = np.array([AMINO_ACID_ONE_LETTER_TO_INT["-"]], dtype=np.int8),
+    dense: bool = False,
+    shuffle_unpaired_sequences: bool = False,
 ) -> dict:
     """
     Join multiple MSAs by tax_id, merging them sequentially and updating pairing information.
@@ -323,8 +336,8 @@ def join_multiple_msas_by_tax_id(
      [---,     ---,     seqX_c ]
 
     Args:
-        msas (list): List of MSAs to be merged. MSAs will be merged sequentially (chain ordering matters).
-        unpaired_padding (str): Padding for unpaired sequences. Defaults to "-".
+        msas (list): List of MSAs to be merged. MSAs will be merged sequentially (chain ordering matters). MSAs must be numpy arrays, but can be of any data type.
+        unpaired_padding (Any): Padding for unpaired sequences. Datatype must match the datatype of the MSAs. Defaults to the integer encoding of "-" (gap).
         dense (bool, optional): Whether to densely pack unpadded sequences (AF-3 style), or use sparse block matrices (AF-Multimer style). Defaults to False.
         shuffle_unpaired (bool, optional): Whether to shuffle unpaired sequences before collapsing during dense merging. Defaults to False.
 
@@ -336,8 +349,8 @@ def join_multiple_msas_by_tax_id(
             "shuffle_unpaired_sequences can only be used in dense mode; set dense=True to use shuffle_unpaired_sequences"
         )
 
-    # Convert unpaired_padding to bytes
-    unpaired_padding = np.array(unpaired_padding, dtype="S")
+    # Assert that the unpaired padding has the same dtype as the MSA data
+    assert msas[0]["msa"].dtype == unpaired_padding.dtype, "unpaired_padding must have the same dtype as the MSA data"
 
     result = reduce(lambda a, b: join_two_msas_by_tax_id(a, b, unpaired_padding=unpaired_padding), msas)
 

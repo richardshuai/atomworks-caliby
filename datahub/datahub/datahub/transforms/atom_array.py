@@ -9,7 +9,7 @@ import biotite.structure as struc
 import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
-from cifutils.enums import ENUM_TO_CHAIN_TYPE_STRING_MAPPING, ChainType
+from cifutils.enums import ChainType
 from cifutils.utils import get_1_from_3_letter_code, get_3_from_1_letter_code
 
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES
@@ -673,11 +673,10 @@ class HandleUndesiredResTokens(Transform):
 
     def _get_closest_canonical_residue(self, res_name: str, chain_type: int, force_unknown: bool = False) -> str:
         """Map a residue name to the closest canonical residue name."""
-        chain_type_str = ENUM_TO_CHAIN_TYPE_STRING_MAPPING[ChainType(chain_type)]
         one_letter_canonical = get_1_from_3_letter_code(
-            res_name, chain_type=chain_type_str, use_closest_canonical=not force_unknown
+            res_name, chain_type=ChainType(chain_type), use_closest_canonical=not force_unknown
         )
-        three_letter_canonical = get_3_from_1_letter_code(one_letter_canonical, chain_type=chain_type_str)
+        three_letter_canonical = get_3_from_1_letter_code(one_letter_canonical, chain_type=ChainType(chain_type))
         return three_letter_canonical
 
     def _map_to_closest_canonical_residue(self, res: AtomArray) -> tuple[np.ndarray, np.ndarray]:

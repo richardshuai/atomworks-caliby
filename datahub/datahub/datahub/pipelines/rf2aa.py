@@ -34,7 +34,6 @@ from datahub.transforms.covalent_modifications import FlagAndReassignCovalentMod
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAtomArray, atom_array_from_encoding
 from datahub.transforms.feature_aggregation import AggregateFeaturesLikeRF2AA
-from datahub.transforms.msa._msa_featurizing_utils import encode_msa_like_RF2AA
 from datahub.transforms.msa.msa import (
     EncodeMSA,
     FeaturizeMSALikeRF2AA,
@@ -393,11 +392,8 @@ def build_rf2aa_transform_pipeline(
             max_msa_sequences=max_msa_sequences,  # maximum number of sequences to load (we later subsample further)
             msa_cache_dir=Path(msa_cache_dir) if exists(msa_cache_dir) else None,
         ),
-        PairAndMergePolymerMSAs(
-            unpaired_padding="-",
-            dense=dense_msa,
-        ),
-        EncodeMSA(encoding_function=encode_msa_like_RF2AA),
+        PairAndMergePolymerMSAs(dense=dense_msa),
+        EncodeMSA(encoding=encoding, token_to_use_for_gap=encoding.token_to_idx["UNK"]),
         FillFullMSAFromEncoded(pad_token=encoding.token_to_idx["UNK"]),
         # ============================================
         # 5. Load and featurize templates (proteins only)

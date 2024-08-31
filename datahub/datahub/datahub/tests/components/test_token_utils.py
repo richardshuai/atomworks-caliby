@@ -1,9 +1,10 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
-from conftest import cached_parse
+from cifutils.utils.atom_matching_utils import assert_same_atom_array
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
+from datahub.tests.conftest import cached_parse
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, AddGlobalTokenIdAnnotation
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Compose
@@ -26,7 +27,8 @@ def test_tokens_are_residues_without_atomization(pdb_id: str):
         get_token_starts(atom_array, add_exclusive_stop=True)
         == struc.get_residue_starts(atom_array, add_exclusive_stop=True)
     )
-    assert np.all(list(token_iter(atom_array)) == list(struc.residue_iter(atom_array)))
+    for res_1, res_2 in zip(struc.residue_iter(atom_array), token_iter(atom_array)):
+        assert_same_atom_array(res_1, res_2)
 
 
 @pytest.mark.parametrize("pdb_id", ["6lyz", "5ocm"])

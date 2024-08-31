@@ -11,7 +11,7 @@
 echo "Starting task ${SLURM_ARRAY_TASK_ID} on ${SLURM_JOB_NODELIST}"
 
 # Add rf2aa-dev to the PYTHONPATH
-export PYTHONPATH="${PYTHONPATH}:/home/ncorley/projects/rf2aa-dev"
+export PYTHONPATH="${PYTHONPATH}:/home/ncorley/projects/rf2aa-dev:/home/ncorley/projects/rf2aa-dev/datahub/"
 
 # Print the path
 echo "PYTHONPATH: ${PYTHONPATH}"
