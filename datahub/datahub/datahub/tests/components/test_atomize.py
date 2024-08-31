@@ -15,7 +15,7 @@ def test_fail_on_invalid_init():
 
 def test_fail_on_invalid_atomize_annotation():
     with pytest.raises(ValueError):
-        transform = AtomizeResidues(atomize_by_default=False)
+        transform = AtomizeResidues(atomize_by_default=False, validate_atomize=True)
         data = {"atom_array": struc.info.residue("ALA")}
         data["atom_array"].set_annotation("atomize", np.array([False] * len(data["atom_array"])))
 

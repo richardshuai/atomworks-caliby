@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from functools import lru_cache
 from typing import Any, Callable, Iterator
 
 import biotite.structure as struc
@@ -19,9 +20,9 @@ from datahub.transforms._checks import (
     check_is_instance,
 )
 from datahub.transforms.base import Transform
+from datahub.utils.numpy import not_isin
 from datahub.utils.token import (
     get_token_count,
-    get_token_masks,
     get_token_starts,
     spread_token_wise,
 )
@@ -302,7 +303,7 @@ class RemoveHydrogens(Transform):
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
         is_heavy = atom_array.element != 1
-        is_heavy &= ~np.isin(atom_array.element, self.hydrogen_names)
+        is_heavy &= not_isin(atom_array.element, self.hydrogen_names)
         data["atom_array"] = atom_array[is_heavy]
         return data
 
@@ -679,11 +680,11 @@ class HandleUndesiredResTokens(Transform):
         three_letter_canonical = get_3_from_1_letter_code(one_letter_canonical, chain_type=ChainType(chain_type))
         return three_letter_canonical
 
-    def _map_to_closest_canonical_residue(self, res: AtomArray) -> tuple[np.ndarray, np.ndarray]:
+    @lru_cache(maxsize=1000)
+    def _map_to_closest_canonical_residue(
+        self, res_name: str, chain_type: int, has_hydrogens: bool, atom_name: tuple[str]
+    ) -> tuple[np.ndarray, str]:
         """Map a residue name to the closest canonical residue name."""
-        res_name = res.res_name[0]
-        chain_type = res.chain_type[0]
-        has_hydrogens = "1" in res.element
 
         for force_unknown in (False, True):
             canonical_res_name = self._get_closest_canonical_residue(res_name, chain_type, force_unknown)
@@ -695,13 +696,13 @@ class HandleUndesiredResTokens(Transform):
 
             # If canonical residue is a strict subset of the original residue,
             #  keep all matching atom names and delete the rest
-            if np.all(np.isin(canonical_res.atom_name, res.atom_name)):
-                to_keep = np.isin(res.atom_name, canonical_res.atom_name)
+            if np.all(np.isin(canonical_res.atom_name, atom_name)):
+                to_keep = np.isin(atom_name, canonical_res.atom_name)
                 # ... if we match without `force_unknown` break loop early
                 return to_keep, canonical_res_name
 
         # If we could not find a canonical residue, or map to unknown, atomize the residue
-        return np.ones(len(res), dtype=bool), res_name
+        return np.ones(len(atom_name), dtype=bool), res_name
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
@@ -723,20 +724,33 @@ class HandleUndesiredResTokens(Transform):
         #  - Map to closest canonical residue
         is_undesired_poly = to_remove & atom_array.is_polymer
         if np.any(is_undesired_poly):
-            for res_start in get_token_starts(atom_array):
-                res_mask = get_token_masks(atom_array, [res_start])[0]
-                if np.any(res_mask & is_undesired_poly):
-                    to_keep, new_res_name = self._map_to_closest_canonical_residue(atom_array[res_mask])
+            # Iterate over all undesired residues
+            _token_start_stop_idx = get_token_starts(atom_array, add_exclusive_stop=True)
+            _token_starts = _token_start_stop_idx[:-1]
+            _token_stops = _token_start_stop_idx[1:]
+            undesired_poly_token_idxs = np.where(is_undesired_poly[_token_starts])[0]
 
-                    # ... override the `to_remove` flag as `False` for the atoms that we want to keep
-                    to_remove[res_mask] = ~to_keep
+            for token_idx in undesired_poly_token_idxs:
+                token_start, token_stop = _token_starts[token_idx], _token_stops[token_idx]
 
-                    # ... override the res name for those atoms that we keep
-                    atom_array.res_name[res_mask] = new_res_name
+                old_res_name = atom_array.res_name[token_start]
+                to_keep, new_res_name = self._map_to_closest_canonical_residue(
+                    res_name=old_res_name,
+                    chain_type=atom_array.chain_type[token_start],
+                    has_hydrogens="1" in atom_array.element[token_start:token_stop],
+                    atom_name=tuple(atom_array.atom_name[token_start:token_stop]),  # tuple for hashability
+                )
 
-                    # if new_res_name is the same as the original res_name, we atomize the residue
-                    if new_res_name == atom_array.res_name[res_mask][0]:
-                        atom_array.atomize[res_mask] = True
+                # if new_res_name is the same as the original res_name (i.e. we didn't map to a canonical residue),
+                # we atomize the residue
+                if new_res_name == old_res_name:
+                    atom_array.atomize[token_start:token_stop] = True
+
+                # ... override the `to_remove` flag as `False` for the atoms that we want to keep
+                to_remove[token_start:token_stop] = ~to_keep
+
+                # ... override the old res name
+                atom_array.res_name[token_start:token_stop] = new_res_name
 
         # Drop undesired residues
         atom_array = atom_array[~to_remove]
