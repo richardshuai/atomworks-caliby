@@ -322,17 +322,16 @@ def add_molecule_id_annotation(atom_array: AtomArray) -> AtomArray:
 
 def add_molecule_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack:
     """Adds the molecule instance ID (molecule_iid) annotation to the AtomArrayStack"""
-    # ...count the number of unique molecule ID's
-    num_unique_molecule_ids = len(np.unique(atom_array_stack.molecule_id))
-    unique_transformation_ids = np.unique(atom_array_stack.transformation_id)
-    transformation_id_int_map = {
-        transformation_id: idx for idx, transformation_id in enumerate(unique_transformation_ids)
-    }
+    # ...concatenate molecule_id and transformation_id to create a unique molecule instance ID
+    molecule_iids_str = np.char.add(
+        atom_array_stack.molecule_id.astype(str), atom_array_stack.transformation_id.astype(str)
+    )
 
-    # ...set the molecule instance ID (molecule_iid) to the molecule ID plus stride times transformation ID
-    offset = np.array(list(map(transformation_id_int_map.get, atom_array_stack.transformation_id)))
-    molecule_iid_arr = atom_array_stack.molecule_id + num_unique_molecule_ids * offset
-    atom_array_stack.set_annotation("molecule_iid", molecule_iid_arr)
+    # ...map each unique molecule_iid to an integer (0-indexed)
+    _, inverse_indices = np.unique(molecule_iids_str, return_inverse=True)
+
+    # ...set the annotation
+    atom_array_stack.set_annotation("molecule_iid", inverse_indices.astype(np.int16))
 
     return atom_array_stack
 

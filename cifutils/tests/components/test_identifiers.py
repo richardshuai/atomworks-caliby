@@ -104,6 +104,7 @@ def test_identifiers(test_case):
 MOLECULE_TEST_CASES = [
     {
         "pdb_id": "1ivo",
+        "assembly_id": "1",
         "num_molecules": 4,
         "chain_iid_combinations": [
             ["A_1", "E_1", "F_1", "G_1", "H_1", "I_1", "J_1"],
@@ -114,10 +115,22 @@ MOLECULE_TEST_CASES = [
     },
     {
         "pdb_id": "4js1",
+        "assembly_id": "1",
         "num_molecules": 2,
         "chain_iid_combinations": [
             ["A_1", "B_1"],
             ["C_1"],
+        ],
+    },
+    {
+        "pdb_id": "1fyl",
+        "assembly_id": "1",
+        "num_molecules": 4,
+        "chain_iid_combinations": [
+            ["A_2"],
+            ["A_4"],
+            ["C_1"],
+            ["C_3"],
         ],
     },
 ]
@@ -130,7 +143,7 @@ def test_add_molecule_annotation(test_case: dict):
         filename=path,
     )
 
-    atom_array = result["assemblies"]["1"][0]  # Choose first model in the first assembly
+    atom_array = result["assemblies"][test_case["assembly_id"]][0]  # Choose first model in the first assembly
 
     # Ensure that the number of molecules is correct
     assert len(np.unique(atom_array.molecule_iid)) == test_case["num_molecules"]
