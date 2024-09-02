@@ -7,6 +7,7 @@ To run silently in the background, use (adapt the paths as necessary):
 sbatch -c 12 --mem=128g --time=16:00:00 --output=job_output.log --wrap='export PYTHONPATH="${PYTHONPATH}:/home/{USER}/code/RF2-allatom"; pytest /home/smathis/code/RF2-allatom/rf2aa/data_new/tests/pipeline/test_rf2aa_pipeline_on_full_dataset.py -s -m very_slow'
 """
 
+import datetime
 import logging
 import os
 import time
@@ -125,13 +126,13 @@ def test_dataset(dataset_path: Path, num_processes: int):
                 fail_msg += "\t" + traceback.format_exc().replace("\n", "\n\t")
                 fail_msg += "=" * 80 + "\n"
                 logger.error(fail_msg)
-                rng_state_dict = e.rng_state_dict if hasattr(e, "rng_state_dict") else rng_state_dict
+                current_date = datetime.datetime.now().strftime("%Y-%m-%d")
                 save_failed_example_to_disk(
                     example_id,
                     data={},  # Do not save data since it is memory intensive & can be recreated from the RNG state
                     rng_state_dict=rng_state_dict,
                     error_msg=str(e) + "\n" + traceback.format_exc(),
-                    fail_dir=f"/net/scratch/failures/{dataset_path.stem}",
+                    fail_dir=f"/net/scratch/failures/{dataset_path.stem}-{current_date}",
                 )
                 failure_indices.append(index)
 

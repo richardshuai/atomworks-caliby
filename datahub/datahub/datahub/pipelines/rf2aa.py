@@ -34,7 +34,6 @@ from datahub.transforms.covalent_modifications import FlagAndReassignCovalentMod
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAtomArray, atom_array_from_encoding
 from datahub.transforms.feature_aggregation import AggregateFeaturesLikeRF2AA
-from datahub.transforms.msa._msa_featurizing_utils import encode_msa_like_RF2AA
 from datahub.transforms.msa.msa import (
     EncodeMSA,
     FeaturizeMSALikeRF2AA,
@@ -190,6 +189,9 @@ class RF2AAInputs(NamedTuple):
         msa = self.msa[0] if is_batched else self.msa
         return (_is_atom(msa[0, 0])).sum().item()
 
+    def to_dict(self) -> dict:
+        return {key: getattr(self, key) for key in self._fields}
+
 
 def build_rf2aa_transform_pipeline(
     protein_msa_dir: PathLike | str,
@@ -203,7 +205,6 @@ def build_rf2aa_transform_pipeline(
     crop_contiguous_probability: float = 0.5,
     # Filtering parameters
     unresolved_ligand_atom_limit: int | float | None = 0.1,
-    filter_to_annotated_pn_units: bool = True,
     undesired_res_names: list[str] = AF3_EXCLUDED_LIGANDS,
     # Atomization parameters
     res_names_to_atomize: list[str] = None,
@@ -234,8 +235,6 @@ def build_rf2aa_transform_pipeline(
     unclamp_loss_probability: float = 0.1,
     black_hole_init: bool = True,
     black_hole_init_noise_scale: float = 5.0,  # Angstroms (Paper: 5.0)
-    # Filter parameters:
-    max_allowed_num_atoms: int = 150_000,
     # Cache params:
     msa_cache_dir: PathLike | str | None = "/projects/ml/RF2_allatom/cache/msa",
 ) -> Compose:
@@ -256,8 +255,6 @@ def build_rf2aa_transform_pipeline(
             many unresolved atoms has its atoms removed. If None, all atoms are kept, if between 0 and 1, the number of
             atoms is capped at that percentage of the crop size. If an integer >= 1, the number of unresolved atoms is
             capped at that number. Defaults to 0.1.
-        - filter_to_annotated_pn_units (bool, optional): Whether to filter to annotated pn units.
-            This saves a time and memory for large structures. Defaults to True.
         - res_names_to_atomize (list[str], optional): List of residue names to *always* atomize. Note that RF2AA already
             atomizes all residues that are not in the encoding (i.e. that are not standard AA, RNA, DNA or special masks).
             Therefore only specify this if you want to deterministically atomize certain standard tokens. Defaults to None.
@@ -393,11 +390,8 @@ def build_rf2aa_transform_pipeline(
             max_msa_sequences=max_msa_sequences,  # maximum number of sequences to load (we later subsample further)
             msa_cache_dir=Path(msa_cache_dir) if exists(msa_cache_dir) else None,
         ),
-        PairAndMergePolymerMSAs(
-            unpaired_padding="-",
-            dense=dense_msa,
-        ),
-        EncodeMSA(encoding_function=encode_msa_like_RF2AA),
+        PairAndMergePolymerMSAs(dense=dense_msa),
+        EncodeMSA(encoding=encoding, token_to_use_for_gap=encoding.token_to_idx["UNK"]),
         FillFullMSAFromEncoded(pad_token=encoding.token_to_idx["UNK"]),
         # ============================================
         # 5. Load and featurize templates (proteins only)
@@ -585,16 +579,28 @@ def assert_satisfies_rf2aa_assumptions(sample: dict[str, Any]):
         for label in np.unique(ch_label[num_res_tokens:]):
             # ...all blocks where `ch_label` is the same are the same size:
             idxs = np.where(ch_label[num_res_tokens:] == label)[0]
-            # NOTE: This will currently fail for cropped covalent modifications!
+
+            # NOTE: This will currently fail (on purpose) for cropped covalent modifications,
+            #       where this assumption cannot be guaranteed with an AF3 like cropping strategy.
+            same_chain_block = same_chain[num_res_tokens:, num_res_tokens:][np.ix_(idxs, idxs)]
             assert _are_all_blocks_the_same_size(
-                same_chain[num_res_tokens:, num_res_tokens:][np.ix_(idxs, idxs)]
+                same_chain_block
             ), f"{item}: `same_chain` block {label} is not the same size"
 
             # ... ensure there is no entirely unresolved `ch_label` segment in
             #     the non-poly sector:
             assert (
                 mask_crds[0, idxs + num_res_tokens, :]
-            ).any(), f"{item}: Chain with `chain_label` {label} is entirely unresolved in the non-poly sector."
+            ).any(), f"{item}: Entity with `chain_label` {label} is entirely unresolved in the non-poly sector."
+
+            # ... ensure there is at least one resolved coordinate for each chain in each entity
+            _block_size = same_chain_block[0].sum()
+            assert len(idxs) % _block_size == 0
+            for chain_idx in range(len(idxs) // _block_size):
+                idxs_in_subblock = idxs[chain_idx * _block_size : (chain_idx + 1) * _block_size]
+                assert (
+                    mask_crds[0, idxs_in_subblock + num_res_tokens, :]
+                ).any(), f"{item}: Chain {chain_idx} in block with `chain_label` {label} has no resolved coordinates in the non-poly sector."
 
     # Assert that there are no masks in `msa`:
     assert not (msa == 21).any(), f"{item}: There are masks in the ground truth `msa`."
@@ -604,7 +610,7 @@ def assert_satisfies_rf2aa_assumptions(sample: dict[str, Any]):
         idxs = np.where(ch_label[:num_res_tokens] == label)[0]
         assert (
             mask_crds[0, idxs, :]
-        ).any(), f"{item}: Chain with `chain_label` {label} is entirely unresolved in the poly sector."
+        ).any(), f"{item}: Entity with `chain_label` {label} is entirely unresolved in the poly sector."
 
     # Ensure there is at least one resolved coordinate for each symmetry copy:
     #  mask_crds: (N_symm, L, NTOTAL)

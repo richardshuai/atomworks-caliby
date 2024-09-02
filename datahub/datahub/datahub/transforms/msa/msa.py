@@ -6,7 +6,7 @@ import logging
 from copy import deepcopy
 from os import PathLike
 from pathlib import Path
-from typing import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -24,6 +24,13 @@ from datahub.transforms.atom_array import (
 )
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import ConvertToTorch, Transform
+from datahub.transforms.msa._msa_constants import (
+    AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
+    AMINO_ACID_ONE_LETTER_TO_INT,
+    GAP_THREE_LETTER,
+    MSA_INTEGER_TO_THREE_LETTER,
+    RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
+)
 from datahub.transforms.msa._msa_featurizing_utils import (
     assign_extra_rows_to_cluster_representatives,
     build_indices_should_be_counted_masks,
@@ -32,8 +39,9 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     summarize_clusters,
     uniformly_select_msa_cluster_representatives,
 )
+from datahub.transforms.msa._msa_loading_utils import parse_a3m, parse_fasta
 from datahub.transforms.msa._msa_pairing_utils import join_multiple_msas_by_tax_id
-from datahub.utils.misc import cache_to_disk_as_pickle, grouped_count, hash_sequence, parse_a3m, parse_fasta
+from datahub.utils.misc import cache_to_disk_as_pickle, grouped_count, hash_sequence
 from datahub.utils.token import apply_token_wise, get_token_count, get_token_starts
 
 logger = logging.getLogger(__name__)
@@ -43,24 +51,31 @@ class PairAndMergePolymerMSAs(Transform):
     """
     Pairs and merges multiple polymer MSAs by tax_id.
     Ensures that the query sequence is always the first sequence in the MSA.
+
     Stores results in "merged_polymer_msa" in the data dictionary, with keys:
-    - msa: The merged MSA.
-    - ins: The merged insertion array.
-    - msa_is_padded_mask: A mask indicating whether a given position in the MSA is padded due to unpaired sequences (1) or not (0).
-    - tax_ids: The merged taxonomic IDs.
-    - any_paired: A boolean array indicating whether a sequence is paired with any other sequence.
-    - all_paired: A boolean array indicating whether a sequence is paired with all other sequences.
+        - msa: The merged MSA.
+        - ins: The merged insertion array.
+        - msa_is_padded_mask: A mask indicating whether a given position in the MSA is padded due to unpaired sequences (1) or not (0).
+        - tax_ids: The merged taxonomic IDs.
+        - any_paired: A boolean array indicating whether a sequence is paired with any other sequence.
+        - all_paired: A boolean array indicating whether a sequence is paired with all other sequences.
 
     Unpaired sequences can be handled in two ways:
-    - Dense pairing: Unpaired sequences are densely packed at the bottom of the MSA (AF-3 style).
-    - Sparse pairing: Unpaired sequences are block-diagonally added to the bottom of the MSA (AF-Multimer style).
+        - Dense pairing: Unpaired sequences are densely packed at the bottom of the MSA (AF-3 style).
+        - Sparse pairing: Unpaired sequences are block-diagonally added to the bottom of the MSA (AF-Multimer style).
+
+    Args:
+        unpaired_padding (Any): The MSA token to use for padding unpaired sequences. Defaults to the integer representation of the gap token.
+        dense (bool): Whether to densely pack unpaired sequences at the bottom of the MSA. If False, unpaired sequences are block-diagonally added to the bottom of the MSA.
     """
 
     requires_previous_transforms = ["LoadPolymerMSAs"]
 
     def __init__(
         self,
-        unpaired_padding: str = "-",
+        unpaired_padding: Any = np.array(
+            [AMINO_ACID_ONE_LETTER_TO_INT["-"]], dtype=np.int8
+        ),  # Integer representation of gap token
         dense: bool = False,
     ):
         self.unpaired_padding = unpaired_padding
@@ -79,40 +94,43 @@ class PairAndMergePolymerMSAs(Transform):
         # Create a map from unique entity IDs to constituent chain IDs
         # We directly generate the mapping from the AtomArray since the `rcsb_entity` may be inaccurate post-processing
         # We need entity-level information to pair chains that belong to separate entities; otherwise, we simply concatenate the MSAs
-        chain_entity_to_chain_ids = {}
-        chain_id_to_chain_entity = {}
+        chain_with_msa_entity_to_ids = {}
+        chain_with_msa_id_to_entity = {}
 
         for chain_entity in np.unique(atom_array.chain_entity):
-            # Get unique chain IDs corresponding to the current chain entity
+            # ...get unique chain IDs corresponding to the current chain entity
             chain_ids = np.unique(atom_array.chain_id[atom_array.chain_entity == chain_entity])
-            chain_entity_to_chain_ids[chain_entity] = chain_ids
 
-            # Map each chain ID back to its chain entity
-            for chain_id in chain_ids:
-                chain_id_to_chain_entity[chain_id] = chain_entity
+            # If we have an MSA for any of the chains in the entity:
+            if any([chain_id in data["polymer_msas_by_chain_id"] for chain_id in chain_ids]):
+                # ...store the chain IDs for the entity
+                chain_with_msa_entity_to_ids[chain_entity] = chain_ids
+
+                # ...and map each chain ID back to its chain entity
+                for chain_id in chain_ids:
+                    chain_with_msa_id_to_entity[chain_id] = chain_entity
 
         # Loop through entities to:
         # (1) Create a list of MSAs to pair, choosing one chain per entity ID (as they are all the same, by definition)
         # (2) Keep track of the number of residues for each entity ID
         msa_list = []
-        num_residues_by_chain_entity = {}
-        for chain_entity in chain_entity_to_chain_ids.keys():
-            first_chain_id = chain_entity_to_chain_ids[chain_entity][0]
-            if first_chain_id in data["polymer_msas_by_chain_id"]:
-                msa = data["polymer_msas_by_chain_id"][first_chain_id]
-                msa_list.append(msa)
-                num_residues_by_chain_entity[chain_entity] = msa["msa"].shape[1]
+        num_residues_by_chain_with_msa_entity = {}
+        for chain_entity in chain_with_msa_entity_to_ids.keys():
+            first_chain_id = chain_with_msa_entity_to_ids[chain_entity][0]  # All chains in the entity are the same
+            msa = data["polymer_msas_by_chain_id"][first_chain_id]
+            msa_list.append(msa)
+            num_residues_by_chain_with_msa_entity[chain_entity] = msa["msa"].shape[1]
 
         # Create masks for each entity to index into the merged MSA
         entity_masks = {}
         chain_entity_array = np.concatenate(
             [
-                [chain_entity] * num_residues_by_chain_entity[chain_entity]
-                for chain_entity in chain_entity_to_chain_ids.keys()
-                if chain_entity in num_residues_by_chain_entity
+                [chain_entity] * num_residues_by_chain_with_msa_entity[chain_entity]
+                for chain_entity in chain_with_msa_entity_to_ids.keys()
+                if chain_entity in num_residues_by_chain_with_msa_entity
             ]
         )
-        for chain_entity in chain_entity_to_chain_ids.keys():
+        for chain_entity in chain_with_msa_entity_to_ids.keys():
             entity_masks[chain_entity] = chain_entity_array == chain_entity
 
         if len(msa_list) > 1:
@@ -129,7 +147,7 @@ class PairAndMergePolymerMSAs(Transform):
 
         # Distribute entity-level MSAs to chain-level MSAs by pointing each chain_id to the MSA for its corresponding chain_entity
         polymer_msas_by_chain_entity = {}
-        for chain_entity in chain_entity_to_chain_ids.keys():
+        for chain_entity in chain_with_msa_entity_to_ids.keys():
             entity_mask = entity_masks[chain_entity]
             msa = merged_polymer_msas["msa"][:, entity_mask]
             ins = merged_polymer_msas["ins"][:, entity_mask]
@@ -145,7 +163,7 @@ class PairAndMergePolymerMSAs(Transform):
             }
 
         for chain_id in data["polymer_msas_by_chain_id"].keys():
-            chain_entity = chain_id_to_chain_entity[chain_id]
+            chain_entity = chain_with_msa_id_to_entity[chain_id]
             # NOTE: We deep copy as a precaution, since if multiple chains point to the same dictionary object, we may modify the dictionary in place
             data["polymer_msas_by_chain_id"][chain_id] = deepcopy(polymer_msas_by_chain_entity[chain_entity])
 
@@ -183,9 +201,15 @@ class LoadPolymerMSAs(Transform):
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_type", "chain_id"])
 
-    def _load_msa_data(self, chain_type: ChainType, sequence: str, query_chain_msa_tax_id: str):
+    def _load_msa_data(
+        self, chain_type: ChainType, sequence: str, query_chain_msa_tax_id: str
+    ) -> tuple[np.array, np.array, np.array]:
         """
         Load the MSA data based on chain type and file availability.
+        Instead of loading single-character MSAs (which are ambiguous for proteins/RNA), we load the full MSA and convert to integers.
+
+        In addition to the core MSA information (MSA, ins, tax_ids), we also pre-calculate (and cache) the sequence similarity to the query sequence
+        to accelerate downstream processing.
 
         Args:
             chain_type (ChainType): The type of the chain (Protein or RNA).
@@ -193,8 +217,13 @@ class LoadPolymerMSAs(Transform):
             query_chain_msa_tax_id (str): The tax ID for the query chain. Defaults to "query" to ensure the query sequence is paired with itself.
 
         Returns:
-            A tuple of numpy arrays containing msa, ins, and tax_ids.
+            A tuple of numpy arrays containing msa, ins, tax_ids, and sequence similarity.
         """
+        # TODO: Pre-calculate the sequence similarities
+        # TODO: Refactor into functional API
+        msa = None
+        ins = None
+        tax_ids = None
 
         if chain_type.is_protein():
             # ...hash the sequence so we can look up the MSA file
@@ -203,16 +232,19 @@ class LoadPolymerMSAs(Transform):
             # (For proteins, we store information as a3m files, which are gzipped)
             protein_msa_file = (self.protein_msa_dir / sequence_hash[:3] / sequence_hash).with_suffix(".a3m.gz")
             if protein_msa_file.exists():
+                # ...parse the MSA file
                 msa, ins, tax_ids = parse_a3m(
                     protein_msa_file, query_tax_id=query_chain_msa_tax_id, maxseq=self.max_msa_sequences
                 )
-                return msa, ins, tax_ids
+
+                # ...convert to integers
+                msa = AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE[msa.view(np.uint8)]
 
         elif chain_type == ChainType.RNA:
             # ...handle legacy behavior where RNA MSAs use T instead of U
             sequence = sequence.replace("U", "T")
 
-            # ...hash the sequence so we can look up the MSA file
+            # ...hash the sequence so we can look up the correct MSA file
             sequence_hash = hash_sequence(sequence)
 
             # (For RNA, we store information as fasta files, with no compression)
@@ -221,24 +253,34 @@ class LoadPolymerMSAs(Transform):
                 msa, ins = parse_fasta(rna_msa_file, maxseq=self.max_msa_sequences)
 
                 # ...handle legacy behavior by converting all T to U in the MSA (see above)
-                msa = np.char.replace(msa, "T", "U")
+                msa = np.char.replace(msa, b"T", b"U")
+
+                # ...convert to integers
+                msa = RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE[msa.view(np.uint8)]
 
                 # ...load dummy tax IDs (as we don't have them for RNA in the current directory)
                 # TODO: Use the updated RNA directory that contains tax IDs, where we have them
                 tax_ids = np.full(len(msa), "", dtype="<U10")
                 tax_ids[0] = query_chain_msa_tax_id
-                return msa, ins, tax_ids
 
-        # Fallback - E.g., DNA, or RNA/DNA hybrid - load in single-sequence mode
-        return None, None, None
+        # ...pre-calculate the sequence similarity to the query sequence for each row in the MSA
+        sequence_similarity = None
+        if msa is not None:
+            sequence_similarity = (msa == msa[0:1]).mean(axis=1)
 
-    def _get_polymer_msas_by_chain_id(self, data: dict, polymer_chain_ids: np.array, chain_info: dict) -> dict:
+        return {
+            "msa": msa,
+            "ins": ins,
+            "tax_ids": tax_ids,
+            "sequence_similarity": sequence_similarity,
+        }
+
+    def _get_polymer_msas_by_chain_id(self, polymer_chain_ids: np.array, chain_info: dict) -> dict:
         """
         Retrieves MSAs for each polymer chain ID (e.g., "A").
         If we can't find an MSA for a given chain ID, return a length-1 MSA containing only the query sequence.
 
         Parameters:
-        - data (dict): Data containing atom array and chain information.
         - polymer_chain_ids (np.array): List of unique chain IDs for polymers.
         - chain_info (dict): Dictionary containing chain information for the polymers (e.g., type).
 
@@ -251,7 +293,6 @@ class LoadPolymerMSAs(Transform):
         """
         msas_by_chain_id = {}
         for chain_id in polymer_chain_ids:
-            # NOTE: If we re-generate MSAs in the future, we may opt to use the canonical sequence instead of the non-canonical sequence
             sequence = chain_info[chain_id]["processed_entity_non_canonical_sequence"]
             chain_type = ChainType.from_string(chain_info[chain_id]["type"])
 
@@ -259,31 +300,18 @@ class LoadPolymerMSAs(Transform):
             # Subsequent occurrences of the query sequence will not have the "query" tax ID, and will be paired appropriately
             query_chain_msa_tax_id = "query"
 
-            # Load the MSA file from the correct directory (protein or RNA)
-            msa, ins, tax_ids = self._load_msa_data(chain_type, sequence, query_chain_msa_tax_id)
+            # ...load the MSA file from the correct directory (protein or RNA)
+            msa_data = self._load_msa_data(chain_type, sequence, query_chain_msa_tax_id)
+            msa = msa_data["msa"]
 
-            # If we found an MSA, store it in the dictionary; otherwise, create a dummy MSA with a single sequence (single-sequence mode)
             if msa is not None:
-                assert (
-                    msa[0] == sequence
-                ), f"MSA sequence does not match the sequence from the parser for {data['pdb_id']} chain {chain_id}"
-
-                # Convert the MSA into an np.array with the same shape as the insertion array
-                msa_2d = np.array([list(seq) for seq in msa], dtype="S")
-
+                # ...if we found an MSA, store it in the dictionary
                 msas_by_chain_id[chain_id] = {
-                    "msa": msa_2d,
-                    "msa_is_padded_mask": np.zeros(msa_2d.shape, dtype=bool),  # 1 = padded, 0 = not padded
-                    "ins": ins,
-                    "tax_ids": tax_ids,
-                }
-            else:
-                # If we don't find a match, we return a dummy MSA with only the query sequence, converting the sequence to an np.array
-                msas_by_chain_id[chain_id] = {
-                    "msa": np.array([list(sequence)], dtype="S"),
-                    "msa_is_padded_mask": np.zeros((1, len(sequence)), dtype=bool),  # 1 = padded, 0 = not padded
-                    "ins": np.zeros((1, len(sequence)), dtype=np.uint8),
-                    "tax_ids": np.array([query_chain_msa_tax_id]),
+                    "msa": msa,
+                    "msa_is_padded_mask": np.zeros(msa.shape, dtype=bool),  # 1 = padded, 0 = not padded
+                    "ins": msa_data["ins"],
+                    "tax_ids": msa_data["tax_ids"],
+                    "sequence_similarity": msa_data["sequence_similarity"],
                 }
 
         return msas_by_chain_id
@@ -293,7 +321,7 @@ class LoadPolymerMSAs(Transform):
         chain_info = data["chain_info"]
         polymer_chain_ids = np.unique(atom_array.chain_id[np.isin(atom_array.chain_type, ChainType.get_polymers())])
 
-        polymer_msas_by_chain_id = self._get_polymer_msas_by_chain_id(data, polymer_chain_ids, chain_info)
+        polymer_msas_by_chain_id = self._get_polymer_msas_by_chain_id(polymer_chain_ids, chain_info)
 
         # Add the MSAs to the data dictionary
         data["polymer_msas_by_chain_id"] = polymer_msas_by_chain_id
@@ -303,55 +331,55 @@ class LoadPolymerMSAs(Transform):
 
 class EncodeMSA(Transform):
     """
-    Encode a MSA from characters to token indices using the provided encoding function.
+    Encode a MSA from MSA-general integer representations to model-specific token indices using the TokenEncoding.
 
-    Attributes:
-        encoding_function (Callable): A function that takes an MSA and a chain type, and returns the encoded MSA, using the appropriate TokenEncoding.
+    Args:
+        token_encoding (TokenEncoding): The TokenEncoding object to use for encoding the MSA.
+        token_to_use_for_gap (int): The (integer) token to use for gaps in the MSA.
+            If None, we leave the gap token (<G>) and will raise an error if it is not present in the TokenEncoding.
+            NOTE: RF2AA converts gap tokens to padding tokens (UNK), whereas AF-3 uses a separate gap token (e.g., keep as None).
 
-    Example:
-        If we have the following MSA:
-        ```
-        [
-            ["A", "R", "C", "X"],  # X is an unknown amino acid
-            ["A", "C", "B", "C"],  # B is an ambiguous amino acid
-        ]
-        ```
-        Then the encoding function should return the following encoded MSA (using RF2AA encoding function):
-        ```
-        [
-            [
-                0,
-                1,
-                4,
-                20,
-            ],  # The RF2AA encoding maps A to 0, R to 1, C to 4, and ambiguous/unknown amino acids to 20
-            [0, 4, 20, 4],
-        ]
-        ```
+    NOTE:
+        - The input MSA is expected to be in integer format, where each integer corresponds
+          to a specific amino acid or nucleotide as defined in AMINO_ACID_ONE_LETTER_TO_INT
+          and RNA_NUCLEOTIDE_ONE_LETTER_TO_INT.
+        - The output MSA will have integers corresponding to the token indices defined
+          in the TokenEncoding.
+        - The lookup_for_encoding table handles the mapping from MSA integers to
+          TokenEncoding indices.
     """
 
     requires_previous_transforms = ["LoadPolymerMSAs"]
 
-    def __init__(self, encoding_function: Callable):
-        self.encoding_function = encoding_function
+    def __init__(self, encoding: TokenEncoding, token_to_use_for_gap: int | None = None):
+        # ...create a lookup table to map from MSA integers to token indices
+        lookup_for_encoding = np.zeros(len(MSA_INTEGER_TO_THREE_LETTER), dtype=int)
+        for tmp_int, three_letter in MSA_INTEGER_TO_THREE_LETTER.items():
+            if three_letter == GAP_THREE_LETTER and token_to_use_for_gap is not None:
+                # ...if we defined a substitute token for gaps, use it
+                lookup_for_encoding[tmp_int] = token_to_use_for_gap
+            else:
+                # ...otherwise, we assume that the gap token is present in the encoding
+                lookup_for_encoding[tmp_int] = encoding.token_to_idx[three_letter]
+
+        self.lookup_for_encoding = lookup_for_encoding
+        self.token_to_use_for_gap = token_to_use_for_gap
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["polymer_msas_by_chain_id"])
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
-
-        # Loop through all of the polymer chain IDs in the atom array
+        # ...loop through all of the polymer chain IDs still present in the atom array (may be a subset of `polymer_msas_by_chain_id`)
         polymer_chain_ids = np.unique(atom_array.chain_id[atom_array.is_polymer])
         for chain_id in polymer_chain_ids:
-            msa = data["polymer_msas_by_chain_id"][chain_id]["msa"]
-            chain_type = ChainType.from_string(data["chain_info"][chain_id]["type"])
-
-            # Encode the MSA (to tokens integers), based on the provided encoding function
-            encoded_msa = self.encoding_function(msa=msa, chain_type=chain_type)  # [n_rows, n_res_in_chain] (int)
-
-            # Set the encoded MSA in the output in-place
-            data["polymer_msas_by_chain_id"][chain_id]["encoded_msa"] = encoded_msa
+            # ...check if we have an MSA for this chain
+            if chain_id in data["polymer_msas_by_chain_id"]:
+                msa = data["polymer_msas_by_chain_id"][chain_id]["msa"]
+                # ...encode the MSA (to tokens integers), based on the lookup table
+                encoded_msa = self.lookup_for_encoding[msa]  # [n_rows, n_res_in_chain] (int)
+                # ...set the encoded MSA in the output in-place
+                data["polymer_msas_by_chain_id"][chain_id]["encoded_msa"] = encoded_msa
 
         return data
 
@@ -364,8 +392,8 @@ class FillFullMSAFromEncoded(Transform):
     This function requires that all MSAs have the same number of rows, but does not require them to necessarily be paired.
 
     Specifically:
-    - If we cropped or otherwise removed residues, we drop them from the MSA (via indexing) to ensure the MSA is consistent with the atom array.
-    - If we atomized residues, we drop the atomized pieces from the MSA, and include only the encoded atomized tokens.
+        - If we cropped or otherwise removed residues, we drop them from the MSA (via indexing) to ensure the MSA is consistent with the atom array.
+        - If we atomized residues, we drop the atomized pieces from the MSA, and include only the encoded atomized tokens.
 
     Attributes:
         pad_token (str): The token used for padding in the MSA. The pad token should match the padding token used when padding unpaired MSA sequences.
@@ -373,9 +401,9 @@ class FillFullMSAFromEncoded(Transform):
     Returns:
         The full MSA, with padding, as a 2D np.array of integers, stored in `data["encoded"]["msa"]`.
         Additionally, we store the following details in `data["full_msa_details"]`:
-        - token_idx_has_msa (np.array): A mask indicating whether a given token has an MSA (1) or not (0).
-        - msa_is_padded_mask (np.array): A mask indicating whether a given position in the MSA is padded (1) or not (0).
-        - msa_raw_ins (np.array): The raw insertion counts for the MSA, before encoding.
+            - token_idx_has_msa (np.array): A mask indicating whether a given token has an MSA (1) or not (0).
+            - msa_is_padded_mask (np.array): A mask indicating whether a given position in the MSA is padded (1) or not (0).
+            - msa_raw_ins (np.array): The raw insertion counts for the MSA, before encoding.
 
     Example:
         If the atom array token order is:
@@ -422,7 +450,7 @@ class FillFullMSAFromEncoded(Transform):
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
 
-        # If we have no polymer MSAs (either full or single-sequence), and therefore NO POLYMERS...
+        # If we have no polymer MSAs (either all polymer sequences have no MSAs, or we have no polymer sequences)...
         if len(data["polymer_msas_by_chain_id"]) == 0:
             # ... we set `full_encoded_msa` to be the query sequence (expanded to 2D)
             full_encoded_msa = np.expand_dims(data["encoded"]["seq"], axis=0)  # [1, n_tokens_across_chains] (int)
@@ -436,14 +464,22 @@ class FillFullMSAFromEncoded(Transform):
                 "msa_raw_ins": np.zeros((1, num_tokens_in_example), dtype=int),
             }
             data["encoded"]["msa"] = full_encoded_msa
+            # ...and we early return!
             return data
 
-        # Get the n_rows
-        first_chain_id = next(iter(data["polymer_msas_by_chain_id"]))
+        # If we have polymer MSAs, figure out how many rows we need in the full MSA (n_rows)...
+        first_chain_id = next(
+            iter(data["polymer_msas_by_chain_id"])
+        )  # All chains have the same number, as defined in the function definition...
+        assert all(
+            data["polymer_msas_by_chain_id"][chain_id]["encoded_msa"].shape[0]
+            == data["polymer_msas_by_chain_id"][first_chain_id]["encoded_msa"].shape[0]
+            for chain_id in data["polymer_msas_by_chain_id"]
+        )  # ...but we check anyways
         first_encoded_msa = data["polymer_msas_by_chain_id"][first_chain_id]["encoded_msa"]
         n_rows = first_encoded_msa.shape[0]
 
-        # Check that the given padding token matches the padding token used when padding unpaired MSA sequences, if applicable
+        # ...check that the given padding token matches the padding token used when padding unpaired MSA sequences, if applicable
         existing_pad_tokens = data["polymer_msas_by_chain_id"][first_chain_id]["msa_is_padded_mask"] * first_encoded_msa
         if np.any(existing_pad_tokens):
             token = existing_pad_tokens.flat[np.flatnonzero(existing_pad_tokens)[0]]
@@ -515,6 +551,7 @@ class FillFullMSAFromEncoded(Transform):
                 token_idx_has_msa[mask] = True  # [n_tokens_across_chains] (bool)
 
         # ...for the first row, set the tokens directly from the output of the `Atomize` transform (i.e., the atomized tokens, and anything without an MSA)
+        # (Note that this also handles setting the MSA for polymers without MSAs, and non-polymers)
         full_encoded_msa[0] = data["encoded"]["seq"]  # [n_tokens_across_chains] (int)
         full_msa_is_padded_mask[0] = False  # [n_tokens_across_chains] (bool)
 
@@ -592,17 +629,18 @@ class FeaturizeMSALikeRF2AA(Transform):
         check_contains_keys(data, ["encoded", "full_msa_details"])
 
     def forward(self, data: dict) -> dict:
+        # ...unpack
         encoded_msa = data["encoded"]["msa"]  # [n_rows, n_tokens_across_chains] (int)
         token_idx_has_msa = data["full_msa_details"]["token_idx_has_msa"]  # [n_tokens_across_chains] (bool)
         msa_is_padded_mask = data["full_msa_details"]["msa_is_padded_mask"]  # [n_rows, n_tokens_across_chains] (bool)
         msa_raw_ins = data["full_msa_details"]["msa_raw_ins"]  # [n_rows, n_tokens_across_chains] (int)
 
-        # Select either the first `n_msa_cluster_representatives` rows or all rows, whichever is smaller
+        # ...select either the first `n_msa_cluster_representatives` rows or all rows, whichever is smaller
         n_rows, n_seq = encoded_msa.shape
         n_msa_cluster_representatives = min(self.n_msa_cluster_representatives, n_rows)
 
-        # Compute the raw MSA profile, which is required for the BERT-style masking of the MSA, where with a 10% probability, we replace an amino acid with an amino
-        # sampled from the MSA profile at a given position
+        # ...compute the raw MSA profile, which is required for the BERT-style masking of the MSA, where with a 10% probability, we replace
+        # an amino acid with an amino sampled from the MSA profile at a given position
         full_msa_profile = grouped_count(
             encoded_msa,
             mask=~msa_is_padded_mask,  # ... ignore padding when computing the profile
@@ -617,7 +655,7 @@ class FeaturizeMSALikeRF2AA(Transform):
             full_msa_profile.sum(dim=-1, keepdim=True) + self.eps
         )  # [n_tokens_across_chains, n_tokens] (float)
 
-        # Generate a unique MSA (both cluster representative MSA and extra MSA) for each recycle
+        # ...generate a unique MSA (both cluster representative MSA and extra MSA) for each recycle (up to `n_recycles`)
         msa_features_per_recycle_dict = {
             "first_row_of_msa": [],  # [n_tokens_across_chains] (int)
             "cluster_representatives_msa_ground_truth": [],  # [n_msa_cluster_representatives, n_tokens_across_chains] (int)
@@ -636,7 +674,7 @@ class FeaturizeMSALikeRF2AA(Transform):
             # (1) SELECT CLUSTER REPRESENTATIVES FROM THE FULL MSA
             # ============================================================
 
-            # Select the MSA cluster representatives using the preferred sampling strategy
+            # ...select the MSA cluster representatives
             selected_indices, not_selected_indices = uniformly_select_msa_cluster_representatives(
                 n_rows, n_msa_cluster_representatives
             )
@@ -645,8 +683,8 @@ class FeaturizeMSALikeRF2AA(Transform):
             # (2) MASK THE CLUSTER REPRESENTATIVES WITH BERT-STYLE MASK
             # ============================================================
 
-            # Mask the MSA, using the BERT-style approach from AF2
-            # We only apply the mask to the cluster representatives, not the extra MSA
+            # ...mask the MSA, using the BERT-style approach from AF2
+            # (We only apply the mask to the cluster representatives, not the extra MSA)
             index_can_be_masked = build_msa_index_can_be_masked(
                 msa_is_padded_mask=msa_is_padded_mask,
                 token_idx_has_msa=token_idx_has_msa,
@@ -713,24 +751,31 @@ class FeaturizeMSALikeRF2AA(Transform):
                 else self.polymer_token_indices
             )
 
-            # ...compute the profiles and mean insertions for the cluster representatives
-            msa_cluster_profiles_with_msas_poly_tokens, msa_cluster_mean_ins_with_msas = summarize_clusters(
-                encoded_msa=encoded_and_masked_msa[
-                    :, token_idx_has_msa
-                ],  # Optimization 1: Only consider tokens with MSAs
-                msa_raw_ins=msa_raw_ins[:, token_idx_has_msa],
-                mask_position=mask_position[:, token_idx_has_msa],
-                assignments=assignments,
-                selected_indices=selected_indices,
-                not_selected_indices=not_selected_indices,
-                msa_is_padded_mask=msa_is_padded_mask[:, token_idx_has_msa],
-                n_tokens=polymer_token_indices.shape[
-                    0
-                ],  # Optimization 2: Only consider non-atom tokens. NOTE: Hyper-specific to RF2AA; should be generalized in the future
-                eps=self.eps,
-            )  # [n_msa_cluster_representatives, n_tokens_with_msas, n_polymer_tokens] (float), [n_msa_cluster_representatives, n_tokens_with_msas] (float)
+            if torch.any(token_idx_has_msa):
+                # ...compute the profiles and mean insertions for the cluster representatives
+                msa_cluster_profiles_with_msas_poly_tokens, msa_cluster_mean_ins_with_msas = summarize_clusters(
+                    encoded_msa=encoded_and_masked_msa[
+                        :, token_idx_has_msa
+                    ],  # Optimization 1: Only consider tokens with MSAs
+                    msa_raw_ins=msa_raw_ins[:, token_idx_has_msa],
+                    mask_position=mask_position[:, token_idx_has_msa],
+                    assignments=assignments,
+                    selected_indices=selected_indices,
+                    not_selected_indices=not_selected_indices,
+                    msa_is_padded_mask=msa_is_padded_mask[:, token_idx_has_msa],
+                    n_tokens=polymer_token_indices.shape[
+                        0
+                    ],  # Optimization 2: Only consider non-atom tokens. NOTE: Hyper-specific to RF2AA; should be generalized in the future
+                    eps=self.eps,
+                )  # [n_msa_cluster_representatives, n_tokens_with_msas, n_polymer_tokens] (float), [n_msa_cluster_representatives, n_tokens_with_msas] (float)
+            else:
+                # ...if we have no tokens with MSAs, we set the profiles and mean insertions to zeros
+                msa_cluster_profiles_with_msas_poly_tokens = torch.zeros(
+                    (n_msa_cluster_representatives, 0, polymer_token_indices.shape[0]), dtype=torch.float
+                )
+                msa_cluster_mean_ins_with_msas = torch.zeros((n_msa_cluster_representatives, 0), dtype=torch.float)
 
-            # ...if we used a subset of the tokens, we need to map the profiles (but not insertions, since those don't have a token dimensino) back to the full token set, padding with zeros
+            # ...if we used a subset of the tokens, we need to map the profiles (but not insertions, since those don't have a token dimension) back to the full token set, padding with zeros
             if polymer_token_indices.shape[0] < self.encoding.n_tokens:
                 msa_cluster_profiles_with_msas = torch.zeros(
                     (tuple(msa_cluster_profiles_with_msas_poly_tokens.shape[:-1]) + (self.encoding.n_tokens,)),

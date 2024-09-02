@@ -5,7 +5,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from cifutils.enums import ChainType
 
 from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
@@ -29,7 +28,6 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     assign_extra_rows_to_cluster_representatives,
     build_indices_should_be_counted_masks,
     build_msa_index_can_be_masked,
-    encode_msa_like_RF2AA,
     mask_msa_like_bert,
     summarize_clusters,
     uniformly_select_msa_cluster_representatives,
@@ -43,33 +41,6 @@ from datahub.transforms.msa.msa import (
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.token import token_iter
-
-ENCODE_MSA_LIKE_RF2AA_TEST_CASES = [
-    # Protein test cases
-    (np.array([[b"A", b"G"], [b"S", b"T"]]), ChainType.POLYPEPTIDE_L, np.array([[0, 7], [15, 16]])),
-    (
-        # Test that ambiguous ("B") and unknown ("X") amino acids are encoded as unknown (20)
-        # NOTE: In the future, we may adjust behavior for "B" and other ambiguous amino acids
-        np.array([[b"K", b"B"], [b"X", b"V"]]),
-        ChainType.POLYPEPTIDE_L,
-        np.array([[11, 20], [20, 19]]),
-    ),
-    # RNA test cases
-    (np.array([[b"A", b"U"], [b"C", b"X"]]), ChainType.RNA, np.array([[27, 30], [28, 31]])),
-    # DNA test cases
-    (np.array([[b"A", b"T"], [b"X", b"G"]]), ChainType.DNA, np.array([[22, 25], [26, 24]])),
-]
-
-
-@pytest.mark.parametrize("test_case", ENCODE_MSA_LIKE_RF2AA_TEST_CASES)
-def test_encode_msa_like_RF2AA(test_case):
-    """
-    Test that the MSA is encoded correctly according to the RF2AA_ATOM36_ENCODING.
-    """
-    msa, chain_type, expected_output = test_case
-    output = encode_msa_like_RF2AA(msa, chain_type, encoding=RF2AA_ATOM36_ENCODING)
-    assert np.array_equal(output, expected_output), f"Expected {expected_output}, but got {output}"
-
 
 FILL_FULL_MSA_FROM_ENCODED_TEST_CASES = ["3ejj", "1mna", "1hge"]
 
@@ -91,7 +62,7 @@ def test_fill_full_msa_from_encoded(pdb_id):
     res_names_to_ignore = encoding.tokens[
         encoding.tokens != "ASP"
     ]  # Atomize aspartate so we can test atomization and MSA indexing
-    pad_token = RF2AA_ATOM36_ENCODING.token_to_idx["UNK"]
+    PAD_TOKEN = RF2AA_ATOM36_ENCODING.token_to_idx["UNK"]
 
     # Apply initial transforms
     # fmt: off
@@ -104,8 +75,8 @@ def test_fill_full_msa_from_encoded(pdb_id):
         ),
         EncodeAtomArray(encoding),
         # MSA featurize workflow
-        EncodeMSA(encoding_function=encode_msa_like_RF2AA),
-        FillFullMSAFromEncoded(pad_token=pad_token),
+        EncodeMSA(encoding=encoding, token_to_use_for_gap=PAD_TOKEN),
+        FillFullMSAFromEncoded(pad_token=PAD_TOKEN),
     ], track_rng_state=False)
     # fmt: on
 
@@ -118,7 +89,7 @@ def test_fill_full_msa_from_encoded(pdb_id):
         if token_atom_array.atomize[0]:
             # If this residue is atomized, ensure that the entire MSA column (other than the query sequence) is padding...
             assert np.all(
-                output["encoded"]["msa"][1:, index] == pad_token
+                output["encoded"]["msa"][1:, index] == PAD_TOKEN
             ), f"MSA column for atomized residue {index} is not padding"
 
             # ...and the padding is represented in the full MSA details
@@ -537,7 +508,7 @@ def test_msa_featurize_full_pipeline(pdb_id):
                 ),
                 EncodeAtomArray(encoding),
                 # MSA featurize workflow
-                EncodeMSA(encoding_function=encode_msa_like_RF2AA),
+                EncodeMSA(encoding=encoding, token_to_use_for_gap=PAD_TOKEN),
                 FillFullMSAFromEncoded(pad_token=PAD_TOKEN),
                 ConvertToTorch(keys=["polymer_msas_by_chain_id", "encoded", "full_msa_details"]),
                 FeaturizeMSALikeRF2AA(

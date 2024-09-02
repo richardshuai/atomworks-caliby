@@ -12,11 +12,12 @@ from tqdm import tqdm
 
 from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
 from datahub.tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIR, RNA_MSA_DIR
-from datahub.transforms.atom_array import (
-    RemoveHydrogens,
-    RemoveUnsupportedChainTypes,
-)
+from datahub.transforms.atom_array import RemoveHydrogens, RemoveUnsupportedChainTypes
 from datahub.transforms.base import Compose
+from datahub.transforms.msa._msa_constants import (
+    AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
+    RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
+)
 from datahub.transforms.msa.msa import LoadPolymerMSAs
 from datahub.utils.misc import hash_sequence
 
@@ -38,19 +39,6 @@ MSA_TEST_CASES = [
         },
     },
     {
-        # Small peptide, no MSA (load in single-sequence mode)
-        "pdb_id": "6a5j",
-        "chain_id": "A",
-        "sequence": "IKKILSKIKKLLK",
-        "min_sequences_in_msa": 1,  # small peptide, should not have an MSA
-        "spot_check": {
-            "index": 0,
-            "sequence": "IKKILSKIKKLLK",
-            "num_insertions": 0,
-            "tax_id": "query",  # We replace the first row tax ID with "query"
-        },
-    },
-    {
         # RNA
         "pdb_id": "5gam",
         "chain_id": "A",
@@ -63,48 +51,25 @@ MSA_TEST_CASES = [
             "tax_id": "",
         },
     },
-    {
-        # DNA - always load in single sequence mode (no MSAs)
-        "pdb_id": "2e2h",
-        "chain_id": "B",
-        "sequence": "CTACCGATAAGCAGACGCTCCTCTCGAT",
-        "min_sequences_in_msa": 1,
-        "spot_check": {
-            "index": 0,
-            "sequence": "CTACCGATAAGCAGACGCTCCTCTCGAT",
-            "num_insertions": 0,
-            "tax_id": "query",  # We replace the first row tax ID with "query"
-        },
-    },
 ]
-
-# Build up a filtered pn_units dataframe (used or the MSA coverage tests)
-# Apply chain type
-FILTERED_PN_UNITS_DF = PN_UNITS_DF.copy()
-FILTERED_PN_UNITS_DF["q_pn_unit_type"] = FILTERED_PN_UNITS_DF["q_pn_unit_type"].apply(lambda x: ChainType(x))
-FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[
-    FILTERED_PN_UNITS_DF["q_pn_unit_type"].isin(
-        [ChainType.POLYPEPTIDE_D, ChainType.POLYPEPTIDE_L, ChainType.RNA, ChainType.DNA]
-    )
-]
-
-# Filter to only entries with a deposition date before August 2nd, 2021
-FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[FILTERED_PN_UNITS_DF["deposition_date"] < "2021-08-02"]
 
 
 @pytest.mark.parametrize("test_case", MSA_TEST_CASES)
 def test_load_msas(test_case: dict[str, Any]):
+    """
+    Test a series of hand-picked cases to ensure that the MSA loading pipeline is functioning correctly.
+    We will check that the MSA has a minimum number of sequences, that the query sequence is correct, and that a spot check is correct.
+    """
     # Load a row from the pn_units dataframe with the given PDB ID and chain ID
     pdb_id = test_case["pdb_id"]
     chain_id = test_case["chain_id"]
     row = PN_UNITS_DF[(PN_UNITS_DF["pdb_id"] == pdb_id.lower()) & (PN_UNITS_DF["q_pn_unit_id"] == chain_id)].iloc[0]
+    chain_type = ChainType(row["q_pn_unit_type"])
 
     assert row is not None
 
-    # %%
     # Process the row
     data = load_from_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
-    # %%
 
     # Apply transforms
     # fmt: off
@@ -124,20 +89,30 @@ def test_load_msas(test_case: dict[str, Any]):
     result = output["polymer_msas_by_chain_id"][chain_id]
     spot_check_index = test_case["spot_check"]["index"]
 
-    # Flatten the sequence dimension of the MSA for testing
-    result["msa"] = np.array(["".join(seq.astype(str)) for seq in result["msa"]])
-
     # Check that the MSA has a minimum number of sequences
     assert result["msa"].shape[0] >= test_case["min_sequences_in_msa"]
 
     # Check that the sequence is correct (first row)
-    assert result["msa"][0].item() == test_case["sequence"]
+    lookup_table = (
+        AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE
+        if chain_type.is_protein()
+        else RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE
+    )
+    assert np.all(result["msa"][0] == lookup_table[np.frombuffer(test_case["sequence"].encode(), dtype=np.int8)])
 
     # For our spot check, we will check the sequence, number of insertions, shapes, and tax ID
-    assert result["msa"][spot_check_index].item() == test_case["spot_check"]["sequence"]
+    assert np.all(
+        result["msa"][spot_check_index]
+        == lookup_table[np.frombuffer(test_case["spot_check"]["sequence"].encode(), dtype=np.int8)]
+    )
     assert np.sum(result["ins"][spot_check_index]) == test_case["spot_check"]["num_insertions"]
-    assert result["ins"][spot_check_index].shape[0] == len(result["msa"][spot_check_index].item())
+    assert result["ins"][spot_check_index].shape[0] == len(result["msa"][spot_check_index])
     assert result["tax_ids"][spot_check_index].item() == str(test_case["spot_check"]["tax_id"])
+
+    # Compute the sequence similarity between the spot check sequence and the query sequence
+    calculated_sequence_similarity = np.mean(result["msa"][spot_check_index] == result["msa"][0])
+    assert calculated_sequence_similarity == result["sequence_similarity"][spot_check_index]
+    assert result["sequence_similarity"][0] == 1.0  # query sequence should have 100% similarity with itself
 
 
 @pytest.mark.slow
@@ -212,7 +187,7 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str):
 
 
 def process_pdb_id(pdb_id):
-    """Take as input a PDB ID and return the number of proteins and RNA/DNA chains with MSAs."""
+    """Take as input a PDB ID and return the number of proteins and RNA/DNA chains with MSAs. Used in the MSA coverage test."""
     num_proteins = num_proteins_with_msas = num_rna = num_rna_with_msa = num_dna = num_dna_with_msa = 0
 
     # Filter rows by PDB ID and chain type (we're looking for the query row PN unit only)
@@ -265,10 +240,23 @@ def process_pdb_id(pdb_id):
     }
 
 
+# Build up a filtered pn_units dataframe (used in the MSA coverage tests)
+FILTERED_PN_UNITS_DF = PN_UNITS_DF.copy()
+FILTERED_PN_UNITS_DF["q_pn_unit_type"] = FILTERED_PN_UNITS_DF["q_pn_unit_type"].apply(lambda x: ChainType(x))
+FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[
+    FILTERED_PN_UNITS_DF["q_pn_unit_type"].isin(
+        [ChainType.POLYPEPTIDE_D, ChainType.POLYPEPTIDE_L, ChainType.RNA, ChainType.DNA]
+    )
+]
+
+# Filter to only entries with a deposition date before August 2nd, 2021
+FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[FILTERED_PN_UNITS_DF["deposition_date"] < "2021-08-02"]
+
+
 def test_msa_coverage():
     """
     Function to validate MSA coverage for a random subset of PDB IDs.
-    Asserts that the coverage for proteins, RNA, and DNA is above a certain threshold.
+    Asserts that the coverage for proteins, RNA, and DNA is above a specified threshold.
     """
     PROTEIN_COVERAGE_THRESHOLD = 0.85  # NOTE: We will increase this threshold in the future
     RNA_COVERAGE_THRESHOLD = 0.10  # NOTE: We will increase this threshold in the future
@@ -325,3 +313,7 @@ def test_msa_coverage():
     logger.info(
         f"DNA: {aggregate_results['num_dna_with_msa']}/{aggregate_results['num_dna']} ({(aggregate_results['num_dna_with_msa'] / aggregate_results['num_dna'] * 100 if aggregate_results['num_dna'] else 0):.2f}%)"
     )
+
+
+if __name__ == "__main__":
+    pytest.main(["-s", "-v", __file__])

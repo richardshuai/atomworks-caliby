@@ -3,13 +3,6 @@ from typing import Callable, Iterator
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
-from cifutils.utils import get_chem_comp_type
-
-from datahub.encoding_definitions import (
-    AA_LIKE_CHEM_TYPES,
-    DNA_LIKE_CHEM_TYPES,
-    RNA_LIKE_CHEM_TYPES,
-)
 
 
 def get_token_starts(array: AtomArray, add_exclusive_stop: bool = False) -> np.ndarray:
@@ -214,10 +207,10 @@ def apply_segment_wise_2d(array: np.ndarray, segment_start_end_idxs: np.ndarray,
     return array
 
 
-def af3_token_to_representative_coord_fn(token: AtomArray) -> np.ndarray:
+def get_af3_token_representative_coords(atom_array: AtomArray) -> np.ndarray:
     """Returns the representative coordinates of the tokens in the atom array.
 
-    For each token we also designate a token centre atom, used in various places below:
+    For each token we also designate a token center atom, used in various places below:
         - CA for standard amino acids
         - C1' for standard nucleotides
         - For other cases take the first and only atom as they are tokenized per-atom.
@@ -226,67 +219,13 @@ def af3_token_to_representative_coord_fn(token: AtomArray) -> np.ndarray:
     the representative coordinate is set to `np.nan`.
 
     Args:
-        token (AtomArray): The token to get the representative coordinate of.
-
-    Returns:
-        np.ndarray: The representative coordinate of the token.
-
-    Reference:
-        - AF3: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
-
-    Example:
-        >>> token = AtomArray(
-            chain_id="A", res_id=1, res_name="ALA", atom_name=["CA", "C", "O"], coord=np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0]])
-        )
-        >>> af3_token_to_representative_coord_fn(token)
-        array([0, 0, 0])
-    """
-    if len(token) == 1:
-        # ... for single-atom tokens, the representative coordinate is the coordinate of the atom
-        token_center = token[0]
-        return token_center.coord if token_center.occupancy > 0 else np.full(3, np.nan)
-
-    chem_comp_type = get_chem_comp_type(token.res_name[0])
-    if chem_comp_type in AA_LIKE_CHEM_TYPES:
-        # ... for amino acids, the representative coordinate is the C-alpha atom
-        assert (
-            "CA" in token.atom_name
-        ), f"AA-like chem comp type token must have a C-alpha atom, but token only has {repr(token)}."
-        token_center = token[token.atom_name == "CA"][0]
-        return token_center.coord if token_center.occupancy > 0 else np.full(3, np.nan)
-    elif chem_comp_type in RNA_LIKE_CHEM_TYPES:
-        # ... for RNA, the representative coordinate is the C1' atom
-        assert (
-            "C1'" in token.atom_name
-        ), f"RNA-like chem comp type token must have a C1' atom, but token only has {repr(token)}."
-        token_center = token[token.atom_name == "C1'"][0]
-        return token_center.coord if token_center.occupancy > 0 else np.full(3, np.nan)
-    elif chem_comp_type in DNA_LIKE_CHEM_TYPES:
-        # ... for DNA, the representative coordinate is the C1' atom
-        assert (
-            "C1'" in token.atom_name
-        ), f"DNA-like chem comp type token must have a C1' atom, but token only has {repr(token)}."
-        token_center = token[token.atom_name == "C1'"][0]
-        return token_center.coord if token_center.occupancy > 0 else np.full(3, np.nan)
-    else:
-        # ... this should not happen
-        raise ValueError(
-            f"Do not know how to get the representative coordinate of token {repr(token)} with chem comp type {chem_comp_type}."
-        )
-
-
-def get_token_representative_coords(
-    array: AtomArray, token_to_rep_coord_fn: Callable = af3_token_to_representative_coord_fn
-) -> np.ndarray:
-    """Returns the representative coordinates of the tokens in the atom array.
-
-    Args:
-        array (AtomArray): The atom array to get the representative coordinates of.
-        token_to_rep_coord_fn (Callable, optional): The function to use to get the representative coordinates of the tokens.
-            Defaults to `af3_token_to_representative_coord_fn`.
+        atom_array (AtomArray): The atom array to get the representative coordinates of.
 
     Returns:
         np.ndarray: The representative coordinates of the tokens in the atom array.
+
+    Reference:
+        - AF3: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
 
     Example:
         >>> # Contrived example showing only a few tokens and annotations per residue for illustration
@@ -297,7 +236,12 @@ def get_token_representative_coords(
             res_name="NAP", atom_name="P1", coord=np.array([3, 0, 0]),
             res_name="U",   atom_name="C1'", coord=np.array([4, 0, 0]),
         )
-        >>> get_token_representative_coords(array)
+        >>> get_af3_token_representative_coords(array)
         array([[0, 0, 0], [3, 0, 0], [4, 0, 0]])
     """
-    return np.array([token_to_rep_coord_fn(token) for token in token_iter(array)])
+    is_token_representative = (
+        atom_array.atomize  # the atom itself for un-atomized tokens
+        | (atom_array.atom_name == "CA")  # CA for amino acids
+        | (atom_array.atom_name == "C1'")  # C1' for nucleotides
+    )
+    return atom_array.coord[is_token_representative]

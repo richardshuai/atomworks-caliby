@@ -4,6 +4,7 @@ from functools import cache
 import biotite.structure as struc
 import numpy as np
 import pytest
+from cifutils.utils.atom_matching_utils import assert_same_atom_array
 
 from datahub.datasets.base import get_row_and_index_by_example_id
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser, load_from_row
@@ -174,9 +175,7 @@ def test_af3_like_spatial_crop_transform(example_id: str, np_seed: int = 1, crop
             assert np.isnan(
                 data["crop_info"]["crop_center_token_idx"]
             ), "is_atom_in_crop is not nan when no crop was performed."
-            assert (
-                pre_crop_atom_array == post_crop_atom_array
-            ), "Length of pre-crop and post-crop atom arrays differ when no crop was performed."
+            assert_same_atom_array(pre_crop_atom_array, post_crop_atom_array)
             return
 
         # Ensure correct, expected token count
@@ -261,9 +260,7 @@ def test_af3_like_contiguous_crop_transform(example_id: str, np_seed: int = 1, c
 
         if not data["crop_info"]["requires_crop"]:
             # ... no crop was performed
-            assert (
-                pre_crop_atom_array == post_crop_atom_array
-            ), "Length of pre-crop and post-crop atom arrays differ when no crop was performed."
+            assert_same_atom_array(pre_crop_atom_array, post_crop_atom_array)
             return
 
         # Ensure crop is contiguous within each polymer instance

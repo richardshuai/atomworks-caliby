@@ -286,18 +286,22 @@ def assert_msa_results(result, expected_output):
 def test_pair_and_merge_polymer_msas(test_case: dict):
     input_msas = test_case["input_msas"]
     output_msa = test_case["output_msa"]
-    result = join_multiple_msas_by_tax_id(list(input_msas.values()), dense=test_case["dense"])
+    result = join_multiple_msas_by_tax_id(
+        list(input_msas.values()), unpaired_padding=np.array(["-"], dtype="S"), dense=test_case["dense"]
+    )
 
-    # Assert original result
+    # ...assert original result
     assert_msa_results(result, output_msa)
 
-    # Now, we ensure that adjusting the input msa row order only impacts the output msa row order, not the content
+    # Now, we ensure that adjusting the input msa row order only impacts the output msa row order, not the content)
     input_msas["A"]["msa"] = np.concatenate([input_msas["A"]["msa"][:1], input_msas["A"]["msa"][1:][::-1]])
     input_msas["A"]["ins"] = np.concatenate([input_msas["A"]["ins"][:1], input_msas["A"]["ins"][1:][::-1]])
     input_msas["A"]["tax_ids"] = np.concatenate([input_msas["A"]["tax_ids"][:1], input_msas["A"]["tax_ids"][1:][::-1]])
-    result_inverted = join_multiple_msas_by_tax_id(list(input_msas.values()), dense=test_case["dense"])
+    result_inverted = join_multiple_msas_by_tax_id(
+        list(input_msas.values()), unpaired_padding=np.array(["-"], dtype="S"), dense=test_case["dense"]
+    )
 
-    # Assert inverted result
+    # ...assert inverted result
     assert_msa_results(result_inverted, output_msa)
 
 
@@ -440,7 +444,3 @@ def test_msa_pairing_pipline(pdb_id: str):
 
         # Check that wherever `msa_is_padded_mask` is True, there are no insertion
         assert np.all(output["polymer_msas_by_chain_id"][chain_id]["ins"][msa_is_padded_mask == 1] == 0)
-
-
-if __name__ == "__main__":
-    pytest.main(["-v", "-x", "--log-cli-level=WARNING", __file__])

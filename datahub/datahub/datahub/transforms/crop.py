@@ -13,8 +13,8 @@ from datahub.transforms._checks import (
 from datahub.transforms.atom_array import atom_id_to_atom_idx, atom_id_to_token_idx
 from datahub.transforms.base import Transform
 from datahub.utils.token import (
+    get_af3_token_representative_coords,
     get_token_count,
-    get_token_representative_coords,
     get_token_starts,
     spread_token_wise,
 )
@@ -382,7 +382,7 @@ class CropSpatialLikeAF3(Transform):
             # Sample crop atom
             crop_atom_id = np.random.choice(atom_array[can_be_crop_center].atom_id)
             # ... sample crop
-            token_coords = get_token_representative_coords(atom_array)
+            token_coords = get_af3_token_representative_coords(atom_array)
             token_crop_idx = atom_id_to_token_idx(atom_array, crop_atom_id)
             is_token_in_crop = crop_spatial_af2_multimer(
                 token_coords, token_crop_idx, crop_size=self.crop_size, jitter_scale=self.jitter_scale
