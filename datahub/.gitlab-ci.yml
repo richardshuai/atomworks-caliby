@@ -9,4 +9,4 @@ unit-test-job:
     - when: never
   script:
     - echo "Running fast unit tests"
-    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_tests.sh
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_fast_tests.sh
