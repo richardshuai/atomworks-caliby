@@ -20,6 +20,15 @@ format:
 	ruff format .
 	ruff check --fix .
 
+## Run pytest and generate coverage report
+test:
+	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml datahub/tests -m "not very_slow"
+	@if command -v genbadge >/dev/null 2>&1; then \
+		genbadge coverage -i coverage.xml -o assets/coverage-badge.svg; \
+	else \
+		echo "Warning: genbadge not installed. Skipping coverage badge generation."; \
+	fi
+
 #################################################################################
 # Self Documenting Commands                                                     #
 #################################################################################
