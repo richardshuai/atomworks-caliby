@@ -205,7 +205,6 @@ def build_rf2aa_transform_pipeline(
     crop_contiguous_probability: float = 0.5,
     # Filtering parameters
     unresolved_ligand_atom_limit: int | float | None = 0.1,
-    filter_to_annotated_pn_units: bool = True,
     undesired_res_names: list[str] = AF3_EXCLUDED_LIGANDS,
     # Atomization parameters
     res_names_to_atomize: list[str] = None,
@@ -236,8 +235,6 @@ def build_rf2aa_transform_pipeline(
     unclamp_loss_probability: float = 0.1,
     black_hole_init: bool = True,
     black_hole_init_noise_scale: float = 5.0,  # Angstroms (Paper: 5.0)
-    # Filter parameters:
-    max_allowed_num_atoms: int = 150_000,
     # Cache params:
     msa_cache_dir: PathLike | str | None = "/projects/ml/RF2_allatom/cache/msa",
 ) -> Compose:
@@ -258,8 +255,6 @@ def build_rf2aa_transform_pipeline(
             many unresolved atoms has its atoms removed. If None, all atoms are kept, if between 0 and 1, the number of
             atoms is capped at that percentage of the crop size. If an integer >= 1, the number of unresolved atoms is
             capped at that number. Defaults to 0.1.
-        - filter_to_annotated_pn_units (bool, optional): Whether to filter to annotated pn units.
-            This saves a time and memory for large structures. Defaults to True.
         - res_names_to_atomize (list[str], optional): List of residue names to *always* atomize. Note that RF2AA already
             atomizes all residues that are not in the encoding (i.e. that are not standard AA, RNA, DNA or special masks).
             Therefore only specify this if you want to deterministically atomize certain standard tokens. Defaults to None.
