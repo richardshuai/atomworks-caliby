@@ -5,7 +5,7 @@ from biotite.structure import AtomArray
 from rdkit import Chem
 from rdkit.Chem.Draw import IPythonConsole
 
-from rf2aa.data_new.transforms.rdkit_utils import (
+from datahub.transforms.rdkit_utils import (
     atom_array_from_rdkit,
     atom_array_to_rdkit,
     generate_conformers,
@@ -14,6 +14,7 @@ from rf2aa.data_new.transforms.rdkit_utils import (
 )
 
 # Settings for debugging & interactive tests
+# (these will have no effect when running tests in a non-interactive environment)
 IPythonConsole.kekulizeStructures = False
 IPythonConsole.drawOptions.addAtomIndices = True
 IPythonConsole.ipython_3d = False

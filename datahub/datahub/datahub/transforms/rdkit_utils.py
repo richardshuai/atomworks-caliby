@@ -7,16 +7,15 @@ import numpy as np
 from biotite.structure import AtomArray
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.rdchem import Mol
-from rf2aa.data_new.utils import default
 
-from rf2aa.data_new.transforms._checks import (
+from datahub.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_does_not_contain_keys,
     check_is_instance,
     check_nonzero_length,
 )
-from rf2aa.data_new.transforms.base import Transform
+from datahub.transforms.base import Transform
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +193,7 @@ def generate_conformers(
     seed = -1 if seed is None else seed
     try:
         Chem.EmbedMultipleConfs(mol, numConfs=n_conformers, enforceChirality=True, randomSeed=seed)
-    except Exception as e:
+    except Exception:
         Chem.EmbedMultipleConfs(mol, numConfs=n_conformers, randomSeed=seed, enforceChirality=False)
 
     if optimize_conformers:
@@ -469,7 +468,7 @@ def atom_array_to_rdkit(
         sanitize_ops = Chem.SANITIZE_ALL ^ Chem.SANITIZE_KEKULIZE
         sanitize_ops = 268435447
         sanitize_result = Chem.SanitizeMol(mol, sanitizeOps=sanitize_ops, catchErrors=True)
-    
+
     if sanitize_result != Chem.SanitizeFlags.SANITIZE_NONE:
         logger.warning(f"Sanitization failed with flags: {sanitize_result}")
 
@@ -574,7 +573,7 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
         for pn_unit_iid in np.unique(_atom_array.pn_unit_iid):
             pn_unit_mask = _atom_array.pn_unit_iid == pn_unit_iid
             molecule = _atom_array[pn_unit_mask]
-            try: 
+            try:
                 rdmol = atom_array_to_rdkit(
                     molecule,
                     infer_hydrogens=self.infer_hydrogens,
