@@ -5,17 +5,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from itertools import combinations
 
 from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
+from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.tests.conftest import (
+    CANONICAL_AMINO_ACIDS,
     CIF_PARSER,
+    DNA_RESIDUES,
     PN_UNITS_DF,
     PROTEIN_MSA_DIR,
     RNA_MSA_DIR,
-    all_different,
-    generate_synthetic_msa,
-    similar_stats,
+    RNA_RESIDUES,
 )
 from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
@@ -30,6 +31,7 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     build_msa_index_can_be_masked,
     mask_msa_like_bert,
     summarize_clusters,
+    uniformly_select_rows,
 )
 from datahub.transforms.msa.msa import (
     EncodeMSA,
@@ -42,6 +44,128 @@ from datahub.transforms.msa.msa import (
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.token import token_iter
+
+
+def generate_synthetic_msa(
+    encoding: TokenEncoding, n_rows: int, n_tokens_across_chains: int, n_msa_cluster_representatives: int
+) -> dict[str, torch.Tensor]:
+    """
+    Generate synthetic Multiple Sequence Alignment (MSA) data.
+
+    Args:
+        encoding (TokenEncoding): An object containing token encoding information.
+        n_rows (int): Number of rows in the MSA.
+        n_tokens_across_chains (int): Number of tokens across all chains.
+        n_msa_cluster_representatives (int): Number of MSA cluster representatives to select.
+
+    Returns:
+        SyntheticMSAData: A dictionary containing various components of the synthetic MSA.
+    """
+
+    def get_token_range(token_list: list[int]) -> tuple[int, int]:
+        return min(token_list), max(token_list) + 1
+
+    def generate_msa_segment(token_range: tuple[int, int], shape: tuple[int, int]) -> torch.Tensor:
+        return torch.randint(token_range[0], token_range[1], shape)
+
+    amino_acid_tokens = [encoding.token_to_idx[res] for res in CANONICAL_AMINO_ACIDS + ["UNK"]]
+    rna_tokens = [encoding.token_to_idx[res] for res in RNA_RESIDUES + ["X"]]
+    dna_tokens = [encoding.token_to_idx[res] for res in DNA_RESIDUES + ["DX"]]
+    atom_tokens = [encoding.token_to_idx[res] for res in [13, 33, 79, 5, 4, 35, 6, 20, 17, 27, 24, 29, 9, 26, 80, 53]]
+    mask_token = encoding.token_to_idx["<M>"]
+
+    # Generate full MSA profile
+    full_msa_profile = torch.rand(n_tokens_across_chains, encoding.n_tokens)
+    full_msa_profile[:, mask_token] = 0
+    full_msa_profile /= full_msa_profile.sum(dim=1, keepdim=True)
+
+    # Generate MSA segments
+    example_protein_msa = generate_msa_segment(
+        get_token_range(amino_acid_tokens), (n_rows, n_tokens_across_chains // 2)
+    )
+    example_rna_msa = generate_msa_segment(get_token_range(rna_tokens), (n_rows, n_tokens_across_chains // 10))
+    example_dna_msa = generate_msa_segment(get_token_range(dna_tokens), (1, n_tokens_across_chains // 10)).repeat(
+        n_rows, 1
+    )
+    example_atom_1_msa = generate_msa_segment(get_token_range(atom_tokens), (1, n_tokens_across_chains // 10)).repeat(
+        n_rows, 1
+    )
+    example_atom_2_msa = generate_msa_segment(
+        get_token_range(atom_tokens), (1, 2 * n_tokens_across_chains // 10)
+    ).repeat(n_rows, 1)
+
+    # Concatenate into a single MSA
+    encoded_msa = torch.cat(
+        [example_protein_msa, example_rna_msa, example_dna_msa, example_atom_1_msa, example_atom_2_msa], dim=1
+    )
+
+    # Generate masks
+    msa_is_padded_mask = torch.randint(0, 2, (n_rows, n_tokens_across_chains)).bool()
+    token_idx_has_msa = torch.zeros(n_tokens_across_chains, dtype=torch.bool)
+    token_idx_has_msa[: (example_protein_msa.shape[1] + example_rna_msa.shape[1])] = True
+
+    # Break apart the MSA into selected and not selected indices
+    selected_indices, not_selected_indices = uniformly_select_rows(n_rows, n_msa_cluster_representatives)
+
+    return {
+        "encoded_msa": encoded_msa,
+        "msa_is_padded_mask": msa_is_padded_mask,
+        "token_idx_has_msa": token_idx_has_msa,
+        "full_msa_profile": full_msa_profile,
+        "selected_indices": selected_indices,
+        "not_selected_indices": not_selected_indices,
+        "example_protein_msa": example_protein_msa,
+        "example_rna_msa": example_rna_msa,
+        "example_dna_msa": example_dna_msa,
+        "example_atom_1_msa": example_atom_1_msa,
+        "example_atom_2_msa": example_atom_2_msa,
+    }
+
+
+def all_different(tensor_list: list[torch.Tensor]) -> bool:
+    """
+    Check if all tensors in the list are unique.
+
+    Args:
+        tensor_list (list): List of tensors to compare.
+
+    Returns:
+        bool: True if all tensors are different, False if any are equal.
+    """
+    for t1, t2 in combinations(tensor_list, 2):
+        if torch.equal(t1, t2):
+            return False
+    return True
+
+
+def similar_stats(
+    tensor_list: list[torch.Tensor],
+    mean_lower: float = 0.3,
+    mean_upper: float = 1.3,
+    std_lower: float = 0.7,
+    std_upper: float = 1.3,
+) -> bool:
+    """Check if tensor statistics are similar within specified ranges.
+
+    Args:
+        tensor_list (list): List of tensors to compare.
+        mean_lower (float, optional): Lower bound for mean. Defaults to 0.3.
+        mean_upper (float, optional): Upper bound for mean. Defaults to 1.3.
+        std_lower (float, optional): Lower bound for std dev. Defaults to 0.7.
+        std_upper (float, optional): Upper bound for std dev. Defaults to 1.3.
+
+    Returns:
+        bool: True if all tensors have similar stats, False otherwise.
+    """
+    means = [t.float().mean().item() for t in tensor_list]
+    stds = [t.float().std().item() for t in tensor_list]
+    mean_mean, mean_std = sum(means) / len(means), sum(stds) / len(stds)
+
+    return all(
+        mean_lower * mean_mean <= m <= mean_upper * mean_mean and std_lower * mean_std <= s <= std_upper * mean_std
+        for m, s in zip(means, stds)
+    )
+
 
 FILL_FULL_MSA_FROM_ENCODED_TEST_CASES = ["3ejj", "1mna", "1hge"]
 
