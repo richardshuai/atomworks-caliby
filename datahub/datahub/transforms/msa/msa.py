@@ -724,15 +724,20 @@ class FeaturizeMSALikeRF2AA(Transform):
                 token_idx_has_msa=token_idx_has_msa,
             )  # [n_rows, n_tokens_across_chains] (bool)
 
-            assignments = assign_extra_rows_to_cluster_representatives(
-                cluster_representatives_msa=encoded_and_masked_msa[selected_indices],
-                clust_reps_should_be_counted_mask=index_should_be_counted_mask[selected_indices],
-                extra_msa=encoded_and_masked_msa[not_selected_indices],
-                extra_msa_should_be_counted_mask=index_should_be_counted_mask[not_selected_indices],
-            )  # [n_not_selected_rows] (int)
+            if not_selected_indices.numel() > 0:
+                # ...if we have extra sequences, assign them to the cluster representatives
+                assignments = assign_extra_rows_to_cluster_representatives(
+                    cluster_representatives_msa=encoded_and_masked_msa[selected_indices],
+                    clust_reps_should_be_counted_mask=index_should_be_counted_mask[selected_indices],
+                    extra_msa=encoded_and_masked_msa[not_selected_indices],
+                    extra_msa_should_be_counted_mask=index_should_be_counted_mask[not_selected_indices],
+                )  # [n_not_selected_rows] (int)
+            else:
+                # ...if we have no extra sequences, we set the assignments to None
+                assignments = None
 
             # ============================================================
-            # (4) SUMMARIZE THE CLUSTERS INTO PROFILES AND MEAN INSERTIONS
+            # (4) SUMMARIZE THE CLUSTERS INTO PROFILES AND MEAN INSERTIONS AND SUBSELECT THE EXTA MSA
             # ============================================================
             msa_cluster_profiles = torch.zeros(
                 encoded_and_masked_msa[selected_indices].shape + (self.encoding.n_tokens,), dtype=torch.float
@@ -810,7 +815,8 @@ class FeaturizeMSALikeRF2AA(Transform):
             msa_cluster_profiles[:, ~token_idx_has_msa] = msa_cluster_profiles_without_msas
             del msa_cluster_profiles_without_msas, query_sequence_no_msa_profile, non_query_no_msa_profile
 
-            # Subselect the extra MSA rows
+            # ...subselect the extra MSA rows
+
             # From AF2 Supplement, section 1.2.7:
             #   (...)
             #   4. The MSA sequences that have not been selected as cluster centres
@@ -818,11 +824,22 @@ class FeaturizeMSALikeRF2AA(Transform):
             #   without replacement. If there are less than N_{extra_seq} remaining
             #   sequences available, all of them are used.
             #   (...)
-            if not_selected_indices.shape[0] > self.n_extra_rows:
+            if not_selected_indices.shape[0] >= self.n_extra_rows:
+                # ...if we have enough extra sequences, we randomly sample `n_extra_rows` of them
                 shuffled_indices = torch.randperm(not_selected_indices.shape[0])
                 not_selected_indices = not_selected_indices[
                     shuffled_indices[: self.n_extra_rows]
                 ]  # [n_extra_rows] (int)
+
+                # ...remove the last row of the not_selected_indices, since it will be the query sequence (a RF2AA novelty)
+                not_selected_indices = not_selected_indices[:-1]
+
+            # ...insert the query sequence as the first row of the extra MSA (a RF2AA novelty)
+            not_selected_indices = torch.cat([torch.tensor([0], dtype=torch.int64), not_selected_indices], dim=0)
+
+            # ============================================================
+            # (5) BUILD THE RETURN DICTIONARY
+            # ============================================================
 
             # Sequence
             msa_features_per_recycle_dict["first_row_of_msa"].append(
@@ -857,6 +874,7 @@ class FeaturizeMSALikeRF2AA(Transform):
             )  # [n_msa_cluster_representatives, n_tokens_across_chains, n_tokens] (float)
 
             # +------- Information about the extra MSA -------+
+            # NOTE: At a minimum, the extra MSA will contain the query sequence (a RF2AA novelty)
             extra_msa = encoded_and_masked_msa[not_selected_indices]
             if extra_msa.shape[0] > 0:
                 # ...replace the first row of the extra MSA with the (masked) query sequence (a RF2AA novelty)

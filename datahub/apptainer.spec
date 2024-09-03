@@ -76,7 +76,7 @@ IncludeCmd: yes
 
    ## GENERAL SETUP
    # Switch shell to bash
-   rm /bin/sh; ln -s /bin/bash /bin/sh
+   ln -sf /bin/bash /bin/sh
 
    # Common symlinks
    ln -s /net/databases /databases
@@ -141,7 +141,7 @@ IncludeCmd: yes
    # NOTE: The %test section is automatically run after the apptainer build process.
    #  It is intended to be executed separately using the apptainer test command.
    #  You can use this to verify the integrity of the container.
-   #  Run this manually with: apptainer test cifutils_apptainer.sif
+   #  Run this manually with: apptainer test datahub_apptainer.sif
    echo "Container OS: $(grep '^PRETTY_NAME=' /etc/os-release | cut -d '=' -f2- | sed 's/"//g')"
    echo "... running the $(readlink /proc/$$/exe) shell."
    echo "... conda at $(which conda)"
@@ -167,13 +167,11 @@ IncludeCmd: yes
    fi
 
    # ... check that pytest runs for datahub tests
-   echo "Basic build succeeded. For a proper test, run: apptainer run --bind $PWD:/cifutils_host cifutils_apptainer.sif"
+   echo "Basic build succeeded. For a proper test, run: apptainer run --bind $PWD:/datahub_host datahub_apptainer.sif"
 
 %environment
    source /usr/etc/profile.d/conda.sh
-   source /usr/bin/activate
    conda activate datahub-apptainer
-   source /root/.bashrc
 
 %runscript
    # NOTE: The %runscript is invoked when the container is run without specifying a different command. 
@@ -183,18 +181,18 @@ IncludeCmd: yes
    datahub environment for running datahub independently and for development
 
    To see this help message, use:
-      apptainer run-help cifutils_apptainer.sif
+      apptainer run-help datahub_apptainer.sif
 
    To build this apptainer, use:
-      apptainer build --bind $PWD:/cifutils_host path/to/cifutils_apptainer.sif apptainer.spec
+      apptainer build --bind $PWD:/datahub_host path/to/datahub_apptainer.sif apptainer.spec
 
    To run the container, use:
-      apptainer exec /path/to/cifutils_apptainer.sif <command>
+      apptainer exec /path/to/datahub_apptainer.sif <command>
       OR
-      ./path/to/cifutils_apptainer.sif <command>
+      ./path/to/datahub_apptainer.sif <command>
 
    To get an interactive shell in the container, use:
-      apptainer shell /path/to/cifutils_apptainer.sif
+      apptainer shell /path/to/datahub_apptainer.sif
 
 %labels
     Author smathis@uw.edu
