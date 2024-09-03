@@ -27,7 +27,7 @@ def uniformly_select_rows(
     """
     if n_rows_to_select >= n_rows:
         # (If n_rows_to_select is greater than or equal to n_rows, select all rows)
-        return torch.arange(n_rows), torch.tensor([])
+        return torch.arange(n_rows), torch.tensor([], dtype=torch.int64)
 
     if preserve_first_index and n_rows_to_select < 1:
         raise ValueError("n_rows_to_select must be at least 1 when include_first_index is True")
@@ -218,7 +218,7 @@ def assign_extra_rows_to_cluster_representatives(
     clust_reps_should_be_counted_mask: torch.Tensor,  # [n_msa_cluster_representatives, n_tokens_across_chains] (bool)
     extra_msa: torch.Tensor,  # [n_not_selected_rows, n_tokens_across_chains] (int)
     extra_msa_should_be_counted_mask: torch.Tensor,  # [n_not_selected_rows, n_tokens_across_chains] (bool)
-):
+) -> torch.Tensor:
     """
     Assign sequences not included in the main MSA stack to the closest cluster representative by Hamming distance.
     Does not count values indicated by `cluster_representatives_should_be_counted_mask` and `extra_msa_should_be_counted_mask` towards the agreement sum.
