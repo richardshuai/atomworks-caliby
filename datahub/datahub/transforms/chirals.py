@@ -7,7 +7,6 @@ from typing import Any
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from rf2aa.kinematics import get_dih
 
 from datahub.transforms._checks import (
     check_atom_array_annotation,
@@ -27,6 +26,33 @@ a plane that contains two atoms of the tetrahedral side and the
 center of mass of the tetrahedron (= the chiral center).
 This is ~35.26 degrees.
 """
+
+
+def get_dih(a: torch.tensor, b: torch.tensor, c: torch.tensor, d: torch.tensor, eps=1e-4):
+    """Calculate dihedral angles for all consecutive quadruples (a[i],b[i],c[i],d[i])
+    given Cartesian coordinates of four sets of atoms a,b,c,d
+
+    Copied from rf2aa.kinematics.get_dih to decouple the transform from the rf2aa package.
+
+    Args:
+        a,b,c,d : PyTorch tensors of shape [batch,nres,3] that store Cartesian coordinates of four sets of atoms
+
+    Returns:
+        dih : pytorch tensor of shape [batch,nres] that stores resulting the dihedrals
+    """
+    b0 = a - b
+    b1 = c - b
+    b2 = d - c
+
+    b1n = b1 / (torch.norm(b1, dim=-1, keepdim=True) + eps)
+
+    v = b0 - torch.sum(b0 * b1n, dim=-1, keepdim=True) * b1n
+    w = b2 - torch.sum(b2 * b1n, dim=-1, keepdim=True) * b1n
+
+    x = torch.sum(v * w, dim=-1)
+    y = torch.sum(torch.cross(b1n, v, dim=-1) * w, dim=-1)
+
+    return torch.atan2(y + eps, x + eps)
 
 
 def _get_plane_pair_keys_for_planes_between_chiral_center_and_tetrahedral_side(

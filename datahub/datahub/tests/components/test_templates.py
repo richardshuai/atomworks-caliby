@@ -12,7 +12,7 @@ from datahub.transforms.atom_array import (
 )
 from datahub.transforms.base import Compose
 from datahub.transforms.encoding import EncodeAtomArray, TokenEncoding
-from datahub.transforms.template import AddRFTemplates, FeaturizeRFTemplatesForRF2AA
+from datahub.transforms.template import AddRFTemplates, FeaturizeRFTemplatesForRF2AA, RF2AATemplate
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 
 TEST_CASES = [
@@ -85,7 +85,12 @@ def test_featurize_rf_templates(test_case: dict, encoding: TokenEncoding, n_temp
             AddRFTemplates(
                 max_n_template=2, pick_top=False, min_seq_similarity=20, max_seq_similarity=60, min_template_length=10
             ),
-            FeaturizeRFTemplatesForRF2AA(n_template=n_template, encoding=encoding, mask_token_idx=21),
+            FeaturizeRFTemplatesForRF2AA(
+                n_template=n_template,
+                encoding=encoding,
+                mask_token_idx=21,
+                init_coords=RF2AATemplate.RF2AA_INIT_TEMPLATE_COORDINATES,
+            ),
             EncodeAtomArray(encoding=encoding),
         ],
         track_rng_state=False,

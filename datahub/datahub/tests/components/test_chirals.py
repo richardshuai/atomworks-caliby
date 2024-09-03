@@ -6,7 +6,6 @@ import pytest
 import torch
 from conftest import cached_parse
 from openbabel import openbabel, pybel
-from rf2aa.kinematics import get_dih
 
 from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
@@ -14,7 +13,7 @@ from datahub.tests.conftest import CIF_PARSER, PN_UNITS_DF
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, RemoveHydrogens
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Compose
-from datahub.transforms.chirals import AddRF2AAChiralFeatures, get_rf2aa_chiral_features
+from datahub.transforms.chirals import AddRF2AAChiralFeatures, get_dih, get_rf2aa_chiral_features
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropSpatialLikeAF3
 from datahub.transforms.openbabel_utils import (

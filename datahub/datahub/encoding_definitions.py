@@ -327,13 +327,7 @@ try:
     # Initialize ChemicalData if not already initialized
     from rf2aa.chemical import ChemicalData
 
-    try:
-        chemdata = ChemicalData()
-    except:  # noqa: E722
-        from rf2aa.chemical import initialize_chemdata
-
-        initialize_chemdata()
-        chemdata = ChemicalData()
+    chemdata = ChemicalData()
 
     RF2AA_TOKEN_TO_STANDARD_TOKEN: dict[str, str] = {key: key.strip() for key in chemdata.num2aa}
     # RES_NAME modifications to the original

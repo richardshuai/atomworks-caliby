@@ -1,7 +1,6 @@
 import numpy as np
 import scipy
 from biotite.structure import AtomArray
-from rf2aa.chemical import ChemicalData as ChemData
 
 from datahub.transforms._checks import (
     check_atom_array_has_bonds,
@@ -12,6 +11,15 @@ from datahub.transforms._checks import (
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Transform
 from datahub.utils.token import apply_segment_wise_2d, get_token_starts
+
+# Constants copied from `chemdata` to decouple the RF2AA repository from the datahub pipeline
+RF2AA_NO_BOND = 0
+RF2AA_SINGLE_BOND = 1
+RF2AA_DOUBLE_BOND = 2
+RF2AA_TRIPLE_BOND = 3
+RF2AA_AROMATIC_BOND = 4
+RF2AA_RESIDUE_BB_BOND = 5
+RF2AA_RESIDUE_ATOM_BOND = 6
 
 
 def _atom_adjacency_to_token_adjacency(atom_adjacency: np.ndarray, token_start_end_idxs: np.ndarray) -> np.ndarray:
@@ -42,11 +50,11 @@ def _biotite_bond_types_to_rf2aa_bond_types(biotite_bond_types: np.ndarray) -> n
     rf2aa_bond_types = np.full_like(
         biotite_bond_types, fill_value=7, dtype=np.int8
     )  # 7 maps to "other" bond, which is not represented in the ChemData enum
-    rf2aa_bond_types[biotite_bond_types == 0] = ChemData().NO_BOND
-    rf2aa_bond_types[biotite_bond_types == 1] = ChemData().SINGLE_BOND
-    rf2aa_bond_types[biotite_bond_types == 2] = ChemData().DOUBLE_BOND
-    rf2aa_bond_types[biotite_bond_types == 3] = ChemData().TRIPLE_BOND
-    rf2aa_bond_types[biotite_bond_types > 4] = ChemData().AROMATIC_BOND
+    rf2aa_bond_types[biotite_bond_types == 0] = RF2AA_NO_BOND
+    rf2aa_bond_types[biotite_bond_types == 1] = RF2AA_SINGLE_BOND
+    rf2aa_bond_types[biotite_bond_types == 2] = RF2AA_DOUBLE_BOND
+    rf2aa_bond_types[biotite_bond_types == 3] = RF2AA_TRIPLE_BOND
+    rf2aa_bond_types[biotite_bond_types > 4] = RF2AA_AROMATIC_BOND
     return rf2aa_bond_types
 
 
@@ -66,26 +74,26 @@ def _create_rf2aa_bond_features_matrix(
     """
 
     # ...initialize the bond features matrix, defaulting to no bond
-    bond_features_matrix = np.full_like(token_bond_adjacency, fill_value=ChemData().NO_BOND, dtype=np.int8)
+    bond_features_matrix = np.full_like(token_bond_adjacency, fill_value=RF2AA_NO_BOND, dtype=np.int8)
 
     # ...fill in the residue-residue token bonds
     # If a token isn't atomized, then it must be a residue (either a protein, RNA, or DNA)
     token_is_residue = ~token_is_atom
     residue_matrix = np.outer(token_is_residue, token_is_residue)
-    bond_features_matrix[residue_matrix] = ChemData().RESIDUE_BB_BOND
+    bond_features_matrix[residue_matrix] = RF2AA_RESIDUE_BB_BOND
 
     # ...fill in the residue-atom bonds
     atom_residue_matrix = np.outer(token_is_residue, token_is_atom)
     atom_residue_matrix |= np.transpose(atom_residue_matrix)
     atom_residue_matrix &= token_bond_adjacency
-    bond_features_matrix[atom_residue_matrix] = ChemData().RESIDUE_ATOM_BOND
+    bond_features_matrix[atom_residue_matrix] = RF2AA_RESIDUE_ATOM_BOND
 
     # ...fill in the small molecule bonds
     rf2aa_atom_bond_matrix = _biotite_bond_types_to_rf2aa_bond_types(atom_biotite_bond_type_matrix)
     bond_features_matrix[np.ix_(token_is_atom, token_is_atom)] = rf2aa_atom_bond_matrix
 
     # ...apply the token_bond_adjacency mask to zero-out non-bonded interactions
-    bond_features_matrix[~token_bond_adjacency] = ChemData().NO_BOND
+    bond_features_matrix[~token_bond_adjacency] = RF2AA_NO_BOND
 
     return bond_features_matrix
 

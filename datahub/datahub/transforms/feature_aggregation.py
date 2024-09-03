@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from biotite.structure import AtomArray
 from einops import rearrange, repeat
-from rf2aa.chemical import ChemicalData as ChemData
 
 from datahub.encoding_definitions import TokenEncoding
 from datahub.transforms._checks import (
@@ -16,6 +15,7 @@ from datahub.transforms.atom_array import AddProteinTerminiAnnotation
 from datahub.transforms.base import Transform
 from datahub.transforms.bonds import AddRF2AABondFeaturesMatrix, AddRF2AATraversalDistanceMatrix
 from datahub.transforms.msa.msa import FeaturizeMSALikeRF2AA
+from datahub.transforms.template import RF2AATemplate
 from datahub.utils.token import get_token_starts
 
 
@@ -87,7 +87,7 @@ class AggregateFeaturesLikeRF2AA(Transform):
         use_negative_interface_examples: bool,
         unclamp_loss_probability: float,
         black_hole_init: bool = True,
-        black_hole_init_coords: np.ndarray = ChemData().INIT_CRDS,
+        black_hole_init_coords: np.ndarray = RF2AATemplate.RF2AA_INIT_TEMPLATE_COORDINATES,
         black_hole_init_noise_scale: float = 5.0,  # Å
     ):
         """
