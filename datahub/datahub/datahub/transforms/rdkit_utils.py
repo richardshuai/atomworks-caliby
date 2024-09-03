@@ -1,13 +1,17 @@
+import copy
 import logging
 from functools import cache, wraps
+from pathlib import Path
 from typing import Any
 
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
-from rdkit.Chem import AllChem as Chem
-from rdkit.Chem.rdchem import Mol
+from rdkit import Chem, RDLogger
+from rdkit.Chem import AllChem, Mol
+from rdkit.Chem.MolStandardize import rdMolStandardize
 
+from datahub.common import default
 from datahub.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -18,44 +22,97 @@ from datahub.transforms._checks import (
 from datahub.transforms.base import Transform
 
 logger = logging.getLogger(__name__)
+# ... disable RDKit logging
+RDLogger.DisableLog("rdApp.*")
+
+_RDKIT_HYBRIDIZATION_TO_INT = {
+    Chem.rdchem.HybridizationType.S: 0,
+    Chem.rdchem.HybridizationType.SP: 1,
+    Chem.rdchem.HybridizationType.SP2: 2,
+    Chem.rdchem.HybridizationType.SP3: 3,
+    Chem.rdchem.HybridizationType.SP3D: 4,
+    Chem.rdchem.HybridizationType.SP3D2: 5,
+    Chem.rdchem.HybridizationType.OTHER: 6,
+    Chem.rdchem.HybridizationType.UNSPECIFIED: -1,
+}
+"""Mapping from RDKit hybridization types to integers."""
 
 _RDKIT_BOND_TYPE_TO_BIOTITE = {
-    Chem.BondType.UNSPECIFIED: struc.bonds.BondType.ANY,
-    Chem.BondType.SINGLE: struc.bonds.BondType.SINGLE,
-    Chem.BondType.DOUBLE: struc.bonds.BondType.DOUBLE,
-    Chem.BondType.TRIPLE: struc.bonds.BondType.TRIPLE,
-    Chem.BondType.QUADRUPLE: struc.bonds.BondType.QUADRUPLE,
-    Chem.BondType.AROMATIC: struc.bonds.BondType.AROMATIC_SINGLE,
-    Chem.BondType.ONEANDAHALF: struc.bonds.BondType.AROMATIC_SINGLE,
-    Chem.BondType.TWOANDAHALF: struc.bonds.BondType.AROMATIC_DOUBLE,
-    Chem.BondType.THREEANDAHALF: struc.bonds.BondType.AROMATIC_TRIPLE,
+    # (rdkit bond type, is_aromatic) -> biotite bond type
+    (Chem.BondType.UNSPECIFIED, False): struc.bonds.BondType.ANY,
+    (Chem.BondType.SINGLE, False): struc.bonds.BondType.SINGLE,
+    (Chem.BondType.DOUBLE, False): struc.bonds.BondType.DOUBLE,
+    (Chem.BondType.TRIPLE, False): struc.bonds.BondType.TRIPLE,
+    (Chem.BondType.QUADRUPLE, False): struc.bonds.BondType.QUADRUPLE,
+    (Chem.BondType.SINGLE, True): struc.bonds.BondType.AROMATIC_SINGLE,
+    (Chem.BondType.DOUBLE, True): struc.bonds.BondType.AROMATIC_DOUBLE,
+    (Chem.BondType.TRIPLE, True): struc.bonds.BondType.AROMATIC_TRIPLE,
 }
 """
 Mapping from RDKit bond types to Biotite bond types.
+Maps (rdkit bond type, is_aromatic) -> biotite bond type
+
 Unspecified bonds are mapped to `ANY` bond type.
 """
 
 _BIOTITE_BOND_TYPE_TO_RDKIT = {
-    struc.bonds.BondType.ANY: Chem.BondType.UNSPECIFIED,
-    struc.bonds.BondType.SINGLE: Chem.BondType.SINGLE,
-    struc.bonds.BondType.DOUBLE: Chem.BondType.DOUBLE,
-    struc.bonds.BondType.TRIPLE: Chem.BondType.TRIPLE,
-    struc.bonds.BondType.QUADRUPLE: Chem.BondType.QUADRUPLE,
-    struc.bonds.BondType.AROMATIC_SINGLE: Chem.BondType.AROMATIC,
-    struc.bonds.BondType.AROMATIC_DOUBLE: Chem.BondType.AROMATIC,
-    struc.bonds.BondType.AROMATIC_TRIPLE: Chem.BondType.AROMATIC,
+    # biotite bond type -> (rdkit bond type, is_aromatic)
+    struc.bonds.BondType.ANY: (Chem.BondType.UNSPECIFIED, False),
+    struc.bonds.BondType.SINGLE: (Chem.BondType.SINGLE, False),
+    struc.bonds.BondType.DOUBLE: (Chem.BondType.DOUBLE, False),
+    struc.bonds.BondType.TRIPLE: (Chem.BondType.TRIPLE, False),
+    struc.bonds.BondType.QUADRUPLE: (Chem.BondType.QUADRUPLE, False),
+    # NOTE: We map aromatics to single/double/triple instead of Chem.BondType.AROMATIC
+    #       because the PDB specified bond-order (from a kekulized form of the molecule)
+    #       is lost when we map to aromatic, which can lead to incorrect bond-order
+    #       perception in RDKit.
+    struc.bonds.BondType.AROMATIC_SINGLE: (Chem.BondType.SINGLE, True),
+    struc.bonds.BondType.AROMATIC_DOUBLE: (Chem.BondType.DOUBLE, True),
+    struc.bonds.BondType.AROMATIC_TRIPLE: (Chem.BondType.TRIPLE, True),
 }
-"""Mapping from Biotite bond types to RDKit bond types."""
+"""Mapping from Biotite bond types to RDKit bond types.
+Maps (biotite bond type) -> (rdkit bond type, is_aromatic)
+"""
 
 _BIOTITE_DEFAULT_ANNOTATIONS = ["chain_id", "res_id", "res_name", "atom_name"]
 
 
-def _is_bond_aromatic(bond_type: struc.bonds.BondType) -> bool:
-    return bond_type in {
-        struc.bonds.BondType.AROMATIC_SINGLE,
-        struc.bonds.BondType.AROMATIC_DOUBLE,
-        struc.bonds.BondType.AROMATIC_TRIPLE,
-    }
+class ChEMBLNormalizer:
+    """
+    Normalize an RDKit molecule like the ChEMBL structure pipeline does.
+    This is useful for `rescuing` molecules that failed to be sanitized by RDKit
+    alone.
+
+    References:
+        - https://github.com/chembl/ChEMBL_Structure_Pipeline/blob/master/chembl_structure_pipeline/standardizer.py#L33C1-L73C15
+    """
+
+    def __init__(self):
+        with open(Path(__file__).parent / "chembl_transformations.smirks", "r") as f:
+            self._normalization_transforms = f.read()
+        self._normalizer_params = rdMolStandardize.CleanupParameters()
+        self._normalizer = rdMolStandardize.NormalizerFromData(
+            paramData=self._normalization_transforms, params=self._normalizer_params
+        )
+
+    def normalize_in_place(self, mol: Mol) -> Mol:
+        self._normalizer.normalizeInPlace(mol)
+        return mol
+
+
+@cache
+def _periodic_table() -> Chem.PeriodicTable:
+    return Chem.GetPeriodicTable()
+
+
+@cache
+def _valence_checker() -> rdMolStandardize.RDKitValidation:
+    return rdMolStandardize.RDKitValidation()
+
+
+@cache
+def _chembl_normalizer() -> rdMolStandardize.Normalizer:
+    return ChEMBLNormalizer()
 
 
 @cache
@@ -117,6 +174,112 @@ def _preserve_annotations(func: callable) -> callable:
         return new_mol
 
     return wrapped
+
+
+def _mol_has_correct_valence(mol: Mol) -> bool:
+    """
+    Check if an RDKit molecule has correct valences.
+    """
+    mol.UpdatePropertyCache(False)
+    return len(_valence_checker().validate(mol)) == 0
+
+
+def _fix_valence_by_changing_formal_charge(mol: Mol) -> Mol:
+    """
+    Attempt to fix the valence of an RDKit molecule by changing the formal charge of atoms.
+    """
+    if not _mol_has_correct_valence(mol):
+        for rdatom in mol.GetAtoms():
+            n_electron = (
+                rdatom.GetImplicitValence()
+                + rdatom.GetExplicitValence()
+                - _periodic_table().GetDefaultValence(rdatom.GetSymbol())
+            )
+            rdatom.SetFormalCharge(n_electron)
+    return mol
+
+
+@_preserve_annotations
+def fix_mol(
+    mol: Mol,
+    attempt_fix_valence_by_changing_formal_charge: bool = True,
+    attempt_fix_by_normalizing_like_chembl: bool = True,
+    attempt_fix_by_normalizing_like_rdkit: bool = True,
+    in_place: bool = True,
+    raise_on_failure: bool = True,
+) -> Mol:
+    """
+    Fix an RDKit molecule (in-place).
+
+    This function attempts to infer aromaticity, valences, implicit hydrogens, and
+    formal charges to result in a molecule that can be successfully sanitized. It
+    does **not** change the heavy atoms or bonds in the molecule.
+
+    # TODO:
+    #  - Add sanitization for aromatic systems with incorrect formal charges (that cannot be kekulized) (https://github.com/datamol-io/datamol/issues/231)
+    #    - This may be done via Hueckel's rule (https://en.wikipedia.org/wiki/H%C3%BCckel%27s_rule): Find all aromatic systems, compute Hueckel's rule,
+    #      if the number of pi electrons is not equal to 4*n+2, where n is an integer, then the aromatic system is not valid with the given formal charges.
+    #      Try to adjust the formal charges on non-carbon atoms to make the aromatic system valid.
+    #  - Add sanifix4 style sanitization (https://github.com/datamol-io/datamol/blob/0312388b956e2b4eeb72d791167cfdb873c7beab/datamol/_sanifix4.py#L114)
+    #  - Add attempt to fix valences by changing the bond orders (c.f. https://github.com/datamol-io/datamol)
+    #  - Add further ChEMBL style sanitization: https://github.com/chembl/ChEMBL_Structure_Pipeline/blob/master/chembl_structure_pipeline/standardizer.py#L33C1-L73C15
+
+
+    References:
+        - https://www.rdkit.org/docs/RDKit_Book.html#molecular-sanitization
+        - https://github.com/chembl/ChEMBL_Structure_Pipeline/blob/master/chembl_structure_pipeline/standardizer.py
+        - https://github.com/datamol-io/datamol/blob/0312388b956e2b4eeb72d791167cfdb873c7beab/datamol/mol.py
+
+    """
+    if not in_place:
+        mol = copy.deepcopy(mol)
+
+    # ... try to fixe the molecule by automatically performing some standardization
+    #  steps to infer formal charges and perceive aromaticity
+    sanitize_result = Chem.SanitizeMol(mol, catchErrors=True)
+
+    if sanitize_result == Chem.SanitizeFlags.SANITIZE_NONE:
+        # ... do not fix molecules that are not broken
+        return mol
+
+    logger.warning(
+        f"Molecule failed sanitization: {sanitize_result}. Attempting to fix by inferring valences and aromaticity."
+    )
+
+    # ... recompute current valences
+    mol.UpdatePropertyCache(strict=False)
+
+    if attempt_fix_by_normalizing_like_chembl:
+        # ... perform normalization steps recommended by the ChEMBL team to "rescue"
+        _chembl_normalizer().normalize_in_place(mol)
+        # ... recompute valences after attempted fixing
+        mol.UpdatePropertyCache(strict=False)
+        sanitize_result = Chem.SanitizeMol(mol, catchErrors=True)
+        if sanitize_result == Chem.SanitizeFlags.SANITIZE_NONE:
+            return mol
+
+    if attempt_fix_by_normalizing_like_rdkit:
+        # ... perform normalization steps recommended by the RDKit team.
+        rdMolStandardize.NormalizeInPlace(mol)
+        # ... recompute valences after attempted fixing
+        mol.UpdatePropertyCache(strict=False)
+        sanitize_result = Chem.SanitizeMol(mol, catchErrors=True)
+        if sanitize_result == Chem.SanitizeFlags.SANITIZE_NONE:
+            return mol
+
+    if attempt_fix_valence_by_changing_formal_charge:
+        _fix_valence_by_changing_formal_charge(mol)
+        mol.UpdatePropertyCache(strict=False)
+        sanitize_result = Chem.SanitizeMol(mol, catchErrors=True)
+        if sanitize_result == Chem.SanitizeFlags.SANITIZE_NONE:
+            return mol
+
+    if sanitize_result != Chem.SanitizeFlags.SANITIZE_NONE:
+        logger.warning(f"Could not fix molecule, final sanitization result: {sanitize_result}")
+        if raise_on_failure:
+            raise Chem.MolSanitizeException(f"Molecule failed sanitization: {sanitize_result}")
+
+    return mol
 
 
 @_preserve_annotations
@@ -192,12 +355,12 @@ def generate_conformers(
 
     seed = -1 if seed is None else seed
     try:
-        Chem.EmbedMultipleConfs(mol, numConfs=n_conformers, enforceChirality=True, randomSeed=seed)
+        AllChem.EmbedMultipleConfs(mol, numConfs=n_conformers, enforceChirality=True, randomSeed=seed)
     except Exception:
-        Chem.EmbedMultipleConfs(mol, numConfs=n_conformers, randomSeed=seed, enforceChirality=False)
+        AllChem.EmbedMultipleConfs(mol, numConfs=n_conformers, randomSeed=seed, enforceChirality=False)
 
     if optimize_conformers:
-        success = Chem.UFFOptimizeMoleculeConfs(mol, **uff_optimize_kwargs)
+        success = AllChem.UFFOptimizeMoleculeConfs(mol, **uff_optimize_kwargs)
         if not success:
             logger.warning("Conformer optimization did not converge.")
 
@@ -258,7 +421,7 @@ def get_chiral_centers(mol: Mol) -> list[int]:
     return tetrahedral_chiral_centers
 
 
-def smiles_to_rdkit(smile: str) -> Mol:
+def smiles_to_rdkit(smile: str, sanitize: bool = True) -> Mol:
     """
     Generate an RDKit molecule from a SMILES string.
 
@@ -267,6 +430,7 @@ def smiles_to_rdkit(smile: str) -> Mol:
 
     Args:
         - smile (str): The SMILES string representing the molecule.
+        - sanitize (bool): Whether to sanitize the molecule.
 
     Returns:
         - rdkit.Chem.Mol: The RDKit molecule generated from the SMILES string.
@@ -274,9 +438,11 @@ def smiles_to_rdkit(smile: str) -> Mol:
     Note:
         The returned molecule is sanitized and has aromaticity perceived.
     """
-    mol = Chem.MolFromSmiles(smile)
-    # ... perform sanitization to perceive aromaticity
-    Chem.SanitizeMol(mol)
+    mol = Chem.MolFromSmiles(smile, sanitize=sanitize)
+    if mol is None:
+        raise Chem.MolSanitizeException(
+            f"Failed to create molecule from SMILES string: {smile}. Try setting `sanitize=False`."
+        )
     return mol
 
 
@@ -314,6 +480,8 @@ def atom_array_from_rdkit(
         >>> print(atom_array)
         AtomArray([Atom(element='6', coord=array([0.0, 0.0, 0.0]), ...)])
     """
+    mol = copy.deepcopy(mol)
+
     n_atoms = mol.GetNumAtoms()
 
     # Get coordinates (if available)
@@ -333,7 +501,7 @@ def atom_array_from_rdkit(
                 element=rdatom.GetAtomicNum() if elements_as_int else rdatom.GetSymbol(),
                 coord=coords[idx],
                 charge=rdatom.GetFormalCharge(),
-                hyb=str(rdatom.GetHybridization()),
+                hyb=_RDKIT_HYBRIDIZATION_TO_INT[rdatom.GetHybridization()],
                 nhyd=rdatom.GetTotalNumHs(),
                 hvydeg=rdatom.GetDegree() - rdatom.GetTotalNumHs(),
                 rdkit_atom_id=rdatom.GetIntProp("rdkit_atom_id") if rdatom.HasProp("rdkit_atom_id") else -1,
@@ -342,11 +510,16 @@ def atom_array_from_rdkit(
     atom_array = struc.array(atoms)
 
     # Set bonds
+    # ... kekulize to ensure aromaticity is perceived correctly and assign integer bond orders
+    Chem.Kekulize(mol)
+    # ... create bond list with integer bond orders
     bond_list = []
     for bond in mol.GetBonds():
         begin_atom_idx = bond.GetBeginAtomIdx()
         end_atom_idx = bond.GetEndAtomIdx()
-        bond_type = _RDKIT_BOND_TYPE_TO_BIOTITE[bond.GetBondType()]
+        is_bond_aromatic = bond.GetIsAromatic()
+        # ... after kekulize, order is guaranteed to be integer
+        bond_type = _RDKIT_BOND_TYPE_TO_BIOTITE[(bond.GetBondType(), is_bond_aromatic)]
         bond_list.append((begin_atom_idx, end_atom_idx, bond_type))
     atom_array.bonds = struc.bonds.BondList(n_atoms, np.array(bond_list))
 
@@ -397,7 +570,8 @@ def atom_array_to_rdkit(
     set_coord: bool = False,
     infer_hydrogens: bool = True,
     annotations_to_keep: list[str] = _BIOTITE_DEFAULT_ANNOTATIONS,
-    strict_sanitization: bool = True,
+    sanitize: bool = True,
+    attempt_fixing_corrupted_molecules: bool = True,
 ) -> Mol:
     """
     Generate an RDKit molecule from a Biotite AtomArray object.
@@ -445,13 +619,19 @@ def atom_array_to_rdkit(
         mol.AddAtom(rdatom)
 
     # Set bonds
+    _should_be_aromatic = set()
     for bond in atom_array.bonds.as_array():
         atom1, atom2, bond_type = list(map(int, bond))
         if bond_type == struc.bonds.BondType.ANY:
             # ... warn if underspecified bonds are encountered
             logger.warning("Encountered BondType.ANY. Interpreting as single bond.")
-
-        mol.AddBond(atom1, atom2, order=_BIOTITE_BOND_TYPE_TO_RDKIT[bond_type])
+        bond_order, bond_is_aromatic = _BIOTITE_BOND_TYPE_TO_RDKIT[bond_type]
+        mol.AddBond(atom1, atom2, order=bond_order)
+        if bond_is_aromatic and not attempt_fixing_corrupted_molecules:
+            # ... set aromaticity explicitly (and require the molecule makes sense later)
+            mol.GetAtomWithIdx(atom1).SetIsAromatic(True)
+            mol.GetAtomWithIdx(atom2).SetIsAromatic(True)
+        _should_be_aromatic.union({atom1, atom2})
 
     # Set coordinates
     if set_coord:
@@ -461,16 +641,28 @@ def atom_array_to_rdkit(
         for atom_id, coord in enumerate(atom_array.coord):
             mol.GetConformer(conf_id).SetAtomPosition(atom_id, coord.tolist())
 
-    # Clean up the molecule and infer various properties
-    if strict_sanitization:
-        sanitize_result = Chem.SanitizeMol(mol)
-    else:
-        sanitize_ops = Chem.SANITIZE_ALL ^ Chem.SANITIZE_KEKULIZE
-        sanitize_ops = 268435447
-        sanitize_result = Chem.SanitizeMol(mol, sanitizeOps=sanitize_ops, catchErrors=True)
+    if attempt_fixing_corrupted_molecules:
+        # ... fix_mol has no effect if the molecule is already sanitized
+        mol = fix_mol(
+            mol,
+            attempt_fix_by_normalizing_like_chembl=True,
+            attempt_fix_by_normalizing_like_rdkit=True,
+            attempt_fix_valence_by_changing_formal_charge=True,
+            in_place=True,
+            raise_on_failure=False,
+        )
 
-    if sanitize_result != Chem.SanitizeFlags.SANITIZE_NONE:
-        logger.warning(f"Sanitization failed with flags: {sanitize_result}")
+    # Clean up the molecule and infer various properties
+    #  (we always sanitize when attempting to fix corrupted molecules)
+    if sanitize or attempt_fixing_corrupted_molecules:
+        # ... verify validity of the molecule (according to Lewis octet rule)
+        Chem.SanitizeMol(mol)
+
+        # ... verify that atoms that are labelled as `_should_be_aromatic` are aromatic
+        for atom_idx in _should_be_aromatic:
+            assert mol.GetAtomWithIdx(
+                atom_idx
+            ).GetIsAromatic(), f"Atom {atom_idx} is not aromatic but was labelled as aromatic."
 
     # Turn into a non-editable molecule
     mol = mol.GetMol()
@@ -578,14 +770,19 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
                     molecule,
                     infer_hydrogens=self.infer_hydrogens,
                     annotations_to_keep=["chain_id", "res_id", "res_name", "atom_name", "atom_id", "pn_unit_iid"],
+                    sanitize=True,
+                    attempt_fixing_corrupted_molecules=False,
                 )
             except Exception as e:
-                logger.error(f"Failed to convert molecule {pn_unit_iid} to RDKit: {str(e)}")
+                logger.error(
+                    f"Failed to convert molecule {pn_unit_iid} to RDKit: {str(e)}. Trying again and attempting to fix the corrupted molecule."
+                )
                 rdmol = atom_array_to_rdkit(
                     molecule,
                     infer_hydrogens=self.infer_hydrogens,
                     annotations_to_keep=["chain_id", "res_id", "res_name", "atom_name", "atom_id", "pn_unit_iid"],
-                    strict_sanitization=False,
+                    sanitize=True,
+                    attempt_fixing_corrupted_molecules=True,
                 )
             # Store by pn_unit_iid as key
             data["rdkit"][pn_unit_iid] = rdmol
@@ -629,7 +826,7 @@ class GenerateRDKitConformers(Transform):
     ):
         self.n_conformers = n_conformers
         self.optimize_conformers = optimize_conformers
-        self.optimize_kwargs = optimize_kwargs
+        self.optimize_kwargs = default(optimize_kwargs, {})
 
     def check_input(self, data: dict[str, Any]):
         check_contains_keys(data, ["rdkit"])
