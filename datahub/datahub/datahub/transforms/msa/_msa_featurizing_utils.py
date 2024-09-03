@@ -6,32 +6,43 @@ from datahub.encoding_definitions import (
 from datahub.utils.misc import grouped_count, grouped_sum
 
 
-def uniformly_select_msa_cluster_representatives(
-    n_rows: int, n_msa_cluster_representatives: int
+def transform_ins_counts(ins: torch.Tensor) -> torch.Tensor:
+    """Transforms insertion counts into the range [0,1] using the function given in the AF2 Supplement"""
+    return 2 / torch.pi * torch.arctan(ins / 3)
+
+
+def uniformly_select_rows(
+    n_rows: int, n_rows_to_select: int, preserve_first_index: bool = False
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    Selects indices for MSA cluster representatives, without any biases.
-    Ensures that the first index is always included in the selected indices in the first position.
+    Selects row indices uniformly from a tensor.
 
     Args:
-        n_rows (int): Total number of rows in the MSA.
-        n_msa_cluster_representatives (int): Number of MSA cluster representatives to select.
+        n_rows (int): Total number of rows in the tensor.
+        n_rows_to_select (int): Number of rows to select.
+        preserve_first_index (bool, optional): If True, preserves index 0 in selection. Defaults to False.
 
     Returns:
-        tuple[torch.Tensor, torch.Tensor]: A tuple containing:
-            - selected_indices (torch.Tensor): Indices selected for the MSA cluster representatives.
-            - not_selected_indices (torch.Tensor): Indices not selected, which can be used for the extra MSA stack and cluster profiles.
+        tuple[torch.Tensor, torch.Tensor]: Selected indices and not selected indices.
     """
-    # TODO: Try biasing the selection towards paired sequences (RF2AA-style)
-    # TODO: Try biasing sampling (AF Multimer-style)
+    if n_rows_to_select >= n_rows:
+        # (If n_rows_to_select is greater than or equal to n_rows, select all rows)
+        return torch.arange(n_rows), torch.tensor([])
 
-    # Generate a permutation of indices, preserving the first index
-    shuffled_indices = torch.randperm(n_rows - 1) + 1
-    shuffled_indices = torch.cat((torch.tensor([0]), shuffled_indices))
+    if preserve_first_index and n_rows_to_select < 1:
+        raise ValueError("n_rows_to_select must be at least 1 when include_first_index is True")
 
-    # Separate the shuffled indices into what will go into the main MSA stack and what will be used for the cluster representatives (and be candidates for the extra MSA stack)
-    selected_indices = shuffled_indices[:n_msa_cluster_representatives]
-    not_selected_indices = shuffled_indices[n_msa_cluster_representatives:]
+    if preserve_first_index:
+        # ...generate a permutation of indices, preserving the first index
+        shuffled_indices = torch.randperm(n_rows - 1) + 1
+        shuffled_indices = torch.cat((torch.tensor([0]), shuffled_indices))
+    else:
+        # ...generate a permutation of all indices
+        shuffled_indices = torch.randperm(n_rows)
+
+    # ...separate the shuffled indices into selected and not selected
+    selected_indices = shuffled_indices[:n_rows_to_select]
+    not_selected_indices = shuffled_indices[n_rows_to_select:]
 
     return selected_indices, not_selected_indices
 

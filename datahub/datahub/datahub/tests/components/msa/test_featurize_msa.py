@@ -5,9 +5,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from itertools import combinations
 
 from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
+from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.tests.conftest import (
     CANONICAL_AMINO_ACIDS,
     CIF_PARSER,
@@ -30,17 +31,141 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     build_msa_index_can_be_masked,
     mask_msa_like_bert,
     summarize_clusters,
-    uniformly_select_msa_cluster_representatives,
+    uniformly_select_rows,
 )
 from datahub.transforms.msa.msa import (
     EncodeMSA,
+    FeaturizeMSALikeAF3,
     FeaturizeMSALikeRF2AA,
     FillFullMSAFromEncoded,
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
+    get_full_msa_profile_and_insertion_mean,
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.token import token_iter
+
+
+def generate_synthetic_msa(
+    encoding: TokenEncoding, n_rows: int, n_tokens_across_chains: int, n_msa_cluster_representatives: int
+) -> dict[str, torch.Tensor]:
+    """
+    Generate synthetic Multiple Sequence Alignment (MSA) data.
+
+    Args:
+        encoding (TokenEncoding): An object containing token encoding information.
+        n_rows (int): Number of rows in the MSA.
+        n_tokens_across_chains (int): Number of tokens across all chains.
+        n_msa_cluster_representatives (int): Number of MSA cluster representatives to select.
+
+    Returns:
+        SyntheticMSAData: A dictionary containing various components of the synthetic MSA.
+    """
+
+    def get_token_range(token_list: list[int]) -> tuple[int, int]:
+        return min(token_list), max(token_list) + 1
+
+    def generate_msa_segment(token_range: tuple[int, int], shape: tuple[int, int]) -> torch.Tensor:
+        return torch.randint(token_range[0], token_range[1], shape)
+
+    amino_acid_tokens = [encoding.token_to_idx[res] for res in CANONICAL_AMINO_ACIDS + ["UNK"]]
+    rna_tokens = [encoding.token_to_idx[res] for res in RNA_RESIDUES + ["X"]]
+    dna_tokens = [encoding.token_to_idx[res] for res in DNA_RESIDUES + ["DX"]]
+    atom_tokens = [encoding.token_to_idx[res] for res in [13, 33, 79, 5, 4, 35, 6, 20, 17, 27, 24, 29, 9, 26, 80, 53]]
+    mask_token = encoding.token_to_idx["<M>"]
+
+    # Generate full MSA profile
+    full_msa_profile = torch.rand(n_tokens_across_chains, encoding.n_tokens)
+    full_msa_profile[:, mask_token] = 0
+    full_msa_profile /= full_msa_profile.sum(dim=1, keepdim=True)
+
+    # Generate MSA segments
+    example_protein_msa = generate_msa_segment(
+        get_token_range(amino_acid_tokens), (n_rows, n_tokens_across_chains // 2)
+    )
+    example_rna_msa = generate_msa_segment(get_token_range(rna_tokens), (n_rows, n_tokens_across_chains // 10))
+    example_dna_msa = generate_msa_segment(get_token_range(dna_tokens), (1, n_tokens_across_chains // 10)).repeat(
+        n_rows, 1
+    )
+    example_atom_1_msa = generate_msa_segment(get_token_range(atom_tokens), (1, n_tokens_across_chains // 10)).repeat(
+        n_rows, 1
+    )
+    example_atom_2_msa = generate_msa_segment(
+        get_token_range(atom_tokens), (1, 2 * n_tokens_across_chains // 10)
+    ).repeat(n_rows, 1)
+
+    # Concatenate into a single MSA
+    encoded_msa = torch.cat(
+        [example_protein_msa, example_rna_msa, example_dna_msa, example_atom_1_msa, example_atom_2_msa], dim=1
+    )
+
+    # Generate masks
+    msa_is_padded_mask = torch.randint(0, 2, (n_rows, n_tokens_across_chains)).bool()
+    token_idx_has_msa = torch.zeros(n_tokens_across_chains, dtype=torch.bool)
+    token_idx_has_msa[: (example_protein_msa.shape[1] + example_rna_msa.shape[1])] = True
+
+    # Break apart the MSA into selected and not selected indices
+    selected_indices, not_selected_indices = uniformly_select_rows(n_rows, n_msa_cluster_representatives)
+
+    return {
+        "encoded_msa": encoded_msa,
+        "msa_is_padded_mask": msa_is_padded_mask,
+        "token_idx_has_msa": token_idx_has_msa,
+        "full_msa_profile": full_msa_profile,
+        "selected_indices": selected_indices,
+        "not_selected_indices": not_selected_indices,
+        "example_protein_msa": example_protein_msa,
+        "example_rna_msa": example_rna_msa,
+        "example_dna_msa": example_dna_msa,
+        "example_atom_1_msa": example_atom_1_msa,
+        "example_atom_2_msa": example_atom_2_msa,
+    }
+
+
+def all_different(tensor_list: list[torch.Tensor]) -> bool:
+    """
+    Check if all tensors in the list are unique.
+
+    Args:
+        tensor_list (list): List of tensors to compare.
+
+    Returns:
+        bool: True if all tensors are different, False if any are equal.
+    """
+    for t1, t2 in combinations(tensor_list, 2):
+        if torch.equal(t1, t2):
+            return False
+    return True
+
+
+def similar_stats(
+    tensor_list: list[torch.Tensor],
+    mean_lower: float = 0.3,
+    mean_upper: float = 1.3,
+    std_lower: float = 0.7,
+    std_upper: float = 1.3,
+) -> bool:
+    """Check if tensor statistics are similar within specified ranges.
+
+    Args:
+        tensor_list (list): List of tensors to compare.
+        mean_lower (float, optional): Lower bound for mean. Defaults to 0.3.
+        mean_upper (float, optional): Upper bound for mean. Defaults to 1.3.
+        std_lower (float, optional): Lower bound for std dev. Defaults to 0.7.
+        std_upper (float, optional): Upper bound for std dev. Defaults to 1.3.
+
+    Returns:
+        bool: True if all tensors have similar stats, False otherwise.
+    """
+    means = [t.float().mean().item() for t in tensor_list]
+    stds = [t.float().std().item() for t in tensor_list]
+    mean_mean, mean_std = sum(means) / len(means), sum(stds) / len(stds)
+
+    return all(
+        mean_lower * mean_mean <= m <= mean_upper * mean_mean and std_lower * mean_std <= s <= std_upper * mean_std
+        for m, s in zip(means, stds)
+    )
+
 
 FILL_FULL_MSA_FROM_ENCODED_TEST_CASES = ["3ejj", "1mna", "1hge"]
 
@@ -48,7 +173,7 @@ FILL_FULL_MSA_FROM_ENCODED_TEST_CASES = ["3ejj", "1mna", "1hge"]
 @pytest.mark.parametrize("pdb_id", FILL_FULL_MSA_FROM_ENCODED_TEST_CASES)
 def test_fill_full_msa_from_encoded(pdb_id):
     """
-    Test if the full MSA is filled correctly from the encoded MSA.
+    Test if the full MSA is filled correctly from the encoded MSA through a series of logical assertions.
 
     In particular, we want to ensure:
     - The padding is carried over correctly (i.e., the padding in the encoded MSA is reflected in the full MSA)
@@ -195,7 +320,8 @@ ASSIGN_EXTRA_ROWS_TEST_CASES = [
 @pytest.mark.parametrize("test_case", ASSIGN_EXTRA_ROWS_TEST_CASES)
 def test_assign_extra_rows_to_cluster_representatives(test_case):
     """
-    Tests assignment of extra MSA rows to rows within the main MSA by Hamming distance.
+    Tests assignment of extra MSA rows to rows within the main MSA by Hamming distance, using hand-crafted test cases.
+    This function is used in AF-2 and RF2-AA, but not in AF-3 (which eschews MSA clustering).
 
     Involves two functions:
     (1) `build_indices_should_be_counted_mask` to identify which indices should count towards the agreement sum
@@ -271,6 +397,10 @@ SUMMARIZE_CLUSTERS_TEST_CASES = [
 
 @pytest.mark.parametrize("test_case", SUMMARIZE_CLUSTERS_TEST_CASES)
 def test_summarize_clusters(test_case):
+    """
+    Tests the summarization of MSA clusters based on assignments, using hand-crafted test cases.
+    This function is used in AF-2 and RF2-AA, but not in AF-3 (which eschews MSA clustering).
+    """
     encoded_msa = test_case["encoded_msa"]
     msa_raw_ins = test_case["msa_raw_ins"]
     mask_position = test_case["mask_position"]
@@ -302,95 +432,38 @@ def test_summarize_clusters(test_case):
 
 def test_mask_msa_like_bert():
     """
-    Tests the generation and application of the BERT-style masking to the MSA.
-    Only the main MSA is masked; the extra MSA is left unchanged.
+    Tests the generation and application of the BERT-style masking to the MSA through a series of logical assertions
+    and statistical checks. Only the main MSA is masked; the extra MSA is left unchanged.
+    This function is used in AF-2 and RF2-AA, but not in AF-3 (which eschews MSA masked token recovery).
 
     Includes:
     - Assertions to sanity-check outputs
     - Regression test to ensure that the output is consistent across runs
     """
-    # Set the seed for reproducibility
+    # ...initialize
+    mask_behavior_probs = {"replace_with_random_aa": 0.1, "replace_with_msa_profile": 0.1, "do_not_replace": 0.1}
+    mask_probability = 0.15
+    encoding = RF2AA_ATOM36_ENCODING
+    n_tokens_across_chains = 40
+    mask_token = encoding.token_to_idx["<M>"]
+
+    # ...generate synthetic data with a fixed seed
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
-        encoding = RF2AA_ATOM36_ENCODING
-
-        # TODO: Generalize and move generation of synthetic data to `test_utils.py`
-
-        ############## Utility definitions to generate synthetic data ##############
-
-        amino_acid_tokens = [encoding.token_to_idx[res] for res in CANONICAL_AMINO_ACIDS + ["UNK"]]
-        rna_tokens = [encoding.token_to_idx[res] for res in RNA_RESIDUES + ["X"]]
-        dna_tokens = [encoding.token_to_idx[res] for res in DNA_RESIDUES + ["DX"]]
-        mask_token = encoding.token_to_idx["<M>"]
-        atom_tokens = [
-            encoding.token_to_idx[res] for res in [13, 33, 79, 5, 4, 35, 6, 20, 17, 27, 24, 29, 9, 26, 80, 53]
-        ]  # Not exhaustive
-
-        ############## Generate synthetic data ##############
-        n_rows = 50
-        n_msa_cluster_representatives = 40
-        n_tokens_across_chains = 40
-        n_tokens = encoding.n_tokens
-
-        mask_behavior_probs = {"replace_with_random_aa": 0.1, "replace_with_msa_profile": 0.1, "do_not_replace": 0.1}
-
-        mask_probability = 0.15
-        full_msa_profile = torch.rand(n_tokens_across_chains, n_tokens)  # [n_tokens_across_chains, n_tokens]
-        # Set probability for the mask token to 0
-        full_msa_profile[:, mask_token] = 0
-        # Make the full MSA profile sum to 1
-        full_msa_profile = full_msa_profile / full_msa_profile.sum(dim=1, keepdim=True)
-
-        # Protein example
-        example_protein_msa = torch.randint(
-            min(amino_acid_tokens), max(amino_acid_tokens) + 1, (n_rows, n_tokens_across_chains // 2)
-        )  # Half amino acids
-
-        # RNA example
-        example_rna_msa = torch.randint(
-            min(rna_tokens), max(rna_tokens) + 1, (n_rows, n_tokens_across_chains // 10)
-        )  # 1/10 RNA
-
-        # DNA example
-        first_row_dna_msa = torch.randint(
-            min(dna_tokens), max(dna_tokens) + 1, (n_tokens_across_chains // 10,)
-        )  # 1/10 DNA
-        example_dna_msa = torch.zeros((n_rows, n_tokens_across_chains // 10), dtype=torch.int)
-        example_dna_msa[0] = first_row_dna_msa
-
-        # Atomized example - #1
-        first_row_atom_1_msa = torch.randint(
-            min(atom_tokens), max(atom_tokens) + 1, (n_tokens_across_chains // 10,)
-        )  # 1/10 atomized
-        example_atom_1_msa = torch.zeros((n_rows, n_tokens_across_chains // 10), dtype=torch.int)
-        example_atom_1_msa[0] = first_row_atom_1_msa
-
-        # Atomized example - #2
-        first_row_atom_2_msa = torch.randint(
-            min(atom_tokens), max(atom_tokens) + 1, (2 * n_tokens_across_chains // 10,)
-        )  # 1/10 atomized
-        example_atom_2_msa = torch.zeros((n_rows, 2 * n_tokens_across_chains // 10), dtype=torch.int)
-        example_atom_2_msa[0] = first_row_atom_2_msa
-
-        # Concatenate into a single MSA
-        encoded_msa = torch.cat(
-            [example_protein_msa, example_rna_msa, example_dna_msa, example_atom_1_msa, example_atom_2_msa], dim=1
-        )  # [n_rows, n_tokens_across_chains]
-
-        # Break apart the MSA into selected and not selected indices
-        selected_indices, not_selected_indices = uniformly_select_msa_cluster_representatives(
-            n_rows, n_msa_cluster_representatives
+        synthetic_msa = generate_synthetic_msa(
+            encoding=encoding,
+            n_msa_cluster_representatives=40,
+            n_rows=50,
+            n_tokens_across_chains=n_tokens_across_chains,
         )
+    # ...unpack synthetic data
+    msa_is_padded_mask = synthetic_msa["msa_is_padded_mask"]
+    token_idx_has_msa = synthetic_msa["token_idx_has_msa"]
+    encoded_msa = synthetic_msa["encoded_msa"]
+    full_msa_profile = synthetic_msa["full_msa_profile"]
+    selected_indices = synthetic_msa["selected_indices"]
+    not_selected_indices = synthetic_msa["not_selected_indices"]
 
-        # Build a mask to indicate which positions can be masked
-        msa_is_padded_mask = torch.randint(0, 2, (n_rows, n_tokens_across_chains)).bool()
-
-        # Create a mask which is 1's across protein and RNA, and 0's across DNA and atomized
-        token_idx_has_msa = torch.zeros(n_tokens_across_chains, dtype=torch.bool)
-        token_idx_has_msa[: (example_protein_msa.shape[1] + example_rna_msa.shape[1])] = True
-
-    ############## Run the functions ##############
-
-    # Reset the seed (since we may have changed it when generating synthetic data)
+    # ...run the function using a fixed seed (since the seed may have changed while generating the synthetic data)
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
         index_can_be_masked = build_msa_index_can_be_masked(
             msa_is_padded_mask=msa_is_padded_mask,
@@ -410,67 +483,55 @@ def test_mask_msa_like_bert():
         new_encoded_msa = encoded_msa.clone()
         new_encoded_msa[selected_indices] = new_partial_msa
 
-        ############## Assertions ##############
+        # ...ensure things that weren't suppose to change, didn't change
+        assert torch.equal(
+            encoded_msa[msa_is_padded_mask], new_encoded_msa[msa_is_padded_mask]
+        )  # Check that padding positions remain unchanged
+        assert torch.equal(
+            encoded_msa[not_selected_indices], new_encoded_msa[not_selected_indices]
+        )  # Check that the extra MSA columns remained unchanged
 
-        # Step 1: Ensure things that weren't suppose to change, didn't change
+        # ...check that mask_position holds the correct values
+        assert torch.all(
+            ~mask_position[~index_can_be_masked[selected_indices]]
+        )  # Check that no masking occurs where we didn't want any
+        assert torch.any(
+            mask_position[index_can_be_masked[selected_indices]]
+        )  # Check that there is masking where we did want some
 
-        # Check that padding positions remain unchanged
-        assert torch.equal(encoded_msa[msa_is_padded_mask], new_encoded_msa[msa_is_padded_mask])
-
-        # Check that the extra MSA columns remained unchanged
-        assert torch.equal(encoded_msa[not_selected_indices], new_encoded_msa[not_selected_indices])
-
-        # Step 2: Check that mask_position holds the correct values
-
-        # Check that no masking occurs where we didn't want any
-        assert torch.all(~mask_position[~index_can_be_masked[selected_indices]])
-
-        # Check that there is masking where we did want some
-        assert torch.any(mask_position[index_can_be_masked[selected_indices]])
-
-        # Create a tensor to indicate protein columns
+        # ...ensure mask_position is False for all non-protein columns
         protein_columns = torch.zeros(n_tokens_across_chains, dtype=torch.int)
-
-        # Fill the protein columns with 1s
-        protein_columns[: example_protein_msa.shape[1]] = 1
-
-        # Ensure mask_position is False for all non-protein columns
+        protein_columns[: synthetic_msa["example_protein_msa"].shape[1]] = 1
         assert torch.all(~mask_position[:, ~protein_columns.bool()])
 
-        # Step 2: Check that we have approximately the right number of mask tokens
-
-        # Create a mask that indicates the possible positions of masked tokens
+        # ...check that we have approximately the right number of mask tokens
         num_could_be_masked = index_can_be_masked[selected_indices].sum().item()
-
-        # Check the number of mask tokens is approximately mask_probability * (1 - sum of mask_behavior_probs)
         expected_num_mask_applied = int(mask_probability * num_could_be_masked)
         actual_num_mask_applied = mask_position.sum().item()
 
-        # Calculate the standard deviation of the binomial distribution = sqrt(n * p * (1 - p))
+        # ...calculate the standard deviation of the binomial distribution = sqrt(n * p * (1 - p))
         std_dev = (num_could_be_masked * mask_probability * (1 - mask_probability)) ** 0.5
 
-        # Check that the actual number of masks is within 2 standard deviations of the expected number
+        # ...check that the actual number of masks is within 2 standard deviations of the expected number
         assert abs(actual_num_mask_applied - expected_num_mask_applied) <= 2 * std_dev
 
-        # Check that the number of mask tokens is close to the expected number
+        # ...check that the number of mask tokens is close to the expected number
         mask_token_probability = 1 - sum(list(mask_behavior_probs.values()))
         expected_num_mask_tokens = actual_num_mask_applied * mask_token_probability
         actual_num_mask_tokens = (new_partial_msa == mask_token).sum().item()
 
-        # Check that the number of mask tokens is within 2 standard deviations of the expected number
+        # ...check that the number of mask tokens is within 2 standard deviations of the expected number
         std_dev = (actual_num_mask_applied * mask_token_probability * (1 - mask_token_probability)) ** 0.5
         assert abs(actual_num_mask_tokens - expected_num_mask_tokens) <= 2 * std_dev
 
-        ############## Regression test ##############
-
-        # Save in the test directory
+        # ...execute regression tests, loading from a saved JSON
         SAVED_RESULT_PATH = Path(__file__).resolve().parents[2] / "data" / "mask_msa_regression_test.json"
 
         # Uncomment to save new_encoded_msa for regression tests, as a JSON
         # with open(SAVED_RESULT_PATH, "w") as f:
         #     json.dump(new_encoded_msa.tolist(), f)
 
-        # Check that the new_encoded_msa matches the saved results
+        # ...check that the new_encoded_msa matches the saved results
         old_results = json.load(open(SAVED_RESULT_PATH))
         assert torch.allclose(new_encoded_msa, torch.tensor(old_results), atol=1e-4, rtol=1e-4)
 
@@ -479,7 +540,11 @@ MSA_FEATURIZE_PIPELINE_TEST_CASES = ["3ejj"]
 
 
 @pytest.mark.parametrize("pdb_id", MSA_FEATURIZE_PIPELINE_TEST_CASES)
-def test_msa_featurize_full_pipeline(pdb_id):
+def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
+    """
+    Test the full MSA featurization pipeline for RF2-AA, including the encoding, MSA featurization, and masking.
+    Conduct statistical checks and regression tests to ensure consistency across runs and avoid moving distributions across recycles.
+    """
     # Hyperparameters (to be defined in Hydra)
     encoding = RF2AA_ATOM36_ENCODING
     n_msa_cluster_representatives = 20
@@ -494,7 +559,6 @@ def test_msa_featurize_full_pipeline(pdb_id):
     PAD_TOKEN = encoding.token_to_idx["UNK"]
 
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
-        # Execution code
         row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
         data = load_from_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
         pipeline = Compose(
@@ -531,25 +595,6 @@ def test_msa_featurize_full_pipeline(pdb_id):
         ############## Assertions ##############
         features_by_recycle = output["features_per_recycle_dict"]
 
-        # Helper function to check if all elements in a list are different
-        def all_different(tensor_list):
-            for i in range(len(tensor_list)):
-                for j in range(i + 1, len(tensor_list)):
-                    if torch.equal(tensor_list[i], tensor_list[j]):
-                        return False
-            return True
-
-        # Helper function to check if means and standard deviations are within a certain range
-        def similar_stats(tensor_list):
-            means = [tensor.float().mean().item() for tensor in tensor_list]
-            stds = [tensor.float().std().item() for tensor in tensor_list]
-            mean_mean = sum(means) / len(means)
-            mean_std = sum(stds) / len(stds)
-            for m, s in zip(means, stds):
-                if not (0.3 * mean_mean <= m <= 1.3 * mean_mean) or not (0.7 * mean_std <= s <= 1.3 * mean_std):
-                    return False
-            return True
-
         # List of keys to check for being different and having similar sums
         keys_to_check = [
             "first_row_of_msa",  # NOTE: This will fail if our test example has no polymers
@@ -573,7 +618,9 @@ def test_msa_featurize_full_pipeline(pdb_id):
         ############## Regression test ##############
 
         # Save in the test directory
-        SAVED_RESULT_PATH = Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_regression_test.pkl"
+        SAVED_RESULT_PATH = (
+            Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_rf2aa_regression_test.pkl"
+        )
 
         # Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
         # with open(SAVED_RESULT_PATH, "wb") as f:
@@ -591,5 +638,129 @@ def test_msa_featurize_full_pipeline(pdb_id):
             ), f"Failed at key: {key}. Difference: {set(new_values) - set(old_values)}"
 
 
-if __name__ == "__main__":
-    pytest.main(["-v", "-x", "--log-cli-level=WARNING", __file__])
+@pytest.mark.parametrize("pdb_id", MSA_FEATURIZE_PIPELINE_TEST_CASES)
+def test_msa_featurize_like_af3_full_pipeline(pdb_id):
+    """
+    Test the full MSA featurization pipeline for AF-3, including the encoding and MSA featurization (no masking).
+    Conduct statistical checks and regression tests to ensure consistency across runs and avoid moving distributions across recycles.
+    """
+    # Hyperparameters (to be defined in Hydra)
+    encoding = RF2AA_ATOM36_ENCODING
+    n_recycles = 5  # We choose 5 recycles to ensure we would find any drift across recycles
+    PAD_TOKEN = encoding.token_to_idx["UNK"]
+
+    with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
+        row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
+        data = load_from_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+        pipeline = Compose(
+            [
+                AddWithinPolyResIdxAnnotation(),
+                LoadPolymerMSAs(protein_msa_dir=PROTEIN_MSA_DIR, rna_msa_dir=RNA_MSA_DIR, max_msa_sequences=1000),
+                PairAndMergePolymerMSAs(),
+                AtomizeResidues(
+                    atomize_by_default=True, res_names_to_ignore=encoding.tokens, move_atomized_part_to_end=True
+                ),
+                EncodeAtomArray(encoding),
+                # MSA featurize workflow
+                EncodeMSA(encoding=encoding, token_to_use_for_gap=PAD_TOKEN),
+                FillFullMSAFromEncoded(pad_token=PAD_TOKEN),
+                ConvertToTorch(keys=["polymer_msas_by_chain_id", "encoded", "full_msa_details"]),
+                FeaturizeMSALikeAF3(
+                    encoding=encoding,
+                    n_recycles=n_recycles,
+                    n_msa=100,
+                ),
+            ],
+            track_rng_state=False,
+        )
+        output = pipeline(data)
+        assert output is not None
+
+        ############## Assertions ##############
+        msa_features_per_recycle_dict = output["msa_features"]["msa_features_per_recycle_dict"]
+        msa_static_features_dict = output["msa_features"]["msa_static_features_dict"]
+
+        # List of keys to check for being different and having similar sums
+        keys_to_check_across_recycles = [
+            "msa",
+            "has_insertion",
+            "insertion_value",
+        ]
+
+        for key in keys_to_check_across_recycles:
+            tensor_list = msa_features_per_recycle_dict[key]
+            assert all_different(tensor_list), f"{key} elements are not all different"
+            assert similar_stats(tensor_list), f"{key} elements do not have similar means and standard deviations"
+
+        ############## Regression test ##############
+
+        # Save in the test directory
+        SAVED_RESULT_PATH = (
+            Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_af3_regression_test.pkl"
+        )
+
+        # Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
+        # with open(SAVED_RESULT_PATH, "wb") as f:
+        #     pickle.dump(output["msa_features"], f)
+
+        # Check that the new_encoded_msa matches the saved results
+        with open(SAVED_RESULT_PATH, "rb") as f:
+            old_results = pickle.load(f)
+
+        # For each key in the features that change across recycles, check that the values match...
+        for key, old_values in old_results["msa_features_per_recycle_dict"].items():
+            new_values = msa_features_per_recycle_dict[key]
+            assert torch.allclose(
+                torch.stack(new_values), torch.stack(old_values), atol=1e-4, rtol=1e-4
+            ), f"Failed at key: {key}. Difference: {set(new_values) - set(old_values)}"
+        # ... and for the static features as well
+        for key, old_value in old_results["msa_static_features_dict"].items():
+            new_value = msa_static_features_dict[key]
+            assert torch.allclose(
+                new_value, old_value, atol=1e-4, rtol=1e-4
+            ), f"Failed at key: {key}. Difference: {new_value - old_value}"
+
+
+# Define a simple TokenEncoding class for testing
+class TestTokenEncoding:
+    def __init__(self, n_tokens):
+        self.n_tokens = n_tokens
+
+
+TEST_FULL_MSA_PROFILE_AND_INSERTION_MEAN = [
+    {
+        # Test case for a simple MSA without padding
+        "encoded_msa": torch.tensor([[0, 1, 2], [1, 2, 0]]),
+        "msa_raw_ins": torch.tensor([[0, 1, 0], [2, 0, 1]]),
+        "msa_is_padded_mask": torch.tensor([[False, False, False], [False, False, False]]),
+        "encoding": TestTokenEncoding(3),
+        "expected_profile": torch.tensor([[0.5, 0.5, 0.0], [0.0, 0.5, 0.5], [0.5, 0.0, 0.5]]),
+        "expected_ins_mean": torch.tensor([1.0, 0.5, 0.5]),
+    },
+    {
+        # Test case for MSA with padding and masks
+        "encoded_msa": torch.tensor([[0, 1, 2, 1], [1, 2, 0, 2], [2, 0, 1, 0], [0, 1, 2, 1]]),
+        "msa_raw_ins": torch.tensor([[1, 0, 2, 1], [0, 1, 0, 0], [2, 1, 0, 3], [0, 0, 1, 0]]),
+        "msa_is_padded_mask": torch.tensor(
+            [
+                [False, False, False, False],
+                [False, False, False, True],
+                [False, True, True, True],
+                [True, True, True, True],
+            ]
+        ),
+        "encoding": TestTokenEncoding(3),
+        "expected_profile": torch.tensor([[1 / 3, 1 / 3, 1 / 3], [0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.0, 1.0, 0.0]]),
+        "expected_ins_mean": torch.tensor([1.0, 0.5, 1.0, 1.0]),
+    },
+]
+
+
+@pytest.mark.parametrize("test_case", TEST_FULL_MSA_PROFILE_AND_INSERTION_MEAN)
+def test_get_full_msa_profile_and_insertion_mean(test_case):
+    profile, ins_mean = get_full_msa_profile_and_insertion_mean(
+        test_case["encoded_msa"], test_case["msa_raw_ins"], test_case["msa_is_padded_mask"], test_case["encoding"]
+    )
+
+    assert torch.allclose(profile, test_case["expected_profile"], atol=1e-6)
+    assert torch.allclose(ins_mean, test_case["expected_ins_mean"], atol=1e-6)

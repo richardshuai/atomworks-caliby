@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH -p cpu
-#SBATCH --mem-per-cpu=32g
-#SBATCH -a 1-2000
+#SBATCH --mem-per-cpu=64g
+#SBATCH -a 1-1000
 #SBATCH -t 0-12:00:00
 #SBATCH -C DB
-#SBATCH -c 2
+#SBATCH -c 1
 #SBATCH -o slurm_logs/slurm_%A_%a.log
 #SBATCH -e slurm_logs/slurm_%A_%a.err
 

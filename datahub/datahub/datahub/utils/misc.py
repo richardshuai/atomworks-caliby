@@ -394,7 +394,7 @@ def grouped_count(
         ...     [0, 1, 2, 2, 1, 0],  # groups for dim=0 (=rows)
         ...     [0, 1, 2, 3, 4],  # groups for dim=1 (=cols)
         ... ]
-        >>> group_counts = count_token_occurence(msa, mask=None, groups=groups)
+        >>> group_counts = grouped_count(msa, mask=None, groups=groups)
         >>> group_counts[0]
         tensor([
             [1, 0, 1, 0],  # (corresponds to 0x1 & 2x1 at position 0 in rows 0 & 5)

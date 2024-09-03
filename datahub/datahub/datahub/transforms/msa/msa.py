@@ -37,7 +37,8 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     build_msa_index_can_be_masked,
     mask_msa_like_bert,
     summarize_clusters,
-    uniformly_select_msa_cluster_representatives,
+    transform_ins_counts,
+    uniformly_select_rows,
 )
 from datahub.transforms.msa._msa_loading_utils import parse_a3m, parse_fasta
 from datahub.transforms.msa._msa_pairing_utils import join_multiple_msas_by_tax_id
@@ -674,9 +675,9 @@ class FeaturizeMSALikeRF2AA(Transform):
             # (1) SELECT CLUSTER REPRESENTATIVES FROM THE FULL MSA
             # ============================================================
 
-            # ...select the MSA cluster representatives
-            selected_indices, not_selected_indices = uniformly_select_msa_cluster_representatives(
-                n_rows, n_msa_cluster_representatives
+            # Select the MSA cluster representatives using the preferred sampling strategy
+            selected_indices, not_selected_indices = uniformly_select_rows(
+                n_rows, n_msa_cluster_representatives, preserve_first_index=True
             )
 
             # ============================================================
@@ -823,10 +824,6 @@ class FeaturizeMSALikeRF2AA(Transform):
                     shuffled_indices[: self.n_extra_rows]
                 ]  # [n_extra_rows] (int)
 
-            def transform_ins_counts(ins: torch.Tensor) -> torch.Tensor:
-                """Transforms insertion counts into the range [0,1] using the function given in the AF2 Supplement"""
-                return 2 / torch.pi * torch.arctan(ins / 3)
-
             # Sequence
             msa_features_per_recycle_dict["first_row_of_msa"].append(
                 encoded_and_masked_msa[0]
@@ -889,3 +886,168 @@ class FeaturizeMSALikeRF2AA(Transform):
 
         data["features_per_recycle_dict"] = msa_features_per_recycle_dict
         return data
+
+
+class FeaturizeMSALikeAF3(Transform):
+    """
+    Featurizes the MSA in the style of AF3, returning one featurized set of outputs for each recycle.
+
+    From the AF3 supplement, the MSA features are:
+
+        | Feature         | Shape                  | Description                                                           |
+        |-----------------|------------------------|-----------------------------------------------------------------------|
+        | msa             | [N_msa, N_token, 32]   | One-hot encoding of the processed MSA, using the same classes as      |
+        |                 |                        | restype.                                                              |
+        | has_deletion    | [N_msa, N_token]       | Binary feature indicating if there is a deletion to the left of each  |
+        |                 |                        | position in the MSA.                                                  |
+        | deletion_value  | [N_msa, N_token]       | Raw deletion counts (the number of deletions to the left of each MSA  |
+        |                 |                        | position) are transformed to [0, 1] using 2/π * arctan(d/3).          |
+        | profile         | [N_token, 32]          | Distribution across restypes in the main MSA. Computed before MSA     |
+        |                 |                        | processing (subsection 2.3).                                          |
+        | deletion_mean   | [N_token]              | Mean number of deletions at each position in the main MSA. Computed   |
+        |                 |                        | before MSA processing (subsection 2.3).                               |
+
+    NOTE: The statement "Computed before MSA processing" is somewhat ambiguous; we interpret it as meaning that the DeepMind team computed the full profile
+    and deletion mean before truncating the MSA to their `N_msa = 16,384` limit. We will adhere as closely to this interpretation as possible;
+    however, our MSA's stored on disk only contain a maximum of 10,000 sequences, so we will compute the profile and deletion mean based on this limit.
+
+    NOTE: We use "N_token_across_chains" to refer to the number of tokens across all chains in the MSA, including atomized tokens; AF-3 refers to this as "N_token".
+    Meanwhile, we use "N_tokens" to refer to the number of residue tokens in the encoding; AF-3 directly refers to this number as "32".
+
+    Initialization arguments:
+        encoding (TokenEncoding): The encoding object to use for the MSA. For AF-3, this should include the 32 classes used in the restype encoding.
+        n_recycles (int): The number of recycles to perform. We will generate a unique featurized MSA for each recycle.
+        n_msa (int): The number of MSA sequences to flow into the model. If there are fewer than `n_msa` sequences, we will use all of them.
+
+    Outputs:
+        For each recycle, we store the following in `data["msa_features_per_recycle_dict"]`:
+        - "msa": Shape [n_msa, n_tokens_across_chains, n_tokens]. One-hot encoding of the (possibly truncated) MSA, using the same classes as restype.
+        - "has_insertion": Shape [n_msa, n_tokens_across_chains]. Binary feature indicating if there is an insertion to the left of each position in the MSA.
+        - "insertion_value": Shape [n_msa, n_tokens_across_chains]. Raw insertion counts (the number of insertions to the left of each MSA position) are transformed to [0, 1] using 2/π * arctan(i/3).
+        - "profile": Shape [n_tokens_across_chains, n_tokens]. Distribution across restypes in the main MSA. Computed before MSA truncation.
+        - "insertion_mean": Shape [n_tokens_across_chains]. Mean number of insertions to the left of each position in the main MSA. Computed before MSA truncation.
+
+    References:
+        - AF3 Supplement, Table 5: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
+    """
+
+    requires_previous_transforms = ["FillFullMSAFromEncoded", "EncodeMSA", ConvertToTorch]
+
+    def __init__(
+        self,
+        *,
+        encoding: TokenEncoding = RF2AA_ATOM36_ENCODING,  # TODO: AF3 token encoding
+        n_recycles: int,
+        n_msa: int,
+        eps: float = 1e-6,
+    ):
+        self.encoding = encoding
+        self.n_recycles = n_recycles
+        self.n_msa = n_msa
+        self.eps = eps
+
+    def check_input(self, data: dict):
+        check_contains_keys(data, ["encoded", "full_msa_details"])
+
+    def forward(self, data: dict) -> dict:
+        # ...unpack the MSA data
+        encoded_msa = data["encoded"]["msa"]  # [n_rows, n_tokens_across_chains] (int)
+        msa_is_padded_mask = data["full_msa_details"]["msa_is_padded_mask"]  # [n_rows, n_tokens_across_chains] (bool)
+
+        # ...get the MSA features
+        msa_features = featurize_msa_like_af3(
+            encoded_msa=encoded_msa,
+            msa_is_padded_mask=msa_is_padded_mask,
+            msa_raw_ins=data["full_msa_details"]["msa_raw_ins"],
+            n_msa=self.n_msa,
+            encoding=self.encoding,
+            n_recycles=self.n_recycles,
+            eps=self.eps,
+        )
+
+        # ...add them to the data dictionary
+        data["msa_features"] = msa_features
+        return data
+
+
+def featurize_msa_like_af3(
+    encoded_msa: torch.Tensor,
+    msa_is_padded_mask: torch.Tensor,
+    msa_raw_ins: torch.Tensor,
+    n_msa: int,
+    encoding: TokenEncoding,
+    n_recycles: int,
+    eps: float = 1e-6,
+):
+    """Functional version of FeaturizeMSALikeAF3. See FeaturizeMSALikeAF3 for more details."""
+    # ...select either the first `n_msa` rows or all rows, whichever is smaller
+    n_rows, _ = encoded_msa.shape
+    n_msa = min(n_msa, n_rows)
+
+    full_msa_profile, ins_mean = get_full_msa_profile_and_insertion_mean(
+        encoded_msa=encoded_msa,
+        msa_is_padded_mask=msa_is_padded_mask,
+        msa_raw_ins=msa_raw_ins,
+        encoding=encoding,
+        eps=eps,
+    )
+
+    # ...generate features for each recycle
+    msa_features_per_recycle_dict = {
+        "msa": [],  # [n_msa, n_tokens_across_chains, n_tokens] (float)
+        "has_insertion": [],  # [n_msa, n_tokens_across_chains] (bool)
+        "insertion_value": [],  # [n_msa, n_tokens_across_chains] (float)
+    }
+
+    # ...and the features that do not differ across recycles
+    msa_static_features_dict = {
+        "profile": full_msa_profile,  # [n_tokens_across_chains, n_tokens] (float)
+        "insertion_mean": ins_mean,  # [n_tokens_across_chains] (float)
+    }
+
+    for _ in range(n_recycles):
+        # ...uniformly select n_msa sequences from the n_rows sequences in the (paired) MSA
+        selected_indices, _ = uniformly_select_rows(n_rows, n_msa, preserve_first_index=True)
+
+        # ...fill in the MSA features
+        msa_features_per_recycle_dict["msa"].append(encoded_msa[selected_indices])
+        msa_features_per_recycle_dict["has_insertion"].append(msa_raw_ins[selected_indices] > 0)
+        msa_features_per_recycle_dict["insertion_value"].append(transform_ins_counts(msa_raw_ins[selected_indices]))
+
+    return {
+        "msa_features_per_recycle_dict": msa_features_per_recycle_dict,
+        "msa_static_features_dict": msa_static_features_dict,
+    }
+
+
+def get_full_msa_profile_and_insertion_mean(
+    encoded_msa: torch.Tensor,
+    msa_raw_ins: torch.Tensor,
+    msa_is_padded_mask: torch.Tensor,
+    encoding: TokenEncoding,
+    eps: float = 1e-6,
+):
+    """Computes the full MSA profile and insertion mean on the untruncated MSA"""
+    # ...select either the first `n_msa` rows or all rows, whichever is smaller
+    n_rows, n_seq = encoded_msa.shape
+
+    # ...compute the FULL MSA token profile (e.g., before truncation to `n_msa` sequences)
+    full_msa_profile = grouped_count(
+        encoded_msa,
+        mask=~msa_is_padded_mask,  # ... ignore padding when computing the profile
+        groups=[
+            torch.zeros(n_rows, dtype=torch.long),  # ... assign all sequences to the same group
+            torch.arange(n_seq),  # ... assign each seq position to a different group
+        ],
+        n_tokens=encoding.n_tokens,  # ... return a float tensor
+        dtype=torch.float,  # ... return a float tensor
+    ).squeeze()  # [n_tokens_across_chains, n_tokens] (float)
+    # ...normalize
+    full_msa_profile /= full_msa_profile.sum(dim=-1, keepdim=True) + eps  # [n_tokens_across_chains, n_tokens] (float)
+
+    # ...compute the FULL MSA deletion (insertion) profile (e.g., before truncation to `n_msa` sequences)
+    ins_mean = (msa_raw_ins * ~msa_is_padded_mask).sum(dim=0).float()  # [n_tokens] (float)
+    # ... normalize
+    ins_mean /= (~msa_is_padded_mask).sum(dim=0) + eps  # [n_tokens] (float)
+
+    return full_msa_profile, ins_mean
