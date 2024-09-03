@@ -928,7 +928,7 @@ class FeaturizeMSALikeAF3(Transform):
         - "insertion_mean": Shape [n_tokens_across_chains]. Mean number of insertions to the left of each position in the main MSA. Computed before MSA truncation.
 
     References:
-        - AF3 Supplement, Table 5
+        - AF3 Supplement, Table 5: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
 
     requires_previous_transforms = ["FillFullMSAFromEncoded", "EncodeMSA", ConvertToTorch]

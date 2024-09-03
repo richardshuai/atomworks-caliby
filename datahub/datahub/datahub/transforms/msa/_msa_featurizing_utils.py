@@ -20,7 +20,7 @@ def uniformly_select_rows(
     Args:
         n_rows (int): Total number of rows in the tensor.
         n_rows_to_select (int): Number of rows to select.
-        preserve_first_index (bool, optional): If True, preserves index 0 in selection. Defaults to True.
+        preserve_first_index (bool, optional): If True, preserves index 0 in selection. Defaults to False.
 
     Returns:
         tuple[torch.Tensor, torch.Tensor]: Selected indices and not selected indices.

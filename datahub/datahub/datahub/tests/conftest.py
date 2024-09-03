@@ -306,7 +306,7 @@ def generate_synthetic_msa(
     }
 
 
-def all_different(tensor_list):
+def all_different(tensor_list: list[torch.Tensor]) -> bool:
     """
     Check if all tensors in the list are unique.
 
@@ -323,7 +323,7 @@ def all_different(tensor_list):
     return True
 
 
-def similar_stats(tensor_list, mean_lower=0.3, mean_upper=1.3, std_lower=0.7, std_upper=1.3):
+def similar_stats(tensor_list: list[torch.Tensor], mean_lower: float=0.3, mean_upper: float=1.3, std_lower: float=0.7, std_upper: float=1.3) -> bool:
     """Check if tensor statistics are similar within specified ranges.
 
     Args:
