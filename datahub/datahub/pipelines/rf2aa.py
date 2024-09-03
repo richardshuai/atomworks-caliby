@@ -49,7 +49,7 @@ from datahub.transforms.symmetry import (
     AddPostCropMoleculeEntityToFreeFloatingLigands,
     CreateSymmetryCopyAxisLikeRF2AA,
 )
-from datahub.transforms.template import AddRFTemplates, FeaturizeRFTemplatesForRF2AA
+from datahub.transforms.template import AddRFTemplates, FeaturizeRFTemplatesForRF2AA, RF2AATemplate
 from datahub.utils.numpy import get_connected_components_from_adjacency
 
 
@@ -437,7 +437,10 @@ def build_rf2aa_transform_pipeline(
             polymer_token_indices=polymer_token_indices,
         ),
         FeaturizeRFTemplatesForRF2AA(
-            n_template=n_template, mask_token_idx=encoding.token_to_idx["<M>"], encoding=encoding
+            n_template=n_template,
+            mask_token_idx=encoding.token_to_idx["<M>"],
+            encoding=encoding,
+            init_coords=RF2AATemplate.RF2AA_INIT_TEMPLATE_COORDINATES,
         ),
         # ============================================
         # 8. Create symmetry copies (isomorphic chain swaps for polys, automorphisms for small molecules)

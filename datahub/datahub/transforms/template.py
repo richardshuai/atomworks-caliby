@@ -13,7 +13,6 @@ import torch
 from assertpy import assert_that
 from biotite.structure import AtomArray
 from cifutils.enums import ChainType
-from rf2aa.chemical import ChemicalData
 
 from datahub.encoding_definitions import (
     LEGACY_RF2_ATOM14_ENCODING,
@@ -29,16 +28,6 @@ from datahub.transforms.base import Transform
 from datahub.transforms.encoding import atom_array_from_encoding, atom_array_to_encoding
 from datahub.utils.numpy import select_data_by_id
 from datahub.utils.token import get_token_count, get_token_starts
-
-try:
-    from rf2aa.chemical import ChemicalData
-
-    chemdata = ChemicalData()
-except Exception:
-    from rf2aa.chemical import initialize_chemdata
-
-    initialize_chemdata()
-    chemdata = ChemicalData()
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +65,13 @@ class RF2AATemplate:
     seq: torch.Tensor  # [1, n_templates x n_atoms_per_template]
     ids: list[tuple[str]]  # Holds the f"{pdb_id}_{chain_id}" of the template
     label: list[str]  # holds the lookup_id for this template
+
+    # RF2AA ideal N, CA, C initial coordinates (protein), copied from `chemdata` in RF2AA to decouple from `datahub`
+    _INIT_N = torch.tensor([-0.5272, 1.3593, 0.000]).float()
+    _INIT_CA = torch.zeros_like(_INIT_N)
+    _INIT_C = torch.tensor([1.5233, 0.000, 0.000]).float()
+    RF2AA_INIT_TEMPLATE_COORDINATES = torch.full((36, 3), np.nan)
+    RF2AA_INIT_TEMPLATE_COORDINATES[:3] = torch.stack((_INIT_N, _INIT_CA, _INIT_C), dim=0)  # (3,3)
 
     def __post_init__(self):
         self.ids = np.array(self.ids).flatten().squeeze()  # Flatten the list of tuples into an array
@@ -201,7 +197,7 @@ def blank_rf2aa_template_features(
     n_token: int,
     encoding: TokenEncoding,
     mask_token_idx: int,
-    init_coords: torch.Tensor | float = chemdata.INIT_CRDS,
+    init_coords: torch.Tensor | float,
 ) -> torch.Tensor:
     """
     Generates blank template features for RF2AA.
@@ -211,7 +207,7 @@ def blank_rf2aa_template_features(
         n_token (int): Number of tokens in the structure.
         encoding (TokenEncoding): Encoding object containing token and atom information.
         mask_token_idx (int, optional): Index of the mask token. Defaults to 20.
-        init_coords (torch.Tensor | float, optional): Initial coordinates for the atoms. Defaults to chemdata.INIT_CRDS.
+        init_coords (torch.Tensor | float, optional): Initial coordinates for the atoms.
 
     Returns:
         tuple: A tuple containing the following elements:
@@ -427,7 +423,7 @@ class FeaturizeRFTemplatesForRF2AA(Transform):
     Attributes:
         - n_template (int): The number of templates to use.
         - mask_token_idx (int): The index of the mask token. Defaults to 21.
-        - init_coords (torch.Tensor | float): The initial coordinates for the templates. Defaults to `chemdata.INIT_CRDS`.
+        - init_coords (torch.Tensor | float): The initial coordinates for the templates.
         - encoding (TokenEncoding): The encoding to use for the templates. Defaults to `RF2AA_ATOM36_ENCODING`.
 
     Methods:
@@ -448,8 +444,8 @@ class FeaturizeRFTemplatesForRF2AA(Transform):
     def __init__(
         self,
         n_template: int,
+        init_coords: torch.Tensor | float,
         mask_token_idx: int = 21,  # NOTE: This is the mask token `MSK` index in the original RF2AA code
-        init_coords: torch.Tensor | float = chemdata.INIT_CRDS,
         encoding: TokenEncoding = RF2AA_ATOM36_ENCODING,
     ):
         """
@@ -459,7 +455,7 @@ class FeaturizeRFTemplatesForRF2AA(Transform):
             - n_template (int): The number of templates to use. Must be a positive integer.
             - mask_token_idx (int, optional): The index of the mask token. Defaults to 21.
             - init_coords (torch.Tensor or float, optional): The initial coordinates for the templates.
-                If a tensor, its dimensions must match the expected shape. Defaults to `chemdata.INIT_CRDS`.
+                If a tensor, its dimensions must match the expected shape.
             - encoding (TokenEncoding, optional): The encoding to use for the templates.
                 Must be an instance of `TokenEncoding`. Defaults to `RF2AA_ATOM36_ENCODING`.
 

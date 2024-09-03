@@ -1,11 +1,11 @@
 import json
 import pickle
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
-from itertools import combinations
 
 from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding

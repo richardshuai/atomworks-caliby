@@ -6,7 +6,6 @@ import networkx as nx
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from rf2aa.chemical import ChemicalData as ChemData
 
 from datahub.transforms._checks import (
     check_atom_array_annotation,
@@ -17,6 +16,141 @@ from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Transform
 from datahub.transforms.encoding import EncodeAtomArray
 from datahub.utils.token import get_token_starts
+
+# Constants copied from `chemdata` to decouple the RF2AA repository from the datahub pipeline
+NUM2AA = [
+    "ALA",
+    "ARG",
+    "ASN",
+    "ASP",
+    "CYS",
+    "GLN",
+    "GLU",
+    "GLY",
+    "HIS",
+    "ILE",
+    "LEU",
+    "LYS",
+    "MET",
+    "PHE",
+    "PRO",
+    "SER",
+    "THR",
+    "TRP",
+    "TYR",
+    "VAL",
+    "UNK",
+    "MAS",
+    " DA",
+    " DC",
+    " DG",
+    " DT",
+    " DX",
+    " RA",
+    " RC",
+    " RG",
+    " RU",
+    " RX",
+    "HIS_D",  # only used for cart_bonded
+    "Al",
+    "As",
+    "Au",
+    "B",
+    "Be",
+    "Br",
+    "C",
+    "Ca",
+    "Cl",
+    "Co",
+    "Cr",
+    "Cu",
+    "F",
+    "Fe",
+    "Hg",
+    "I",
+    "Ir",
+    "K",
+    "Li",
+    "Mg",
+    "Mn",
+    "Mo",
+    "N",
+    "Ni",
+    "O",
+    "Os",
+    "P",
+    "Pb",
+    "Pd",
+    "Pr",
+    "Pt",
+    "Re",
+    "Rh",
+    "Ru",
+    "S",
+    "Sb",
+    "Se",
+    "Si",
+    "Sn",
+    "Tb",
+    "Te",
+    "U",
+    "W",
+    "V",
+    "Y",
+    "Zn",
+    "ATM",
+]
+
+FRAME_PRIORITY_TO_ATOM = [
+    "F",
+    "Cl",
+    "Br",
+    "I",
+    "O",
+    "S",
+    "Se",
+    "Te",
+    "N",
+    "P",
+    "As",
+    "Sb",
+    "C",
+    "Si",
+    "Sn",
+    "Pb",
+    "B",
+    "Al",
+    "Zn",
+    "Hg",
+    "Cu",
+    "Au",
+    "Ni",
+    "Pd",
+    "Pt",
+    "Co",
+    "Rh",
+    "Ir",
+    "Pr",
+    "Fe",
+    "Ru",
+    "Os",
+    "Mn",
+    "Re",
+    "Cr",
+    "Mo",
+    "W",
+    "V",
+    "U",
+    "Tb",
+    "Y",
+    "Be",
+    "Mg",
+    "Ca",
+    "Li",
+    "K",
+    "ATM",
+]
+ATOM_TO_FRAME_PRIORITY = {x: i for i, x in enumerate(FRAME_PRIORITY_TO_ATOM)}
 
 
 def find_all_paths_of_length_n(G: nx.Graph, n: int, order_independent_atom_frame_prioritization: bool = True) -> list:
@@ -96,13 +230,13 @@ def get_rf2aa_atom_frames(
         for frame in frames_with_n:
             # HACK: Uses the "query_seq" to convert index of the atom into an "atom type", and converts that into a priority
             indices = [index for index in frame if index != n]
-            aas = [ChemData().num2aa[int(encoded_query_pn_unit[index])] for index in indices]
+            aas = [NUM2AA[int(encoded_query_pn_unit[index])] for index in indices]
 
             #
             if order_independent_atom_frame_prioritization:
-                frame_priorities.append(sorted([ChemData().atom2frame_priority[aa] for aa in aas]))
+                frame_priorities.append(sorted([ATOM_TO_FRAME_PRIORITY[aa] for aa in aas]))
             else:
-                frame_priorities.append([ChemData().atom2frame_priority[aa] for aa in aas])
+                frame_priorities.append([ATOM_TO_FRAME_PRIORITY[aa] for aa in aas])
 
         # NOTE: np.argsort doesn't sort tuples correctly so just sort a list of indices using a key
         sorted_indices = sorted(range(len(frame_priorities)), key=lambda i: frame_priorities[i])

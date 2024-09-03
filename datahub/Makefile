@@ -4,7 +4,11 @@
 # GLOBALS                                                                       #
 #################################################################################
 
+# Set the project directory
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
+# Set conda/mamba binary, mamba if available, conda otherwise
+CONDA_BINARY := $(shell command -v mamba || command -v conda)
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -19,6 +23,64 @@ clean:
 format:
 	ruff format .
 	ruff check --fix .
+
+_token_access_error:
+	@echo "==============================================================================="; \
+	echo "Error: Environment variables GITLAB_USER and GITLAB_TOKEN must be set."; \
+	echo ""; \
+	echo "You need to set the environment variables GITLAB_USER and GITLAB_TOKEN."; \
+	echo "You can create a personal access token on GitLab at:"; \
+	echo "   https://git.ipd.uw.edu/-/user_settings/personal_access_tokens"; \
+	echo ""; \
+	echo "To expose these variables, you can use:"; \
+	echo "export GITLAB_USER=<gitlab-username>"; \
+	echo "export GITLAB_TOKEN=<gitlab-token>"; \
+	echo ""; \
+	echo "It is recommended that you set these tokens in your .bashrc or .zshrc file for future use."; \
+	echo "===============================================================================";
+	exit 1;
+
+## Create a new conda environment and install datahub
+env:
+	@echo "Creating datahub conda environment: `datahub`"
+	# Check if the GITLAB_USER and GITLAB_TOKEN are set
+	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
+		$(MAKE) _token_access_error; \
+	fi
+	$(CONDA_BINARY) env create -n datahub --file environment.yaml
+	conda init
+	conda activate datahub
+	pip install -e ".[dev]"
+
+## Install datahub locally into the current environment
+install:
+	@echo "Installing datahub"
+	# Check if the GITLAB_USER and GITLAB_TOKEN are set
+	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
+		$(MAKE) _token_access_error; \
+	fi
+	# Install the conda requirements in the current activated environment
+	$(CONDA_BINARY) env update --file environment.yaml
+	# Install the pip requirements in the current activated environment
+	pip install -e ".[dev]"
+
+## Build the apptainer image
+apptainer:
+	# Check if the GITLAB_USER and GITLAB_TOKEN are set
+	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
+		$(MAKE) _token_access_error; \
+	fi
+	$(eval DATE := $(shell date +%Y%m%d))
+	apptainer build --bind $(PWD):/datahub_host datahub_$(DATE).sif apptainer.spec
+
+## Run pytest and generate coverage report
+test:
+	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml datahub/tests -m "not very_slow"
+	@if command -v genbadge >/dev/null 2>&1; then \
+		genbadge coverage -i coverage.xml -o assets/coverage-badge.svg; \
+	else \
+		echo "Warning: genbadge not installed. Skipping coverage badge generation."; \
+	fi
 
 #################################################################################
 # Self Documenting Commands                                                     #
