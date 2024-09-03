@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -p cpu
 #SBATCH --mem-per-cpu=64g
-#SBATCH -a 1-1000
+#SBATCH -a 1-3000
 #SBATCH -t 0-12:00:00
 #SBATCH -C DB
 #SBATCH -c 1
@@ -11,7 +11,7 @@
 echo "Starting task ${SLURM_ARRAY_TASK_ID} on ${SLURM_JOB_NODELIST}"
 
 # Add rf2aa-dev to the PYTHONPATH
-export PYTHONPATH="${PYTHONPATH}:/home/ncorley/projects/rf2aa-dev:/home/ncorley/projects/rf2aa-dev/datahub/"
+export PYTHONPATH="${PYTHONPATH}:/home/ncorley/projects/datahub/"
 
 # Print the path
 echo "PYTHONPATH: ${PYTHONPATH}"
