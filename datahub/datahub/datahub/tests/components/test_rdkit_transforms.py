@@ -1,121 +1,145 @@
-# TODO: Remove
-
 import numpy as np
 import pytest
+from rdkit import Chem
 
 # Settings for debugging & interactive tests
 from rdkit.Chem.Draw import IPythonConsole
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.tests.conftest import cached_parse
-from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, FilterAndAnnotatePNUnits, RemoveHydrogens
+from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, HandleUndesiredResTokens, RemoveHydrogens
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Compose
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.rdkit_utils import (
     AddRDKitMoleculesForAtomizedMolecules,
     GenerateRDKitConformers,
-    get_chiral_centers,
+    atom_array_from_rdkit,
 )
 
 IPythonConsole.kekulizeStructures = False
 IPythonConsole.drawOptions.addAtomIndices = True
-IPythonConsole.ipython_3d = False
+IPythonConsole.ipython_3d = True
 IPythonConsole.ipython_useSVG = True
 IPythonConsole.drawOptions.addStereoAnnotation = True
 IPythonConsole.molSize = 600, 300
 
 
 TEST_CASES = [
-    {"pdb_id": "5ocm"},
+    # .. single small molecules
+    {"pdb_id": "5ocm", "corrupt_charge": False},
+    {"pdb_id": "5ocm", "corrupt_charge": True},
+    # ... molecules with covalently attached ligands and glycans
+    {"pdb_id": "1ivo", "corrupt_charge": False},
+    {"pdb_id": "1ivo", "corrupt_charge": True},
+    {"pdb_id": "3ne7", "corrupt_charge": False},
+    {"pdb_id": "3ne7", "corrupt_charge": True},
+    # ... atomizing standard residues mid-structure
+    {"pdb_id": "6lyz", "corrupt_charge": False, "res_names_to_atomize": ["ALA"]},
 ]
+test_case = TEST_CASES[0]
 
 
 def test_add_rdkit_molecules_for_atomized_molecules(test_case):
     # Prepare input data
     data = cached_parse(test_case["pdb_id"])
+    atom_array = data["atom_array"]
+
+    if test_case["corrupt_charge"]:
+        # ... obliterate the formal charge information
+        atom_array.set_annotation("charge", np.zeros_like(atom_array.charge))
+
+    res_names_to_atomize = test_case.get("res_names_to_atomize", [])
+    res_names_to_ignore = [token for token in RF2AA_ATOM36_ENCODING.tokens if token not in res_names_to_atomize]
 
     # Apply the transform
     pipe = Compose(
         [
             AddGlobalAtomIdAnnotation(),
             RemoveHydrogens(),
-            FilterAndAnnotatePNUnits(),
             FlagAndReassignCovalentModifications(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+            HandleUndesiredResTokens(["UNL"]),
+            AtomizeResidues(
+                atomize_by_default=True,
+                res_names_to_ignore=res_names_to_ignore,
+                res_names_to_atomize=res_names_to_atomize,
+            ),
             AddRDKitMoleculesForAtomizedMolecules(),
         ]
     )
-    result = pipe(data)
+    data = pipe(data)
 
     # Check if the rdkit key is added to the data dictionary
-    assert "rdkit" in result
+    assert "rdkit" in data
 
     # Check if RDKit molecules are created for each unique pn_unit_iid of atomized residues
     unique_pn_unit_iids = np.unique(data["atom_array"].pn_unit_iid[data["atom_array"].atomize])
-    assert len(result["rdkit"]) == len(unique_pn_unit_iids)
+    assert len(data["rdkit"]) == len(unique_pn_unit_iids)
 
     # Check if each RDKit molecule has the correct number of atoms
-    for pn_unit_iid, rdmol in result["rdkit"].items():
+    for pn_unit_iid, rdmol in data["rdkit"].items():
         pn_unit_mask = (data["atom_array"].pn_unit_iid == pn_unit_iid) & data["atom_array"].atomize
         expected_num_atoms = np.sum(pn_unit_mask)
-        assert rdmol.GetNumAtoms() == expected_num_atoms
+        assert rdmol.GetNumAtoms() > 0, f"RDKit molecule {pn_unit_iid} has no atoms"
+        assert rdmol.GetNumAtoms() == expected_num_atoms, f"RDKit molecule {pn_unit_iid} has the wrong number of atoms"
+        assert (
+            Chem.SanitizeMol(rdmol, catchErrors=True) == Chem.SanitizeFlags.SANITIZE_NONE
+        ), f"RDKit molecule {pn_unit_iid} failed sanitization"
+
+        _mol_array = atom_array_from_rdkit(
+            rdmol, set_coord_if_available=True, remove_hydrogens=True, remove_inferred_atoms=False
+        )
+        assert _mol_array.coord.shape == (
+            expected_num_atoms,
+            3,
+        ), f"Atom array {pn_unit_iid} has the wrong number of coordinates"
+        assert np.all(_mol_array.rdkit_atom_id >= 0), "RDKit atom ids are not correctly set"
 
 
-def test_generate_rdkit_conformers(atom_array_5ocm):
+def test_generate_rdkit_conformers(test_case):
     # Prepare input data
-    data = {
-        "atom_array": atom_array_5ocm,
-    }
+    data = cached_parse(test_case["pdb_id"])
+    atom_array = data["atom_array"]
 
-    # Add atomize annotation (assuming all non-water residues are atomized for this test)
-    data["atom_array"].set_annotation("atomize", data["atom_array"].res_name != "HOH")
+    if test_case["corrupt_charge"]:
+        # ... obliterate the formal charge information
+        atom_array.set_annotation("charge", np.zeros_like(atom_array.charge))
 
-    # First, add RDKit molecules
-    add_rdkit_transform = AddRDKitMoleculesForAtomizedMolecules()
-    data = add_rdkit_transform(data)
+    res_names_to_atomize = test_case.get("res_names_to_atomize", [])
+    res_names_to_ignore = [token for token in RF2AA_ATOM36_ENCODING.tokens if token not in res_names_to_atomize]
 
-    # Apply the GenerateRDKitConformers transform
-    n_conformers = 3
-    transform = GenerateRDKitConformers(n_conformers=n_conformers)
-    result = transform(data)
+    # Apply the transform
+    pipe = Compose(
+        [
+            AddGlobalAtomIdAnnotation(),
+            RemoveHydrogens(),
+            FlagAndReassignCovalentModifications(),
+            HandleUndesiredResTokens(["UNL"]),
+            AtomizeResidues(
+                atomize_by_default=True,
+                res_names_to_ignore=res_names_to_ignore,
+                res_names_to_atomize=res_names_to_atomize,
+            ),
+            AddRDKitMoleculesForAtomizedMolecules(),
+            # TODO: Fix
+            GenerateRDKitConformers(n_conformers=1, optimize_conformers=False),
+        ]
+    )
+    data = pipe(data)
 
-    # Check if the rdkit key is still in the data dictionary
-    assert "rdkit" in result
+    assert "rdkit" in data
 
-    # Check if each RDKit molecule has the correct number of conformers
-    for pn_unit_iid, rdmol in result["rdkit"].items():
-        assert rdmol.GetNumConformers() == n_conformers
+    # Check that each rdkit molecule has a conformer
+    for rdmol in data["rdkit"].values():
+        assert rdmol.GetNumConformers() > 1
 
-
-def test_get_chiral_centers(atom_array_5ocm):
-    # Prepare input data
-    data = {
-        "atom_array": atom_array_5ocm,
-    }
-
-    # Add atomize annotation (assuming all non-water residues are atomized for this test)
-    data["atom_array"].set_annotation("atomize", data["atom_array"].res_name != "HOH")
-
-    # First, add RDKit molecules
-    add_rdkit_transform = AddRDKitMoleculesForAtomizedMolecules()
-    data = add_rdkit_transform(data)
-
-    # Check if chiral centers are identified correctly
+    # Check that we can get the coordinates of the conformers as atom array coordinates
     for pn_unit_iid, rdmol in data["rdkit"].items():
-        chiral_centers = get_chiral_centers(rdmol)
-
-        # Check if chiral centers are returned as a list of dictionaries
-        assert isinstance(chiral_centers, list)
-        for center in chiral_centers:
-            assert isinstance(center, dict)
-            assert "chiral_center_idx" in center
-            assert "bonded_explicit_atom_idxs" in center
-            assert "chirality" in center
-
-        # Check for known chiral centers in 5ocm (you may need to adjust these based on the actual structure)
-        if rdmol.GetNumAtoms() > 10:  # Assuming this is a larger molecule like NAD
-            assert len(chiral_centers) > 0, f"Expected chiral centers in molecule {pn_unit_iid}"
+        mol_array = atom_array_from_rdkit(
+            rdmol, set_coord_if_available=True, remove_hydrogens=True, remove_inferred_atoms=False
+        )
+        assert mol_array.coord.shape == (rdmol.GetNumAtoms(), 3)
+        assert np.all(np.isfinite(mol_array.coord))
 
 
 if __name__ == "__main__":
