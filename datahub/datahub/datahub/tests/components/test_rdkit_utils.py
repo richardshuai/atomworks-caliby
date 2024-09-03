@@ -119,8 +119,8 @@ def test_fixing_molecules():
     with pytest.raises(Chem.MolSanitizeException):
         smiles_to_rdkit(smi)
 
-    mol = smiles_to_rdkit(smi, sanitize=False)
-    mol_correct = smiles_to_rdkit(smi_correct)
+    mol = smiles_to_rdkit(smi, sanitize=False)  # noqa: F841
+    mol_correct = smiles_to_rdkit(smi_correct)  # noqa: F841
 
     # TODO: Currently this cannot be fixed by our `fix_mol` function. Revisit this test once we implemented the remaining `TODO`s in `fix_mol`.
     # mol = fix_mol(
