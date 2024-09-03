@@ -111,5 +111,27 @@ def test_sample_rdkit_conformer_consistency(test_atom_array):
     assert rmsd < 4.0, f"RMSD is too high: {rmsd}. Test failed for {test_atom_array.res_name[0]}."
 
 
+def test_fixing_molecules():
+    smi = "c1cc(c[n](c1)[C@H]2[C@@H]([C@@H]([C@H](O2)CO[P@@](=O)([O-])O[P@](=O)(O)OC[C@@H]3[C@H]([C@H]([C@H](O3)n4cnc5c4ncnc5N)OP(=O)(O)O)O)O)O)C(=O)N"
+    smi_correct = "c1cc(c[n+](c1)[C@H]2[C@@H]([C@@H]([C@H](O2)CO[P@@](=O)([O-])O[P@](=O)(O)OC[C@@H]3[C@H]([C@H]([C@H](O3)n4cnc5c4ncnc5N)OP(=O)(O)O)O)O)O)C(=O)N"
+
+    # Check that loading and sanitizing `smi` fails
+    with pytest.raises(Chem.MolSanitizeException):
+        smiles_to_rdkit(smi)
+
+    mol = smiles_to_rdkit(smi, sanitize=False)
+    mol_correct = smiles_to_rdkit(smi_correct)
+
+    # TODO: Currently this cannot be fixed by our `fix_mol` function. Revisit this test once we implemented the remaining `TODO`s in `fix_mol`.
+    # mol = fix_mol(
+    #     mol,
+    #     attempt_fix_by_normalizing_like_chembl=True,
+    #     attempt_fix_by_normalizing_like_rdkit=True,
+    #     attempt_fix_valence_by_changing_formal_charge=True,
+    #     in_place=True,
+    # )
+    # assert Chem.MolToInchi(mol) == Chem.MolToInchi(mol_correct)
+
+
 if __name__ == "__main__":
     pytest.main(["-v", "-x", __file__])
