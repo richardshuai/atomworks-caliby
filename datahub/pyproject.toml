@@ -32,9 +32,6 @@ exclude = [
     ".venv",
     "venv",
     "data",
-    # TODO: Remove those in the future
-    "data/archived",
-    "rf2aa",
 ]
 
 [tool.ruff.format]
