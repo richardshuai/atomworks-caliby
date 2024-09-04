@@ -43,6 +43,7 @@ TEST_CASES = [
 test_case = TEST_CASES[0]
 
 
+@pytest.mark.parametrize("test_case", TEST_CASES)
 def test_add_rdkit_molecules_for_atomized_molecules(test_case):
     # Prepare input data
     data = cached_parse(test_case["pdb_id"])
@@ -99,6 +100,7 @@ def test_add_rdkit_molecules_for_atomized_molecules(test_case):
         assert np.all(_mol_array.rdkit_atom_id >= 0), "RDKit atom ids are not correctly set"
 
 
+@pytest.parametrize("test_case", TEST_CASES)
 def test_generate_rdkit_conformers(test_case):
     # Prepare input data
     data = cached_parse(test_case["pdb_id"])
