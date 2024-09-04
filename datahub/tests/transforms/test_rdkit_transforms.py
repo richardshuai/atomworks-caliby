@@ -126,7 +126,6 @@ def test_generate_rdkit_conformers(test_case):
                 res_names_to_atomize=res_names_to_atomize,
             ),
             AddRDKitMoleculesForAtomizedMolecules(),
-            # TODO: Fix
             GenerateRDKitConformers(n_conformers=1, optimize_conformers=False),
         ]
     )
@@ -136,7 +135,7 @@ def test_generate_rdkit_conformers(test_case):
 
     # Check that each rdkit molecule has a conformer
     for rdmol in data["rdkit"].values():
-        assert rdmol.GetNumConformers() > 1
+        assert rdmol.GetNumConformers() > 0
 
     # Check that we can get the coordinates of the conformers as atom array coordinates
     for pn_unit_iid, rdmol in data["rdkit"].items():

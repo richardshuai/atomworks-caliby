@@ -283,6 +283,22 @@ def fix_mol(
 
 
 @_preserve_annotations
+def add_hydrogens(mol: Mol) -> Mol:
+    """
+    Add hydrogens to an RDKit molecule.
+    """
+    return Chem.AddHs(mol)
+
+
+@_preserve_annotations
+def remove_hydrogens(mol: Mol) -> Mol:
+    """
+    Remove hydrogens from an RDKit molecule.
+    """
+    return Chem.RemoveHs(mol)
+
+
+@_preserve_annotations
 def generate_conformers(
     mol: Mol,
     seed: int | None = None,
@@ -350,19 +366,34 @@ def generate_conformers(
     # Infer hydrogens if needed, i.e. if they are not present in the molecule. Normally this should
     # always be set to `True` to generate realistic conformations. The only reason to set this to `False`
     # is if you are already providing hydrogens in the molecule.
-    if infer_hydrogens:
-        mol = Chem.AddHs(mol)
+    mol = add_hydrogens(mol) if infer_hydrogens else mol
 
-    seed = -1 if seed is None else seed
+    seed = default(seed, -1)
     try:
-        AllChem.EmbedMultipleConfs(mol, numConfs=n_conformers, enforceChirality=True, randomSeed=seed)
-    except Exception:
-        AllChem.EmbedMultipleConfs(mol, numConfs=n_conformers, randomSeed=seed, enforceChirality=False)
+        AllChem.EmbedMultipleConfs(
+            mol, numConfs=n_conformers, randomSeed=seed, enforceChirality=True, useRandomCoords=False
+        )
+        if mol.GetNumConformers() < n_conformers:
+            logger.warning(
+                "Initial conformer generation based on distance geometry failed. "
+                "Falling back to generating a conformer starting from random coordinates."
+            )
+            raise RuntimeError("Failed to generate enough conformers.")
+    except RuntimeError:
+        AllChem.EmbedMultipleConfs(
+            mol, numConfs=n_conformers, randomSeed=seed, enforceChirality=False, useRandomCoords=True
+        )
+        if mol.GetNumConformers() < n_conformers:
+            raise RuntimeError(
+                f"Requested {n_conformers} conformers, but only {mol.GetNumConformers()} were generated."
+            )
 
     if optimize_conformers:
         success = AllChem.UFFOptimizeMoleculeConfs(mol, **uff_optimize_kwargs)
         if not success:
             logger.warning("Conformer optimization did not converge.")
+
+    mol = remove_hydrogens(mol) if infer_hydrogens else mol
 
     return mol
 
@@ -837,7 +868,7 @@ class GenerateRDKitConformers(Transform):
         for pn_unit_iid, rdmol in data["rdkit"].items():
             try:
                 # Generate a random seed using numpy's global RNG
-                random_seed = np.random.randint(0, 2**32 - 1)
+                random_seed = np.random.randint(0, 2**16 - 1)
 
                 rdmol_with_conformers = generate_conformers(
                     rdmol,
