@@ -6,8 +6,8 @@ from tests.conftest import (
     CIF_PARSER,
     INTERFACES_DF,
     PN_UNITS_DF,
-    PROTEIN_MSA_DIR,
-    RNA_MSA_DIR,
+    PROTEIN_MSA_DIRS,
+    RNA_MSA_DIRS,
     SUPPORTED_CHAIN_TYPES_INTS,
 )
 
@@ -37,8 +37,8 @@ PN_UNITS_DATASET = PDBDataset(
     dataset_parser=PNUnitsDFParser(),
     id_column="example_id",
     transform=build_rf2aa_transform_pipeline(
-        protein_msa_dir=PROTEIN_MSA_DIR,
-        rna_msa_dir=RNA_MSA_DIR,
+        protein_msa_dirs=PROTEIN_MSA_DIRS,
+        rna_msa_dirs=RNA_MSA_DIRS,
         n_recycles=5,
         crop_size=256,
         crop_contiguous_probability=1 / 3,
@@ -55,8 +55,8 @@ INTERFACES_DATASET = PDBDataset(
     dataset_parser=InterfacesDFParser(),
     id_column="example_id",
     transform=build_rf2aa_transform_pipeline(
-        protein_msa_dir=PROTEIN_MSA_DIR,
-        rna_msa_dir=RNA_MSA_DIR,
+        protein_msa_dirs=PROTEIN_MSA_DIRS,
+        rna_msa_dirs=RNA_MSA_DIRS,
         n_recycles=5,
         crop_size=256,
         crop_spatial_probability=1.0,

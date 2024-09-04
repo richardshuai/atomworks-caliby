@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -p cpu
 #SBATCH --mem-per-cpu=64g
-#SBATCH -a 1-3000
+#SBATCH -a 1-200
 #SBATCH -t 0-12:00:00
 #SBATCH -C DB
 #SBATCH -c 1
@@ -22,7 +22,7 @@ NUM_TASKS=$SLURM_ARRAY_TASK_COUNT
 
 # Default values for the arguments
 out_dir="/projects/msa/rf2aa_af3/2024_08_12"
-csv_file="/projects/ml/RF2_allatom/data_preprocessing/msa/missing_protein_sequences_2024_08_12.csv"
+csv_file="/projects/ml/RF2_allatom/data_preprocessing/msa/missing_protein_sequences_09_03.csv"
 
 echo "TASK_ID: ${TASK_ID}"
 

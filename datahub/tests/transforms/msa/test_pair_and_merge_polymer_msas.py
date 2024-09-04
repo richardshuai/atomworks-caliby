@@ -14,7 +14,7 @@ from datahub.transforms.msa.msa import (
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
 )
-from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIR, RNA_MSA_DIR
+from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 PAIR_MSA_TEST_CASES = [
     {
@@ -391,7 +391,7 @@ def test_msa_pairing_pipline(pdb_id: str):
     # Apply initial transforms
     # fmt: off
     pipeline = Compose([
-        LoadPolymerMSAs(protein_msa_dir=PROTEIN_MSA_DIR, rna_msa_dir=RNA_MSA_DIR, max_msa_sequences=100),
+        LoadPolymerMSAs(protein_msa_dirs=PROTEIN_MSA_DIRS, rna_msa_dirs=RNA_MSA_DIRS, max_msa_sequences=100),
     ], track_rng_state=False)
     # fmt: on
 

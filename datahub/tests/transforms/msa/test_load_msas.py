@@ -3,6 +3,7 @@ import logging
 import os
 import time
 from multiprocessing import Pool
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -19,7 +20,7 @@ from datahub.transforms.msa._msa_constants import (
 )
 from datahub.transforms.msa.msa import LoadPolymerMSAs
 from datahub.utils.misc import hash_sequence
-from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIR, RNA_MSA_DIR
+from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -77,8 +78,8 @@ def test_load_msas(test_case: dict[str, Any]):
         RemoveHydrogens(),
         RemoveUnsupportedChainTypes(),
         LoadPolymerMSAs(
-            protein_msa_dir=PROTEIN_MSA_DIR, 
-            rna_msa_dir=RNA_MSA_DIR, 
+            protein_msa_dirs=PROTEIN_MSA_DIRS, 
+            rna_msa_dirs=RNA_MSA_DIRS, 
             max_msa_sequences=2000,
             msa_cache_dir=None
         ),
@@ -141,8 +142,8 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str):
     # fmt: off
     no_cache_pipeline = Compose([
         LoadPolymerMSAs(
-            protein_msa_dir=PROTEIN_MSA_DIR, 
-            rna_msa_dir=RNA_MSA_DIR, 
+            protein_msa_dirs=PROTEIN_MSA_DIRS, 
+            rna_msa_dirs=RNA_MSA_DIRS, 
             max_msa_sequences=10000,
             msa_cache_dir=None
         ),
@@ -156,8 +157,8 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str):
     # fmt: off
     cache_pipeline = Compose([
         LoadPolymerMSAs(
-            protein_msa_dir=PROTEIN_MSA_DIR, 
-            rna_msa_dir=RNA_MSA_DIR, 
+            protein_msa_dirs=PROTEIN_MSA_DIRS, 
+            rna_msa_dirs=RNA_MSA_DIRS, 
             max_msa_sequences=10000,
             msa_cache_dir=tmp_path / "msa_cache"
         ),
@@ -206,9 +207,16 @@ def process_pdb_id(pdb_id):
                 # Hash the sequence so we can look up the MSA file
                 sequence_hash = hash_sequence(sequence)
                 num_proteins += 1
-                protein_msa_file = (PROTEIN_MSA_DIR / sequence_hash[:3] / sequence_hash).with_suffix(".a3m.gz")
-                if protein_msa_file.exists():
-                    num_proteins_with_msas += 1
+
+                # ...loop through all protein MSA directories, checking if the requested MSA file exists
+                for protein_msa_dir in PROTEIN_MSA_DIRS:
+                    protein_msa_file = (Path(protein_msa_dir["dir"]) / sequence_hash).with_suffix(
+                        protein_msa_dir["extension"]
+                    )
+                    if protein_msa_file.exists():
+                        num_proteins_with_msas += 1
+                        break
+
         elif chain_type == ChainType.RNA:
             if not sequence:
                 logger.warning(f"RNA chain with no sequence: {pdb_id} : {row['q_pn_unit_iid']}")
@@ -219,10 +227,14 @@ def process_pdb_id(pdb_id):
             sequence = sequence.replace("U", "T")
             # Hash the sequence so we can look up the MSA file
             sequence_hash = hash_sequence(sequence)
-            # For RNA, we store information as fasta files, with no compression
-            rna_msa_file = (RNA_MSA_DIR / sequence_hash[:3] / sequence_hash).with_suffix(".afa")
-            if rna_msa_file.exists():
-                num_rna_with_msa += 1
+
+            # ...loop through all RNA MSA directories, checking if the requested MSA file exists
+            for rna_msa_dir in RNA_MSA_DIRS:
+                rna_msa_file = (Path(rna_msa_dir["dir"]) / sequence_hash).with_suffix(rna_msa_dir["extension"])
+                if rna_msa_file.exists():
+                    num_rna_with_msa += 1
+                    break
+
         elif chain_type == ChainType.DNA:
             num_dna += 1
             # DNA - always load in single sequence mode (no MSAs)
@@ -258,7 +270,7 @@ def test_msa_coverage():
     Function to validate MSA coverage for a random subset of PDB IDs.
     Asserts that the coverage for proteins, RNA, and DNA is above a specified threshold.
     """
-    PROTEIN_COVERAGE_THRESHOLD = 0.85  # NOTE: We will increase this threshold in the future
+    PROTEIN_COVERAGE_THRESHOLD = 0.90  # NOTE: We will increase this threshold in the future
     RNA_COVERAGE_THRESHOLD = 0.10  # NOTE: We will increase this threshold in the future
     DNA_COVERAGE_THRESHOLD = 0.0  # NOTE: Currently, we do not compute DNA MSAs
 

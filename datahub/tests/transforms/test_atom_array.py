@@ -17,7 +17,7 @@ from datahub.transforms.atom_array import (
 from datahub.transforms.base import Compose
 from datahub.transforms.msa._msa_constants import THREE_LETTER_TO_MSA_INTEGER
 from datahub.transforms.msa.msa import LoadPolymerMSAs
-from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIR, RNA_MSA_DIR, cached_parse
+from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS, cached_parse
 from tests.transforms.msa.test_pair_and_merge_polymer_msas import MSA_PAIRING_PIPELINE_TEST_CASES
 
 
@@ -132,7 +132,7 @@ def test_add_within_poly_res_idx_annotation(pdb_id: str):
     pipe = Compose(
         [
             AddWithinPolyResIdxAnnotation(),
-            LoadPolymerMSAs(protein_msa_dir=PROTEIN_MSA_DIR, rna_msa_dir=RNA_MSA_DIR),
+            LoadPolymerMSAs(protein_msa_dirs=PROTEIN_MSA_DIRS, rna_msa_dirs=RNA_MSA_DIRS),
         ],
         track_rng_state=False,
     )

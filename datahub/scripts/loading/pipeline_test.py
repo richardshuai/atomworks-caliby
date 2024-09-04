@@ -31,6 +31,7 @@ from datahub.utils.rng import (
     rng_state,
     serialize_rng_state_dict,
 )
+from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 logger = logging.getLogger(__name__)
 logfile = Path(__file__).with_suffix(".log")
@@ -39,9 +40,6 @@ logfile = Path(__file__).with_suffix(".log")
 file_handler = logging.FileHandler(logfile)
 file_handler.setLevel(logging.ERROR)
 logger.addHandler(file_handler)
-
-PROTEIN_MSA_DIR = Path("/projects/ml/RF2_allatom/data_preprocessing/msa/protein")
-RNA_MSA_DIR = Path("/projects/ml/RF2_allatom/data_preprocessing/msa/rna")
 
 os.environ["OPENBLAS_NUM_THREADS"] = "8"
 os.environ["RLIMIT_NPROC"] = "100"
@@ -60,8 +58,8 @@ def _get_dataset_from_path(dataset_path: Path) -> PDBDataset:
         dataset_parser=PNUnitsDFParser() if "pn_unit" in dataset_path.name else InterfacesDFParser(),
         id_column="example_id",
         transform=build_rf2aa_transform_pipeline(
-            protein_msa_dir=PROTEIN_MSA_DIR,
-            rna_msa_dir=RNA_MSA_DIR,
+            protein_msa_dirs=PROTEIN_MSA_DIRS,
+            rna_msa_dirs=RNA_MSA_DIRS,
             n_recycles=5,
             crop_size=256,
             crop_contiguous_probability=1 / 3 if "pn_unit" in dataset_path.name else 0,

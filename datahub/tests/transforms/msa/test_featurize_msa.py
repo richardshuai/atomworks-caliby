@@ -40,8 +40,8 @@ from tests.conftest import (
     CIF_PARSER,
     DNA_RESIDUES,
     PN_UNITS_DF,
-    PROTEIN_MSA_DIR,
-    RNA_MSA_DIR,
+    PROTEIN_MSA_DIRS,
+    RNA_MSA_DIRS,
     RNA_RESIDUES,
 )
 
@@ -193,7 +193,7 @@ def test_fill_full_msa_from_encoded(pdb_id):
     # fmt: off
     pipeline = Compose([
         AddWithinPolyResIdxAnnotation(),
-        LoadPolymerMSAs(protein_msa_dir=PROTEIN_MSA_DIR, rna_msa_dir=RNA_MSA_DIR, max_msa_sequences=100),
+        LoadPolymerMSAs(protein_msa_dirs=PROTEIN_MSA_DIRS, rna_msa_dirs=RNA_MSA_DIRS, max_msa_sequences=100),
         PairAndMergePolymerMSAs(),
         AtomizeResidues(
             atomize_by_default=True, res_names_to_ignore=res_names_to_ignore, move_atomized_part_to_end=False
@@ -565,7 +565,7 @@ def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
             [
                 RemoveHydrogens(),
                 AddWithinPolyResIdxAnnotation(),
-                LoadPolymerMSAs(protein_msa_dir=PROTEIN_MSA_DIR, rna_msa_dir=RNA_MSA_DIR, max_msa_sequences=1000),
+                LoadPolymerMSAs(protein_msa_dirs=PROTEIN_MSA_DIRS, rna_msa_dirs=RNA_MSA_DIRS, max_msa_sequences=1000),
                 PairAndMergePolymerMSAs(),
                 AtomizeResidues(
                     atomize_by_default=True, res_names_to_ignore=encoding.tokens, move_atomized_part_to_end=True
@@ -655,7 +655,7 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
         pipeline = Compose(
             [
                 AddWithinPolyResIdxAnnotation(),
-                LoadPolymerMSAs(protein_msa_dir=PROTEIN_MSA_DIR, rna_msa_dir=RNA_MSA_DIR, max_msa_sequences=1000),
+                LoadPolymerMSAs(protein_msa_dirs=PROTEIN_MSA_DIRS, rna_msa_dirs=RNA_MSA_DIRS, max_msa_sequences=1000),
                 PairAndMergePolymerMSAs(),
                 AtomizeResidues(
                     atomize_by_default=True, res_names_to_ignore=encoding.tokens, move_atomized_part_to_end=True

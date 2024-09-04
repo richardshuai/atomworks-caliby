@@ -194,8 +194,8 @@ class RF2AAInputs(NamedTuple):
 
 
 def build_rf2aa_transform_pipeline(
-    protein_msa_dir: PathLike | str,
-    rna_msa_dir: PathLike | str,
+    protein_msa_dirs: list[dict],
+    rna_msa_dirs: list[dict],
     # Recycles parameters
     n_recycles: int = 5,  # Paper: 5
     # Cropping parameters
@@ -242,8 +242,13 @@ def build_rf2aa_transform_pipeline(
     Creates a transformation pipeline for the RF2AA model, applying a series of transformations to the input data.
 
     Args:
-        - protein_msa_dir (PathLike | str): Directory to look for protein MSA files.
-        - rna_msa_dir (PathLike | str): Directory to look for RNA MSA files.
+        - protein_msa_dirs (list[dict]): The directories containing the protein MSAs and their associated file types,
+            as a list of dictionaries. If multiple directories are provided, we will search all of them. Note that:
+            (a) the directory structure must be flat (i.e., no subdirectories), (b) the files must be named using the
+            SHA-256 hash of the sequence (see `hash_sequence` in `utils/misc`), and (c) order matters - we will search the
+            directories in the order they are provided, and return the first match
+        - rna_msa_dirs (list[dict]): The directories containing the RNA MSAs and their associated file types, as a list
+            of dictionaries. See `protein_msa_dirs` for directory structure details.
         - n_recycles (int, optional): Number of recycles for the MSA featurization. Defaults to 5.
         - crop_size (int, optional): Size of the crop for spatial and contiguous cropping (in number of tokens).
             Defaults to 384.
@@ -303,8 +308,6 @@ def build_rf2aa_transform_pipeline(
         unresolved_ligand_atom_limit = np.ceil(crop_size * unresolved_ligand_atom_limit)
 
     encoding = RF2AA_ATOM36_ENCODING
-    protein_msa_dir = Path(protein_msa_dir)
-    rna_msa_dir = Path(rna_msa_dir)
 
     transforms = [
         # ============================================
@@ -385,8 +388,8 @@ def build_rf2aa_transform_pipeline(
         # 5. Load and pair MSAs
         # ============================================
         LoadPolymerMSAs(
-            protein_msa_dir=protein_msa_dir,
-            rna_msa_dir=rna_msa_dir,
+            protein_msa_dirs=protein_msa_dirs,
+            rna_msa_dirs=rna_msa_dirs,
             max_msa_sequences=max_msa_sequences,  # maximum number of sequences to load (we later subsample further)
             msa_cache_dir=Path(msa_cache_dir) if exists(msa_cache_dir) else None,
         ),

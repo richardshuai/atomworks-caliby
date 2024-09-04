@@ -9,6 +9,7 @@ Example:
 """
 
 import logging
+import re
 from os import PathLike
 from pathlib import Path
 
@@ -40,18 +41,11 @@ def collect_filenames(msa_dirs: list[Path]) -> set:
     return filenames
 
 
-def is_valid_filename(filename: str) -> bool:
-    """
-    Check if the filename prefix is valid based on the hashing method (hexademical, 11 characters).
-
-    Args:
-        filename (str): The filename to check.
-
-    Returns:
-        bool: True if the filename prefix is valid, False otherwise.
-    """
-    prefix = filename.split(".")[0]
-    return len(prefix) == 11 and all(c in "0123456789abcdef" for c in prefix)
+def extract_last_hash(text: str):
+    """Extracts the last 11-character alphanumeric hash from a string."""
+    pattern = r"\b[a-zA-Z0-9]{11}\b"
+    matches = re.findall(pattern, text)
+    return matches[-1] if matches else None
 
 
 def find_missing_msa_protein_sequences(
@@ -72,6 +66,7 @@ def find_missing_msa_protein_sequences(
     Returns:
         pd.DataFrame: A dataframe containing the missing sequences.
     """
+
     # Convert msa_dirs string to a list of Path objects
     msa_dirs = [Path(dir_path) for dir_path in msa_dirs.split(",")]
     output_path = Path(output_path)
@@ -98,24 +93,19 @@ def find_missing_msa_protein_sequences(
 
     # Collect all filenames in the MSA directories into a set for membership checking
     logger.info("Collecting filenames in the MSA directories...")
-    existing_msa_sequence_hashes = collect_filenames(msa_dirs)
-    logger.info(f"Collected {len(existing_msa_sequence_hashes)} filenames.")
+    existing_filenames = collect_filenames(msa_dirs)
+    logger.info(f"Collected {len(existing_filenames)} filenames.")
 
-    # Checking if hashes are valid
-    logger.info("Checking if hashes are valid...")
-    original_len = len(existing_msa_sequence_hashes)
-
-    # Remove invalid hashes from the set
-    existing_msa_sequence_hashes = {hash for hash in existing_msa_sequence_hashes if is_valid_filename(hash)}
-
-    logger.info(f"Removed {original_len - len(existing_msa_sequence_hashes)} invalid hashes.")
+    logger.info("Extracting hashes from filenames...")
+    existing_hashes = {extract_last_hash(filename) for filename in existing_filenames}
+    logger.info(f"Extracted {len(existing_hashes)} unique hashes.")
 
     # Compute the missing sequences
     missing_sequences = []
     for sequence in tqdm(all_msa_sequences, desc="Checking for missing sequences"):
         if sequence:  # There are some empty sequences hanging around in the df
             sequence_hash = hash_sequence(sequence)
-            if sequence_hash not in existing_msa_sequence_hashes:
+            if sequence_hash not in existing_hashes:
                 missing_sequences.append(sequence)
 
     logger.info(f"Found {len(missing_sequences)} missing sequences. Saving to {output_path}.")
