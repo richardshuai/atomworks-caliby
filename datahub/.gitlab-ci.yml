@@ -1,10 +1,10 @@
 stages:
   - test_fast
   - test_slow
-  - coverage
-
+  - post_merge
 
 unit-test-job:
+  coverage: '/TOTAL.*\s+(\d+%)$/'
   stage: test_fast
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
@@ -14,7 +14,8 @@ unit-test-job:
     - echo "Running fast unit tests"
     - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_fast_tests.sh
 
-slow-test-job:
+integration-test-job:
+  coverage: '/TOTAL.*\s+(\d+%)$/'
   stage: test_slow
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
@@ -26,17 +27,13 @@ slow-test-job:
     - echo "Running slow tests"
     - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_slow_tests.sh
 
-coverage-job:
-  stage: coverage
+post-merge-job:
+  coverage: '/TOTAL.*\s+(\d+%)$/'
+  stage: post_merge
   rules:
-    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i && ($CI_MERGE_REQUEST_APPROVED || $CI_COMMIT_BRANCH == "main")
-      when: on_success
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Run on main branch after merge
+      when: always
     - when: never
-  needs:
-    - job: slow-test-job
   script:
-    - echo "Computing code coverage"
-    - srun -p cpu --cpus-per-task=1 --mem=32G bash make coverage
-
-
-
+    - echo "Running post-merge tests"
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_post_merge_tests.sh
