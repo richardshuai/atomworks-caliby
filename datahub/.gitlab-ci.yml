@@ -41,13 +41,12 @@ post-merge-job:
 
 build-apptainer-job:
   stage: build_apptainer
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev"
+      changes:
+        - apptainer.spec
+        - environment.yaml
+      when: manual
+    - when: never
   script:
     - ./.ci/build_apptainer.sh
-  only:
-    - main
-    - dev
-  rules:
-    - changes:
-      - apptainer.spec
-      - environment.yaml
-    - when: manual
