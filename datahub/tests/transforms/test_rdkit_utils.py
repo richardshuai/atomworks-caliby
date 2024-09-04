@@ -3,7 +3,6 @@ import numpy as np
 import pytest
 from biotite.structure import AtomArray
 from rdkit import Chem
-from rdkit.Chem.Draw import IPythonConsole
 
 from datahub.transforms.rdkit_utils import (
     atom_array_from_rdkit,
@@ -13,14 +12,18 @@ from datahub.transforms.rdkit_utils import (
     smiles_to_rdkit,
 )
 
-# Settings for debugging & interactive tests
-# (these will have no effect when running tests in a non-interactive environment)
-IPythonConsole.kekulizeStructures = False
-IPythonConsole.drawOptions.addAtomIndices = True
-IPythonConsole.ipython_3d = False
-IPythonConsole.ipython_useSVG = True
-IPythonConsole.drawOptions.addStereoAnnotation = True
-IPythonConsole.molSize = 600, 300
+try:
+    # Settings for debugging & interactive tests
+    from rdkit.Chem.Draw import IPythonConsole
+
+    IPythonConsole.kekulizeStructures = False
+    IPythonConsole.drawOptions.addAtomIndices = True
+    IPythonConsole.ipython_3d = True
+    IPythonConsole.ipython_useSVG = True
+    IPythonConsole.drawOptions.addStereoAnnotation = True
+    IPythonConsole.molSize = 600, 300
+except ImportError:
+    pass
 
 TEST_SMILES = [
     "C1=NC(=C2C(=N1)N(C=N2)C3C(C(C(O3)COP(=O)(O)O)O)O)N",  # Adenosine

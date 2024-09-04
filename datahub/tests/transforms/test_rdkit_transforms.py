@@ -2,9 +2,6 @@ import numpy as np
 import pytest
 from rdkit import Chem
 
-# Settings for debugging & interactive tests
-from rdkit.Chem.Draw import IPythonConsole
-
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.tests.conftest import cached_parse
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, HandleUndesiredResTokens, RemoveHydrogens
@@ -17,12 +14,18 @@ from datahub.transforms.rdkit_utils import (
     atom_array_from_rdkit,
 )
 
-IPythonConsole.kekulizeStructures = False
-IPythonConsole.drawOptions.addAtomIndices = True
-IPythonConsole.ipython_3d = True
-IPythonConsole.ipython_useSVG = True
-IPythonConsole.drawOptions.addStereoAnnotation = True
-IPythonConsole.molSize = 600, 300
+try:
+    # Settings for debugging & interactive tests
+    from rdkit.Chem.Draw import IPythonConsole
+
+    IPythonConsole.kekulizeStructures = False
+    IPythonConsole.drawOptions.addAtomIndices = True
+    IPythonConsole.ipython_3d = True
+    IPythonConsole.ipython_useSVG = True
+    IPythonConsole.drawOptions.addStereoAnnotation = True
+    IPythonConsole.molSize = 600, 300
+except ImportError:
+    pass
 
 
 TEST_CASES = [
