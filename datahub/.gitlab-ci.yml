@@ -49,4 +49,6 @@ build-apptainer-job:
       when: manual
     - when: never
   script:
-    - ./.ci/build_apptainer.sh
+    - echo "Building Apptainer image"
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/build_apptainer.sh
+    - echo "Apptainer image is available at /projects/ml/RF2_allatom/spec_files/datahub_$(DATE).sif"
