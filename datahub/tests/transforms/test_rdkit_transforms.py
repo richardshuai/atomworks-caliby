@@ -40,7 +40,6 @@ TEST_CASES = [
     # ... atomizing standard residues mid-structure
     {"pdb_id": "6lyz", "corrupt_charge": False, "res_names_to_atomize": ["ALA"]},
 ]
-test_case = TEST_CASES[0]
 
 
 @pytest.mark.parametrize("test_case", TEST_CASES)
@@ -100,7 +99,7 @@ def test_add_rdkit_molecules_for_atomized_molecules(test_case):
         assert np.all(_mol_array.rdkit_atom_id >= 0), "RDKit atom ids are not correctly set"
 
 
-@pytest.parametrize("test_case", TEST_CASES)
+@pytest.mark.parametrize("test_case", TEST_CASES)
 def test_generate_rdkit_conformers(test_case):
     # Prepare input data
     data = cached_parse(test_case["pdb_id"])
