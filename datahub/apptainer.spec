@@ -153,7 +153,6 @@ IncludeCmd: yes
    
    # activate environment (the .bashrc in the container is at `/root/.bashrc`)
    source /usr/etc/profile.d/conda.sh
-   source /usr/bin/activate
    conda activate datahub-apptainer
    echo "... running python $(python --version) at $(which python)"
 
@@ -182,17 +181,17 @@ IncludeCmd: yes
       apptainer run-help datahub_apptainer.sif
 
    To build this apptainer, use:
-      apptainer build --bind $PWD:/datahub_host path/to/datahub_apptainer.sif apptainer.spec
+      apptainer build --bind $PWD:/datahub_host path/to/apptainer.sif apptainer.spec
 
    To run the container, use:
-      apptainer exec /path/to/datahub_apptainer.sif <command>
+      apptainer exec /path/to/apptainer.sif <command>
       OR
-      ./path/to/datahub_apptainer.sif <command>
+      ./path/to/apptainer.sif <command>
 
    To get an interactive shell in the container, use:
-      apptainer shell /path/to/datahub_apptainer.sif
+      apptainer shell /path/to/apptainer.sif
 
 %labels
-    Author smathis@uw.edu
+    Author simon.mathis@gmail.com, ncorley@uw.edu
     Version v0.0.1
     ApptainerVersion 1.1.6+2-g6808b5172-ipd
