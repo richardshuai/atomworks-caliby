@@ -2,6 +2,7 @@ stages:
   - test_fast
   - test_slow
   - post_merge
+  - build_apptainer
 
 unit-test-job:
   coverage: '/TOTAL.*\s+(\d+%)$/'
@@ -37,3 +38,16 @@ post-merge-job:
   script:
     - echo "Running post-merge tests"
     - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_post_merge_tests.sh
+
+build-apptainer-job:
+  stage: build_apptainer
+  script:
+    - ./.ci/build_apptainer.sh
+  only:
+    - main
+    - dev
+  rules:
+    - changes:
+      - apptainer.spec
+      - environment.yaml
+    - when: manual
