@@ -11,6 +11,7 @@ References:
 """
 
 import logging
+from functools import cache
 from typing import Any
 
 import biotite.structure as struc
@@ -76,16 +77,17 @@ Reference:
 """
 
 
-def _element_str_to_int(element: str | int) -> int:
+@cache
+def _element_to_atomic_number(element: str | int) -> int:
     """
     Convert an element string to an atomic number.
 
     Examples:
-        >>> _element_str_to_int("C")
+        >>> _element_to_atomic_number("C")
         6
-        >>> _element_str_to_int("8")
+        >>> _element_to_atomic_number("8")
         8
-        >>> _element_str_to_int(1)
+        >>> _element_to_atomic_number(1)
         1
     """
     try:
@@ -174,7 +176,7 @@ def atom_array_to_openbabel(
     _has_explicit_hydrogen = False
     for atom in atom_array:
         obatom = obmol.NewAtom()
-        obatom.SetAtomicNum(_element_str_to_int(atom.element))
+        obatom.SetAtomicNum(_element_to_atomic_number(atom.element))
         if obatom.GetAtomicNum() == 1:
             _has_explicit_hydrogen = True
 

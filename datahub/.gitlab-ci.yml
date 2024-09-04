@@ -1,8 +1,11 @@
 stages:
-  - test
+  - test_fast
+  - test_slow
+  - coverage
+
 
 unit-test-job:
-  stage: test
+  stage: test_fast
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
       when: always
@@ -10,3 +13,30 @@ unit-test-job:
   script:
     - echo "Running fast unit tests"
     - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_fast_tests.sh
+
+slow-test-job:
+  stage: test_slow
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
+      when: on_success
+    - when: never
+  needs:
+    - job: unit-test-job
+  script:
+    - echo "Running slow tests"
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_slow_tests.sh
+
+coverage-job:
+  stage: coverage
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i && ($CI_MERGE_REQUEST_APPROVED || $CI_COMMIT_BRANCH == "main")
+      when: on_success
+    - when: never
+  needs:
+    - job: slow-test-job
+  script:
+    - echo "Computing code coverage"
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash make coverage
+
+
+

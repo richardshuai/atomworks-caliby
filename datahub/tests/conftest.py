@@ -83,6 +83,8 @@ def _cached_parse(
         keep_hydrogens=keep_hydrogens,
         fix_arginines=fix_arginines,
         patch_symmetry_centers=patch_symmetry_centers,
+        save_to_cache=False,
+        cache_dir=None,
     )
     if "atom_array" not in data:
         assembly_ids = list(data["assemblies"].keys())
