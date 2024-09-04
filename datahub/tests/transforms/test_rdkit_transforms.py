@@ -3,7 +3,6 @@ import pytest
 from rdkit import Chem
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.tests.conftest import cached_parse
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, HandleUndesiredResTokens, RemoveHydrogens
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Compose
@@ -13,6 +12,7 @@ from datahub.transforms.rdkit_utils import (
     GenerateRDKitConformers,
     atom_array_from_rdkit,
 )
+from tests.conftest import cached_parse
 
 try:
     # Settings for debugging & interactive tests
