@@ -322,6 +322,21 @@ class AddWithinPolyResIdxAnnotation(Transform):
         return data
 
 
+def remove_unresolved_pn_units(atom_array: AtomArray) -> AtomArray:
+    """
+    Filters PN units that have all unresolved atoms (i.e., atoms with occupancy 0) from the AtomArray.
+    Can be applied before or after croppping, since cropping may lead to PN units with all unresolved atoms that were previously not entirely unresolved.
+    At training time, these unresolved PN units provide minimal value and can lead to errors in the model.
+    """
+    # Get the PN units with resolved atoms
+    pn_units_with_resolved_atoms = np.unique(atom_array.pn_unit_iid[atom_array.occupancy != 0])
+
+    # Restrict the AtomArray to only include PN units with at least one resolved atom
+    atom_array = atom_array[np.isin(atom_array.pn_unit_iid, pn_units_with_resolved_atoms)]
+
+    return atom_array
+
+
 class RemoveUnresolvedPNUnits(Transform):
     """
     Filters PN units that have all unresolved atoms (i.e., atoms with occupancy 0) from the AtomArray.
@@ -335,15 +350,7 @@ class RemoveUnresolvedPNUnits(Transform):
         check_atom_array_annotation(data, ["pn_unit_iid", "occupancy"])
 
     def forward(self, data: dict) -> dict:
-        atom_array = data["atom_array"]
-
-        # Get the PN units with resolved atoms
-        pn_units_with_resolved_atoms = np.unique(atom_array.pn_unit_iid[atom_array.occupancy != 0])
-
-        # Restrict the AtomArray to only include PN units with at least one resolved atom
-        atom_array = atom_array[np.isin(atom_array.pn_unit_iid, pn_units_with_resolved_atoms)]
-
-        data["atom_array"] = atom_array
+        data["atom_array"] = remove_unresolved_pn_units(data["atom_array"])
         return data
 
 
