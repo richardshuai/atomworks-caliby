@@ -174,7 +174,7 @@ def get_spatial_crop_center(atom_array: AtomArray, query_pn_unit_iids: list[str]
     return can_be_crop_center
 
 
-def crop_spatial_af2_multimer(
+def get_spatial_crop_mask(
     coord: np.ndarray, crop_center_idx: int, crop_size: int, jitter_scale: float = 1e-3
 ) -> np.ndarray:
     """
@@ -200,7 +200,7 @@ def crop_spatial_af2_multimer(
         >>> coord = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0], [3.0, 3.0, 3.0]])
         >>> crop_center_idx = 1
         >>> crop_size = 2
-        >>> crop_mask = crop_spatial_af2_multimer(coord, crop_center_idx, crop_size)
+        >>> crop_mask = get_spatial_crop_mask(coord, crop_center_idx, crop_size)
         >>> print(crop_mask)
         [ True  True False False]
     """
@@ -309,6 +309,79 @@ class CropContiguousLikeAF3(Transform):
         return data
 
 
+def crop_spatial_like_af3(
+    atom_array: AtomArray,
+    query_pn_unit_iids: list[str],
+    crop_size: int,
+    jitter_scale: float = 1e-3,
+    crop_center_cutoff_distance: float = 15.0,
+    force_crop: bool = False,
+) -> AtomArray:
+    """
+    Crop spatial tokens around a given `crop_center` by keeping the `crop_size` nearest neighbors (with jitter).
+
+    Args:
+        - atom_array (AtomArray): The atom array to crop.
+        - query_pn_unit_iids (list[str]): List of query polymer/non-polymer unit instance IDs.
+        - crop_size (int): The maximum number of tokens to crop.
+        - jitter_scale (float, optional): Scale of jitter to apply when calculating distances.
+            Defaults to 1e-3.
+        - crop_center_cutoff_distance (float, optional): Maximum distance from query units to
+            consider for crop center. Defaults to 15.0 Angstroms.
+        - force_crop (bool, optional): Whether to force crop even if the atom array is already small enough.
+            Defaults to False.
+
+    Returns:
+        dict: A dictionary containing crop information, including:
+            - requires_crop (bool): Whether cropping was necessary.
+            - crop_center_atom_id (int or np.nan): ID of the atom chosen as crop center.
+            - crop_center_atom_idx (int or np.nan): Index of the atom chosen as crop center.
+            - crop_center_token_idx (int or np.nan): Index of the token containing the crop center.
+            - crop_token_idxs (np.ndarray): Indices of tokens included in the crop.
+            - crop_atom_idxs (np.ndarray): Indices of atoms included in the crop.
+
+    Note:
+        This function implements the spatial cropping procedure as described in AlphaFold 3 and AlphaFold 2 Multimer.
+
+    References:
+        - AF3 https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
+        - AF2 Multimer https://www.biorxiv.org/content/10.1101/2021.10.04.463034v2.full.pdf
+    """
+    requires_crop = get_token_count(atom_array) > crop_size
+    if force_crop or requires_crop:
+        # Get possible crop centers
+        can_be_crop_center = get_spatial_crop_center(atom_array, query_pn_unit_iids, crop_center_cutoff_distance)
+
+        # ... sample crop center atom
+        crop_center_atom_id = np.random.choice(atom_array[can_be_crop_center].atom_id)
+        crop_center_atom_idx = atom_id_to_atom_idx(atom_array, crop_center_atom_id)
+
+        # ... sample crop
+        token_coords = get_af3_token_representative_coords(atom_array)
+        crop_center_token_idx = atom_id_to_token_idx(atom_array, crop_center_atom_id)
+        is_token_in_crop = get_spatial_crop_mask(
+            token_coords, crop_center_token_idx, crop_size=crop_size, jitter_scale=jitter_scale
+        )
+        # ... spread token-level crop mask to atom-level
+        is_atom_in_crop = spread_token_wise(atom_array, is_token_in_crop)
+    else:
+        # ... no need to crop since the atom array is already small enough
+        crop_center_atom_id = np.nan
+        crop_center_atom_idx = np.nan
+        crop_center_token_idx = np.nan
+        is_atom_in_crop = np.ones(len(atom_array), dtype=bool)
+        is_token_in_crop = np.ones(get_token_count(atom_array), dtype=bool)
+
+    return {
+        "requires_crop": requires_crop,
+        "crop_center_atom_id": crop_center_atom_id,
+        "crop_center_atom_idx": crop_center_atom_idx,
+        "crop_center_token_idx": crop_center_token_idx,
+        "crop_token_idxs": np.where(is_token_in_crop)[0],
+        "crop_atom_idxs": np.where(is_atom_in_crop)[0],
+    }
+
+
 class CropSpatialLikeAF3(Transform):
     """
     A transform that performs spatial cropping similar to AF3 and AF2 Multimer.
@@ -374,42 +447,21 @@ class CropSpatialLikeAF3(Transform):
         else:
             query_pn_units = np.unique(atom_array.pn_unit_iid)
 
-        requires_crop = get_token_count(atom_array) > self.crop_size
-        if requires_crop:
-            # Get possible crop centers
-            can_be_crop_center = get_spatial_crop_center(atom_array, query_pn_units, self.crop_center_cutoff_distance)
+        crop_info = crop_spatial_like_af3(
+            atom_array,
+            query_pn_units,
+            crop_size=self.crop_size,
+            jitter_scale=self.jitter_scale,
+            crop_center_cutoff_distance=self.crop_center_cutoff_distance,
+        )
 
-            # Sample crop atom
-            crop_atom_id = np.random.choice(atom_array[can_be_crop_center].atom_id)
-            # ... sample crop
-            token_coords = get_af3_token_representative_coords(atom_array)
-            token_crop_idx = atom_id_to_token_idx(atom_array, crop_atom_id)
-            is_token_in_crop = crop_spatial_af2_multimer(
-                token_coords, token_crop_idx, crop_size=self.crop_size, jitter_scale=self.jitter_scale
-            )
-            # ... spread token-level crop mask to atom-level
-            is_atom_in_crop = spread_token_wise(atom_array, is_token_in_crop)
-        else:
-            # ... no need to crop since the atom array is already small enough
-            crop_atom_id = np.nan
-            token_crop_idx = np.nan
-            is_atom_in_crop = np.ones(len(atom_array), dtype=bool)
-            is_token_in_crop = np.ones(get_token_count(atom_array), dtype=bool)
+        data["crop_info"] = {"type": self.__class__.__name__} | crop_info
 
-        # Update crop center atom for history
-        data["crop_info"] = {
-            "type": self.__class__.__name__,
-            "requires_crop": requires_crop,
-            "crop_center_atom_id": crop_atom_id,
-            "crop_center_atom_idx": atom_id_to_atom_idx(atom_array, crop_atom_id) if requires_crop else np.nan,
-            "crop_center_token_idx": token_crop_idx,
-            "crop_token_idxs": np.where(is_token_in_crop)[0],
-            "crop_atom_idxs": np.where(is_atom_in_crop)[0],
-        }
         if self.keep_uncropped_atom_array:
             data["crop_info"]["atom_array"] = atom_array
 
         # Update data with cropped atom array
+        is_atom_in_crop = crop_info["crop_atom_idxs"]
         data["atom_array"] = atom_array[is_atom_in_crop]  # note: this is a copy
 
         return data
