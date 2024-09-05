@@ -1,6 +1,6 @@
 import copy
 import logging
-from functools import cache, wraps
+from functools import cache, lru_cache, wraps
 from pathlib import Path
 from typing import Any
 
@@ -137,7 +137,7 @@ def _element_to_atomic_number(element: str | int) -> int:
     try:
         return int(element)
     except ValueError:
-        return Chem.GetPeriodicTable().GetAtomicNumber(element)
+        return Chem.GetPeriodicTable().GetAtomicNumber(element.capitalize())
 
 
 def _preserve_annotations(func: callable) -> callable:
@@ -371,7 +371,7 @@ def generate_conformers(
     seed = default(seed, -1)
     try:
         AllChem.EmbedMultipleConfs(
-            mol, numConfs=n_conformers, randomSeed=seed, enforceChirality=True, useRandomCoords=False
+            mol, numConfs=int(n_conformers), randomSeed=int(seed), enforceChirality=True, useRandomCoords=False
         )
         if mol.GetNumConformers() < n_conformers:
             logger.warning(
@@ -381,7 +381,7 @@ def generate_conformers(
             raise RuntimeError("Failed to generate enough conformers.")
     except RuntimeError:
         AllChem.EmbedMultipleConfs(
-            mol, numConfs=n_conformers, randomSeed=seed, enforceChirality=False, useRandomCoords=True
+            mol, numConfs=int(n_conformers), randomSeed=int(seed), enforceChirality=False, useRandomCoords=True
         )
         if mol.GetNumConformers() < n_conformers:
             raise RuntimeError(
@@ -734,6 +734,14 @@ def sample_rdkit_conformer_for_atom_array(atom_array: AtomArray, seed: int | Non
     atom_array.coord = new_atom_array.coord
 
     return atom_array
+
+
+@lru_cache(maxsize=1000)
+def res_name_to_rdkit(res_name: str, set_coord: bool = True, infer_hydrogens: bool = True) -> Mol:
+    """
+    Get an RDKit molecule from a CCD res_name.
+    """
+    return atom_array_to_rdkit(struc.info.residue(res_name), set_coord=set_coord, infer_hydrogens=infer_hydrogens)
 
 
 # -------------------------------------------------------------------------------------------------
