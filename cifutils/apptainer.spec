@@ -76,7 +76,7 @@ IncludeCmd: yes
 
    ## GENERAL SETUP
    # Switch shell to bash
-   rm /bin/sh; ln -s /bin/bash /bin/sh
+   ln -sf /bin/bash /bin/sh
 
    # Common symlinks
    ln -s /net/databases /databases
@@ -89,6 +89,8 @@ IncludeCmd: yes
    apt-get update
    # Install build essentials and other required packages (needed for compiling biotite cython files)
    apt-get install -y build-essential gcc g++
+   # Install make (so we can run `make format`, `make clean`, etc.)
+   apt-get install -y make
    # required X libs
    apt-get install -y libx11-6 libxau6 libxext6 libxrender1
    #  git
@@ -104,13 +106,9 @@ IncludeCmd: yes
    # ... the environment in the container is at `/usr/envs/cifutils-apptainer`
    conda env create --file /opt/environment.yaml --name cifutils-apptainer
 
-   # Set up conda and activate the cifutils-apptainer environment
+   # Set up conda
    conda init bash
    # Add conda environment to PATH
-   echo "source /usr/etc/profile.d/conda.sh" >> /root/.bashrc
-   echo "source /usr/bin/activate" >> /root/.bashrc
-   echo "conda activate cifutils-apptainer" >> /root/.bashrc
-   echo "export PATH=/usr/envs/cifutils-apptainer/bin:$PATH" >> /root/.bashrc
    export PATH=/usr/envs/cifutils-apptainer/bin:$PATH
 
    ## CLEANUP
@@ -171,9 +169,7 @@ IncludeCmd: yes
 
 %environment
    source /usr/etc/profile.d/conda.sh
-   source /usr/bin/activate
    conda activate cifutils-apptainer
-   source /root/.bashrc
 
 %runscript
    # NOTE: The %runscript is invoked when the container is run without specifying a different command. 
