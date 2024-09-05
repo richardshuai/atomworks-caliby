@@ -32,7 +32,7 @@ def _raise_exception(exception: Exception, exception_message: str | None = None)
         raise exception(exception_message)
 
 
-def timeout(
+def timeout_wrapper(
     seconds: float | None = None, timeout_exception: Exception = TimeoutError, exception_message: str | None = None
 ):
     """
@@ -79,3 +79,40 @@ def timeout(
         return new_function
 
     return decorate
+
+
+class TimeoutContext:
+    """
+    A context manager for applying timeouts to blocks of code.
+
+    Args:
+        - seconds (float): Time limit in seconds or fractions of a second.
+        - timeout_exception (Exception): Exception to raise on timeout. Defaults to TimeoutError.
+        - exception_message (str, optional): Message to pass to the exception on timeout.
+
+    Raises:
+        - TimeoutError: If the time limit is reached.
+
+    Example:
+        with TimeoutContext(5):
+            # Code that should timeout after 5 seconds
+            time.sleep(10)
+    """
+
+    def __init__(
+        self, seconds: float, timeout_exception: Exception = TimeoutError, exception_message: str | None = None
+    ):
+        self.seconds = seconds
+        self.timeout_exception = timeout_exception
+        self.exception_message = exception_message
+
+    def _handler(self, signum, frame):
+        _raise_exception(self.timeout_exception, self.exception_message)
+
+    def __enter__(self):
+        self.old_handler = signal.signal(signal.SIGALRM, self._handler)
+        signal.setitimer(signal.ITIMER_REAL, self.seconds)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, self.old_handler)
