@@ -207,6 +207,62 @@ def apply_segment_wise_2d(array: np.ndarray, segment_start_end_idxs: np.ndarray,
     return array
 
 
+def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
+    """
+    Returns a boolean mask indicating the representative atoms of the tokens in the atom array.
+
+    For each token we also designate a token center atom, used in various places below:
+        - CA for standard amino acids
+        - C1' for standard nucleotides
+        - For other cases take the first and only atom as they are tokenized per-atom.
+
+    Args:
+        atom_array (AtomArray): The atom array to get the representative atoms of.
+
+    Returns:
+        np.ndarray: A boolean mask indicating the representative atoms of the tokens in the atom array.
+
+    Examples:
+        >>> atom_array = AtomArray(
+        ...     res_name=["ALA", "ALA", "G", "G", "LIG"],
+        ...     atom_name=["N", "CA", "C1'", "C2", "C1"],
+        ... )
+        >>> get_af3_token_representative_masks(atom_array)
+        array([False,  True,  True, False,  True])
+    """
+    return (
+        atom_array.atomize  # the atom itself for un-atomized tokens
+        | (atom_array.atom_name == "CA")  # CA for amino acids
+        | (atom_array.atom_name == "C1'")  # C1' for nucleotides
+    )
+
+
+def get_af3_token_representative_idxs(atom_array: AtomArray) -> np.ndarray:
+    """
+    Returns the indices of the representative atoms of the tokens in the atom array.
+
+    For each token, a representative atom is designated:
+        - CA for standard amino acids
+        - C1' for standard nucleotides
+        - For other cases, the first and only atom as they are tokenized per-atom.
+
+    Args:
+        atom_array (AtomArray): The atom array to get the representative atom indices from.
+
+    Returns:
+        np.ndarray: An array of indices corresponding to the representative atoms of the tokens.
+
+    Example:
+        >>> atom_array = AtomArray(
+        ...     res_name=["ALA", "ALA", "G", "G", "LIG"],
+        ...     atom_name=["N", "CA", "C1'", "C2", "C1"],
+        ... )
+        >>> get_af3_token_representative_idxs(atom_array)
+        array([1, 2, 4])
+    """
+    return np.where(get_af3_token_representative_masks(atom_array))[0]
+
+
 def get_af3_token_representative_coords(atom_array: AtomArray) -> np.ndarray:
     """Returns the representative coordinates of the tokens in the atom array.
 
@@ -239,9 +295,4 @@ def get_af3_token_representative_coords(atom_array: AtomArray) -> np.ndarray:
         >>> get_af3_token_representative_coords(array)
         array([[0, 0, 0], [3, 0, 0], [4, 0, 0]])
     """
-    is_token_representative = (
-        atom_array.atomize  # the atom itself for un-atomized tokens
-        | (atom_array.atom_name == "CA")  # CA for amino acids
-        | (atom_array.atom_name == "C1'")  # C1' for nucleotides
-    )
-    return atom_array.coord[is_token_representative]
+    return atom_array.coord[get_af3_token_representative_masks(atom_array)]
