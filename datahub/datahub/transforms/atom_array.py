@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from functools import lru_cache
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -186,6 +186,106 @@ class RenumberNonPolymerResidueIdx(Transform):
         return data
 
 
+def get_within_poly_res_idx(atom_array: AtomArray) -> np.ndarray:
+    # Add annotation, where we default to -1 for residues that are not within a polymer
+    within_poly_res_idx = np.full(len(atom_array), -1, dtype=np.int16)
+
+    # Filter to polymers
+    polymer_atom_array = atom_array[atom_array.is_polymer]  # NOTE: This creates a COPY of the atom array! Danger!
+
+    # Loop through ever unique chain_iid (which for polymers, is the same as the pn_unit_iid)
+    for chain_iid in np.unique(polymer_atom_array.chain_iid):
+        chain_mask = atom_array.chain_iid == chain_iid
+
+        # Spread residue-wise
+        new_res_idx = struc.spread_residue_wise(atom_array[chain_mask], np.arange(0, np.sum(chain_mask)))
+
+        # Update the atom_array with the generated res_ids, indexing into the full atom array
+        within_poly_res_idx[chain_mask] = new_res_idx
+
+    return within_poly_res_idx
+
+
+def get_within_group_res_idx(atom_array: AtomArray, group_by: str) -> np.ndarray:
+    """
+    Get the within-group residue index for the atom array.
+        - Groups do not need to be contiguous.
+        - Groups are defined by the unique values of the `group_by` annotation.
+    """
+    # Add annotation, where we default to -1 for residues that are not within a group
+    within_group_res_idx = np.empty(len(atom_array), dtype=np.int32)
+
+    group_annotation = atom_array.get_annotation(group_by)
+
+    for group_id in np.unique(group_annotation):
+        group_mask = group_annotation == group_id
+        in_group_res_idx = struc.spread_residue_wise(atom_array[group_mask], np.arange(0, np.sum(group_mask)))
+        within_group_res_idx[group_mask] = in_group_res_idx
+
+    return within_group_res_idx
+
+
+def get_within_group_atom_idx(atom_array: AtomArray, group_by: str) -> np.ndarray:
+    """
+    Get the within-group atom index for the atom array.
+        - Groups do not need to be contiguous.
+        - Groups are defined by the unique values of the `group_by` annotation.
+    """
+    within_group_atom_idx = np.empty(len(atom_array), dtype=np.int32)
+
+    group_annotation = atom_array.get_annotation(group_by)
+
+    for group_id in np.unique(group_annotation):
+        group_mask = group_annotation == group_id
+        in_group_atom_idx = np.arange(0, np.sum(group_mask))
+        within_group_atom_idx[group_mask] = in_group_atom_idx
+
+    return within_group_atom_idx
+
+
+def get_within_entity_idx(
+    atom_array: AtomArray, level: Literal["chain", "pn_unit", "molecule"]
+) -> tuple[np.ndarray, list[np.ndarray]]:
+    """
+    Get the within-entity instance index for the atom array.
+        - Allowed levels are "chain", "pn_unit", or "molecule".
+        - Entities do not need to be contiguous.
+        - Entities are defined by the unique values of the `{level}_entity` annotation.
+
+    Args:
+        - atom_array (AtomArray): The atom array to process.
+        - level (Literal["chain", "pn_unit", "molecule"]): The level at which to calculate the within-entity index.
+
+    Returns:
+        - np.ndarray: An array of within-entity instance indices for each atom in the atom array.
+
+    Example:
+        >>> import biotite.structure as struc
+        >>> atom_array = struc.AtomArray(7)
+        >>> atom_array.set_annotation("chain_iid", ["A", "A", "B", "C", "D", "D", "E"])
+        >>> atom_array.set_annotation("chain_entity", ["1", "1", "1", "1", "2", "2", "2"])
+        >>> iids, within_entity_idx = get_within_entity_idx(atom_array, level="chain")
+        >>> print(within_entity_idx)
+        [0 0 1 2 0 0 1]
+        >>> print(iids)
+        ['A' 'B' 'C'] ['D' 'E']
+    """
+    within_entity_idx = np.empty(len(atom_array), dtype=np.int32)
+
+    entity_annotation = atom_array.get_annotation(f"{level}_entity")
+    instance_annotation = atom_array.get_annotation(f"{level}_iid")
+
+    iids = []
+    for entity_id in np.unique(entity_annotation):
+        entity_mask = entity_annotation == entity_id
+
+        in_entity_iids, in_entity_instance_idx = np.unique(instance_annotation[entity_mask], return_inverse=True)
+        iids.append(in_entity_iids)
+        within_entity_idx[entity_mask] = in_entity_instance_idx
+
+    return iids, within_entity_idx
+
+
 class AddWithinPolyResIdxAnnotation(Transform):
     """
     Adds the `within_poly_res_idx` (within polymer residue index) annotation to the AtomArray.
@@ -209,27 +309,14 @@ class AddWithinPolyResIdxAnnotation(Transform):
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
-        check_atom_array_annotation(data, ["chain_iid", "res_id"])  # We require res_id for validation purposes only
+        check_atom_array_annotation(data, ["chain_iid"])
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
 
-        # Add annotation, where we default to -1 for residues that are not within a polymer
-        default_within_poly_res_idx = np.full(len(atom_array), -1, dtype=np.int16)
-        atom_array.set_annotation("within_poly_res_idx", default_within_poly_res_idx)
-
-        # Filter to polymers
-        polymer_atom_array = atom_array[atom_array.is_polymer]  # NOTE: This creates a COPY of the atom array! Danger!
-
-        # Loop through ever unique chain_iid (which for polymers, is the same as the pn_unit_iid)
-        for chain_iid in np.unique(polymer_atom_array.chain_iid):
-            chain_mask = atom_array.chain_iid == chain_iid
-
-            # Spread residue-wise
-            new_res_idx = struc.spread_residue_wise(atom_array[chain_mask], np.arange(0, np.sum(chain_mask)))
-
-            # Update the atom_array with the generated res_ids, indexing into the full atom array
-            atom_array.within_poly_res_idx[chain_mask] = new_res_idx
+        within_poly_res_idx = get_within_poly_res_idx(atom_array, group_by="chain_iid")
+        within_poly_res_idx[~atom_array.is_polymer] = -1
+        atom_array.set_annotation("within_poly_res_idx", within_poly_res_idx)
 
         data["atom_array"] = atom_array
         return data
