@@ -8,7 +8,7 @@ import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, Mol
+from rdkit.Chem import AllChem, Mol, rdDistGeom
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 from datahub.common import default
@@ -301,8 +301,11 @@ def remove_hydrogens(mol: Mol) -> Mol:
 @_preserve_annotations
 def generate_conformers(
     mol: Mol,
+    *,
     seed: int | None = None,
     n_conformers: int = 1,
+    method: str = "ETKDGv3",
+    num_threads: int = 1,
     infer_hydrogens: bool = True,
     optimize_conformers: bool = True,
     **uff_optimize_kwargs: dict,
@@ -314,10 +317,15 @@ def generate_conformers(
         - mol (rdkit.Chem.Mol): The RDKit molecule to generate conformations for.
         - seed (int | None): Random seed for reproducibility. If None, a random seed is used.
         - n_conformers (int): Number of conformations to generate.
+        - method (str): The method to use for conformer generation. Default is "ETKDGv3".
+            Allowed methods are: "ETDG", "ETKDG", "ETKDGv2", "ETKDGv3", "srETKDGv3"
+            See https://rdkit.org/docs/RDKit_Book.html#conformer-generation for details.
+        - num_threads (int): Number of threads to use for parallel computation. Default is 1.
         - infer_hydrogens (bool): Whether to add hydrogens if they are not present. This is
             recommended, since having hydrogens improves the accuracy of the conformer
-            generation.
+            generation. Default is True.
         - optimize_conformers (bool): Whether to optimize the generated conformers using UFF.
+            Default is True.
         - **uff_optimize_kwargs (dict): Additional keyword arguments for UFF optimization:
             - maxIters (int): Maximum number of iterations (default 200).
             - vdwThresh (float): Used to exclude long-range van der Waals interactions
@@ -338,8 +346,9 @@ def generate_conformers(
         - Optimizing conformers (optimize_conformers=True) is recommended for obtaining
           more realistic and lower-energy conformations. However, it may increase
           computation time.
-        - The ETKDG method is used for conformer generation, which incorporates
-          torsion angle preferences and basic knowledge terms for improved accuracy.
+        - The ETKDGv3 method is used for conformer generation, which incorporates
+          torsion angle preferences and basic knowledge (e.g. aromatic rings are planar)
+          for improved accuracy.
         - For macrocycles or complex ring systems, you may need to increase the number
           of conformers generated to ensure good sampling of the conformational space
           (if a representative ensemble of conformers is what you are after).
@@ -357,6 +366,7 @@ def generate_conformers(
            maxIterations or use more advanced sampling techniques.
 
     References:
+        1. Conformer tutorial: https://rdkit.org/docs/RDKit_Book.html#conformer-generation
         1. RDKit Cookbook: https://www.rdkit.org/docs/Cookbook.html
         2. Riniker and Landrum, "Better Informed Distance Geometry: Using What We Know To
            Improve Conformation Generation", JCIM, 2015.
@@ -368,11 +378,16 @@ def generate_conformers(
     # is if you are already providing hydrogens in the molecule.
     mol = add_hydrogens(mol) if infer_hydrogens else mol
 
-    seed = default(seed, -1)
+    # Setup the parameters for the coordinate embedding
+    params = getattr(rdDistGeom, method)()
+    params.clearConfs = True
+    params.randomSeed = default(seed, -1)
+    params.enforceChirality = True
+    params.useRandomCoords = False
+    params.numThreads = num_threads
+
     try:
-        AllChem.EmbedMultipleConfs(
-            mol, numConfs=int(n_conformers), randomSeed=int(seed), enforceChirality=True, useRandomCoords=False
-        )
+        rdDistGeom.EmbedMultipleConfs(mol, numConfs=int(n_conformers), params=params)
         if mol.GetNumConformers() < n_conformers:
             logger.warning(
                 "Initial conformer generation based on distance geometry failed. "
@@ -380,9 +395,9 @@ def generate_conformers(
             )
             raise RuntimeError("Failed to generate enough conformers.")
     except RuntimeError:
-        AllChem.EmbedMultipleConfs(
-            mol, numConfs=int(n_conformers), randomSeed=int(seed), enforceChirality=False, useRandomCoords=True
-        )
+        params.useRandomCoords = True
+        params.enforceChirality = False
+        rdDistGeom.EmbedMultipleConfs(mol, numConfs=int(n_conformers), params=params)
         if mol.GetNumConformers() < n_conformers:
             raise RuntimeError(
                 f"Requested {n_conformers} conformers, but only {mol.GetNumConformers()} were generated."
