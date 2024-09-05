@@ -360,3 +360,33 @@ AF3_EXCLUDED_LIGANDS = [
 Reference:
     - AF3 (Supp. Table 10) https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
 """
+
+STANDARD_AA = (
+    "ALA",
+    "ARG",
+    "ASN",
+    "ASP",
+    "CYS",
+    "GLN",
+    "GLU",
+    "GLY",
+    "HIS",
+    "ILE",
+    "LEU",
+    "LYS",
+    "MET",
+    "PHE",
+    "PRO",
+    "SER",
+    "THR",
+    "TRP",
+    "TYR",
+    "VAL",
+)
+"""The 20 standard amino acids"""
+
+STANDARD_RNA = ("A", "C", "G", "U")
+"""The 4 standard RNA nucleotides"""
+
+STANDARD_DNA = ("DA", "DC", "DG", "DT")
+"""The 4 standard DNA nucleotides"""
