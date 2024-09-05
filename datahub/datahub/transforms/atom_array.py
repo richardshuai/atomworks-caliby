@@ -375,6 +375,15 @@ class RemoveUnsupportedChainTypes(Transform):
         return data
 
 
+def remove_hydrogens(atom_array: AtomArray, hydrogen_names: tuple | list = ("1", "H", "D", "T")) -> AtomArray:
+    """
+    Remove hydrogens from the atom array.
+    """
+    is_heavy = atom_array.element != 1
+    is_heavy &= not_isin(atom_array.element, hydrogen_names)
+    return atom_array[is_heavy]
+
+
 class RemoveHydrogens(Transform):
     """
     Remove hydrogens from the atom array.
@@ -388,10 +397,7 @@ class RemoveHydrogens(Transform):
         check_is_instance(data, "atom_array", AtomArray)
 
     def forward(self, data: dict) -> dict:
-        atom_array = data["atom_array"]
-        is_heavy = atom_array.element != 1
-        is_heavy &= not_isin(atom_array.element, self.hydrogen_names)
-        data["atom_array"] = atom_array[is_heavy]
+        data["atom_array"] = remove_hydrogens(data["atom_array"], self.hydrogen_names)
         return data
 
 
