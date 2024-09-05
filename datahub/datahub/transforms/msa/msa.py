@@ -717,6 +717,11 @@ class FeaturizeMSALikeRF2AA(Transform):
                 n_rows, n_msa_cluster_representatives, preserve_first_index=True
             )
 
+            # ...correct `token_idx_has_msa` for edge cases
+            # (If we only have one selected sequence, then we don't actually have any MSA's)
+            if selected_indices.numel() == 1 and not_selected_indices.numel() == 0:
+                token_idx_has_msa = torch.zeros_like(token_idx_has_msa, dtype=torch.bool)
+
             # ============================================================
             # (2) MASK THE CLUSTER REPRESENTATIVES WITH BERT-STYLE MASK
             # ============================================================
@@ -770,8 +775,8 @@ class FeaturizeMSALikeRF2AA(Transform):
                     extra_msa_should_be_counted_mask=index_should_be_counted_mask[not_selected_indices],
                 )  # [n_not_selected_rows] (int)
             else:
-                # ...if we have no extra sequences, we set the assignments to None
-                assignments = None
+                # ...if we have no extra sequences, we set the assignments to an empty tensor
+                assignments = torch.tensor([], dtype=torch.int)
 
             # ============================================================
             # (4) SUMMARIZE THE CLUSTERS INTO PROFILES AND MEAN INSERTIONS AND SUBSELECT THE EXTA MSA
