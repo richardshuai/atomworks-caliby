@@ -470,7 +470,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
 
     def __init__(self):
         # Load CCD from biotite
-        ccd = struc.info.get_ccd()
+        ccd = struc.info.ccd.get_ccd()
 
         # Get all residue names and their corresponding chemtypes
         self.all_res_names = ccd["chem_comp"]["id"].as_array()
