@@ -466,6 +466,10 @@ class EncodeAF3TokenLevelFeatures(Transform):
         - `asym_name`: The asymmetric unit name for each id in `asym_id`. Acts as a legend.
         - `entity_name`: The entity name for each id in `entity_id`. Acts as a legend.
         - `sym_name`: The symmetric unit name for each id in `sym_id`. Acts as a legend.
+
+    Reference:
+        - Section 2.8 of the AF3 supplementary (Table 5)
+          https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
 
     def __init__(self):
@@ -533,7 +537,14 @@ class EncodeAF3TokenLevelFeatures(Transform):
         is_dna = np.isin(token_level_array.res_name, self.all_res_names[self.is_dna_like])
         is_ligand = ~(is_protein | is_rna | is_dna)
 
-        data["feats"] = {
+        # ... add to data dict
+        if "feats" not in data:
+            data["feats"] = {}
+        if "feat_metadata" not in data:
+            data["feat_metadata"] = {}
+
+        # ... add to data dict
+        data["feats"] |= {
             "residue_index": residue_index,  # (N_tokens) (int)
             "token_index": token_index,  # (N_tokens) (int)
             "asym_id": asym_id,  # (N_tokens) (int)
@@ -545,7 +556,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
             "is_dna": is_dna,  # (N_tokens) (bool)
             "is_ligand": is_ligand,  # (N_tokens) (bool)
         }
-        data["feat_metadata"] = {
+        data["feat_metadata"] |= {
             "asym_name": asym_name,  # (N_asyms)
             "entity_name": entity_name,  # (N_entities)
             "sym_name": sym_name,  # (N_entities)
