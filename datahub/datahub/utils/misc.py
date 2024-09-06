@@ -348,7 +348,7 @@ def grouped_sum(data: torch.Tensor, assignment: torch.Tensor, num_groups: int, a
     # If assignment isn't int64, convert it to int64 (to be compatible with the scatter operation)
     if assignment.dtype != torch.int64:
         assignment = assignment.to(torch.int64)
-    
+
     # Define the shape of the output tensor
     shape = [num_groups] + list(data.shape[1:])
 

@@ -4,13 +4,13 @@ Example usage:
 """
 
 import gzip
+import logging
 import shutil
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
 
 import fire
 from tqdm import tqdm
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
