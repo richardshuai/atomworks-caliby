@@ -20,6 +20,7 @@ from datahub.transforms._checks import (
     check_nonzero_length,
 )
 from datahub.transforms.base import Transform
+from datahub.utils.timeout import TimeoutContext
 
 logger = logging.getLogger(__name__)
 # ... disable RDKit logging
@@ -757,6 +758,54 @@ def res_name_to_rdkit(res_name: str, set_coord: bool = True, infer_hydrogens: bo
     Get an RDKit molecule from a CCD res_name.
     """
     return atom_array_to_rdkit(struc.info.residue(res_name), set_coord=set_coord, infer_hydrogens=infer_hydrogens)
+
+
+def res_name_to_rdkit_with_conformers(
+    res_name: str, n_conformers: int, *, timeout_seconds: float = 10.0, **generate_conformers_kwargs
+) -> Chem.Mol:
+    """
+    Generate an RDKit molecule with conformers for a given residue name.
+
+    This function attempts to generate the specified number of conformers for the given residue
+    using RDKit's conformer generation (based on ETKDGv3 per default).
+    If conformer generation fails or times out, it falls back to using the idealized conformer
+    from the CCD entry if one is available.
+
+    Args:
+        res_name (str): The residue name to generate conformers for. E.g. 'ALA' or 'GLY', '9RH' etc.
+        n_conformers (int): The number of conformers to generate for the given residue.
+        timeout_seconds (float, optional): The maximum time allowed for conformer generation.
+            Defaults to 10.0 seconds, which is sufficient for most residues.
+        **generate_conformers_kwargs: Additional keyword arguments to pass to the
+            generate_conformers function.
+
+    Returns:
+        Chem.Mol: An RDKit molecule with the specified number of conformers.
+    """
+    # ... get molecule from CCD with its idealized conformer (default conformer 0)
+    mol = res_name_to_rdkit(res_name)
+
+    # ... get idealized conformer from CCD entry
+    idealized_conformer = mol.GetConformer(0)
+
+    # ... try generating `count` conformers within a given time limit
+    try:
+        with TimeoutContext(seconds=timeout_seconds):
+            mol = generate_conformers(mol, n_conformers=n_conformers, **generate_conformers_kwargs)
+    except TimeoutError:
+        logger.warning(
+            f"Failed to generate conformers for {res_name=} after {timeout_seconds=}. Falling back to idealized conformer."
+        )
+    except RuntimeError:
+        logger.warning(f"Failed to generate conformers for {res_name=}. Falling back to idealized conformer.")
+
+    # ... if conformer generation fails or is incomplete, return the idealized conformer (set `count` conformers)
+    missing_conformers = n_conformers - mol.GetNumConformers()
+    if missing_conformers > 0:
+        for _ in range(missing_conformers):
+            mol.AddConformer(idealized_conformer)
+
+    return mol
 
 
 # -------------------------------------------------------------------------------------------------
