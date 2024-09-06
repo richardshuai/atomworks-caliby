@@ -552,6 +552,27 @@ class AddGlobalTokenIdAnnotation(Transform):
         return data
 
 
+class AddWithinChainInstanceResIdx(Transform):
+    """
+    Add the within-chain instance residue index to the atom array (0-indexed).
+    """
+
+    def check_input(self, data: dict[str, Any]):
+        check_contains_keys(data, ["atom_array"])
+        check_is_instance(data, "atom_array", AtomArray)
+        check_atom_array_annotation(data, ["chain_iid", "res_id", "res_name"])
+
+    def forward(self, data: dict[str, Any]):
+        atom_array = data["atom_array"]
+
+        # ... get within-chain residue index
+        within_chain_res_idx = get_within_group_res_idx(atom_array, group_by="chain_iid")
+        atom_array.set_annotation("within_chain_res_idx", within_chain_res_idx)
+
+        data["atom_array"] = atom_array
+        return data
+
+
 def sort_poly_then_non_poly(atom_array: AtomArray, treat_atomized_as_non_poly: bool = True) -> AtomArray:
     """
     Sort the atom array such that polymer chains are first, followed by non-polymer chains.
