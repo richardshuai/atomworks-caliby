@@ -46,9 +46,9 @@ INTERFACES_DATASET = PDBDataset(
 # ...build the ConcatDataset
 PDB_DATASET = NamedConcatDataset(datasets=[PN_UNITS_DATASET, INTERFACES_DATASET], name="pdb")  # NOTE: Order matters!
 
-PRIOR_PIPELINE_BUGS = ["{['pdb', 'interfaces']}{7ah0}{1}{['A_1', 'B_1']}"]
+PRIOR_PIPELINE_BUGS = ["{['pdb', 'interfaces']}{7ah0}{1}{['A_1', 'B_1']}", "{['pdb', 'interfaces']}{4u4h}{2}{['A_1', 'A_2']}"]
 
-
+@pytest.mark.very_slow
 @pytest.mark.parametrize("example_id", PRIOR_PIPELINE_BUGS)
 def test_specific_examples(example_id: str):
     """Run a single example through the pipeline. Useful for debugging specific examples."""

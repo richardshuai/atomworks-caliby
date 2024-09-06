@@ -10,6 +10,10 @@ from pathlib import Path
 
 import fire
 from tqdm import tqdm
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def process_file(file_args: dict):
@@ -34,10 +38,18 @@ def process_file(file_args: dict):
     if compress and not is_compressed:
         # ...compress and copy the file
         compressed_path = new_file_path.with_suffix(new_file_path.suffix + ".gz")
-        with source_file.open("rb") as f_in, gzip.open(str(compressed_path), "wb") as f_out:
-            shutil.copyfileobj(f_in, f_out)
+
+        # ...check if the compressed file already exists
+        if compressed_path.exists():
+            return 0
+        else:
+            with source_file.open("rb") as f_in, gzip.open(str(compressed_path), "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
     else:
-        # ...or copy the file without compression
+        # ...or copy the file without compression, if it doesn't exist
+        if new_file_path.exists():
+            return 0
+
         shutil.copy2(str(source_file), str(new_file_path))
 
     return 1  # Return 1 to count the processed file
@@ -73,6 +85,7 @@ def flatten_directory(source_dir: str, target_dir: str, extension: str = ".a3m",
 
     # ...use recursive glob to find all files with the specified extension
     files_to_process = list(source_path.glob(f"**/*{extension}"))
+    logger.info(f"Found {len(files_to_process)} files with extension '{extension}' in {source_dir}")
 
     # ...prepare arguments for each file
     file_arg_list = [
@@ -93,9 +106,9 @@ def flatten_directory(source_dir: str, target_dir: str, extension: str = ".a3m",
             )
         )
 
-    print(f"Moved {moved_files} files with extension '{extension}' to {target_dir}")
+    logger.info(f"Moved {moved_files} files with extension '{extension}' to {target_dir}")
     if compress and not is_compressed:
-        print(f"Compressed {moved_files} files")
+        logger.info(f"Compressed {moved_files} files")
 
 
 if __name__ == "__main__":

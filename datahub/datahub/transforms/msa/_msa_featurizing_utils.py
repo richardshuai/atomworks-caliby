@@ -332,7 +332,7 @@ def summarize_clusters(
 
     # Get all assignments (including the cluster representatives)
     # ... map selected assignments to cluster index range `0, ... , n_clust`
-    row_to_clust_idx = torch.empty(n_rows, dtype=torch.long, device=assignments.device)
+    row_to_clust_idx = torch.empty(n_rows, dtype=assignments.dtype, device=assignments.device)
     row_to_clust_idx[selected_indices] = torch.arange(n_clust, dtype=assignments.dtype, device=assignments.device)
     row_to_clust_idx[not_selected_indices] = assignments  # [n_rows] (int)
 

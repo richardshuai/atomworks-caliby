@@ -13,7 +13,7 @@ from torch.utils.data import Sampler, WeightedRandomSampler
 logger = logging.getLogger(__name__)
 
 
-def calculate_AF3_example_weights(df: pd.DataFrame, alphas: dict[str, float], beta: float) -> pd.Series:
+def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], beta: float) -> pd.Series:
     """
     In AF-3, the weight of a given example is a function of:
         (1) The size of the cluster to which the example belongs (specific for interfaces vs. chains)
@@ -97,7 +97,7 @@ def calculate_weights_for_pdb_dataset_df(
     dataset_df["cluster_size"] = dataset_df["cluster"].map(cluster_id_to_size_map)
 
     # ...calculate weights using vectorized operations
-    weights = calculate_AF3_example_weights(dataset_df, alphas, beta).values
+    weights = calculate_af3_example_weights(dataset_df, alphas, beta).values
 
     # ...and return the weights as a tensor
     return torch.tensor(weights)

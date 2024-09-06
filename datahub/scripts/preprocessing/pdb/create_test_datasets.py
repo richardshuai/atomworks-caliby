@@ -42,7 +42,7 @@ PDB_IDS_TO_INCLUDE_IN_TEST_DATASETS = [
     "1HGE", "3EJJ", "112M", "1A3G", "1A2N", "1A2Y", "1BDV", "184D", "4HF4", 
     "3LPV", "2NVZ", "7KF1", "7CJG", "7B1W", "6ZIE", "7NMJ", "6M2Z", "5OCM", 
     "3SJM", "4I7Z", "4OLB", "4RES", "6BGN", "6VET", "6ZSJ", "5RX1", "7D9H", 
-    "5S4P", "4GQA"]
+    "5S4P", "4GQA", "7AH0", "4U4H"]
 # fmt: on
 
 
