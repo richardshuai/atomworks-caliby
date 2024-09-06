@@ -307,7 +307,7 @@ def generate_conformers(
     method: str = "ETKDGv3",
     num_threads: int = 1,
     infer_hydrogens: bool = True,
-    optimize_conformers: bool = True,
+    optimize_conformers: bool = False,
     **uff_optimize_kwargs: dict,
 ) -> Mol:
     """
