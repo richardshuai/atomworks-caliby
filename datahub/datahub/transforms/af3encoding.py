@@ -2,9 +2,15 @@ from itertools import cycle
 
 import biotite.structure as struc
 import numpy as np
-from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from cifutils.constants import (
+    AA_LIKE_CHEM_TYPES,
+    DNA_LIKE_CHEM_TYPES,
+    RNA_LIKE_CHEM_TYPES,
+    STANDARD_AA,
+    STANDARD_DNA,
+    STANDARD_RNA,
+)
 
-from datahub.encoding_definitions import AA_LIKE_CHEM_TYPES, DNA_LIKE_CHEM_TYPES, RNA_LIKE_CHEM_TYPES
 from datahub.transforms.atom_array import (
     add_global_token_id_annotation,
 )
@@ -35,7 +41,6 @@ _all_res_chemtypes = np.char.upper(ccd["chem_comp"]["type"].as_array())
 _is_rna_like = np.isin(_all_res_chemtypes, list(RNA_LIKE_CHEM_TYPES))
 _is_dna_like = np.isin(_all_res_chemtypes, list(DNA_LIKE_CHEM_TYPES))
 _is_aa_like = np.isin(_all_res_chemtypes, list(AA_LIKE_CHEM_TYPES))
-
 
 res_name_to_token = dict(zip(_all_res_names[_is_rna_like], cycle(["X"])))
 res_name_to_token |= dict(zip(_all_res_names[_is_dna_like], cycle(["DX"])))

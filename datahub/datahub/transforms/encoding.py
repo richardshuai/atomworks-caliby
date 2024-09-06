@@ -7,25 +7,33 @@ AtomArray of coordinates is converted to a (N_token, N_atoms_per_token, 3) tenso
 The token type (residue-level or atom-level) is encoded as a boolean in the `atomize` flag.
 """
 
+from itertools import cycle
 from logging import getLogger
 from typing import Any
 
+import biotite.structure as struc
 import numpy as np
 import torch
 from assertpy import assert_that
 from biotite.structure import AtomArray
+from cifutils.constants import (
+    AA_LIKE_CHEM_TYPES,
+    DNA_LIKE_CHEM_TYPES,
+    RNA_LIKE_CHEM_TYPES,
+)
 from cifutils.utils import get_std_alt_atom_id_conversion
 
 from datahub.common import exists
-from datahub.encoding_definitions import TokenEncoding
+from datahub.encoding_definitions import AF3_TOKENS, TokenEncoding
 from datahub.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
     check_nonzero_length,
 )
+from datahub.transforms.atom_array import get_within_entity_idx
 from datahub.transforms.base import Transform
-from datahub.utils.token import get_token_count, token_iter
+from datahub.utils.token import get_token_count, get_token_starts, token_iter
 
 logger = getLogger(__name__)
 
@@ -431,4 +439,116 @@ class AddTokenAnnotation(Transform):
             tokens.extend([token_name] * len(token))
 
         atom_array.set_annotation("token", np.asarray(tokens, dtype=object))
+        return data
+
+
+class EncodeAF3TokenLevelFeatures(Transform):
+    """
+    A transform that encodes token-level features like AF3. The token-level features are returned as:
+
+    - feats:
+        - `residue_index`: Residue number in the token's original input chain (pre-crop)
+        - `token_index`: Token number. Increases monotonically; does not restart at 1 for new
+            chains. (Runs from 0 to N_tokens)
+        - `asym_id`: Unique integer for each distinct chain (chain_iid)
+        - `entity_id`: Unique integer for each distinct sequence (chain_entity)
+        - `sym_id`: Unique integer within chains of this sequence. E.g. if chains A, B and C
+            share a sequence but D does not, their `sym_id`s would be [0, 1, 2, 0].
+        - `restype`: Integer encoding of the sequence. 32 possible values: 20 AA + unknown,
+            4 RNA nucleotides + unknown, 4 DNA nucleotides + unknown, and gap. Ligands are
+            represented as unknown amino acid (`UNK`)
+        - `is_protein`: whether a token is of protein type
+        - `is_rna`: whether a token is of RNA type
+        - `is_dna`: whether a token is of DNA type
+        - `is_ligand`: whether a token is a ligand residue
+
+    - feat_metadata:
+        - `asym_name`: The asymmetric unit name for each id in `asym_id`. Acts as a legend.
+        - `entity_name`: The entity name for each id in `entity_id`. Acts as a legend.
+        - `sym_name`: The symmetric unit name for each id in `sym_id`. Acts as a legend.
+    """
+
+    def __init__(self):
+        # Load CCD from biotite
+        ccd = struc.info.get_ccd()
+
+        # Get all residue names and their corresponding chemtypes
+        self.all_res_names = ccd["chem_comp"]["id"].as_array()
+        self.all_res_chemtypes = np.char.upper(ccd["chem_comp"]["type"].as_array())
+
+        # Get boolean arrays for each chemtype
+        self.is_rna_like = np.isin(self.all_res_chemtypes, list(RNA_LIKE_CHEM_TYPES))
+        self.is_dna_like = np.isin(self.all_res_chemtypes, list(DNA_LIKE_CHEM_TYPES))
+        self.is_aa_like = np.isin(self.all_res_chemtypes, list(AA_LIKE_CHEM_TYPES))
+
+        # Build mappings for all CCD residue names to AF3 tokens
+        res_name_to_token = dict(zip(self.all_res_names[self.is_rna_like], cycle(["X"])))
+        res_name_to_token |= dict(zip(self.all_res_names[self.is_dna_like], cycle(["DX"])))
+        res_name_to_token |= dict(zip(AF3_TOKENS, AF3_TOKENS))
+        self.res_name_to_af3_token = np.vectorize(lambda res_name: res_name_to_token.get(res_name, "UNK"))
+
+        # Build mappings for AF3 tokens to indices
+        af3_token_to_int = {token: i for i, token in enumerate(AF3_TOKENS)}
+        self.res_name_to_int = np.vectorize(lambda x: af3_token_to_int.get(x, af3_token_to_int["UNK"]))
+
+    def check_input(self, data: dict[str, Any]) -> None:
+        check_contains_keys(data, ["atom_array"])
+        check_is_instance(data, "atom_array", AtomArray)
+        check_atom_array_annotation(
+            data,
+            [
+                "atomize",
+                "chain_iid",
+                "chain_entity",
+                "res_name",
+                "within_chain_res_idx",
+            ],
+        )
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        atom_array = data["atom_array"]
+
+        # ... get token-level array
+        token_starts = get_token_starts(atom_array)
+        token_level_array = atom_array[token_starts]
+
+        # ... identifier tokens
+        # ... (residue)
+        residue_index = token_level_array.within_chain_res_idx
+        # ... (token)
+        token_index = np.arange(len(token_starts))
+        # ... (chain instance)
+        asym_name, asym_id = np.unique(token_level_array.chain_iid, return_inverse=True)
+        # ... (chain entity)
+        entity_name, entity_id = np.unique(token_level_array.chain_entity, return_inverse=True)
+        # ... (within chain entity)
+        sym_name, sym_id = get_within_entity_idx(token_level_array, level="chain")
+
+        # ... sequence tokens
+        restype = self.res_name_to_int(token_level_array.res_name)
+
+        # ... molecule type
+        is_protein = np.isin(token_level_array.res_name, self.all_res_names[self.is_aa_like])
+        is_rna = np.isin(token_level_array.res_name, self.all_res_names[self.is_rna_like])
+        is_dna = np.isin(token_level_array.res_name, self.all_res_names[self.is_dna_like])
+        is_ligand = ~(is_protein | is_rna | is_dna)
+
+        data["feats"] = {
+            "residue_index": residue_index,  # (N_tokens) (int)
+            "token_index": token_index,  # (N_tokens) (int)
+            "asym_id": asym_id,  # (N_tokens) (int)
+            "entity_id": entity_id,  # (N_tokens) (int)
+            "sym_id": sym_id,  # (N_tokens) (int)
+            "restype": restype,  # (N_tokens) (int)
+            "is_protein": is_protein,  # (N_tokens) (bool)
+            "is_rna": is_rna,  # (N_tokens) (bool)
+            "is_dna": is_dna,  # (N_tokens) (bool)
+            "is_ligand": is_ligand,  # (N_tokens) (bool)
+        }
+        data["feat_metadata"] = {
+            "asym_name": asym_name,  # (N_asyms)
+            "entity_name": entity_name,  # (N_entities)
+            "sym_name": sym_name,  # (N_entities)
+        }
+
         return data

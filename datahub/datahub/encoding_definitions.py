@@ -13,6 +13,9 @@ from cifutils.constants import (
     DNA_LIKE_CHEM_TYPES,
     ELEMENT_NAME_TO_ATOMIC_NUMBER,
     RNA_LIKE_CHEM_TYPES,
+    STANDARD_AA,
+    STANDARD_DNA,
+    STANDARD_RNA,
 )
 from cifutils.utils import get_chem_comp_type
 
@@ -761,3 +764,19 @@ LEGACY_RF2_ATOM14_ENCODING = TokenEncoding(
     token_atoms=_legacy_rf2_atom14_token_atoms,
     chemcomp_type_to_unknown=RF2_ATOM14_ENCODING.chemcomp_type_to_unknown,
 )
+
+# fmt: off
+AF3_TOKENS = (
+    # 20 AA + 1 unknown AA
+    list(STANDARD_AA) + ["UNK"]
+    +
+    # 4 RNA + 1 unknown RNA
+    list(STANDARD_RNA) + ["X"]
+    +
+    # 4 DNA + 1 unknown DNA
+    list(STANDARD_DNA) + ["DX"]
+    # 1 gap
+    + ["<G>"]
+)
+"""Sequence tokens in AF3"""
+# fmt: on
