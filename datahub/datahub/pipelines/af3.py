@@ -1,6 +1,7 @@
 import numpy as np
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 
+from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
 from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     AddWithinChainInstanceResIdx,
@@ -17,6 +18,7 @@ def build_af3_pipeline(
     crop_center_cutoff_distance: float = 15.0,
     crop_contiguous_probability: float = 0.5,
     crop_spatial_probability: float = 0.5,
+    conformer_generation_timeout: float = 10.0,
 ):
     assert np.isclose(
         crop_contiguous_probability + crop_spatial_probability, 1.0, atol=1e-6
@@ -61,6 +63,9 @@ def build_af3_pipeline(
 
     transforms += [
         EncodeAF3TokenLevelFeatures(),
+        GetAF3ReferenceMoleculeFeatures(
+            conformer_generation_timeout=conformer_generation_timeout,
+        ),
     ]
 
     # ... compose final pipelien
