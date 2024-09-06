@@ -89,6 +89,8 @@ IncludeCmd: yes
    apt-get update
    # Install build essentials and other required packages (needed for compiling biotite cython files)
    apt-get install -y build-essential gcc g++
+   # Install make (so we can run `make format`, `make clean`, etc.)
+   apt-get install -y make
    # required X libs
    apt-get install -y libx11-6 libxau6 libxext6 libxrender1
    #  git
@@ -104,13 +106,9 @@ IncludeCmd: yes
    # ... the environment in the container is at `/usr/envs/datahub-apptainer`
    conda env create --file /opt/environment.yaml --name datahub-apptainer
 
-   # Set up conda and activate the datahub-apptainer environment
+   # Set up conda
    conda init bash
    # Add conda environment to PATH
-   echo "source /usr/etc/profile.d/conda.sh" >> /root/.bashrc
-   echo "source /usr/bin/activate" >> /root/.bashrc
-   echo "conda activate datahub-apptainer" >> /root/.bashrc
-   echo "export PATH=/usr/envs/datahub-apptainer/bin:$PATH" >> /root/.bashrc
    export PATH=/usr/envs/datahub-apptainer/bin:$PATH
 
    ## CLEANUP
