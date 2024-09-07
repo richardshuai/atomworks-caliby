@@ -1,16 +1,16 @@
-from cifutils.constants import AF3_EXCLUDED_LIGANDS
+from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
 from datahub.datasets.base import NamedConcatDataset
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
 from datahub.datasets.pdb_dataset import PDBDataset
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
+from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
 from tests.conftest import (
     CIF_PARSER,
     INTERFACES_DF,
     PN_UNITS_DF,
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,
-    SUPPORTED_CHAIN_TYPES_INTS,
 )
 
 SHARED_TEST_FILTERS = [
@@ -21,18 +21,16 @@ SHARED_TEST_FILTERS = [
     "method in ['X-RAY_DIFFRACTION', 'ELECTRON_MICROSCOPY']",
 ]
 
-af3_excluded_ligand_pattern = "(?:^|,)\s*(?:" + "|".join(AF3_EXCLUDED_LIGANDS) + ")\s*(?:,|$)"
-
 TEST_PN_UNITS_FILTERS = [
     f"q_pn_unit_type in {SUPPORTED_CHAIN_TYPES_INTS}",  # Limit query PN units to proteins, RNA, DNA, and ligands (i.e., exclude RNA/DNA hybrids)
-    f"~(q_pn_unit_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))",
+    f"~(q_pn_unit_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}'))",
 ]
 
 TEST_INTERFACES_FILTERS = [
     f"pn_unit_1_type in {SUPPORTED_CHAIN_TYPES_INTS}",  # Limit interface PN units to proteins, RNA, DNA, and ligands (i.e., exclude RNA/DNA hybrids)
     f"pn_unit_2_type in {SUPPORTED_CHAIN_TYPES_INTS}",
-    f"~(pn_unit_1_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))",
-    f"~(pn_unit_2_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))",
+    f"~(pn_unit_1_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}'))",
+    f"~(pn_unit_2_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}'))",
 ]
 
 

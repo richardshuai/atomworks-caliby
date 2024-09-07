@@ -4,7 +4,7 @@ After concatenating the CSV files, performs some basic preprocessing to generate
 
 Example usage:
 ```bash
-python generate_pn_units_df.py --input_dir /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_07_01/csv --output_path /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_07_01/pn_units_df
+python generate_pn_units_df.py --input_dir /projects/ml/RF2_allatom/datasets/pdb/2024_09_06/csv --output_path /projects/ml/RF2_allatom/datasets/pdb/2024_09_06/pn_units_df
 ```
 """
 

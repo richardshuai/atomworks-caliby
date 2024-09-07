@@ -35,10 +35,6 @@ class PandasDataset(Dataset):
             data = self._load_from_path(data, columns_to_load, **load_kwargs)
         self._data = data
 
-        # For all of the string columns, remap None to an empty string (to avoid issues with string filtering)
-        string_columns = self._data.select_dtypes(include=["object"]).columns
-        self._data[string_columns] = self._data[string_columns].fillna("")
-
         # Apply filters, if provided
         self.filters = filters
         original_num_rows = len(self._data)
@@ -181,6 +177,10 @@ class NamedConcatDataset(ConcatDataset):
         super().__init__(datasets)
         if name is not None:
             self.name = name
+
+        # Print the length of each dataset
+        for i, dataset in enumerate(datasets):
+            logger.info(f"Dataset {i} ({type(dataset)}): {len(dataset):,} examples")
 
     @cached_property
     def _can_convert_ids_and_idx(self) -> bool:

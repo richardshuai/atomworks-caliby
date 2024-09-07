@@ -4,6 +4,7 @@ from cifutils.enums import ChainType
 
 # At the time of writing, the supported chain types are: NON_POLYMER, POLYPEPTIDE_L, DNA, RNA
 SUPPORTED_CHAIN_TYPES = [ChainType.NON_POLYMER, ChainType.POLYPEPTIDE_L, ChainType.DNA, ChainType.RNA]
+SUPPORTED_CHAIN_TYPES_INTS = [type.value for type in SUPPORTED_CHAIN_TYPES]
 
 
 class ClashSeverity(Enum):

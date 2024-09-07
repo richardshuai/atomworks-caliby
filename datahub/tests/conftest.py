@@ -11,10 +11,6 @@ import pandas as pd
 from biotite.structure import AtomArray
 from cifutils import CIFParser
 
-from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES
-
-SUPPORTED_CHAIN_TYPES_INTS = [type.value for type in SUPPORTED_CHAIN_TYPES]
-
 # Directory containing pn_units_df and interfaces_df
 TEST_DATA_DIR = Path(__file__).resolve().parent / "data"
 PN_UNITS_DF = pd.read_parquet(f"{TEST_DATA_DIR}/pn_units_df.parquet")
