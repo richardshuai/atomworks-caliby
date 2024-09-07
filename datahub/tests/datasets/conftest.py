@@ -1,4 +1,3 @@
-
 from cifutils.constants import AF3_EXCLUDED_LIGANDS
 
 from datahub.datasets.base import NamedConcatDataset
