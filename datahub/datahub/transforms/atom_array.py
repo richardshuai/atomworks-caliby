@@ -314,7 +314,7 @@ class AddWithinPolyResIdxAnnotation(Transform):
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
 
-        within_poly_res_idx = get_within_poly_res_idx(atom_array, group_by="chain_iid")
+        within_poly_res_idx = get_within_poly_res_idx(atom_array)
         within_poly_res_idx[~atom_array.is_polymer] = -1
         atom_array.set_annotation("within_poly_res_idx", within_poly_res_idx)
 
