@@ -502,12 +502,18 @@ class EncodeAF3TokenLevelFeatures(Transform):
         sym_name, sym_id = get_within_entity_idx(token_level_array, level="chain")
 
         # ... sequence tokens
-        restype = self.af3_sequence_encoding.encode(token_level_array.res_name)
+        restype = self.sequence_encoding.encode(token_level_array.res_name)
 
         # ... molecule type
-        is_protein = np.isin(token_level_array.res_name, self.all_res_names[self.is_aa_like])
-        is_rna = np.isin(token_level_array.res_name, self.all_res_names[self.is_rna_like])
-        is_dna = np.isin(token_level_array.res_name, self.all_res_names[self.is_dna_like])
+        _aa_like_res_names = self.sequence_encoding.all_res_names[self.sequence_encoding.is_aa_like]
+        is_protein = np.isin(token_level_array.res_name, _aa_like_res_names)
+
+        _rna_like_res_names = self.sequence_encoding.all_res_names[self.sequence_encoding.is_rna_like]
+        is_rna = np.isin(token_level_array.res_name, _rna_like_res_names)
+
+        _dna_like_res_names = self.sequence_encoding.all_res_names[self.sequence_encoding.is_dna_like]
+        is_dna = np.isin(token_level_array.res_name, _dna_like_res_names)
+
         is_ligand = ~(is_protein | is_rna | is_dna)
 
         # ... add to data dict

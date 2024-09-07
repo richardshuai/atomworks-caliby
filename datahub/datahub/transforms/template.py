@@ -796,7 +796,7 @@ def featurize_templates_like_af3(
             ca_direction_in_frames[0, 0] = 0.0
 
             template_unit_vector[
-                tmpl_idx, *np.ix_(token_ids_to_fill[_has_pseudo_cb], token_ids_to_fill[_has_pseudo_cb])
+                tmpl_idx, *np.ix_(token_ids_to_fill[_has_n_ca_c_resolved], token_ids_to_fill[_has_n_ca_c_resolved])
             ] = ca_direction_in_frames
 
         # ... bucketize the distogram
@@ -832,7 +832,7 @@ class FeaturizeTemplatesLikeAF3(Transform):
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-021-03819-2/MediaObjects/41586_2021_3819_MOESM1_ESM.pdf
     """
 
-    requires_previous_transforms = ["AddRFTemplates", "AddWithinChainResIdxAnnotation"]
+    requires_previous_transforms = ["AddRFTemplates", "AddWithinChainInstanceResIdx"]
 
     def __init__(
         self,
@@ -850,8 +850,8 @@ class FeaturizeTemplatesLikeAF3(Transform):
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array", "template"])
-        check_is_instance(data["atom_array"], AtomArray)
-        check_is_instance(data["template"], dict)
+        check_is_instance(data, "atom_array", AtomArray)
+        check_is_instance(data, "template", dict)
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array = data["atom_array"]
