@@ -7,24 +7,17 @@ AtomArray of coordinates is converted to a (N_token, N_atoms_per_token, 3) tenso
 The token type (residue-level or atom-level) is encoded as a boolean in the `atomize` flag.
 """
 
-from itertools import cycle
 from logging import getLogger
 from typing import Any
 
-import biotite.structure as struc
 import numpy as np
 import torch
 from assertpy import assert_that
 from biotite.structure import AtomArray
-from cifutils.constants import (
-    AA_LIKE_CHEM_TYPES,
-    DNA_LIKE_CHEM_TYPES,
-    RNA_LIKE_CHEM_TYPES,
-)
 from cifutils.utils import get_std_alt_atom_id_conversion
 
 from datahub.common import exists
-from datahub.encoding_definitions import AF3_TOKENS, TokenEncoding
+from datahub.encoding_definitions import AF3SequenceEncoding, TokenEncoding
 from datahub.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -472,28 +465,8 @@ class EncodeAF3TokenLevelFeatures(Transform):
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
 
-    def __init__(self):
-        # Load CCD from biotite
-        ccd = struc.info.ccd.get_ccd()
-
-        # Get all residue names and their corresponding chemtypes
-        self.all_res_names = ccd["chem_comp"]["id"].as_array()
-        self.all_res_chemtypes = np.char.upper(ccd["chem_comp"]["type"].as_array())
-
-        # Get boolean arrays for each chemtype
-        self.is_rna_like = np.isin(self.all_res_chemtypes, list(RNA_LIKE_CHEM_TYPES))
-        self.is_dna_like = np.isin(self.all_res_chemtypes, list(DNA_LIKE_CHEM_TYPES))
-        self.is_aa_like = np.isin(self.all_res_chemtypes, list(AA_LIKE_CHEM_TYPES))
-
-        # Build mappings for all CCD residue names to AF3 tokens
-        res_name_to_token = dict(zip(self.all_res_names[self.is_rna_like], cycle(["X"])))
-        res_name_to_token |= dict(zip(self.all_res_names[self.is_dna_like], cycle(["DX"])))
-        res_name_to_token |= dict(zip(AF3_TOKENS, AF3_TOKENS))
-        self.res_name_to_af3_token = np.vectorize(lambda res_name: res_name_to_token.get(res_name, "UNK"))
-
-        # Build mappings for AF3 tokens to indices
-        af3_token_to_int = {token: i for i, token in enumerate(AF3_TOKENS)}
-        self.res_name_to_int = np.vectorize(lambda x: af3_token_to_int.get(x, af3_token_to_int["UNK"]))
+    def __init__(self, sequence_encoding: AF3SequenceEncoding):
+        self.sequence_encoding = sequence_encoding
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
@@ -529,7 +502,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
         sym_name, sym_id = get_within_entity_idx(token_level_array, level="chain")
 
         # ... sequence tokens
-        restype = self.res_name_to_int(token_level_array.res_name)
+        restype = self.af3_sequence_encoding.encode(token_level_array.res_name)
 
         # ... molecule type
         is_protein = np.isin(token_level_array.res_name, self.all_res_names[self.is_aa_like])
