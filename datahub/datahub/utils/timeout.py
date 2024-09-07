@@ -1,7 +1,7 @@
 """
-Timeout decorator. Adapted from https://github.com/pnpnpn/timeout-decorator/blob/master/timeout_decorator/timeout_decorator.py
-    :copyright: (c) 2012-2013 by PN.
-    :license: MIT, see LICENSE for more details.
+Timeout utilities for applying time limits to functions and blocks of code.
+
+Adapted from https://github.com/pnpnpn/timeout-decorator/blob/master/timeout_decorator/timeout_decorator.py (MIT License)
 """
 
 from __future__ import division, print_function, unicode_literals
