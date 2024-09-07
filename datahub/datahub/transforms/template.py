@@ -13,10 +13,12 @@ import torch
 from assertpy import assert_that
 from biotite.structure import AtomArray
 from cifutils.enums import ChainType
+from torch.nn.functional import normalize
 
 from datahub.encoding_definitions import (
     LEGACY_RF2_ATOM14_ENCODING,
     RF2AA_ATOM36_ENCODING,
+    AF3SequenceEncoding,
     TokenEncoding,
 )
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
@@ -26,6 +28,7 @@ from datahub.transforms.atom_array import (
 )
 from datahub.transforms.base import Transform
 from datahub.transforms.encoding import atom_array_from_encoding, atom_array_to_encoding
+from datahub.utils.geometry import apply_inverse_rigid, rigid_from_3_points
 from datahub.utils.numpy import select_data_by_id
 from datahub.utils.token import get_token_count, get_token_starts
 
@@ -413,7 +416,7 @@ class AddRFTemplates(Transform):
         return data
 
 
-class FeaturizeRFTemplatesForRF2AA(Transform):
+class FeaturizeTemplatesLikeRF2AA(Transform):
     """
     A transform that featurizes RFTemplates templates for RF2AA.
 
@@ -447,6 +450,7 @@ class FeaturizeRFTemplatesForRF2AA(Transform):
         init_coords: torch.Tensor | float,
         mask_token_idx: int = 21,  # NOTE: This is the mask token `MSK` index in the original RF2AA code
         encoding: TokenEncoding = RF2AA_ATOM36_ENCODING,
+        allowed_chain_types: list[ChainType] = [ChainType.POLYPEPTIDE_L, ChainType.RNA],
     ):
         """
         Initializes the FeaturizeRFTemplatesForRF2AA transform.
@@ -463,13 +467,19 @@ class FeaturizeRFTemplatesForRF2AA(Transform):
             AssertionError: If `n_template` is not a positive integer.
             AssertionError: If `encoding` is not an instance of `TokenEncoding`.
             AssertionError: If `init_coords` is a tensor and its dimensions do not match the expected shape.
+            AssertionError: If `allowed_chain_types` is not a list or contains any elements that are not instances of `ChainType`.
         """
         assert_that(n_template).is_instance_of(int).is_greater_than(0)
         assert_that(encoding).is_instance_of(TokenEncoding)
+        assert_that(allowed_chain_types).is_instance_of(list).is_not_empty()
+        assert np.isin(
+            allowed_chain_types, ChainType
+        ).all(), f"Allowed chain types must be a list of ChainType enums. Got {allowed_chain_types=}."
         self.n_template = n_template
         self.mask_token_idx = mask_token_idx
         self.init_coords = init_coords
         self.encoding = encoding
+        self.allowed_chain_types = allowed_chain_types
 
         if isinstance(init_coords, torch.Tensor):
             n_dim = init_coords.shape[-1]
@@ -505,7 +515,7 @@ class FeaturizeRFTemplatesForRF2AA(Transform):
         # Fill the template features chain by chain and template by template ...
         for chain in chain_instance_iter(atom_array):
             # Check for allowable chain types
-            if chain.chain_type[0] != ChainType.POLYPEPTIDE_L.value:
+            if chain.chain_type[0] not in self.allowed_chain_types:
                 # Only fill templates for proteins
                 continue
 
@@ -612,4 +622,254 @@ class FeaturizeRFTemplatesForRF2AA(Transform):
             "mask": mask,  # [n_template, n_res, n_atoms_per_token] (bool)
             "t1d": t1d,  # [n_tepmlate, n_res, n_tokens],  [0:n_tokens-1] = one-hot encoded sequence, [-1] = confidence
         }
+        return data
+
+
+def featurize_templates_like_af3(
+    atom_array: AtomArray,
+    templates_by_chain: dict[str, list[dict[str, Any]]],
+    sequence_encoding: AF3SequenceEncoding,
+    n_templates: int,
+    gap_token: str = "<G>",
+    allowed_chain_type: list[ChainType] = [ChainType.POLYPEPTIDE_L, ChainType.RNA],
+    distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),  # in Angstrom
+) -> dict[str, torch.Tensor]:
+    """
+    Generate AF3 template features for a given (cropped) atom array and the corresponding templates.
+
+    This function adds the following features to the returned dictionary:
+        - template_restype: [N_templ, N_token] One-hot encoding of the template sequence.
+        - template_pseudo_beta_mask: [N_templ, N_token] Mask indicating if the CB (CA for glycine)
+            has coordinates for the template at this residue.
+        - template_backbone_frame_mask: [N_templ, N_token] Mask indicating if coordinates exist for
+            all atoms required to compute the backbone frame (used in the template_unit_vector feature).
+        - template_distogram: [N_templ, N_token, N_token, n_bins] A pairwise feature indicating the distance
+            between Cβ atoms (CA for glycine). AF3 uses 38 bins between 3.25 Å and 50.75 Å with one extra
+            bin for distances beyond 50.75 Å.
+        - template_unit_vector: [N_templ, N_token, N_token, 3] The unit vector of the displacement
+            of the CA atom of all residues within the local frame of each residue.
+
+    Args:
+        - atom_array (AtomArray): The input atom array.
+        - templates_by_chain (dict): Dictionary of templates for each chain.
+        - sequence_encoding (AF3SequenceEncoding): Encoding for the sequence.
+        - n_templates (int): Number of templates to use.
+        - gap_token (str): Token used for gaps in the sequence and as default to pad empty template tokens.
+            NOTE: For templates a token is always a residue
+        - allowed_chain_type (list): List of allowed chain types.
+        - distogram_bins (torch.Tensor): Bins for discretizing distances in the distogram.
+
+    Returns:
+        dict: A dictionary containing the template features.
+
+    References:
+        - Section 2.8 of the AF3 supplementary information
+          https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
+        - AF2 supplementary information
+          https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-021-03819-2/MediaObjects/41586_2021_3819_MOESM1_ESM.pdf
+
+    NOTE: For templates a token is always a residue since we never align ligands, non-canonicals, PTMs, etc.
+    """
+
+    # Get full atom array token starts (useful for going from atom-level > token-level annotations)
+    _a_token_starts = get_token_starts(atom_array)  # [n_token] (int)
+
+    # Initialize features to fill
+    _n_token = len(_a_token_starts)
+    res_type = torch.full(
+        (n_templates, _n_token), sequence_encoding.token_to_idx[gap_token], dtype=int
+    )  # [n_templates, n_token] (int)
+    template_pseudo_beta_mask = torch.zeros((n_templates, _n_token), dtype=bool)  # [n_templates, n_token] (bool)
+    template_backbone_frame_mask = torch.zeros((n_templates, _n_token), dtype=bool)  # [n_templates, n_token] (bool)
+    template_distogram = torch.full(
+        (n_templates, _n_token, _n_token), fill_value=float("nan")
+    )  # [n_templates, n_token, n_token] (float)
+    template_unit_vector = torch.zeros(
+        (n_templates, _n_token, _n_token, 3)
+    )  # [n_templates, n_token, n_token, 3] (float)
+
+    # Fill the template features chain by chain and template by template ...
+    for chain in chain_instance_iter(atom_array):
+        # Check for allowable chain types
+        if chain.chain_type[0] not in allowed_chain_type:
+            # Only fill templates for proteins
+            continue
+
+        # Check for chains where templates exist
+        chain_id = chain.chain_id[0]
+        if chain_id not in templates_by_chain:
+            # Early exit if there are no templates for this chain
+            continue
+
+        # Get chain token starts (useful for going from atom-level > token-level annotations)
+        _c_token_starts = get_token_starts(chain)  # [n_token_in_chain] (int)
+        # ... atomized tokens cannot be matched to templates
+        if "atomize" in chain.get_annotation_categories():
+            is_token_atomized = chain.atomize[_c_token_starts]  # [n_token_in_chain] (bool)
+        else:
+            is_token_atomized = np.zeros_like(_c_token_starts, dtype=bool)
+        matchable_query_chain_tokens = _c_token_starts[~is_token_atomized]  # [n_matchable_token_in_chain] (int)
+
+        # Featurize the templates and insert into the template features
+        for tmpl_idx, tmpl_data in enumerate(templates_by_chain[chain_id]):
+            template = tmpl_data["atom_array"]
+
+            # Filter the template to only include tokens that are aligned to the query chain and that are not atomized
+            # ... we use -1 as a placeholder query_res_idx for template tokens without alignment
+            has_aligned_res_annotation = template.aligned_query_res_idx >= 0
+            # ... find all template tokens that are aligned to the query chain
+            has_match_in_query_chain = np.isin(
+                template.aligned_query_res_idx, chain.within_chain_res_idx[matchable_query_chain_tokens]
+            )
+            # ... check there is at least one template token that is aligned to the query chain
+            if not np.any(has_match_in_query_chain & has_aligned_res_annotation):
+                # skip templates that do not have any aligned residues in the query
+                # (e.g. because query chain was cropped and crop does not overlap with template)
+                continue
+            # ... subset the template to only the relevant tokens
+            template = template[has_match_in_query_chain & has_aligned_res_annotation]
+
+            # Get template token starts (useful for going from atom-level > token-level annotations)
+            _t_token_starts = get_token_starts(template)
+
+            # Annotate the global `token_id` for the template tokens which will be used to match
+            #  the template tokens to the query chain to fill the template features
+            template_token_id = select_data_by_id(
+                select_ids=template.aligned_query_res_idx[_t_token_starts],
+                data_ids=chain.within_chain_res_idx[matchable_query_chain_tokens],
+                data=chain.token_id[matchable_query_chain_tokens],
+                axis=0,
+            )  # [n_token_in_template] (int)
+            # ... match based on global token ids
+            _is_matched_token = np.isin(atom_array.token_id[_a_token_starts], template_token_id)  # [n_token] (bool)
+            token_ids_to_fill = atom_array.token_id[_a_token_starts][
+                _is_matched_token
+            ]  # [n_matchable_token_in_template] (int)
+            token_idxs_to_fill = np.where(_is_matched_token)[0]  # [n_matchable_token_in_template] (int)
+
+            # ... fill the res_type
+            res_type[tmpl_idx, token_idxs_to_fill] = torch.as_tensor(
+                sequence_encoding.encode(struc.get_residues(template)[1])
+            )
+
+            # ...fill the template_pseudo_beta_mask
+            #   get information on whether the (pseudo) CB is resolved
+            _is_cb = template.atom_name == "CB"
+            _is_glycine_ca = (template.atom_name == "CA") & (template.res_name == "GLY")
+            _is_pseudo_cb_resolved = (_is_cb | _is_glycine_ca) & (template.occupancy > 0)
+            # ... spread it accross the token axis
+            _has_pseudo_cb = struc.apply_residue_wise(template, data=_is_pseudo_cb_resolved, function=np.any)
+            template_pseudo_beta_mask[tmpl_idx, token_idxs_to_fill] = torch.as_tensor(_has_pseudo_cb)
+
+            # ... fill the template_backbone_frame_mask
+            _is_n_ca_c_resolved = (
+                (template.atom_name == "CA")
+                | (template.atom_name == "N")
+                | (template.atom_name == "C") & (template.occupancy > 0)
+            )
+            _has_n_ca_c_resolved = struc.apply_residue_wise(template, data=(_is_n_ca_c_resolved), function=np.sum) == 3
+            template_backbone_frame_mask[tmpl_idx, token_idxs_to_fill] = torch.as_tensor(_has_n_ca_c_resolved)
+
+            # ... fill the template_distogram
+            template_coords = torch.tensor(template.coord)
+            template_distogram[
+                tmpl_idx, *np.ix_(token_ids_to_fill[_has_pseudo_cb], token_ids_to_fill[_has_pseudo_cb])
+            ] = torch.cdist(
+                template_coords[_is_pseudo_cb_resolved],
+                template_coords[_is_pseudo_cb_resolved],
+                compute_mode="donot_use_mm_for_euclid_dist",
+            )
+
+            # ... fill the template_unit_vector
+            template_frames = rigid_from_3_points(
+                x1=template_coords[template.atom_name == "N"],
+                x2=template_coords[template.atom_name == "CA"],
+                x3=template_coords[template.atom_name == "C"],
+            )  # (n_template_res, 3, 3), (n_template_res, 3)
+            # ... get CA coords in the respective frames
+            ca_coords_in_frames = apply_inverse_rigid(
+                rigid=(template_frames[0][:, None, :, :], template_frames[1][:, None, :]),
+                points=template_coords[template.atom_name == "CA"],
+            )  # (n_template_res, n_template_res, 3)
+            ca_direction_in_frames = normalize(ca_coords_in_frames, dim=-1, eps=1e-3)
+            # ... reset diagonal to 0 (can be non-zero due to normalization & numerical error)
+            ca_direction_in_frames[0, 0] = 0.0
+
+            template_unit_vector[
+                tmpl_idx, *np.ix_(token_ids_to_fill[_has_pseudo_cb], token_ids_to_fill[_has_pseudo_cb])
+            ] = ca_direction_in_frames
+
+        # ... bucketize the distogram
+        template_distogram = torch.bucketize(template_distogram, boundaries=distogram_bins)
+
+        return {
+            "template_restype": res_type,
+            "template_pseudo_beta_mask": template_pseudo_beta_mask,
+            "template_backbone_frame_mask": template_backbone_frame_mask,
+            "template_distogram": template_distogram,
+            "template_unit_vector": template_unit_vector,
+        }
+
+
+class FeaturizeTemplatesLikeAF3(Transform):
+    """
+    A transform that featurizes templates for AlphaFold 3.
+
+    This transform generates the following template features (as torch.Tensors):
+        - template_restype: [N_templ, N_token] Residue type for each template token.
+        - template_pseudo_beta_mask: [N_templ, N_token] Mask indicating if pseudo-beta atom exists.
+        - template_backbone_frame_mask: [N_templ, N_token] Mask indicating if coordinates exist for
+            all atoms required to compute the backbone frame.
+        - template_distogram: [N_templ, N_token, N_token] A pairwise feature indicating the distance
+            between Cβ atoms (CA for glycine), discretized into bins.
+        - template_unit_vector: [N_templ, N_token, N_token, 3] The unit vector of the displacement
+            of the CA atom of all residues within the local frame of each residue.
+
+    References:
+        - Section 2.8 of the AF3 supplementary information
+          https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
+        - AF2 supplementary information
+          https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-021-03819-2/MediaObjects/41586_2021_3819_MOESM1_ESM.pdf
+    """
+
+    requires_previous_transforms = ["AddRFTemplates", "AddWithinChainResIdxAnnotation"]
+
+    def __init__(
+        self,
+        n_templates: int,
+        sequence_encoding: AF3SequenceEncoding,
+        gap_token: str = "<G>",
+        allowed_chain_type: list[ChainType] = [ChainType.POLYPEPTIDE_L, ChainType.RNA],
+        distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),
+    ):
+        self.n_templates = n_templates
+        self.gap_token = gap_token
+        self.allowed_chain_type = allowed_chain_type
+        self.distogram_bins = distogram_bins
+        self.sequence_encoding = sequence_encoding
+
+    def check_input(self, data: dict[str, Any]) -> None:
+        check_contains_keys(data, ["atom_array", "template"])
+        check_is_instance(data["atom_array"], AtomArray)
+        check_is_instance(data["template"], dict)
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        atom_array = data["atom_array"]
+        templates_by_chain = data["template"]
+
+        template_features = featurize_templates_like_af3(
+            atom_array=atom_array,
+            templates_by_chain=templates_by_chain,
+            sequence_encoding=self.sequence_encoding,
+            n_templates=self.n_templates,
+            gap_token=self.gap_token,
+            allowed_chain_type=self.allowed_chain_type,
+            distogram_bins=self.distogram_bins,
+        )
+
+        # Add the template features to the `feats` dict
+        if "feats" not in data:
+            data["feats"] = {}
+        data["feats"].update(template_features)
+
         return data
