@@ -3,7 +3,9 @@
 import copy
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
+from itertools import cycle
 from logging import getLogger
+from typing import Sequence
 
 import biotite.structure as struc
 import numpy as np
@@ -780,3 +782,64 @@ AF3_TOKENS = (
 )
 """Sequence tokens in AF3"""
 # fmt: on
+
+
+class AF3SequenceEncoding:
+    """
+    Encodes and decodes sequence tokens for AlphaFold 3.
+
+    This class provides functionality to convert between residue names and their
+    corresponding integer encodings as used in AlphaFold 3. It handles standard
+    amino acids, RNA, DNA, and unknown residues.
+
+    Methods:
+        encode(res_names): Encode residue names to integer indices.
+        decode(res_indices): Decode integer indices to residue names.
+        tokens: Property that returns the list of AF3 tokens.
+        n_tokens: Property that returns the number of AF3 tokens.
+    """
+
+    def __init__(self):
+        # Load CCD from biotite
+        ccd = struc.info.ccd.get_ccd()
+
+        # Get all residue names and their corresponding chemtypes
+        self.all_res_names = ccd["chem_comp"]["id"].as_array()
+        self.all_res_chemtypes = np.char.upper(ccd["chem_comp"]["type"].as_array())
+
+        # Get boolean arrays for each chemtype
+        self.is_rna_like = np.isin(self.all_res_chemtypes, list(RNA_LIKE_CHEM_TYPES))
+        self.is_dna_like = np.isin(self.all_res_chemtypes, list(DNA_LIKE_CHEM_TYPES))
+        self.is_aa_like = np.isin(self.all_res_chemtypes, list(AA_LIKE_CHEM_TYPES))
+
+        # Build mappings for all CCD residue names to AF3 tokens
+        res_name_to_token = dict(zip(self.all_res_names[self.is_rna_like], cycle(["X"])))
+        res_name_to_token |= dict(zip(self.all_res_names[self.is_dna_like], cycle(["DX"])))
+        res_name_to_token |= dict(zip(AF3_TOKENS, AF3_TOKENS))
+        self.res_name_to_af3_token = np.vectorize(lambda res_name: res_name_to_token.get(res_name, "UNK"))
+
+        # Build mappings for AF3 tokens to indices
+        self.af3_token_to_int = {token: i for i, token in enumerate(AF3_TOKENS)}
+        self.encode_func = np.vectorize(lambda x: self.af3_token_to_int.get(x, self.af3_token_to_int["UNK"]))
+
+    @property
+    def tokens(self) -> list[str]:
+        return AF3_TOKENS
+
+    @property
+    def token_to_idx(self) -> dict[str, int]:
+        return self.af3_token_to_int
+
+    @cached_property
+    def idx_to_token(self) -> np.ndarray:
+        return np.array(AF3_TOKENS)
+
+    @property
+    def n_tokens(self) -> int:
+        return len(self.tokens)
+
+    def encode(self, res_names: Sequence[str]) -> np.ndarray:
+        return self.encode_func(res_names)
+
+    def decode(self, token_idxs: int | Sequence[int]) -> np.ndarray:
+        return self.idx_to_token[token_idxs]
