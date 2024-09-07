@@ -13,7 +13,8 @@ unit-test-job:
     - when: never
   script:
     - echo "Running fast unit tests"
-    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_fast_tests.sh
+    - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_fast_tests.sh || exit 1
 
 integration-test-job:
   coverage: '/TOTAL.*\s+(\d+%)$/'
@@ -26,7 +27,8 @@ integration-test-job:
     - job: unit-test-job
   script:
     - echo "Running slow tests"
-    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_slow_tests.sh
+    - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_slow_tests.sh || exit 1
 
 post-merge-job:
   coverage: '/TOTAL.*\s+(\d+%)$/'
@@ -37,7 +39,8 @@ post-merge-job:
     - when: never
   script:
     - echo "Running post-merge tests"
-    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_post_merge_tests.sh
+    - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_post_merge_tests.sh || exit 1
 
 build-apptainer-job:
   stage: build_apptainer
