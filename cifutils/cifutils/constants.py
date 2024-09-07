@@ -360,6 +360,7 @@ AF3_EXCLUDED_LIGANDS = [
 Reference:
     - AF3 (Supp. Table 10) https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
 """
+AF3_EXCLUDED_LIGANDS_REGEX = "(?:^|,)\s*(?:" + "|".join(AF3_EXCLUDED_LIGANDS) + ")\s*(?:,|$)"
 
 STANDARD_AA = (
     "ALA",
