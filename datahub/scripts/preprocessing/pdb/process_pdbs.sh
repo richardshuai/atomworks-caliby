@@ -1,15 +1,11 @@
 #!/bin/bash
-#SBATCH -p cpu-bf
-#SBATCH --mem-per-cpu=32g
-#SBATCH -a 1-300
+#SBATCH -p cpu
+#SBATCH --mem-per-cpu=64g
+#SBATCH -a 1-500
 #SBATCH -t 0-12:00:00
 #SBATCH -c 1
 #SBATCH -o slurm_logs/slurm_%A_%a.log
 #SBATCH -e slurm_logs/slurm_%A_%a.err
-
-# Activate the conda environment
-source ~/.bashrc
-conda activate cifdev 
 
 # Calculate task ID and number of tasks
 TASK_ID=$((SLURM_ARRAY_TASK_ID - 1))
@@ -53,6 +49,10 @@ echo "Saving files to: ${out_dir}"
 
 # Run the Python script
 python process_pdbs.py --task_id ${TASK_ID} --num_tasks ${NUM_TASKS} --out_dir "${out_dir}" --num_workers ${SLURM_CPUS_PER_TASK} --pdb_selection "all" --base_cif_dir "${base_cif_dir}"
+
+### Run the training script
+command="srun /projects/ml/RF2_allatom/spec_files/datahub_latest.sif process_pdbs.py --task_id ${TASK_ID} --num_tasks ${NUM_TASKS} --out_dir '${out_dir}' --num_workers ${SLURM_CPUS_PER_TASK} --pdb_selection 'all' --base_cif_dir '${base_cif_dir}'"
+echo -e "command\t$command"
 
 # Example usage:
 # sbatch data/scripts/process_pdbs.sh --out_dir /path/to/output/directory --base_cif_dir /path/to/cif/directory

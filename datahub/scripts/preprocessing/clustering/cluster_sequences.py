@@ -2,6 +2,7 @@
 Functions to cluster protein and nucleic acid sequences using MMseqs2.
 
 NOTE: Not able to be run interactively due to `mmseqs` instability; must be run via command line.
+NOTE: See `https://github.com/soedinglab/MMseqs2` for MMseqs2 installation instructions (`conda` recommended).
 """
 
 import logging
@@ -13,7 +14,7 @@ from pathlib import Path
 import fire
 import pandas as pd
 
-from datahub.preprocessing.scripts.clustering.create_fasta_files_from_df import create_fasta_files
+from scripts.preprocessing.clustering.create_fasta_files_from_df import create_fasta_files
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -187,12 +188,19 @@ def cluster_all_sequences(
 
         logger.info("Merging clustering information into the master DataFrame...")
         # Merge protein clusters into the master DataFrame
+
+        # ...drop the `cluster_mode_str` col, if it already exists
+        protein_cluster_col = f"q_pn_unit_protein_cluster_{cluster_mode_str}_rep_seq_hash"
+        if protein_cluster_col in df.columns:
+            df.drop(columns=[protein_cluster_col], inplace=True)
+
+        # ...merge and rename
         df = df.merge(
             protein_cluster_df[["seq_hash", "cluster_rep_seq_hash"]],
             left_on="q_pn_unit_processed_entity_canonical_sequence_hash",
             right_on="seq_hash",
             how="left",
-        ).rename(columns={"cluster_rep_seq_hash": f"q_pn_unit_protein_cluster_{cluster_mode_str}_rep_seq_hash"})
+        ).rename(columns={"cluster_rep_seq_hash": protein_cluster_col})
         logger.info(f"Merged protein clusters for {cluster_mode_str} configuration.")
 
         # Drop the redundant 'seq_hash' column from the merge
@@ -200,12 +208,19 @@ def cluster_all_sequences(
             df.drop(columns=["seq_hash"], inplace=True)
 
         # Merge nucleic acid clusters into the master DataFrame
+
+        # ...drop the `cluster_mode_str` col, if it already exists
+        nucleic_acid_cluster_col = f"q_pn_unit_nucleic_acid_cluster_{cluster_mode_str}_rep_seq_hash"
+        if nucleic_acid_cluster_col in df.columns:
+            df.drop(columns=[nucleic_acid_cluster_col], inplace=True)
+
+        # ...merge and rename
         df = df.merge(
             nucleic_acid_cluster_df[["seq_hash", "cluster_rep_seq_hash"]],
             left_on="q_pn_unit_processed_entity_canonical_sequence_hash",
             right_on="seq_hash",
             how="left",
-        ).rename(columns={"cluster_rep_seq_hash": f"q_pn_unit_nucleic_acid_cluster_{cluster_mode_str}_rep_seq_hash"})
+        ).rename(columns={"cluster_rep_seq_hash": nucleic_acid_cluster_col})
         logger.info(f"Merged nucleic acid clusters for {cluster_mode_str} sequence identity.")
 
         # Drop the redundant 'seq_hash' column from the merge
@@ -217,7 +232,7 @@ def cluster_all_sequences(
     logger.info("Clusting complete!")
     if output_path is not None:
         # Save before cleaning up, in case of errors
-        logger.info("Saving...")
+        logger.info(f"Saving to {output_path}...")
         df.to_parquet(output_path, index=False)
         logger.info(f"DataFrame with clustering information saved to {output_path}")
 

@@ -35,6 +35,10 @@ class PandasDataset(Dataset):
             data = self._load_from_path(data, columns_to_load, **load_kwargs)
         self._data = data
 
+        # For all of the string columns, remap None to an empty string (to avoid issues with string filtering)
+        string_columns = self._data.select_dtypes(include=["object"]).columns
+        self._data[string_columns] = self._data[string_columns].fillna("")
+
         # Apply filters, if provided
         self.filters = filters
         original_num_rows = len(self._data)

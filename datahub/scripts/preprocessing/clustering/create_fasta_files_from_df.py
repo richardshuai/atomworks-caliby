@@ -21,8 +21,8 @@ from pathlib import Path
 
 import fire
 import pandas as pd
+from cifutils.enums import NUCLEIC_ACIDS, PROTEINS
 
-from datahub.preprocessing.constants import NUCLEIC_ACIDS, PROTEINS
 from datahub.utils.misc import hash_sequence
 
 logger = logging.getLogger(__name__)

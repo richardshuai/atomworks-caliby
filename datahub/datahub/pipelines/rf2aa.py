@@ -18,7 +18,9 @@ from datahub.transforms.atom_array import (
     HandleUndesiredResTokens,
     RemoveHydrogens,
     RemoveTerminalOxygen,
+    RemoveUnresolvedPNUnits,
     RemoveUnsupportedChainTypes,
+    # RemoveUnresolvedLigandAtomsIfTooMany,
     SortLikeRF2AA,
 )
 from datahub.transforms.atom_frames import AddAtomFrames
@@ -316,6 +318,7 @@ def build_rf2aa_transform_pipeline(
         # ...remove hydrogens for efficiency
         RemoveHydrogens(),  # * (already cached from the parser)
         RemoveTerminalOxygen(),  # RF2AA does not encode terminal oxygen for AA residues.
+        RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
         # ...remove unsupported chain types
         RemoveUnsupportedChainTypes(),  # e.g., DNA_RNA_HYBRID, POLYPEPTIDE_D, etc.
         # RaiseIfTooManyAtoms(max_atoms=max_allowed_num_atoms),

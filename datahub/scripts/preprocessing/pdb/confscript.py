@@ -52,10 +52,12 @@ def process_pdb_ids(
 
     total_pdb_ids = len(pdb_ids)
     num_examples_processed = 0
+    num_errors = 0
     start_time = time.time()
 
     def process_single_pdb_id(pdb_id: str, index: int) -> None:
         nonlocal num_examples_processed  # Explicitly declaring nonlocal variable
+        nonlocal num_errors
 
         try:
             if (csv_dir / f"{pdb_id}.csv").exists():
@@ -110,7 +112,12 @@ def process_pdb_ids(
                         )
 
         except Exception as main_e:
-            logger.error(f"Exception occurred during processing: {main_e}")
+            logger.error(f"Exception occurred during processing PDB ID {pdb_id}: {main_e}")
+            num_examples_processed += 1
+            num_errors += 1
+            logger.info(
+                f"Total number of errors on this worker: {num_errors}, " f"or {num_errors / num_examples_processed:.2%}"
+            )
 
     for index, pdb_id in enumerate(pdb_ids):
         process_single_pdb_id(pdb_id, index)
