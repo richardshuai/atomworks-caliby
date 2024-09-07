@@ -1,3 +1,5 @@
+"""Various geometry utility functions to deal with rigid body transformations in 3D."""
+
 import torch
 from einops import einsum, rearrange
 from torch.nn.functional import normalize
