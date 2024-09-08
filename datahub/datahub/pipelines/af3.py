@@ -163,8 +163,6 @@ def build_af3_transform_pipeline(
     ]
 
     transforms += [
-        # ...encode the AtomArray
-        # TOOD: Encode the AtomArray and store in `encoded` key, like in RF2AA
         # ...load and pair MSAs
         LoadPolymerMSAs(
             protein_msa_dirs=protein_msa_dirs,
@@ -181,6 +179,7 @@ def build_af3_transform_pipeline(
         ConvertToTorch(
             keys=[
                 "encoded",
+                "feats",
                 "full_msa_details",
             ]
         ),

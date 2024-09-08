@@ -420,7 +420,7 @@ class Compose(Transform):
                     data = transform(data)
             except Exception as e:
                 # construct error message including the RNG states
-                msg = f"Transform pipeline failed at stage `{transform.__class__.__name__}` " + str(e)
+                msg = f"Transforms failed at stage `{transform.__class__.__name__}`: " + str(e)
                 if "example_id" in data:
                     msg += f"\nFailure occurred for example ID: {data['example_id']}."
                 if self.track_rng_state and self.print_rng_state:
@@ -428,7 +428,7 @@ class Compose(Transform):
                     msg += repr(serialize_rng_state_dict(rng_state_dict))
 
                 # Create a new exception type that inherits from both TransformPipelineError and the original exception type
-                CustomError = type(f"TransformPipeline{type(e).__name__}", (TransformPipelineError, type(e)), {})
+                CustomError = type(f"{type(e).__name__}", (TransformPipelineError, type(e)), {})
 
                 # Raise the new custom exception with the original traceback
                 raise CustomError(msg, rng_state_dict).with_traceback(e.__traceback__)
