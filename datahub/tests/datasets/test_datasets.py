@@ -13,7 +13,7 @@ from datahub.samplers import (
     MixedSampler,
     calculate_weights_for_pdb_dataset_df,
 )
-from tests.datasets.conftest import INTERFACES_DATASET, PDB_DATASET, PN_UNITS_DATASET
+from tests.datasets.conftest import RF2AA_INTERFACES_DATASET, RF2AA_PDB_DATASET, RF2AA_PN_UNITS_DATASET
 
 
 def create_dummy_dataset(length: int, name: str, dataset_class: PandasDataset = PandasDataset):
@@ -69,10 +69,10 @@ def test_pdb_datasets():
     }
 
     pn_units_dataset_weights = calculate_weights_for_pdb_dataset_df(
-        dataset_df=PN_UNITS_DATASET._data, alphas=alphas, beta=b_pn_unit
+        dataset_df=RF2AA_PN_UNITS_DATASET._data, alphas=alphas, beta=b_pn_unit
     )
     interfaces_dataset_weights = calculate_weights_for_pdb_dataset_df(
-        dataset_df=INTERFACES_DATASET._data, alphas=alphas, beta=b_interface
+        dataset_df=RF2AA_INTERFACES_DATASET._data, alphas=alphas, beta=b_interface
     )
     pdb_dataset_weights = torch.cat([pn_units_dataset_weights, interfaces_dataset_weights])  # NOTE: Order matters!
 
@@ -89,15 +89,15 @@ def test_pdb_datasets():
     datasets_info = [
         {
             "name": "pdb",
-            "dataset": PDB_DATASET,
+            "dataset": RF2AA_PDB_DATASET,
             "sampler": pdb_sampler,
             "probability": 0.2,
         },
         {
             # NOTE: Illustrative; dataset overlaps with the PDB_DATASET. In actuality, this would be a different dataset (e.g., distillation)
             "name": "pn_units",
-            "dataset": PN_UNITS_DATASET,
-            "sampler": SequentialSampler(PN_UNITS_DATASET),
+            "dataset": RF2AA_PN_UNITS_DATASET,
+            "sampler": SequentialSampler(RF2AA_PN_UNITS_DATASET),
             "probability": 0.8,
         },
         # etc.
@@ -137,7 +137,7 @@ def test_pdb_datasets():
 
     # Check that 80% of the indices are from the (second copy of) the pn_units dataset
     # ...all idxs >= len(pdb_dataset) should be from pn_units dataset
-    pn_unit_indices = [idx for idx in indices if idx >= len(PDB_DATASET)]
+    pn_unit_indices = [idx for idx in indices if idx >= len(RF2AA_PDB_DATASET)]
     assert len(pn_unit_indices) == 80
 
     # Assert that the example_type is "pn_unit" for any example from the pn_units dataset

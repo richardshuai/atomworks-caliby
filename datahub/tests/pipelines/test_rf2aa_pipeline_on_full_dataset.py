@@ -25,7 +25,7 @@ from datahub.utils.rng import (
     rng_state,
     serialize_rng_state_dict,
 )
-from tests.datasets.conftest import PDB_DATASET
+from tests.datasets.conftest import RF2AA_PDB_DATASET
 
 logger = logging.getLogger(__name__)
 logfile = Path(__file__).with_suffix(".log")
@@ -42,7 +42,7 @@ os.environ["RLIMIT_NPROC"] = "100"
 
 
 @pytest.mark.very_slow
-def test_full_dataset(pdb_dataset=PDB_DATASET, num_processes=5):
+def test_full_dataset(pdb_dataset=RF2AA_PDB_DATASET, num_processes=5):
     """
     Test the full dataset by running through the data loading pipeline and ensuring the examples come out with the
     correct shapes to plug into RF2AA.

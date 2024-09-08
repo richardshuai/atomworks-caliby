@@ -74,7 +74,7 @@ class AggregateFeaturesLikeRF2AA(Transform):
         AddRF2AABondFeaturesMatrix,
         AddRF2AATraversalDistanceMatrix,
         "AddRFTemplates",
-        "FeaturizeRFTemplatesForRF2AA",
+        "FeaturizeTemplatesLikeRF2AA",
         "AddRF2AAChiralFeatures",
         "CreateSymmetryCopyAxisLikeRF2AA",
         "SortLikeRF2AA",

@@ -1,23 +1,40 @@
+from os import PathLike
+from pathlib import Path
+
 import numpy as np
 import torch
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from cifutils.enums import ChainType
 
+from datahub.common import exists
 from datahub.encoding_definitions import AF3SequenceEncoding
 from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
 from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     AddWithinChainInstanceResIdx,
+    AddWithinPolyResIdxAnnotation,
     RemoveHydrogens,
 )
 from datahub.transforms.atomize import AtomizeResidues
-from datahub.transforms.base import Compose, RandomRoute
+from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
+from datahub.transforms.msa.msa import (
+    EncodeMSA,
+    FeaturizeMSALikeAF3,
+    FillFullMSAFromEncoded,
+    LoadPolymerMSAs,
+    PairAndMergePolymerMSAs,
+)
 from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeAF3
 
 
-def build_af3_pipeline(
+def build_af3_transform_pipeline(
+    # MSA dirs
+    protein_msa_dir: PathLike | str,
+    rna_msa_dir: PathLike | str,
+    # Recycles
+    n_recycles: int = 5,
     # Crop params
     crop_size: int = 384,
     crop_center_cutoff_distance: float = 15.0,
@@ -34,6 +51,12 @@ def build_af3_pipeline(
     template_allowed_chain_types: list[ChainType] = [ChainType.POLYPEPTIDE_L, ChainType.RNA],
     template_distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),
     template_default_token: str = "<G>",
+    # MSA parameters
+    max_msa_sequences: int = 10_000,  # Paper: 16,000, but we only have 10K stored on disk
+    n_msa: int = 10_000,  # Paper: ?? I think ~12K?
+    dense_msa: bool = True,  # True for AF3
+    # Cache paths
+    msa_cache_dir: PathLike | str | None = "/projects/ml/RF2_allatom/cache/msa",
 ):
     """Build the AF3 pipeline with specified parameters.
 
@@ -87,6 +110,7 @@ def build_af3_pipeline(
             validate_atomize=False,
         ),
         AddWithinChainInstanceResIdx(),
+        AddWithinPolyResIdxAnnotation(),
     ]
 
     # Crop
@@ -110,8 +134,6 @@ def build_af3_pipeline(
     elif crop_spatial_probability > 0:
         transforms.append(spatial_crop_transform)
 
-    transforms += []
-
     transforms += [
         EncodeAF3TokenLevelFeatures(sequence_encoding=af3_sequence_encoding),
         GetAF3ReferenceMoleculeFeatures(
@@ -130,6 +152,35 @@ def build_af3_pipeline(
             gap_token=template_default_token,
             allowed_chain_type=template_allowed_chain_types,
             distogram_bins=template_distogram_bins,
+        ),
+    ]
+
+    transforms += [
+        # ...encode the AtomArray
+        # TOOD: Encode the AtomArray and store in `encoded` key, like in RF2AA
+        # ...load and pair MSAs
+        LoadPolymerMSAs(
+            protein_msa_dir=protein_msa_dir,
+            rna_msa_dir=rna_msa_dir,
+            max_msa_sequences=max_msa_sequences,  # maximum number of sequences to load (we later subsample further)
+            msa_cache_dir=Path(msa_cache_dir) if exists(msa_cache_dir) else None,
+        ),
+        PairAndMergePolymerMSAs(dense=dense_msa),
+        # ...encode MSA to AF-3 format
+        EncodeMSA(encoding=af3_sequence_encoding, token_to_use_for_gap=af3_sequence_encoding.token_to_idx["<G>"]),
+        # ...fill MSA, indexing into only the portions of the polymers that are present in the cropped structure
+        FillFullMSAFromEncoded(pad_token=af3_sequence_encoding.token_to_idx["<G>"]),
+        # ...featurize MSA
+        ConvertToTorch(
+            keys=[
+                "encoded",
+                "full_msa_details",
+            ]
+        ),
+        FeaturizeMSALikeAF3(
+            encoding=af3_sequence_encoding,
+            n_recycles=n_recycles,
+            n_msa=n_msa,  # Paper model: 10
         ),
     ]
 

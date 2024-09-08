@@ -13,7 +13,7 @@ import torch
 from biotite.structure import AtomArray
 from cifutils.enums import ChainType
 
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
+from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding, TokenEncoding
 from datahub.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -254,6 +254,7 @@ class LoadPolymerMSAs(Transform):
         Returns:
             A tuple of numpy arrays containing msa, ins, tax_ids, and sequence similarity.
         """
+        # TODO: Refactor into functional API
         msa = None
         ins = None
         tax_ids = None
@@ -369,7 +370,7 @@ class LoadPolymerMSAs(Transform):
 
 class EncodeMSA(Transform):
     """
-    Encode a MSA from MSA-general integer representations to model-specific token indices using the TokenEncoding.
+    Encode a MSA from MSA-general integer representations to model-specific token indices using the Enoding.
 
     Args:
         token_encoding (TokenEncoding): The TokenEncoding object to use for encoding the MSA.
@@ -389,7 +390,7 @@ class EncodeMSA(Transform):
 
     requires_previous_transforms = ["LoadPolymerMSAs"]
 
-    def __init__(self, encoding: TokenEncoding, token_to_use_for_gap: int | None = None):
+    def __init__(self, encoding: TokenEncoding | AF3SequenceEncoding, token_to_use_for_gap: int | None = None):
         # ...create a lookup table to map from MSA integers to token indices
         lookup_for_encoding = np.zeros(len(MSA_INTEGER_TO_THREE_LETTER), dtype=int)
         for tmp_int, three_letter in MSA_INTEGER_TO_THREE_LETTER.items():
@@ -975,17 +976,18 @@ class FeaturizeMSALikeAF3(Transform):
     Meanwhile, we use "N_tokens" to refer to the number of residue tokens in the encoding; AF-3 directly refers to this number as "32".
 
     Initialization arguments:
-        encoding (TokenEncoding): The encoding object to use for the MSA. For AF-3, this should include the 32 classes used in the restype encoding.
+        encoding (AF3SequenceEncoding): The encoding object to use for the MSA. For AF-3, this should include the 32 classes used in the restype encoding.
         n_recycles (int): The number of recycles to perform. We will generate a unique featurized MSA for each recycle.
         n_msa (int): The number of MSA sequences to flow into the model. If there are fewer than `n_msa` sequences, we will use all of them.
 
     Outputs:
         For each recycle, we store the following in `data["msa_features_per_recycle_dict"]`:
-        - "msa": Shape [n_msa, n_tokens_across_chains, n_tokens]. One-hot encoding of the (possibly truncated) MSA, using the same classes as restype.
-        - "has_insertion": Shape [n_msa, n_tokens_across_chains]. Binary feature indicating if there is an insertion to the left of each position in the MSA.
-        - "insertion_value": Shape [n_msa, n_tokens_across_chains]. Raw insertion counts (the number of insertions to the left of each MSA position) are transformed to [0, 1] using 2/π * arctan(i/3).
-        - "profile": Shape [n_tokens_across_chains, n_tokens]. Distribution across restypes in the main MSA. Computed before MSA truncation.
-        - "insertion_mean": Shape [n_tokens_across_chains]. Mean number of insertions to the left of each position in the main MSA. Computed before MSA truncation.
+            - "msa": Shape [n_msa, n_tokens_across_chains, n_tokens]. One-hot encoding of the (possibly truncated) MSA, using the same classes as restype.
+            - "has_insertion": Shape [n_msa, n_tokens_across_chains]. Binary feature indicating if there is an insertion to the left of each position in the MSA.
+            - "insertion_value": Shape [n_msa, n_tokens_across_chains]. Raw insertion counts (the number of insertions to the left of each MSA position) are transformed to [0, 1] using 2/π * arctan(i/3).
+        We also store the following in `data["msa_static_features_dict"]`, which do not change across recycles:
+            - "profile": Shape [n_tokens_across_chains, n_tokens]. Distribution across restypes in the main MSA. Computed before MSA truncation.
+            - "insertion_mean": Shape [n_tokens_across_chains]. Mean number of insertions to the left of each position in the main MSA. Computed before MSA truncation.
 
     References:
         - AF3 Supplement, Table 5: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
@@ -996,7 +998,7 @@ class FeaturizeMSALikeAF3(Transform):
     def __init__(
         self,
         *,
-        encoding: TokenEncoding = RF2AA_ATOM36_ENCODING,  # TODO: AF3 token encoding
+        encoding: AF3SequenceEncoding,
         n_recycles: int,
         n_msa: int,
         eps: float = 1e-6,
@@ -1035,7 +1037,7 @@ def featurize_msa_like_af3(
     msa_is_padded_mask: torch.Tensor,
     msa_raw_ins: torch.Tensor,
     n_msa: int,
-    encoding: TokenEncoding,
+    encoding: AF3SequenceEncoding,
     n_recycles: int,
     eps: float = 1e-6,
 ):
@@ -1084,7 +1086,7 @@ def get_full_msa_profile_and_insertion_mean(
     encoded_msa: torch.Tensor,
     msa_raw_ins: torch.Tensor,
     msa_is_padded_mask: torch.Tensor,
-    encoding: TokenEncoding,
+    encoding: TokenEncoding | AF3SequenceEncoding,
     eps: float = 1e-6,
 ):
     """Computes the full MSA profile and insertion mean on the untruncated MSA"""

@@ -14,13 +14,13 @@ from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
 from datahub.pipelines.rf2aa import assert_satisfies_rf2aa_assumptions
-from tests.datasets.conftest import PDB_DATASET
+from tests.datasets.conftest import RF2AA_PDB_DATASET
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.mark.slow
-def test_satisfies_rf2aa_assumptions(pdb_dataset=PDB_DATASET):
+def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
     NUM_RANDOM_EXAMPLES = 10
 
     # Set the seed for reproducibility

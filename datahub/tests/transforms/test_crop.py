@@ -25,7 +25,7 @@ from datahub.transforms.crop import (
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.token import apply_and_spread_token_wise, get_token_count, get_token_starts
 from tests.conftest import CIF_PARSER
-from tests.datasets.conftest import PDB_DATASET
+from tests.datasets.conftest import RF2AA_PDB_DATASET
 
 # fmt: off
 INTERFACE_EXAMPLES = [
@@ -123,7 +123,7 @@ BENCHMARK_EXAMPLE_IDS = [example["id"] for example in BENCHMARK_EXAMPLES]
 # Cached loading from example to slightly speed up tests
 @cache
 def _get_example(example_id: str) -> dict:
-    row = get_row_and_index_by_example_id(PDB_DATASET, example_id)["row"]
+    row = get_row_and_index_by_example_id(RF2AA_PDB_DATASET, example_id)["row"]
     dataset_parser = PNUnitsDFParser() if "pn_units" in example_id else InterfacesDFParser()
     return load_from_row(row=row, row_parser=dataset_parser, cif_parser=CIF_PARSER)
 

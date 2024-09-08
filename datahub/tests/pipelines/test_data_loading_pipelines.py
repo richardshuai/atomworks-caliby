@@ -13,8 +13,8 @@ import torch
 from torch.utils.data import DataLoader, Subset
 from tqdm.autonotebook import tqdm
 
-from datahub.datasets.base import get_row_and_index_by_example_id
-from tests.datasets.conftest import PDB_DATASET
+from datahub.datasets.base import NamedConcatDataset, get_row_and_index_by_example_id
+from tests.datasets.conftest import AF3_PDB_DATASET, RF2AA_PDB_DATASET
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +29,16 @@ BENCHMARK_EXAMPLE_IDS = [
     "{['pdb', 'interfaces']}{7nmj}{1}{['D_1', 'L_1']}",
 ]
 
+PDB_DATASETS = [RF2AA_PDB_DATASET, AF3_PDB_DATASET]
+
 
 def identity_collate_fn(batch):
     return batch
 
 
+@pytest.mark.parametrize("dataset", PDB_DATASETS)
 @pytest.mark.slow
-def test_data_loading_pipeline_single_worker():
+def test_data_loading_pipeline_single_worker(dataset: NamedConcatDataset):
     """Test random examples using a DataLoader and assert that they run through without error and the result is not None."""
     NUM_RANDOM_EXAMPLES = 5
 
@@ -46,10 +49,10 @@ def test_data_loading_pipeline_single_worker():
 
     # Select deterministic examples to profile
     # NOTE: TEST_FILTERS ensures we don't end up with any huge examples that would slow down the test
-    deterministic_indices = np.random.choice(len(PDB_DATASET), NUM_RANDOM_EXAMPLES, replace=False)
+    deterministic_indices = np.random.choice(len(dataset), NUM_RANDOM_EXAMPLES, replace=False)
 
     # Create a Subset of the dataset with the selected indices
-    subset = Subset(PDB_DATASET, deterministic_indices)
+    subset = Subset(dataset, deterministic_indices)
 
     # Create a DataLoader for the subset
     # We must include an identity collate_fn to avoid errors with unrecognized types (AtomArray)
@@ -63,15 +66,16 @@ def test_data_loading_pipeline_single_worker():
     for i, sample in enumerate(tqdm(data_loader, desc="Loading examples", total=len(deterministic_indices))):
         example_id = sample[0]["example_id"]
         logger.info(f"Loaded example_id: {example_id} ({i+1}/{len(deterministic_indices)})")
-        row = get_row_and_index_by_example_id(PDB_DATASET, example_id)[
+        row = get_row_and_index_by_example_id(dataset, example_id)[
             "row"
         ]  # Check if we can reverse-engineer the row from the example_id
         assert row is not None, f"Failed to get row from example_id for example_id: {example_id}"
         assert sample is not None, f"Sample is None, with example_id: {example_id}"
 
 
+@pytest.mark.parametrize("dataset", PDB_DATASETS)
 @pytest.mark.slow
-def test_data_loading_pipeline_with_multiple_workers(pdb_dataset=PDB_DATASET):
+def test_data_loading_pipeline_with_multiple_workers(dataset: NamedConcatDataset):
     """Test random examples using a DataLoader and assert that they run through without error and the result is not None."""
     NUM_RANDOM_EXAMPLES = 5
 
@@ -89,10 +93,10 @@ def test_data_loading_pipeline_with_multiple_workers(pdb_dataset=PDB_DATASET):
 
     # Select deterministic examples to profile
     # NOTE: TEST_FILTERS ensures we don't end up with any huge examples that would slow down the test
-    deterministic_indices = np.random.choice(len(pdb_dataset), NUM_RANDOM_EXAMPLES, replace=False)
+    deterministic_indices = np.random.choice(len(dataset), NUM_RANDOM_EXAMPLES, replace=False)
 
     # Create a Subset of the dataset with the selected indices
-    subset = Subset(pdb_dataset, deterministic_indices)
+    subset = Subset(dataset, deterministic_indices)
 
     # Create a DataLoader for the subset
     # We must include an identity collate_fn to avoid errors with unrecognized types (AtomArray)
@@ -108,28 +112,29 @@ def test_data_loading_pipeline_with_multiple_workers(pdb_dataset=PDB_DATASET):
     for i, sample in enumerate(tqdm(data_loader, desc="Loading examples", total=len(deterministic_indices))):
         example_id = sample[0]["example_id"]
         logger.info(f"Loaded example_id: {example_id} ({i+1}/{len(deterministic_indices)})")
-        row = get_row_and_index_by_example_id(PDB_DATASET, example_id)[
+        row = get_row_and_index_by_example_id(dataset, example_id)[
             "row"
         ]  # Check if we can reverse-engineer the row from the example_id
         assert row is not None, f"Failed to get row from example_id for example_id: {example_id}"
         assert sample is not None, f"Sample is None, with example_id: {example_id}"
 
 
+@pytest.mark.parametrize("dataset", PDB_DATASETS)
 @pytest.mark.benchmark
 @pytest.mark.very_slow
-def test_data_loading_benchmark(benchmark, pdb_dataset=PDB_DATASET):
+def test_data_loading_benchmark(benchmark, dataset: NamedConcatDataset):
     """Benchmark a pre-defined set of examples to profile the data loading pipeline."""
     logger.info("Starting benchmarking of data loading pipeline")
 
     # Get the indices of the pre-selected examples
     indices = []
     for example_id in BENCHMARK_EXAMPLE_IDS:
-        index = get_row_and_index_by_example_id(PDB_DATASET, example_id)["index"]
+        index = get_row_and_index_by_example_id(dataset, example_id)["index"]
         indices.append(index)
 
     def load_samples():
         for idx in indices:
-            sample = pdb_dataset[idx]
+            sample = dataset[idx]
             assert sample is not None, f"Sample at index {idx} is None"
 
     # Benchmark the loading of the samples
@@ -137,4 +142,5 @@ def test_data_loading_benchmark(benchmark, pdb_dataset=PDB_DATASET):
 
 
 if __name__ == "__main__":
-    pytest.main(["-v", "-x", "--log-cli-level=INFO", "-m slow", __file__])
+    # pytest.main(["-v", "-x", "--log-cli-level=INFO", "-m slow", __file__])
+    test_data_loading_pipeline_single_worker(AF3_PDB_DATASET)

@@ -772,9 +772,8 @@ def featurize_templates_like_af3(
 
             # ... fill the template_distogram
             template_coords = torch.tensor(template.coord)
-            template_distogram[
-                tmpl_idx, *np.ix_(token_ids_to_fill[_has_pseudo_cb], token_ids_to_fill[_has_pseudo_cb])
-            ] = torch.cdist(
+            ix1, ix2 = np.ix_(token_ids_to_fill[_has_pseudo_cb], token_ids_to_fill[_has_pseudo_cb])
+            template_distogram[tmpl_idx, ix1.astype(int), ix2.astype(int)] = torch.cdist(
                 template_coords[_is_pseudo_cb_resolved],
                 template_coords[_is_pseudo_cb_resolved],
                 compute_mode="donot_use_mm_for_euclid_dist",
@@ -795,9 +794,8 @@ def featurize_templates_like_af3(
             # ... reset diagonal to 0 (can be non-zero due to normalization & numerical error)
             ca_direction_in_frames[0, 0] = 0.0
 
-            template_unit_vector[
-                tmpl_idx, *np.ix_(token_ids_to_fill[_has_n_ca_c_resolved], token_ids_to_fill[_has_n_ca_c_resolved])
-            ] = ca_direction_in_frames
+            ix1, ix2 = np.ix_(token_ids_to_fill[_has_n_ca_c_resolved], token_ids_to_fill[_has_n_ca_c_resolved])
+            template_unit_vector[tmpl_idx, ix1.astype(int), ix2.astype(int)] = ca_direction_in_frames
 
         # ... bucketize the distogram
         template_distogram = torch.bucketize(template_distogram, boundaries=distogram_bins)

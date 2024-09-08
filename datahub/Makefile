@@ -75,7 +75,7 @@ apptainer:
 
 ## Run pytest and generate coverage report
 test:
-	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml datahub/tests -m "not very_slow"
+	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml tests -m "not very_slow"
 
 #################################################################################
 # Self Documenting Commands                                                     #

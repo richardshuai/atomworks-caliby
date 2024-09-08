@@ -10,6 +10,9 @@ unit-test-job:
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
       when: always
+    - if: $CI_COMMIT_BRANCH != "main"
+      when: manual
+      allow_failure: true
     - when: never
   script:
     - echo "Running fast unit tests"
@@ -22,7 +25,10 @@ integration-test-job:
   rules:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
       when: on_success
-    - when: never
+    - if: $CI_COMMIT_BRANCH != "main"
+      when: on_success
+      allow_failure: true
+    - when: manual
   needs:
     - job: unit-test-job
   script:

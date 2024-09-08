@@ -3,6 +3,7 @@ from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 from datahub.datasets.base import NamedConcatDataset
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
 from datahub.datasets.pdb_dataset import PDBDataset
+from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
 from tests.conftest import (
@@ -35,7 +36,7 @@ TEST_INTERFACES_FILTERS = [
 
 
 # Define the PDB datasets with their respective parsers...
-PN_UNITS_DATASET = PDBDataset(
+RF2AA_PN_UNITS_DATASET = PDBDataset(
     name="pn_units",
     dataset_path=PN_UNITS_DF,
     cif_parser=CIF_PARSER,
@@ -52,8 +53,25 @@ PN_UNITS_DATASET = PDBDataset(
     ),
     unpack_data_dict=False,
 )
+AF3_PN_UNITS_DATASET = PDBDataset(
+    name="pn_units",
+    dataset_path=PN_UNITS_DF,
+    cif_parser=CIF_PARSER,
+    filters=SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
+    dataset_parser=PNUnitsDFParser(),
+    id_column="example_id",
+    transform=build_af3_transform_pipeline(
+        protein_msa_dirs=PROTEIN_MSA_DIRS,
+        rna_msa_dirs=RNA_MSA_DIRS,
+        n_recycles=5,
+        crop_size=256,
+        crop_contiguous_probability=1 / 3,
+        crop_spatial_probability=2 / 3,
+    ),
+    unpack_data_dict=False,
+)
 
-INTERFACES_DATASET = PDBDataset(
+RF2AA_INTERFACES_DATASET = PDBDataset(
     name="interfaces",
     dataset_path=INTERFACES_DF,
     cif_parser=CIF_PARSER,
@@ -70,6 +88,28 @@ INTERFACES_DATASET = PDBDataset(
     ),
     unpack_data_dict=False,
 )
+AF3_INTERFACES_DATASET = PDBDataset(
+    name="interfaces",
+    dataset_path=INTERFACES_DF,
+    cif_parser=CIF_PARSER,
+    filters=SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
+    dataset_parser=InterfacesDFParser(),
+    id_column="example_id",
+    transform=build_af3_transform_pipeline(
+        protein_msa_dirs=PROTEIN_MSA_DIRS,
+        rna_msa_dirs=RNA_MSA_DIRS,
+        n_recycles=5,
+        crop_size=256,
+        crop_spatial_probability=1.0,
+        crop_contiguous_probability=0.0,
+    ),
+    unpack_data_dict=False,
+)
 
 # ...build the ConcatDataset
-PDB_DATASET = NamedConcatDataset(datasets=[PN_UNITS_DATASET, INTERFACES_DATASET], name="pdb")  # NOTE: Order matters!
+RF2AA_PDB_DATASET = NamedConcatDataset(
+    datasets=[RF2AA_PN_UNITS_DATASET, RF2AA_INTERFACES_DATASET], name="pdb"
+)  # NOTE: Order matters!
+AF3_PDB_DATASET = NamedConcatDataset(
+    datasets=[AF3_PN_UNITS_DATASET, AF3_INTERFACES_DATASET], name="pdb"
+)  # NOTE: Order matters!
