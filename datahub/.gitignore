@@ -182,3 +182,13 @@ dev.py
 
 # Pytest
 *.benchmarks/
+
+# Images
+*.png
+*.pdf
+*.svg
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
