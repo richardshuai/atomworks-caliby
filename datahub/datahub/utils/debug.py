@@ -43,7 +43,7 @@ def save_failed_example_to_disk(
 
     # Ensure the fail directory exists
     file_path = os.path.join(fail_dir, run_id, _remove_special_characters(example_id) + ".pkl")
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    os.makedirs(os.path.dirname(file_path), exist_ok=True, mode=0o777)  # Allow everyone to read/write
 
     with open(file_path, "wb") as f:
         data = {
