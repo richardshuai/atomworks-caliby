@@ -9,7 +9,7 @@ import pickle
 import pprint
 import time
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Type
 
 import numpy as np
 import torch
@@ -297,6 +297,22 @@ class Transform(ABC):
             repr_str += "(\n " + ",\n  ".join(attributes) + "\n)"
         return repr_str
 
+    def __add__(self, other: Transform) -> "Compose":
+        # Case 1: self & other are `Compose` instances
+        #  ... overridden in `Compose` class
+        # Case 2: self is a `Compose` instance and other is a `Transform` instance
+        #  ... overridden in `Compose` class
+
+        # Case 3: self is a `Transform` instance and other is a `Compose` instance
+        if isinstance(self, Transform) and isinstance(other, Compose):
+            return Compose([self] + other.transforms, track_rng_state=other.track_rng_state)
+        # Case 4: self & other are simple `Transform` instances
+        elif isinstance(self, Transform) and isinstance(other, Transform):
+            return Compose([self, other])
+        # Case 5: other is not a `Transform` instance
+        else:
+            raise ValueError(f"Expected a Transform or Compose, but got a {type(other)}")
+
 
 class Compose(Transform):
     """
@@ -346,12 +362,14 @@ class Compose(Transform):
         self.print_rng_state = print_rng_state
 
     def __add__(self, other: Transform | list[Transform] | Compose) -> "Compose":
-        if isinstance(other, Transform):
+        if isinstance(other, Compose):
+            return Compose(
+                self.transforms + other.transforms, track_rng_state=self.track_rng_state or other.track_rng_state
+            )
+        elif isinstance(other, Transform):
             return Compose(self.transforms + [other], track_rng_state=self.track_rng_state)
         elif isinstance(other, list):
             return Compose(self.transforms + other, track_rng_state=self.track_rng_state)
-        elif isinstance(other, Compose):
-            return Compose(self.transforms + other.transforms, track_rng_state=self.track_rng_state)
         else:
             raise ValueError(f"Expected a Transform or list of Transforms or Compose, but got a {type(other)}")
 
@@ -402,13 +420,18 @@ class Compose(Transform):
                     data = transform(data)
             except Exception as e:
                 # construct error message including the RNG states
-                msg = f"Transform pipeline failed at stage `{transform.__class__.__name__}`. Scroll up the traceback for detailed error report."
+                msg = f"Transform pipeline failed at stage `{transform.__class__.__name__}` " + str(e)
                 if "example_id" in data:
-                    msg += f"\nFailure occured for example ID: {data['example_id']}."
+                    msg += f"\nFailure occurred for example ID: {data['example_id']}."
                 if self.track_rng_state and self.print_rng_state:
                     msg += "\nRandom number generator states at the start of the pipeline (you can instantiate the string below with `eval` for debugging):\n"
                     msg += repr(serialize_rng_state_dict(rng_state_dict))
-                raise TransformPipelineError(msg, rng_state_dict) from e
+
+                # Create a new exception type that inherits from both TransformPipelineError and the original exception type
+                CustomError = type(f"TransformPipeline{type(e).__name__}", (TransformPipelineError, type(e)), {})
+
+                # Raise the new custom exception with the original traceback
+                raise CustomError(msg, rng_state_dict).with_traceback(e.__traceback__)
 
         return data
 
@@ -692,14 +715,34 @@ class ConvertToTorch(Transform):
 
 
 class RaiseOnCondition(Transform):
-    def __init__(self, condition: callable, error_message: str):
+    """
+    Raises a user-specified exception if a given condition is met.
+    """
+
+    def __init__(self, condition: callable, error_message: str, exception_to_raise: Type[Exception] = ValueError):
         self.condition = condition
         self.error_message = error_message
+        self.exception_class = exception_to_raise
 
     def check_input(self, data: dict[str, Any]) -> None:
         pass
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         if self.condition(data):
-            raise ValueError(self.error_message)
+            raise self.exception_class(self.error_message)
         return data
+
+
+class ApplyFunction(Transform):
+    """
+    Applies a function to the data dictionary.
+    """
+
+    def __init__(self, func: callable):
+        self.func = func
+
+    def check_input(self, data: dict[str, Any]) -> None:
+        pass
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        return self.func(data)
