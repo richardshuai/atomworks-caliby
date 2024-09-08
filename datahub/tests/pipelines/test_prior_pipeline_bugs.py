@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from cifutils.constants import AF3_EXCLUDED_LIGANDS
+from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
 from datahub.datasets.base import NamedConcatDataset, get_row_and_index_by_example_id
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
@@ -19,18 +19,16 @@ from tests.datasets.conftest import SUPPORTED_CHAIN_TYPES_INTS
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-af3_excluded_ligand_pattern = "|".join(AF3_EXCLUDED_LIGANDS)
-
 TEST_PN_UNITS_FILTERS = [
     f"q_pn_unit_type in {SUPPORTED_CHAIN_TYPES_INTS}",  # Limit query PN units to proteins, RNA, DNA, and ligands (i.e., exclude RNA/DNA hybrids)
-    f"~(q_pn_unit_non_polymer_res_names.notnull() and q_pn_unit_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))", # TODO: Double check with NATE
+    f"~(q_pn_unit_non_polymer_res_names.notnull() and q_pn_unit_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}'))",  # TODO: Double check with NATE
 ]
 
 TEST_INTERFACES_FILTERS = [
     f"pn_unit_1_type in {SUPPORTED_CHAIN_TYPES_INTS}",  # Limit interface PN units to proteins, RNA, DNA, and ligands (i.e., exclude RNA/DNA hybrids)
     f"pn_unit_2_type in {SUPPORTED_CHAIN_TYPES_INTS}",
-    f"~(pn_unit_1_non_polymer_res_names.notnull() and pn_unit_1_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))", # TODO: Double check with NATE
-    f"~(pn_unit_2_non_polymer_res_names.notnull() and pn_unit_2_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))", # TODO: Double check with NATE
+    f"~(pn_unit_1_non_polymer_res_names.notnull() and pn_unit_1_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}'))",  # TODO: Double check with NATE
+    f"~(pn_unit_2_non_polymer_res_names.notnull() and pn_unit_2_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}'))",  # TODO: Double check with NATE
 ]
 
 # Define the PDB datasets with their respective parsers...

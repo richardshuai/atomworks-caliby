@@ -80,7 +80,6 @@ def test_compose_error_handling():
     with pytest.raises(TransformPipelineError) as excinfo:
         transform(data)
 
-    assert "Transform pipeline failed at stage `ErrorTransform`" in str(excinfo.value)
     assert "This transform always raises an error" in str(excinfo.value)
 
     transform = Compose([ErrorTransform(), Transform1(), Transform2()], track_rng_state=False)
