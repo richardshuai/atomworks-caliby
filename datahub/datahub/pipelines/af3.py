@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from cifutils.constants import AF3_EXCLUDED_LIGANDS, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from cifutils.enums import ChainType
 
 from datahub.common import exists
@@ -13,7 +13,9 @@ from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     AddWithinChainInstanceResIdx,
     AddWithinPolyResIdxAnnotation,
+    HandleUndesiredResTokens,
     RemoveHydrogens,
+    RemoveUnresolvedPNUnits,
 )
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute
@@ -30,9 +32,10 @@ from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeAF
 
 
 def build_af3_transform_pipeline(
+    *,
     # MSA dirs
-    protein_msa_dir: PathLike | str,
-    rna_msa_dir: PathLike | str,
+    protein_msa_dirs: list[dict],
+    rna_msa_dirs: list[dict],
     # Recycles
     n_recycles: int = 5,
     # Crop params
@@ -40,6 +43,8 @@ def build_af3_transform_pipeline(
     crop_center_cutoff_distance: float = 15.0,
     crop_contiguous_probability: float = 0.5,
     crop_spatial_probability: float = 0.5,
+    # Undesired res names
+    undesired_res_names: list[str] = AF3_EXCLUDED_LIGANDS,
     # Conformer generation params
     conformer_generation_timeout: float = 10.0,
     # Template params
@@ -102,6 +107,8 @@ def build_af3_transform_pipeline(
 
     transforms = [
         RemoveHydrogens(),
+        RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
+        HandleUndesiredResTokens(undesired_res_names),  # e.g., non-standard residues
         AddGlobalAtomIdAnnotation(),
         AtomizeResidues(
             atomize_by_default=True,
@@ -160,8 +167,8 @@ def build_af3_transform_pipeline(
         # TOOD: Encode the AtomArray and store in `encoded` key, like in RF2AA
         # ...load and pair MSAs
         LoadPolymerMSAs(
-            protein_msa_dir=protein_msa_dir,
-            rna_msa_dir=rna_msa_dir,
+            protein_msa_dirs=protein_msa_dirs,
+            rna_msa_dirs=rna_msa_dirs,
             max_msa_sequences=max_msa_sequences,  # maximum number of sequences to load (we later subsample further)
             msa_cache_dir=Path(msa_cache_dir) if exists(msa_cache_dir) else None,
         ),
