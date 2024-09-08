@@ -800,13 +800,13 @@ def featurize_templates_like_af3(
         # ... bucketize the distogram
         template_distogram = torch.bucketize(template_distogram, boundaries=distogram_bins)
 
-        return {
-            "template_restype": res_type,
-            "template_pseudo_beta_mask": template_pseudo_beta_mask,
-            "template_backbone_frame_mask": template_backbone_frame_mask,
-            "template_distogram": template_distogram,
-            "template_unit_vector": template_unit_vector,
-        }
+    return {
+        "template_restype": res_type,
+        "template_pseudo_beta_mask": template_pseudo_beta_mask,
+        "template_backbone_frame_mask": template_backbone_frame_mask,
+        "template_distogram": template_distogram,
+        "template_unit_vector": template_unit_vector,
+    }
 
 
 class FeaturizeTemplatesLikeAF3(Transform):
