@@ -418,6 +418,8 @@ class Compose(Transform):
 
                     # ... otherwise apply the transform
                     data = transform(data)
+            except KeyboardInterrupt:
+                raise
             except Exception as e:
                 # construct error message including the RNG states
                 msg = f"Transforms failed at stage `{transform.__class__.__name__}`: " + str(e)
@@ -427,11 +429,11 @@ class Compose(Transform):
                     msg += "\nRandom number generator states at the start of the pipeline (you can instantiate the string below with `eval` for debugging):\n"
                     msg += repr(serialize_rng_state_dict(rng_state_dict))
 
-                # Create a new exception type that inherits from both TransformPipelineError and the original exception type
-                CustomError = type(f"{type(e).__name__}", (TransformPipelineError, type(e)), {})
+                # Update error message of original exception
+                e.args = (msg,)
 
                 # Raise the new custom exception with the original traceback
-                raise CustomError(msg, rng_state_dict).with_traceback(e.__traceback__)
+                raise e.with_traceback(e.__traceback__)
 
         return data
 
