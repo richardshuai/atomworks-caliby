@@ -18,7 +18,7 @@ from datahub.transforms.atom_array import (
     RemoveUnresolvedPNUnits,
 )
 from datahub.transforms.atomize import AtomizeResidues
-from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute
+from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
 from datahub.transforms.msa.msa import (
@@ -46,7 +46,7 @@ def build_af3_transform_pipeline(
     # Undesired res names
     undesired_res_names: list[str] = AF3_EXCLUDED_LIGANDS,
     # Conformer generation params
-    conformer_generation_timeout: float = 10.0,
+    conformer_generation_timeout: float = 2.0,  # seconds
     # Template params
     n_template: int = 5,
     pick_top_templates: bool = False,
@@ -188,8 +188,10 @@ def build_af3_transform_pipeline(
             n_recycles=n_recycles,
             n_msa=n_msa,  # Paper model: 10
         ),
+        # ... remove all non-feature keys (to make compatible wit generic batch_collate, which only allows tensors, numpy arrays, str, etc.)
+        SubsetToKeys(["example_id", "feats"]),
     ]
 
-    # ... compose final pipelien
+    # ... compose final pipeline
     pipeline = Compose(transforms)
     return pipeline

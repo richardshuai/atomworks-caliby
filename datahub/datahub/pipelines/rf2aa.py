@@ -24,7 +24,7 @@ from datahub.transforms.atom_array import (
 )
 from datahub.transforms.atom_frames import AddAtomFrames
 from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
-from datahub.transforms.base import ApplyFunction, Compose, ConvertToTorch, RandomRoute
+from datahub.transforms.base import ApplyFunction, Compose, ConvertToTorch, RandomRoute, SubsetToKeys
 from datahub.transforms.bonds import (
     AddRF2AABondFeaturesMatrix,
     AddRF2AATraversalDistanceMatrix,
@@ -426,5 +426,7 @@ def build_rf2aa_transform_pipeline(
     # Convert the features to the RF2AAInputs format
     if convert_feats_to_rf2aa_input_tuple:
         transforms.append(ApplyFunction(_convert_feats_to_rf2aa_input_tuple))
+
+    transforms.append(SubsetToKeys(["example_id", "feats"]))
 
     return Compose(transforms, track_rng_state=True)

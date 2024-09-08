@@ -761,7 +761,7 @@ def res_name_to_rdkit(res_name: str, set_coord: bool = True, infer_hydrogens: bo
 
 
 def res_name_to_rdkit_with_conformers(
-    res_name: str, n_conformers: int, *, timeout_seconds: float = 10.0, **generate_conformers_kwargs
+    res_name: str, n_conformers: int, *, timeout_seconds: float = 2.0, **generate_conformers_kwargs
 ) -> Chem.Mol:
     """
     Generate an RDKit molecule with conformers for a given residue name.
@@ -876,6 +876,8 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
                     sanitize=True,
                     attempt_fixing_corrupted_molecules=False,
                 )
+            except KeyboardInterrupt as e:
+                raise e
             except Exception as e:
                 logger.error(
                     f"Failed to convert molecule {pn_unit_iid} to RDKit: {str(e)}. Trying again and attempting to fix the corrupted molecule."
