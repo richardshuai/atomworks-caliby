@@ -7,9 +7,12 @@ unit-test-job:
   coverage: '/TOTAL.*\s+(\d+%)$/'
   stage: test
   rules:
-    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i  # Run on branches that request to merge into main
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
       when: always
-    - when: never
+      allow_failure: false
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != "main"
+      when: manual
+      allow_failure: true
   script:
     - echo "Running unit tests"
     - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
@@ -19,7 +22,7 @@ post-merge-job:
   coverage: '/TOTAL.*\s+(\d+%)$/'
   stage: post-merge
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  # Run on main branch after merge
+    - if: $CI_COMMIT_BRANCH == "main"  # Run on main branch after merge
       when: always
     - when: never
   script:
@@ -31,6 +34,8 @@ create_release:
   stage: release
   rules:
     - if: $CI_COMMIT_TAG                  # Run this job when a tag is pushed
+      when: always
+    - when: never
   script:
     - echo "Creating a release for $CI_COMMIT_TAG"
     # TODO: Create updated version of `cifutils_latest.sif` apptainer on digs
