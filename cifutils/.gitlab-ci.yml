@@ -12,7 +12,8 @@ unit-test-job:
     - when: never
   script:
     - echo "Running unit tests"
-    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_tests.sh
+    - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_tests.sh || exit 1
 
 post-merge-job:
   coverage: '/TOTAL.*\s+(\d+%)$/'
@@ -23,7 +24,8 @@ post-merge-job:
     - when: never
   script:
     - echo "Running post-merge tests"
-    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_tests.sh
+    - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_tests.sh || exit 1
 
 create_release:
   stage: release

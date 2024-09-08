@@ -193,6 +193,6 @@ IncludeCmd: yes
       apptainer shell /path/to/cifutils_apptainer.sif
 
 %labels
-    Author smathis@uw.edu
+    Authors simon.mathis@gmail.com, ncorley@uw.edu
     Version v0.0.1
     ApptainerVersion 1.1.6+2-g6808b5172-ipd

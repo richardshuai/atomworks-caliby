@@ -24,7 +24,7 @@ format:
 	ruff format .
 	ruff check --fix .
 
-_biotite_access_error:
+_token_access_error:
 	@echo "==============================================================================="; \
 	echo "Error: Environment variables GITLAB_USER and GITLAB_TOKEN must be set."; \
 	echo ""; \
@@ -45,7 +45,7 @@ env:
 	@echo "Creating cifutils conda environment: `cifutils`"
 	# Check if the GITLAB_USER and GITLAB_TOKEN are set
 	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
-		$(MAKE) _biotite_access_error; \
+		$(MAKE) _token_access_error; \
 	fi
 	$(CONDA_BINARY) env create -n cifutils --file environment.yaml
 	conda init
@@ -57,7 +57,7 @@ install:
 	@echo "Installing cifutils"
 	# Check if the GITLAB_USER and GITLAB_TOKEN are set
 	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
-		$(MAKE) _biotite_access_error; \
+		$(MAKE) _token_access_error; \
 	fi
 	# Install the conda requirements in the current activated environment
 	$(CONDA_BINARY) env update --file environment.yaml
@@ -68,18 +68,13 @@ install:
 apptainer:
 	# Check if the GITLAB_USER and GITLAB_TOKEN are set
 	if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
-		$(MAKE) _biotite_access_error; \
+		$(MAKE) _token_access_error; \
 	fi
 	apptainer build --bind $(PWD):/cifutils_host cifutils.sif apptainer.spec
 
 ## Run pytest and generate coverage report
 test:
 	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml tests/
-	@if command -v genbadge >/dev/null 2>&1; then \
-		genbadge coverage -i coverage.xml -o assets/coverage-badge.svg; \
-	else \
-		echo "Warning: genbadge not installed. Skipping coverage badge generation."; \
-	fi
 
 #################################################################################
 # Self Documenting Commands                                                     #
