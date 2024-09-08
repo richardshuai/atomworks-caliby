@@ -23,14 +23,14 @@ af3_excluded_ligand_pattern = "|".join(AF3_EXCLUDED_LIGANDS)
 
 TEST_PN_UNITS_FILTERS = [
     f"q_pn_unit_type in {SUPPORTED_CHAIN_TYPES_INTS}",  # Limit query PN units to proteins, RNA, DNA, and ligands (i.e., exclude RNA/DNA hybrids)
-    f"~(q_pn_unit_non_polymer_res_names.notnull() and q_pn_unit_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))",
+    f"~(q_pn_unit_non_polymer_res_names.notnull() and q_pn_unit_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))", # TODO: Double check with NATE
 ]
 
 TEST_INTERFACES_FILTERS = [
     f"pn_unit_1_type in {SUPPORTED_CHAIN_TYPES_INTS}",  # Limit interface PN units to proteins, RNA, DNA, and ligands (i.e., exclude RNA/DNA hybrids)
     f"pn_unit_2_type in {SUPPORTED_CHAIN_TYPES_INTS}",
-    f"~(pn_unit_1_non_polymer_res_names.notnull() and pn_unit_1_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))",
-    f"~(pn_unit_2_non_polymer_res_names.notnull() and pn_unit_2_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))",
+    f"~(pn_unit_1_non_polymer_res_names.notnull() and pn_unit_1_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))", # TODO: Double check with NATE
+    f"~(pn_unit_2_non_polymer_res_names.notnull() and pn_unit_2_non_polymer_res_names.str.contains('{af3_excluded_ligand_pattern}'))", # TODO: Double check with NATE
 ]
 
 # Define the PDB datasets with their respective parsers...
