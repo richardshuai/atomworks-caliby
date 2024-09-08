@@ -6,6 +6,7 @@ from typing import Any
 
 import biotite.structure as struc
 import numpy as np
+import toolz
 from biotite.structure import AtomArray
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Mol, rdDistGeom
@@ -20,7 +21,7 @@ from datahub.transforms._checks import (
     check_nonzero_length,
 )
 from datahub.transforms.base import Transform
-from datahub.utils.timeout import TimeoutContext
+from datahub.utils.timeout import TimeoutContext, TimeoutError
 
 logger = logging.getLogger(__name__)
 # ... disable RDKit logging
@@ -55,6 +56,9 @@ Maps (rdkit bond type, is_aromatic) -> biotite bond type
 
 Unspecified bonds are mapped to `ANY` bond type.
 """
+
+_CONVERTIBLE_RDKIT_BOND_TYPES = toolz.keymap(lambda x: x[0], _RDKIT_BOND_TYPE_TO_BIOTITE)
+"""List of RDKit Bond types that can be converted to Biotite bond types."""
 
 _BIOTITE_BOND_TYPE_TO_RDKIT = {
     # biotite bond type -> (rdkit bond type, is_aromatic)
@@ -562,6 +566,13 @@ def atom_array_from_rdkit(
     # ... create bond list with integer bond orders
     bond_list = []
     for bond in mol.GetBonds():
+        rdkit_bond_type = bond.GetBondType()
+
+        if rdkit_bond_type not in _CONVERTIBLE_RDKIT_BOND_TYPES:
+            # ... skip undesired bonds, e.g. dative bonds (=metal coordination bonds)
+            logger.warning(f"Skipping {rdkit_bond_type=}. Not in convertible bond types.")
+            continue
+
         begin_atom_idx = bond.GetBeginAtomIdx()
         end_atom_idx = bond.GetEndAtomIdx()
         is_bond_aromatic = bond.GetIsAromatic()
@@ -790,14 +801,17 @@ def res_name_to_rdkit_with_conformers(
 
     # ... try generating `count` conformers within a given time limit
     try:
-        with TimeoutContext(seconds=timeout_seconds):
+        with TimeoutContext(seconds=timeout_seconds, timeout_exception=TimeoutError):
             mol = generate_conformers(mol, n_conformers=n_conformers, **generate_conformers_kwargs)
-    except TimeoutError:
+    except TimeoutError as e:
         logger.warning(
             f"Failed to generate conformers for {res_name=} after {timeout_seconds=}. Falling back to idealized conformer."
+            + f" Error message: {e}"
         )
-    except RuntimeError:
-        logger.warning(f"Failed to generate conformers for {res_name=}. Falling back to idealized conformer.")
+    except RuntimeError as e:
+        logger.warning(
+            f"Failed to generate conformers for {res_name=}. Falling back to idealized conformer. Error message: {e}"
+        )
 
     # ... if conformer generation fails or is incomplete, return the idealized conformer (set `count` conformers)
     missing_conformers = n_conformers - mol.GetNumConformers()

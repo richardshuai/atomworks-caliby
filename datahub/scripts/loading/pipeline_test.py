@@ -13,12 +13,12 @@ python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_prepro
 python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/pn_units_df.parquet 4 af3
 python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/interfaces_df.parquet 4 af3
 To run silently in the background:
-sbatch -c 12 --mem=128g --time=08:00:00 --output=test_pipeline_$(date +%Y%m%d).log \
-    --wrap='export PYTHONPATH="${PYTHONPATH}:${PWD}"; python scripts/loading/pipeline_test.py /path/to/dataset.parquet 12 rf2aa'
+sbatch -c 4 --mem=32g --time=08:00:00 --output=test_pipeline_$(date +%Y%m%d).log \
+    --wrap='export PYTHONPATH="${PYTHONPATH}:${PWD}"; python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/interfaces_df.parquet 4 rf2aa'
 
 # Or for AF3:
-sbatch -c 12 --mem=128g --time=08:00:00 --output=test_pipeline_af3_$(date +%Y%m%d).log \
-    --wrap='export PYTHONPATH="${PYTHONPATH}:${PWD}"; python scripts/loading/pipeline_test.py /path/to/dataset.parquet 12 af3'
+sbatch -c 4 --mem=32g --time=08:00:00 --output=test_pipeline_af3_$(date +%Y%m%d).log \
+    --wrap='export PYTHONPATH="${PYTHONPATH}:${PWD}"; python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/interfaces_df.parquet 4 af3'
 
 Adjust paths and resource requirements as needed.
 """
