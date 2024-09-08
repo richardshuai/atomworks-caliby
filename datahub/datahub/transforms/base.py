@@ -257,7 +257,7 @@ class Transform(ABC):
                 formatted_msg = self._format_error_msg(e)
                 if self.raise_if_invalid_input:
                     logger.error(formatted_msg)
-                    raise RuntimeError(formatted_msg) from e
+                    raise TransformPipelineError(formatted_msg) from e
                 else:
                     logger.warning(formatted_msg)
                     return data

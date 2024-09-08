@@ -94,7 +94,6 @@ def test_compose_stop_before():
 
 
 def test_transform_addition():
-    # %%
     t1 = Transform1()
     t2 = Transform2()
     t3 = Transform3()
@@ -130,7 +129,6 @@ def test_transform_addition():
     assert isinstance(combined.transforms[1], Transform2)
     assert isinstance(combined.transforms[2], Transform3)
     assert isinstance(combined.transforms[3], Identity)
-    # %%
 
 
 if __name__ == "__main__":
