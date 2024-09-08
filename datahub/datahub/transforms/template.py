@@ -797,8 +797,8 @@ def featurize_templates_like_af3(
             ix1, ix2 = np.ix_(token_ids_to_fill[_has_n_ca_c_resolved], token_ids_to_fill[_has_n_ca_c_resolved])
             template_unit_vector[tmpl_idx, ix1.astype(int), ix2.astype(int)] = ca_direction_in_frames
 
-        # ... bucketize the distogram
-        template_distogram = torch.bucketize(template_distogram, boundaries=distogram_bins)
+    # ... bucketize the distogram
+    template_distogram = torch.bucketize(template_distogram, boundaries=distogram_bins)
 
     return {
         "template_restype": res_type,
