@@ -17,7 +17,7 @@ import pytest
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from datahub.pipelines.rf2aa import assert_satisfies_rf2aa_assumptions
+from datahub.transforms.rf2aa_assumptions import assert_satisfies_rf2aa_assumptions
 from datahub.utils.debug import save_failed_example_to_disk
 from datahub.utils.rng import (
     capture_rng_states,

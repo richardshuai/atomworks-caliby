@@ -362,4 +362,5 @@ class AggregateFeaturesLikeRF2AA(Transform):
         data_outputs["task"] = "sm_compl" if np.any(token_wise_atom_array.atomize) else "poly_only"
         data_outputs["symmgp"] = "C1"  # (Assume no special symmetry group -- C1=cyclical 1 == identity)
 
-        return data_outputs
+        data["feats"] = data_outputs
+        return data

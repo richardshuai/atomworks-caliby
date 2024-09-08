@@ -3,6 +3,7 @@ import socket
 import time
 from os import PathLike
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from cifutils import CIFParser
@@ -11,7 +12,6 @@ from datahub.common import exists
 from datahub.datasets import logger
 from datahub.datasets.base import PandasDataset
 from datahub.datasets.dataframe_parsers import RowParser, load_from_row
-from datahub.pipelines.rf2aa import RF2AAInputs, assert_satisfies_rf2aa_assumptions
 from datahub.transforms.base import Compose, Transform, TransformedDict
 from datahub.utils.debug import save_failed_example_to_disk
 from datahub.utils.rng import capture_rng_states
@@ -28,7 +28,8 @@ class PDBDataset(PandasDataset):
         columns_to_load: list[str] | None = None,
         transform: Transform | Compose | None = None,
         id_column: str | None = "example_id",
-        unpack_data_dict: bool = True,
+        return_key: str | None = None,
+        save_failed_examples_to_dir: PathLike | str | None = "/net/scratch/failures",
         cif_cache_dir: PathLike | str | None = "/projects/ml/RF2_allatom/cache/cif",
     ):
         """
@@ -46,8 +47,12 @@ class PDBDataset(PandasDataset):
                 Specify only the columns needed to minimize data transfer to workers.
             transform (Transform | Compose, optional): Transformation pipeline to apply to the data.
             id_column (str, optional): Name of the column containing the example IDs. Defaults to "example_id".
-            unpack_data_dict (bool, optional): Whether to unpack the data dictionary into an RF2AAInputs tuple. Defaults to True.
-                When unpacking, the assumptions of RF2AA are automatically checked.
+            return_key (str, optional): If provided, returns data[return_key] instead of the entire data dict.
+            save_failed_examples_to_dir (PathLike | str | None, optional): Directory to save failed examples to.
+                Defaults to "/net/scratch/failures".
+            cif_cache_dir (PathLike | str | None, optional): Directory to retrieve cached, processed CIF files from if they are already
+                cached, or to cache them in if they are not. If None, CIF files will not be cached.
+                Defaults to "/projects/ml/RF2_allatom/cache/cif".
         """
         # Initialize the cif parser, if not provided
         self.cif_parser = cif_parser if cif_parser else CIFParser()
@@ -61,12 +66,13 @@ class PDBDataset(PandasDataset):
         )
 
         self.transform = transform
-        self.unpack_data_dict = unpack_data_dict
+        self.return_key = return_key
         self.cif_cache_dir = Path(cif_cache_dir) if exists(cif_cache_dir) else None
+        self.save_failed_examples_to_dir = (
+            Path(save_failed_examples_to_dir) if exists(save_failed_examples_to_dir) else None
+        )
 
-    def __getitem__(self, idx: int) -> dict | RF2AAInputs:
-        # TODO: Remove RF2AA specific bits
-
+    def __getitem__(self, idx: int) -> Any:
         # Capture example ID & current rng state (for reproducibility & debugging)
         example_id = self.idx_to_id(idx)
         # Get process id and hostname
@@ -92,21 +98,27 @@ class PDBDataset(PandasDataset):
         )
 
         # Featurize the data with the defined pipeline
-        if self.transform is not None:
+        if exists(self.transform):
             try:
                 rng_state_dict = capture_rng_states(include_cuda=False)
                 data = self.transform(data)
-                assert_satisfies_rf2aa_assumptions(data)
             except KeyboardInterrupt as e:
                 raise e
             except Exception as e:
                 logger.info(f"Error processing row {idx} ({example_id}): {e}")
-                save_failed_example_to_disk(
-                    example_id=example_id,
-                    error_msg=e,
-                    rng_state_dict=rng_state_dict,
-                    data={},  # We do not save the data, since it may be large.
-                )
+
+                if exists(self.save_failed_examples_to_dir):
+                    save_failed_example_to_disk(
+                        example_id=example_id,
+                        error_msg=e,
+                        rng_state_dict=rng_state_dict,
+                        data={},  # We do not save the data, since it may be large.
+                        fail_dir=self.save_failed_examples_to_dir,
+                    )
                 raise e
 
-        return RF2AAInputs.from_dict(data) if self.unpack_data_dict else data
+        # Return the specified key or the entire data dict
+        if exists(self.return_key):
+            return data[self.return_key]
+        else:
+            return data

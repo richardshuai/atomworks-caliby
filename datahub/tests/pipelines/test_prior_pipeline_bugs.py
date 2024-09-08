@@ -44,8 +44,8 @@ PN_UNITS_DATASET = PDBDataset(
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
+        assert_rf2aa_assumptions=True,
     ),
-    unpack_data_dict=False,
 )
 
 INTERFACES_DATASET = PDBDataset(
@@ -58,8 +58,8 @@ INTERFACES_DATASET = PDBDataset(
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
+        assert_rf2aa_assumptions=True,
     ),
-    unpack_data_dict=False,
 )
 
 # ...build the ConcatDataset

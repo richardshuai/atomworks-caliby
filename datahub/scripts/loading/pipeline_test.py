@@ -23,7 +23,8 @@ from tqdm import tqdm
 
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
 from datahub.datasets.pdb_dataset import PDBDataset
-from datahub.pipelines.rf2aa import assert_satisfies_rf2aa_assumptions, build_rf2aa_transform_pipeline
+from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
+from datahub.transforms.rf2aa_assumptions import assert_satisfies_rf2aa_assumptions
 from datahub.utils.debug import save_failed_example_to_disk
 from datahub.utils.rng import (
     capture_rng_states,
