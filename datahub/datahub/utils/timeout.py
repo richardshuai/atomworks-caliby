@@ -7,13 +7,14 @@ Adapted from https://github.com/pnpnpn/timeout-decorator/blob/master/timeout_dec
 from __future__ import division, print_function, unicode_literals
 
 import signal
+import time
 from functools import wraps
 
 
 class TimeoutError(AssertionError):
     """Thrown when a timeout occurs in the `timeout` context manager."""
 
-    def __init__(self, value: str = "Timed Out"):
+    def __init__(self, value: str = "Timed out"):
         self.value = value
 
     def __str__(self):
@@ -100,17 +101,20 @@ class TimeoutContext:
     """
 
     def __init__(
-        self, seconds: float, timeout_exception: Exception = TimeoutError, exception_message: str | None = None
+        self, seconds: float, timeout_exception: Exception = TimeoutError, exception_message: str = "Timed out"
     ):
         self.seconds = seconds
         self.timeout_exception = timeout_exception
         self.exception_message = exception_message
+        self.start_time = None
 
     def _handler(self, signum, frame):
-        _raise_exception(self.timeout_exception, self.exception_message)
+        time_elapsed = time.time() - self.start_time
+        _raise_exception(self.timeout_exception, self.exception_message + f" (elapsed time: {time_elapsed:.2f}s)")
 
     def __enter__(self):
         self.old_handler = signal.signal(signal.SIGALRM, self._handler)
+        self.start_time = time.time()
         signal.setitimer(signal.ITIMER_REAL, self.seconds)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
