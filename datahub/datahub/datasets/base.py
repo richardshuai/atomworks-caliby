@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import ConcatDataset, Dataset
 
+from datahub.common import exists
 from datahub.datasets import logger
 
 
@@ -39,7 +40,7 @@ class PandasDataset(Dataset):
         self.filters = filters
         original_num_rows = len(self._data)
         self._already_filtered = False
-        if filters:
+        if exists(filters):
             logger.info(f"Applying filters: {filters}")
             self._apply_filters(filters)
             logger.info(
