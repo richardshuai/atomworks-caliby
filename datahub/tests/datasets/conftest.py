@@ -24,14 +24,14 @@ SHARED_TEST_FILTERS = [
 
 TEST_PN_UNITS_FILTERS = [
     f"q_pn_unit_type in {SUPPORTED_CHAIN_TYPES_INTS}",
-    f"~(q_pn_unit_non_polymer_res_names.notnull() and q_pn_unit_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",  # TODO: Double check with NATE
+    f"~(q_pn_unit_non_polymer_res_names.notnull() and q_pn_unit_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
 ]
 
 TEST_INTERFACES_FILTERS = [
     f"pn_unit_1_type in {SUPPORTED_CHAIN_TYPES_INTS}",
     f"pn_unit_2_type in {SUPPORTED_CHAIN_TYPES_INTS}",
-    f"~(pn_unit_1_non_polymer_res_names.notnull() and pn_unit_1_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",  # TODO: Double check with NATE
-    f"~(pn_unit_2_non_polymer_res_names.notnull() and pn_unit_2_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",  # TODO: Double check with NATE
+    f"~(pn_unit_1_non_polymer_res_names.notnull() and pn_unit_1_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
+    f"~(pn_unit_2_non_polymer_res_names.notnull() and pn_unit_2_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
 ]
 
 
