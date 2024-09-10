@@ -12,6 +12,7 @@ dependencies:
   - rdkit=2024.3.5
   - pip
   - pip:
+    - debugpy>=1.8.5,<2
     - cython>=3.0.0,<4
     - pytest>=8.2.0,<9
     - pandas>=1.4.2,<2
