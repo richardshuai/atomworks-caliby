@@ -2,11 +2,11 @@ import time
 
 import pytest
 
-from datahub.utils.timeout import TimeoutContext, TimeoutError, timeout_wrapper
+from datahub.utils.timeout import timeout
 
 
 def test_timeout_wrapper_no_timeout():
-    @timeout_wrapper(seconds=2)
+    @timeout(default_timeout=2)
     def fast_function():
         return "Success"
 
@@ -14,7 +14,7 @@ def test_timeout_wrapper_no_timeout():
 
 
 def test_timeout_wrapper_with_timeout():
-    @timeout_wrapper(seconds=0.1)
+    @timeout(default_timeout=0.1)
     def slow_function():
         time.sleep(0.5)
         return "This should not be returned"
@@ -23,61 +23,8 @@ def test_timeout_wrapper_with_timeout():
         slow_function()
 
 
-def test_timeout_wrapper_custom_exception():
-    class CustomTimeoutError(Exception):
-        pass
-
-    @timeout_wrapper(seconds=0.1, timeout_exception=CustomTimeoutError)
-    def slow_function():
-        time.sleep(0.5)
-
-    with pytest.raises(CustomTimeoutError):
-        slow_function()
-
-
-def test_timeout_wrapper_custom_message():
-    custom_message = "Custom timeout message"
-
-    @timeout_wrapper(seconds=0.1, exception_message=custom_message)
-    def slow_function():
-        time.sleep(0.5)
-
-    with pytest.raises(TimeoutError, match=custom_message):
-        slow_function()
-
-
-def test_timeout_context_no_timeout():
-    with TimeoutContext(seconds=2):
-        result = "Success"
-
-    assert result == "Success"
-
-
-def test_timeout_context_with_timeout():
-    with pytest.raises(TimeoutError):
-        with TimeoutContext(seconds=0.1):
-            time.sleep(0.5)
-
-
-def test_timeout_context_custom_exception():
-    class CustomTimeoutError(Exception):
-        pass
-
-    with pytest.raises(CustomTimeoutError):
-        with TimeoutContext(seconds=0.1, timeout_exception=CustomTimeoutError):
-            time.sleep(0.5)
-
-
-def test_timeout_context_custom_message():
-    custom_message = "Custom timeout message"
-
-    with pytest.raises(TimeoutError, match=custom_message):
-        with TimeoutContext(seconds=0.1, exception_message=custom_message):
-            time.sleep(0.5)
-
-
 def test_timeout_wrapper_disable_timeout():
-    @timeout_wrapper(seconds=None)
+    @timeout(default_timeout=None)
     def slow_function():
         time.sleep(0.5)
         return "Success"
@@ -85,16 +32,53 @@ def test_timeout_wrapper_disable_timeout():
     assert slow_function() == "Success"
 
 
-def test_timeout_wrapper_override_timeout():
-    @timeout_wrapper(seconds=0.1)
-    def adjustable_function():
+def test_timeout_wrapper_signal_strategy():
+    @timeout(default_timeout=0.1, strategy="signal")
+    def slow_function():
         time.sleep(0.5)
-        return "Success"
 
     with pytest.raises(TimeoutError):
-        adjustable_function()
+        slow_function()
 
-    assert adjustable_function(timeout=1) == "Success"
+
+def test_timeout_wrapper_subprocess_strategy():
+    @timeout(default_timeout=0.1, strategy="subprocess")
+    def slow_function():
+        time.sleep(0.5)
+
+    with pytest.raises(TimeoutError):
+        slow_function()
+
+
+def test_timeout_wrapper_invalid_strategy():
+    with pytest.raises(AssertionError):
+
+        @timeout(default_timeout=1, strategy="invalid")
+        def function():
+            pass
+
+
+# Try timeout on RDKit
+def test_timeout_on_rdkit():
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+
+    HEM_SMILES = "Cc1c2n3c(c1CCC(=O)O)C=C4C(=C(C5=[N]4[Fe]36[N]7=C(C=C8N6C(=C5)C(=C8C)C=C)C(=C(C7=C2)C)C=C)C)CCC(=O)O"
+    mol = Chem.MolFromSmiles(HEM_SMILES)
+
+    @timeout(default_timeout=0.5, strategy="subprocess")
+    def generate_conformers(mol):
+        # ... takes about 2 seconds to run
+        mol = Chem.AddHs(mol)
+        params = AllChem.ETKDGv3()
+        AllChem.EmbedMultipleConfs(mol, numConfs=10, params=params)
+        return mol
+
+    start_time = time.time()
+    with pytest.raises(TimeoutError):
+        generate_conformers(mol)
+    end_time = time.time()
+    assert end_time - start_time < 1
 
 
 if __name__ == "__main__":
