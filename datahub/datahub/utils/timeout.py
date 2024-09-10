@@ -14,7 +14,7 @@ import time
 from enum import Enum
 from functools import wraps
 from multiprocessing import Process, Queue
-from typing import Any, Callable, Literal, assert_never
+from typing import Any, Callable, Literal
 
 
 def timeout(default_timeout: float | int | None = None, strategy: Literal["signal", "subprocess"] = "signal"):
@@ -36,7 +36,7 @@ def timeout(default_timeout: float | int | None = None, strategy: Literal["signa
             # timeout based on subprocess module
             return _build_timeout_using_subprocess_decorator(default_timeout)
         case _:
-            assert_never(strategy)
+            raise ValueError(f"Invalid strategy: {strategy}. Must be 'signal' or 'subprocess'.")
 
 
 def _build_timeout_using_singal_decorator(default_timeout: float | int | None) -> Callable:
@@ -157,7 +157,7 @@ def _build_timeout_using_subprocess_decorator(default_timeout: float | int | Non
                     raise value
                 case _:
                     # ... this code should be unreachable, if reached raise an error
-                    assert_never(status)
+                    raise ValueError(f"Invalid status: {status}. Must be 'SUCCESS' or 'EXCEPTION'.")
 
         return wrapped_func
 

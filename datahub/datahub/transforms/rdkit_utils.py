@@ -438,12 +438,21 @@ def generate_conformers(
             )
 
     if optimize_conformers:
-        success = AllChem.UFFOptimizeMoleculeConfs(mol, **uff_optimize_kwargs)
-        if not success:
-            logger.warning("Conformer optimization did not converge.")
+        mol = optimize_conformers(mol, **uff_optimize_kwargs)
 
     mol = remove_hydrogens(mol) if infer_hydrogens else mol
 
+    return mol
+
+
+@timeout(strategy="subprocess")
+def optimize_conformers(mol: Mol, **uff_optimize_kwargs: dict) -> Mol:
+    """
+    Optimize the conformers of an RDKit molecule.
+    """
+    success = AllChem.UFFOptimizeMoleculeConfs(mol, **uff_optimize_kwargs)
+    if not success:
+        logger.warning("Conformer optimization did not converge.")
     return mol
 
 
@@ -659,7 +668,7 @@ def atom_array_to_rdkit(
     annotations_to_keep: list[str] = _BIOTITE_DEFAULT_ANNOTATIONS,
     sanitize: bool = True,
     attempt_fixing_corrupted_molecules: bool = True,
-    assume_metal_bonds_are_coordination_bonds: bool = False,  # NOTE: This messes up RDKit conformer generation
+    assume_metal_bonds_are_dative: bool = False,  # NOTE: This messes up RDKit conformer generation
 ) -> Mol:
     """
     Generate an RDKit molecule from a Biotite AtomArray object.
@@ -734,7 +743,7 @@ def atom_array_to_rdkit(
     #  all bonds with metals are coordination bonds in the PDB. This will
     #  likely be true for most ligands but not all. Revisit this later.
     # Change all bonds to a metal to be dative bonds (= coordination bonds)
-    if assume_metal_bonds_are_coordination_bonds:
+    if assume_metal_bonds_are_dative:
         mol = metal_to_dative_bonds(mol)
 
     if attempt_fixing_corrupted_molecules:
