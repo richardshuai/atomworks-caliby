@@ -8,6 +8,7 @@ import biotite.structure as struc
 import numpy as np
 import toolz
 from biotite.structure import AtomArray
+from cifutils.constants import METAL_ELEMENTS
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Mol, rdDistGeom
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -21,7 +22,7 @@ from datahub.transforms._checks import (
     check_nonzero_length,
 )
 from datahub.transforms.base import Transform
-from datahub.utils.timeout import TimeoutContext, TimeoutError
+from datahub.utils.timeout import timeout
 
 logger = logging.getLogger(__name__)
 # ... disable RDKit logging
@@ -204,6 +205,33 @@ def _fix_valence_by_changing_formal_charge(mol: Mol) -> Mol:
     return mol
 
 
+def metal_to_dative_bonds(mol: Mol) -> Mol:
+    """
+    Change all single bonds to a metal to be dative bonds (coordination bonds).
+    This is useful since most bonds between metals and organic atoms are dative.
+
+    Args:
+        mol (Mol): The input RDKit molecule
+
+    Returns:
+        Mol: The molecule with metal bonds converted to dative bonds
+    """
+    if not isinstance(mol, Chem.RWMol):
+        # ... create a writable copy of the molecule if not writable in-place
+        mol = Chem.RWMol(mol)
+
+    metal_indices = [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetSymbol() in METAL_ELEMENTS]
+
+    for metal_idx in metal_indices:
+        for bond in mol.GetAtomWithIdx(metal_idx).GetBonds():
+            if bond.GetBondType() == Chem.BondType.SINGLE:
+                other_idx = bond.GetOtherAtomIdx(metal_idx)
+                mol.RemoveBond(metal_idx, other_idx)
+                mol.AddBond(other_idx, metal_idx, Chem.BondType.DATIVE)
+
+    return mol
+
+
 @_preserve_annotations
 def fix_mol(
     mol: Mol,
@@ -304,6 +332,7 @@ def remove_hydrogens(mol: Mol) -> Mol:
 
 
 @_preserve_annotations
+@timeout(strategy="subprocess")
 def generate_conformers(
     mol: Mol,
     *,
@@ -630,6 +659,7 @@ def atom_array_to_rdkit(
     annotations_to_keep: list[str] = _BIOTITE_DEFAULT_ANNOTATIONS,
     sanitize: bool = True,
     attempt_fixing_corrupted_molecules: bool = True,
+    assume_metal_bonds_are_coordination_bonds: bool = False,  # NOTE: This messes up RDKit conformer generation
 ) -> Mol:
     """
     Generate an RDKit molecule from a Biotite AtomArray object.
@@ -699,6 +729,14 @@ def atom_array_to_rdkit(
         for atom_id, coord in enumerate(atom_array.coord):
             mol.GetConformer(conf_id).SetAtomPosition(atom_id, coord.tolist())
 
+    # Clean up organometallics:
+    # TODO: The CCD unfortunatley only supplies all metal bonds as single bonds. For now we assume
+    #  all bonds with metals are coordination bonds in the PDB. This will
+    #  likely be true for most ligands but not all. Revisit this later.
+    # Change all bonds to a metal to be dative bonds (= coordination bonds)
+    if assume_metal_bonds_are_coordination_bonds:
+        mol = metal_to_dative_bonds(mol)
+
     if attempt_fixing_corrupted_molecules:
         # ... fix_mol has no effect if the molecule is already sanitized
         mol = fix_mol(
@@ -734,6 +772,7 @@ def atom_array_to_rdkit(
     return mol
 
 
+@timeout(strategy="subprocess")
 def sample_rdkit_conformer_for_atom_array(atom_array: AtomArray, seed: int | None = None) -> Mol:
     """
     Sample a conformer for a Biotite AtomArray using RDKit.
@@ -764,11 +803,15 @@ def sample_rdkit_conformer_for_atom_array(atom_array: AtomArray, seed: int | Non
 
 
 @lru_cache(maxsize=1000)
-def res_name_to_rdkit(res_name: str, set_coord: bool = True, infer_hydrogens: bool = True) -> Mol:
+def res_name_to_rdkit(
+    res_name: str, set_coord: bool = True, infer_hydrogens: bool = True, **atom_array_to_rdkit_kwargs
+) -> Mol:
     """
     Get an RDKit molecule from a CCD res_name.
     """
-    return atom_array_to_rdkit(struc.info.residue(res_name), set_coord=set_coord, infer_hydrogens=infer_hydrogens)
+    return atom_array_to_rdkit(
+        struc.info.residue(res_name), set_coord=set_coord, infer_hydrogens=infer_hydrogens, **atom_array_to_rdkit_kwargs
+    )
 
 
 def res_name_to_rdkit_with_conformers(
@@ -801,14 +844,8 @@ def res_name_to_rdkit_with_conformers(
 
     # ... try generating `count` conformers within a given time limit
     try:
-        with TimeoutContext(seconds=timeout_seconds, timeout_exception=TimeoutError):
-            mol = generate_conformers(mol, n_conformers=n_conformers, **generate_conformers_kwargs)
-    except TimeoutError as e:
-        logger.warning(
-            f"Failed to generate conformers for {res_name=} after {timeout_seconds=}. Falling back to idealized conformer."
-            + f" Error message: {e}"
-        )
-    except RuntimeError as e:
+        mol = generate_conformers(mol, n_conformers=n_conformers, timeout=timeout_seconds, **generate_conformers_kwargs)
+    except (TimeoutError, RuntimeError) as e:
         logger.warning(
             f"Failed to generate conformers for {res_name=}. Falling back to idealized conformer. Error message: {e}"
         )
