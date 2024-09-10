@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 # ... disable RDKit logging
 RDLogger.DisableLog("rdApp.*")
 
+# Set default pickle properties to all properties, otherwise
+#  annotations get lost when pickling/unpickling molecules
+# https://github.com/rdkit/rdkit/issues/1320
+Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps)
+
 _RDKIT_HYBRIDIZATION_TO_INT = {
     Chem.rdchem.HybridizationType.S: 0,
     Chem.rdchem.HybridizationType.SP: 1,
@@ -405,6 +410,10 @@ def generate_conformers(
            Improve Conformation Generation", JCIM, 2015.
 
     """
+    # Ensure that all properties are being pickled (needed when we use timeout)
+    assert (
+        Chem.GetDefaultPickleProperties() == Chem.PropertyPickleOptions.AllProps
+    ), "Default pickle properties are not set to all properties. Annotation loss will occur."
 
     # Infer hydrogens if needed, i.e. if they are not present in the molecule. Normally this should
     # always be set to `True` to generate realistic conformations. The only reason to set this to `False`
@@ -440,10 +449,10 @@ def generate_conformers(
         mol = optimize_conformers(mol, **uff_optimize_kwargs)
 
     mol = remove_hydrogens(mol) if infer_hydrogens else mol
-
     return mol
 
 
+@_preserve_annotations
 @timeout(strategy="subprocess")
 def optimize_conformers(
     mol: Mol,
@@ -655,6 +664,15 @@ def atom_array_from_rdkit(
             if atom.rdkit_atom_id in _rdkit_id_to_annotation_idx:
                 array_idx_to_annotation_idx.append((idx, _rdkit_id_to_annotation_idx[atom.rdkit_atom_id]))
         array_idx_to_annotation_idx = np.array(array_idx_to_annotation_idx)
+
+        # Exit if there are no annotations to set
+        if len(array_idx_to_annotation_idx) == 0:
+            logger.warning(
+                "No rdkit atoms match any annotation. You may want to check that you are "
+                "using the @_preserve_annotations decorator correctly. And set the "
+                "rdkit pickle options to preserve properties. Returning."
+            )
+            return atom_array
 
         for key, val in annotations.items():
             if key in ["coord", "charge"]:
