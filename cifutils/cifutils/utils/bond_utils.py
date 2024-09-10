@@ -518,17 +518,22 @@ def fix_bonded_atom_charges(atom):
     Returns:
         dict: A dictionary with updated 'charge', 'hyb', and 'nhyd' values.
     """
-    if atom.element == 7 and atom.charge == 1 and atom.hyb == 3 and atom.nhyd == 2 and atom.hvydeg == 2:  # -(NH2+)-
+    # ...convert to int for comparison
+    element = atom.element.astype(int)
+    charge = atom.charge.astype(int)
+    nhyd = atom.nhyd.astype(int)
+    hyb = atom.hyb.astype(int)
+    hvydeg = atom.hvydeg.astype(int)
+
+    # ...manually fix charges and hydrogen counts for certain cases
+    if element == 7 and charge == 1 and hyb == 3 and nhyd == 2 and hvydeg == 2:  # -(NH2+)-
         return {"charge": 0, "hyb": 2, "nhyd": 0}
-    elif (
-        atom.element == 7 and atom.charge == 1 and atom.hyb == 3 and atom.nhyd == 3 and atom.hvydeg == 0
-    ):  # free NH3+ group
+    elif element == 7 and charge == 1 and hyb == 3 and nhyd == 3 and hvydeg == 0:  # free NH3+ group
         return {"charge": 0, "hyb": 2, "nhyd": 2}
-    elif atom.element == 8 and atom.charge == -1 and atom.hyb == 3 and atom.nhyd == 0:
-        return {"charge": 0, "hyb": atom.hyb, "nhyd": atom.nhyd}
-    elif atom.element == 8 and atom.charge == -1 and atom.hyb == 2 and atom.nhyd == 0:  # O-linked connections
-        return {"charge": 0, "hyb": atom.hyb, "nhyd": atom.nhyd}
-    elif atom.charge != 0:
-        # Additional logic for other cases if needed
-        pass
-    return {"charge": atom.charge, "hyb": atom.hyb, "nhyd": atom.nhyd}
+    elif element == 8 and charge == -1 and hyb == 3 and nhyd == 0:
+        return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
+    elif element == 8 and charge == -1 and hyb == 2 and nhyd == 0:  # O-linked connections
+        return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
+
+    # ...default (no change)
+    return {"charge": charge, "hyb": hyb, "nhyd": nhyd}

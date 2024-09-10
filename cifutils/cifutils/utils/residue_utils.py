@@ -69,7 +69,7 @@ def cached_residue_utils_factory(known_residues: list[str], data_by_residue: cal
 
         # Remove hydrogens, if necessary
         if not keep_hydrogens:
-            atom_list = [atom for atom in atom_list if atom.element != 1]
+            atom_list = [atom for atom in atom_list if atom.element not in [1, "1"]]
 
         return atom_list
 
@@ -166,10 +166,10 @@ def add_missing_atoms_as_unresolved(
                     unknown_residue_atom_array.add_annotation("hyb", dtype=int)  # NOTE: Will be removed in the future
                     unknown_residue_atom_array.add_annotation("nhyd", dtype=int)  # NOTE: Will be removed in the future
 
-                    # ...convert element to int to match the outputs from build_residue_atoms
+                    # ...convert element to numbers to match the outputs from build_residue_atoms (but keep as strings for compatibility)
                     unknown_residue_atom_array.element = np.array(
                         [ELEMENT_NAME_TO_ATOMIC_NUMBER[el] for el in unknown_residue_atom_array.element]
-                    )
+                    ).astype(str)
 
                     # ...decompose into a list of atoms
                     residue_atom_list = [atom for atom in unknown_residue_atom_array]
@@ -185,11 +185,6 @@ def add_missing_atoms_as_unresolved(
     full_atom_array = struc.array(np.concatenate(full_atom_list))
     full_atom_array.chain_id = np.concatenate(chain_ids)
     full_atom_array.res_id = np.concatenate(residue_ids)
-    # Shenanigans to fix the data type of element
-    elements = full_atom_array.element.astype(int)
-    full_atom_array.del_annotation("element")
-    full_atom_array.add_annotation("element", dtype=int)
-    full_atom_array.set_annotation("element", elements)
 
     # Standardize heavy atom naming
     atom_array.atom_name = standardize_heavy_atom_ids(atom_array)
@@ -268,7 +263,7 @@ def add_missing_atoms_as_unresolved(
     # ...ensure no hydrogens are present in the full atom array, if we're not keeping hydrogens
     if not keep_hydrogens:
         # It's possible, especially with unknown ligands, that some hydrogens snuck through
-        full_atom_array = full_atom_array[full_atom_array.element != "1"]
+        full_atom_array = full_atom_array[~np.isin(full_atom_array.element, [1, "1"])]
 
     return full_atom_array
 
