@@ -17,8 +17,9 @@ from datahub.transforms.atom_array import (
     RemoveHydrogens,
     RemoveUnresolvedPNUnits,
 )
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
+from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
 from datahub.transforms.msa.msa import (
@@ -109,6 +110,8 @@ def build_af3_transform_pipeline(
         RemoveHydrogens(),
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
         HandleUndesiredResTokens(undesired_res_names),  # e.g., non-standard residues
+        FlagAndReassignCovalentModifications(),
+        FlagNonPolymersForAtomization(),
         AddGlobalAtomIdAnnotation(),
         AtomizeResidues(
             atomize_by_default=True,
