@@ -316,7 +316,7 @@ def crop_spatial_like_af3(
     jitter_scale: float = 1e-3,
     crop_center_cutoff_distance: float = 15.0,
     force_crop: bool = False,
-) -> AtomArray:
+) -> dict:
     """
     Crop spatial tokens around a given `crop_center` by keeping the `crop_size` nearest neighbors (with jitter).
 
