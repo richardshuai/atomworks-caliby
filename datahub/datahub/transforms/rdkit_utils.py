@@ -438,7 +438,7 @@ def generate_conformers(
             )
 
     if optimize:
-        mol = optimize(mol, **uff_optimize_kwargs)
+        mol = optimize_conformers(mol, **uff_optimize_kwargs)
 
     mol = remove_hydrogens(mol) if infer_hydrogens else mol
 
@@ -446,11 +446,34 @@ def generate_conformers(
 
 
 @timeout(strategy="subprocess")
-def optimize_conformers(mol: Mol, **uff_optimize_kwargs: dict) -> Mol:
+def optimize_conformers(
+    mol: Mol,
+    maxIters: int = 200,
+    vdwThresh: float = 10.0,
+    confId: int = -1,
+    ignoreInterfragInteractions: bool = True,
+) -> Mol:
     """
     Optimize the conformers of an RDKit molecule.
+
+    Args:
+        - mol (Mol): The RDKit molecule to optimize.
+        - maxIters (int): Maximum number of iterations for UFF optimization. Defaults to 200.
+        - vdwThresh (float): Used to exclude long-range van der Waals interactions. Defaults to 10.0.
+        - confId (int): ID of the conformer to optimize. Defaults to -1, meaning all conformers.
+        - ignoreInterfragInteractions (bool): If True, nonbonded terms between fragments will not be added to the
+            forcefield. Defaults to True.
+
+    Returns:
+        Mol: The optimized RDKit molecule.
     """
-    success = AllChem.UFFOptimizeMoleculeConfs(mol, **uff_optimize_kwargs)
+    success = AllChem.UFFOptimizeMoleculeConfs(
+        mol,
+        maxIters=maxIters,
+        vdwThresh=vdwThresh,
+        confId=confId,
+        ignoreInterfragInteractions=ignoreInterfragInteractions,
+    )
     if not success:
         logger.warning("Conformer optimization did not converge.")
     return mol
