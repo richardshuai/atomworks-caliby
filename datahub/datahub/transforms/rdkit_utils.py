@@ -341,7 +341,7 @@ def generate_conformers(
     method: str = "ETKDGv3",
     num_threads: int = 1,
     infer_hydrogens: bool = True,
-    optimize_conformers: bool = False,
+    optimize: bool = False,
     **uff_optimize_kwargs: dict,
 ) -> Mol:
     """
@@ -358,7 +358,7 @@ def generate_conformers(
         - infer_hydrogens (bool): Whether to add hydrogens if they are not present. This is
             recommended, since having hydrogens improves the accuracy of the conformer
             generation. Default is True.
-        - optimize_conformers (bool): Whether to optimize the generated conformers using UFF.
+        - optimize (bool): Whether to optimize the generated conformers using UFF.
             Default is True.
         - **uff_optimize_kwargs (dict): Additional keyword arguments for UFF optimization:
             - maxIters (int): Maximum number of iterations (default 200).
@@ -437,8 +437,8 @@ def generate_conformers(
                 f"Requested {n_conformers} conformers, but only {mol.GetNumConformers()} were generated."
             )
 
-    if optimize_conformers:
-        mol = optimize_conformers(mol, **uff_optimize_kwargs)
+    if optimize:
+        mol = optimize(mol, **uff_optimize_kwargs)
 
     mol = remove_hydrogens(mol) if infer_hydrogens else mol
 
@@ -1009,7 +1009,7 @@ class GenerateRDKitConformers(Transform):
                     seed=random_seed,
                     n_conformers=self.n_conformers,
                     infer_hydrogens=True,
-                    optimize_conformers=self.optimize_conformers,
+                    optimize=self.optimize_conformers,
                     optimize_kwargs=self.optimize_kwargs,
                 )
                 data["rdkit"][pn_unit_iid] = rdmol_with_conformers

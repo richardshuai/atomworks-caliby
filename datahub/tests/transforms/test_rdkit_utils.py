@@ -36,7 +36,7 @@ TEST_ATOM_ARRAYS = [struc.info.residue("ALA"), struc.info.residue("NAD")]
 @pytest.mark.parametrize("smiles", TEST_SMILES)
 def test_smiles_to_rdkit_to_atom_array(smiles):
     mol = smiles_to_rdkit(smiles)
-    mol = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize_conformers=True)
+    mol = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize=True)
 
     # remove the inferred hydrogens again
     mol = Chem.RemoveHs(mol)
@@ -80,7 +80,7 @@ def test_generate_conformers_for_smiles(smiles):
     mol = smiles_to_rdkit(smiles)
 
     # Generate new conformer
-    mol_with_conf = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize_conformers=True)
+    mol_with_conf = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize=True)
 
     assert mol_with_conf.GetNumConformers() == 1
 

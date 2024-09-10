@@ -6,7 +6,7 @@ from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES
 from datahub.transforms.atom_array import (
     RemoveUnsupportedChainTypes,
 )
-from datahub.transforms.base import Compose, TransformPipelineError
+from datahub.transforms.base import Compose
 from tests.conftest import CIF_PARSER, PN_UNITS_DF
 
 UNSUPPORTED_CHAIN_TYPE_TEST_CASES = [
@@ -37,7 +37,7 @@ def test_remove_unsupported_chain_types(pdb_id: str):
 
         output = None
         if is_unsupported_type:
-            with pytest.raises(TransformPipelineError):
+            with pytest.raises(AssertionError):
                 output = pipeline(data)
         else:
             output = pipeline(data)
