@@ -813,7 +813,7 @@ class HandleUndesiredResTokens(Transform):
 
             # Remove hydrogens if non-canonical residue doesn't have hydrogens
             if not has_hydrogens:
-                canonical_res = canonical_res[canonical_res.element != "H"]
+                canonical_res = canonical_res[~np.isin(canonical_res.element, ["H", "1", 1])]
 
             # If canonical residue is a strict subset of the original residue,
             #  keep all matching atom names and delete the rest
