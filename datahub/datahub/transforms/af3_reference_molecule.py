@@ -155,8 +155,8 @@ def get_af3_reference_molecule_features(
     ref_charge = atom_array.charge
     # ... atom name
     ref_atom_name_chars = _encode_atom_names_like_af3(atom_array.atom_name)
-    # ... space uid
-    ref_space_uid = add_global_token_id_annotation(atom_array).token_id
+    # ... space uid (type conversion needed for some older torch versions)
+    ref_space_uid = add_global_token_id_annotation(atom_array).token_id.astype(np.int64)
 
     return {
         "ref_pos": ref_pos,  # (n_atoms, 3)
