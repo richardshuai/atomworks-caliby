@@ -364,7 +364,6 @@ def generate_conformers(
             - maxIters (int): Maximum number of iterations (default 200).
             - vdwThresh (float): Used to exclude long-range van der Waals interactions
               (default 10.0).
-            - confId (int): ID of the conformer to optimize (default -1, meaning all).
             - ignoreInterfragInteractions (bool): If True, nonbonded terms between
               fragments will not be added to the forcefield (default True).
 
@@ -448,6 +447,7 @@ def generate_conformers(
 @timeout(strategy="subprocess")
 def optimize_conformers(
     mol: Mol,
+    numThreads: int = 1,
     maxIters: int = 200,
     vdwThresh: float = 10.0,
     confId: int = -1,
@@ -458,9 +458,9 @@ def optimize_conformers(
 
     Args:
         - mol (Mol): The RDKit molecule to optimize.
+        - numThreads (int): Number of threads to use for parallel computation. Default is 1.
         - maxIters (int): Maximum number of iterations for UFF optimization. Defaults to 200.
         - vdwThresh (float): Used to exclude long-range van der Waals interactions. Defaults to 10.0.
-        - confId (int): ID of the conformer to optimize. Defaults to -1, meaning all conformers.
         - ignoreInterfragInteractions (bool): If True, nonbonded terms between fragments will not be added to the
             forcefield. Defaults to True.
 
@@ -469,9 +469,9 @@ def optimize_conformers(
     """
     success = AllChem.UFFOptimizeMoleculeConfs(
         mol,
+        numThreads=numThreads,
         maxIters=maxIters,
         vdwThresh=vdwThresh,
-        confId=confId,
         ignoreInterfragInteractions=ignoreInterfragInteractions,
     )
     if not success:
