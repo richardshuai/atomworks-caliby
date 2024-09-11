@@ -13,7 +13,6 @@ from biotite.structure import AtomArray, CellList
 from cifutils.enums import ChainType
 from scipy.spatial.distance import cdist
 
-import datahub.preprocessing.process  # to avoid circular import
 from datahub.common import default
 from datahub.preprocessing.constants import FLUORINE_ATOMIC_NUMBER, OXYGEN_ATOMIC_NUMBER, ClashSeverity
 
@@ -472,6 +471,22 @@ def get_ligand_validity_scores_from_pdb_id(pdb_id: str) -> list[dict[str, str | 
     return records
 
 
+def get_inter_pn_unit_bond_mask(atom_array: AtomArray) -> np.ndarray:
+    """
+    Returns a mask indicating which bonds in `atom_array.bonds` are between two distinct PN units.
+    Because we are operating at the PN unit-level, such bonds cannot be bonds between non-polymers.
+
+    Arguments:
+    - atom_array (AtomArray): The full atom array. Must have PN unit-level annotations.
+
+    Returns:
+    - numpy.ndarray: A boolean mask indicating which bonds are between two PN units.
+    """
+    bond_pn_unit_a = atom_array.pn_unit_iid[atom_array.bonds.as_array()[:, 0]]
+    bond_pn_unit_b = atom_array.pn_unit_iid[atom_array.bonds.as_array()[:, 1]]
+    return bond_pn_unit_a != bond_pn_unit_b
+
+
 def get_bonded_polymer_pn_units(query_pn_unit_iid: str, filtered_atom_array: AtomArray) -> set[str]:
     """
     Returns a set of polymer PN units that are covalently bonded to a given PN unit.
@@ -485,9 +500,7 @@ def get_bonded_polymer_pn_units(query_pn_unit_iid: str, filtered_atom_array: Ato
         set[str]: A set of full IDs of polymer PN units that are covalently bonded to the query PN unit.
     """
     # Check if the non polymer is covalently bonded to a polymer
-    inter_pn_unit_bonds = filtered_atom_array.bonds.as_array()[
-        datahub.preprocessing.process.DataPreprocessor.get_inter_pn_unit_bond_mask(filtered_atom_array)
-    ]
+    inter_pn_unit_bonds = filtered_atom_array.bonds.as_array()[get_inter_pn_unit_bond_mask(filtered_atom_array)]
     bond_atom_a_pn_unit_iids = filtered_atom_array.pn_unit_iid[inter_pn_unit_bonds[:, 0]]
     bond_atom_b_pn_unit_iids = filtered_atom_array.pn_unit_iid[inter_pn_unit_bonds[:, 1]]
 

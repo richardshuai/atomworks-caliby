@@ -1,7 +1,5 @@
 """
-Pre-process mmCIF files into an "query PN units" dataframe.
-From the "query PN units" dataframe, we will later generate an "interfaces" dataframe.
-At training time, RoseTTAFold2 will select a query PN unit or interface from the appropriate DataFrame and crop the structure around it.
+Pre-process mmCIF files and return a dataframe containing a record for each PN unit in the PDB entry.
 
 See the README for a term glosssary.
 """
@@ -10,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-import re
+from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path
 from typing import Any
@@ -24,59 +22,37 @@ from cifutils.parser import CIFParser
 
 import datahub.preprocessing.utils as dp  # to avoid circular imports
 from datahub.common import exists
-from datahub.preprocessing.constants import CELL_SIZE, ChainType, ClashSeverity
+from datahub.preprocessing.constants import CELL_SIZE, PDB_REGEX, ChainType, ClashSeverity
 from datahub.utils.misc import hash_sequence
 
 logger = logging.getLogger("preprocess")
 
 
+@dataclass
 class DataPreprocessor:
-    PDB_REGEX = re.compile(r"^[0-9A-Za-z]{4}$")
+    # Cutoff distances
+    close_distance: float = 30.0
+    contact_distance: float = 5
+    clash_distance: float = 1.0
+    # Paths
+    base_cif_dir: PathLike = "/databases/rcsb/cif"
+    # Misc
+    ignore_residues: list[str] = field(default_factory=list)
+    # Efficiency
+    polymer_pn_unit_limit: int = 2000
+    # Parser defaults
+    add_missing_atoms: bool = True
+    add_bonds: bool = True
+    remove_waters: bool = True
+    remove_crystallization_aids: bool = True
+    patch_symmetry_centers: bool = True
+    build_assembly: str = "all"
+    fix_arginines: bool = True
+    convert_mse_to_met: bool = True
 
-    def __init__(
-        self,
-        *,
-        # Cutoff distances
-        close_distance: float = 30.0,
-        contact_distance: float = 5,
-        clash_distance: float = 1.0,
-        # Paths
-        # TODO: Initialize the base_cif_dir from Hydra
-        base_cif_dir: PathLike = "/databases/rcsb/cif",
-        # Misc
-        ignore_residues: list[str] = [],
-        # Efficiency
-        polymer_pn_unit_limit: int = 2000,
-        **kwargs,
-    ):
-        # Cutoff distances
-        self.close_distance = close_distance
-        self.contact_distance = contact_distance
-        self.clash_distance = clash_distance
-
-        # Paths
-        self.base_cif_dir = base_cif_dir  # directory used to infer PDB path from PDB ID if no path is given
-
-        # Misc
-        self.ignore_residues = ignore_residues
-
-        # Efficiency
-        self.polymer_pn_unit_limit = polymer_pn_unit_limit
-
-        # Arguments for parsing, with defaults
-        self.add_missing_atoms = kwargs.get("add_missing_atoms", True)
-        self.add_bonds = kwargs.get("add_bonds", True)
-        self.remove_waters = kwargs.get("remove_waters", True)
-        self.remove_crystallization_aids = kwargs.get("remove_crystallization_aids", True)
-        self.patch_symmetry_centers = kwargs.get("patch_symmetry_centers", True)
-        self.build_assembly = kwargs.get("build_assembly", "all")
-        self.fix_arginines = kwargs.get("fix_arginines", True)
-        self.convert_mse_to_met = kwargs.get("convert_mse_to_met", True)
-        self.fix_arginines = kwargs.get("fix_arginines", True)
-
+    def __post_init__(self):
         # Initialize parser
         self.parser = CIFParser()
-
         logger.info(f"Initialized DataPreprocessor with the following parameters: {self.__dict__}")
 
     def _maybe_infer_path(self, path_or_pdb_id: PathLike | str) -> Path:
@@ -84,7 +60,7 @@ class DataPreprocessor:
         Given a path or PDB ID, return the path to the PDB entry.
         If the PDB ID is given, infer the path to the PDB entry.
         """
-        if isinstance(path_or_pdb_id, str) and DataPreprocessor.PDB_REGEX.match(path_or_pdb_id):
+        if isinstance(path_or_pdb_id, str) and PDB_REGEX.match(path_or_pdb_id):
             pdb_id = path_or_pdb_id.lower()
             path = Path(f"{self.base_cif_dir}/{pdb_id[1:3]}/{pdb_id}.cif.gz")
         else:
@@ -97,7 +73,7 @@ class DataPreprocessor:
         self.path = path  # for logging
         return self.parser.parse(
             filename=path,
-            build_assembly="all",
+            build_assembly=self.build_assembly,
             add_bonds=self.add_bonds,
             add_missing_atoms=self.add_missing_atoms,
             remove_waters=self.remove_waters,
@@ -112,7 +88,7 @@ class DataPreprocessor:
         """Apply filters to the AtomArray to remove non-biological bonds, ignore residues, and filter out atoms with zero occupancy."""
         # ----- Filter A: Filter out non-polymers with non-biological bonds to polymers ------
         # Check for non-biological bonds between the current non-polymer PN unit and any polymer (e.g., oxygen-oxygen, etc.)
-        inter_pn_unit_bond_mask = DataPreprocessor.get_inter_pn_unit_bond_mask(atom_array)
+        inter_pn_unit_bond_mask = dp.get_inter_pn_unit_bond_mask(atom_array)
         filtered_atom_array = atom_array
         if np.sum(inter_pn_unit_bond_mask) > 0:
             pn_units_with_non_biological_bonds = dp.get_pn_units_with_non_biological_bonds(
@@ -137,22 +113,6 @@ class DataPreprocessor:
         filtered_atom_array = filtered_atom_array[filtered_atom_array.occupancy > 0.0]
 
         return filtered_atom_array
-
-    @staticmethod
-    def get_inter_pn_unit_bond_mask(atom_array: AtomArray) -> np.ndarray:
-        """
-        Returns a mask indicating which bonds in `atom_array.bonds` are between two distinct PN units.
-        Because we are operating at the PN unit-level, such bonds cannot be bonds between non-polymers.
-
-        Arguments:
-        - atom_array (AtomArray): The full atom array. Must have PN unit-level annotations.
-
-        Returns:
-        - numpy.ndarray: A boolean mask indicating which bonds are between two PN units.
-        """
-        bond_pn_unit_a = atom_array.pn_unit_iid[atom_array.bonds.as_array()[:, 0]]
-        bond_pn_unit_b = atom_array.pn_unit_iid[atom_array.bonds.as_array()[:, 1]]
-        return bond_pn_unit_a != bond_pn_unit_b
 
     def get_rows(
         self,
@@ -433,8 +393,9 @@ class DataPreprocessor:
             # Resolved residues (we already removed atoms with zero occupancy)
             num_resolved_residues = struc.get_residue_count(query_pn_unit_atom_array)
 
+            # fmt: off
             pn_unit_record = {
-                # Entry-level data
+                # ...add entry-level data  to the record (e.g., resolution, deposition date, etc.)
                 "pdb_id": id,
                 "assembly_id": assembly_id,
                 "clash_severity": clash_severity,
@@ -444,18 +405,25 @@ class DataPreprocessor:
                 "method": result_dict["metadata"]["method"],
                 "num_polymer_pn_units": num_polymer_pn_units,
                 "num_atoms": len(filtered_atom_array),
-                # Query PN unit-level data
-                "q_pn_unit_iid": id_map_dict["pn_unit_iid"][query_pn_unit_iid],
+
+                # ...add the fundamental PN unit-level data to the record directly from the AtomArray
+                "q_pn_unit_chain_id": query_pn_unit_atom_array.chain_id[0],  # All atoms in a PN unit have the same chain ID
+                "q_pn_unit_chain_iid": query_pn_unit_atom_array.chain_iid[0],  # All atoms in a PN unit have the same chain IID
                 "q_pn_unit_id": id_map_dict["pn_unit_id"][query_pn_unit_atom_array.pn_unit_id[0]],
-                "q_pn_unit_type": query_pn_unit_type.value,
+                "q_pn_unit_iid": id_map_dict["pn_unit_iid"][query_pn_unit_iid],
+                "q_pn_unit_molecule_id": query_pn_unit_atom_array.molecule_id[0],  # All atoms in a PN unit have the same molecule ID
+                "q_pn_unit_molecule_iid": query_pn_unit_atom_array.molecule_iid[0], # All atoms in a PN unit have the same molecule IID
                 "q_pn_unit_transformation_id": query_pn_unit_atom_array.transformation_id[
                     0
-                ],  # All chains in a PN unit have the same transformation ID
+                ],  # All atoms in a PN unit have the same transformation ID
+                "q_pn_unit_type": query_pn_unit_type.value,
+
+                # ...add derived PN unit-level data to the record
                 "q_pn_unit_num_atoms": len(query_pn_unit_atom_array),
                 "q_pn_unit_is_multichain": len(np.unique(query_pn_unit_atom_array.chain_id)) > 1,
                 "q_pn_unit_is_multiresidue": len(np.unique(query_pn_unit_atom_array.res_id)) > 1,
                 "q_pn_unit_num_resolved_residues": num_resolved_residues,
-                # Non-polymer type-specific criteria
+                # (Type-specific) Non-polymer criteria
                 "q_pn_unit_is_metal": type_specific_criteria.get("is_metal", False),
                 "q_pn_unit_is_loi": type_specific_criteria.get("is_loi", False),
                 "q_pn_unit_ligand_validity": type_specific_criteria.get("ligand_validity", {}),
@@ -464,16 +432,19 @@ class DataPreprocessor:
                     for pn_unit in type_specific_criteria.get("bonded_polymer_pn_units", set())
                 },  # Covalent modifications
                 "q_pn_unit_non_polymer_res_names": ",".join(type_specific_criteria.get("non_polymer_res_names", [])),
-                # Polymer type-specific criteria
+                # (Type-specific) Polymer criteria
                 "q_pn_unit_ec_numbers": type_specific_criteria.get("ec_numbers", []),
                 "q_pn_unit_sequence_length": type_specific_criteria.get("sequence_length", None),
-                # Sequences
+
+                # ...sequences
                 "q_pn_unit_processed_entity_canonical_sequence": q_pn_unit_processed_entity_canonical_sequence,
                 "q_pn_unit_processed_entity_non_canonical_sequence": q_pn_unit_processed_entity_non_canonical_sequence,
-                # Hashes
+
+                # ...sequence hashes
                 "q_pn_unit_processed_entity_canonical_sequence_hash": q_pn_unit_processed_entity_canonical_sequence_hash,
                 "q_pn_unit_processed_entity_non_canonical_sequence_hash": q_pn_unit_processed_entity_non_canonical_sequence_hash,
-                # Partners
+
+                # ...partners
                 "q_pn_unit_primary_polymer_partner": id_map_dict["pn_unit_iid"][primary_polymer_partner_pn_unit_iid]
                 if primary_polymer_partner_pn_unit_iid
                 else None,
@@ -488,5 +459,7 @@ class DataPreprocessor:
                 ),
                 "q_pn_unit_close_pn_unit_iids": json.dumps(close_pn_unit_iids),
             }
+            # fmt: on
+
             assembly_records.append(pn_unit_record)
         return assembly_records

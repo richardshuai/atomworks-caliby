@@ -12,7 +12,7 @@ TASK_ID=$((SLURM_ARRAY_TASK_ID - 1))
 NUM_TASKS=$SLURM_ARRAY_TASK_COUNT
 
 # Set PYTHONPATH to the base project directory (will need to modify if the location of this script moves)
-export PYTHONPATH="${PWD}/../../:$PYTHONPATH"
+export PYTHONPATH="${PWD}:${PWD}/../../../:$PYTHONPATH"
 echo "PYTHONPATH: ${PYTHONPATH}"
 
 # Default values for the arguments
@@ -47,12 +47,10 @@ fi
 # Print the parameters
 echo "Saving files to: ${out_dir}"
 
-# Run the Python script
-python process_pdbs.py --task_id ${TASK_ID} --num_tasks ${NUM_TASKS} --out_dir "${out_dir}" --num_workers ${SLURM_CPUS_PER_TASK} --pdb_selection "all" --base_cif_dir "${base_cif_dir}"
-
-### Run the training script
-command="srun /projects/ml/RF2_allatom/spec_files/datahub_latest.sif process_pdbs.py --task_id ${TASK_ID} --num_tasks ${NUM_TASKS} --out_dir '${out_dir}' --num_workers ${SLURM_CPUS_PER_TASK} --pdb_selection 'all' --base_cif_dir '${base_cif_dir}'"
+### Run the Python script
+command="apptainer exec /projects/ml/RF2_allatom/spec_files/datahub_latest.sif python process_pdbs.py --task_id ${TASK_ID} --num_tasks ${NUM_TASKS} --out_dir '${out_dir}' --pdb_selection 'all' --base_cif_dir '${base_cif_dir}'"
 echo -e "command\t$command"
+eval $command
 
 # Example usage:
 # sbatch data/scripts/process_pdbs.sh --out_dir /path/to/output/directory --base_cif_dir /path/to/cif/directory
