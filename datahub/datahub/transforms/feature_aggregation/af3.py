@@ -1,0 +1,98 @@
+from typing import Any, Dict
+
+import torch
+from biotite.structure import AtomArray
+
+from datahub.transforms._checks import check_contains_keys, check_is_instance
+from datahub.transforms.base import Transform
+from datahub.utils.token import get_af3_token_representative_idxs
+
+
+class AggregateFeaturesLikeAF3(Transform):
+    """
+    Aggregates features into the correct places, and shapes with the names for AlphaFold 3.
+
+    This transform combines various features from the input data into the format
+    expected by the AlphaFold 3 model. It processes MSA features, ground truth
+    structures, and other relevant data.
+    """
+
+    requires_previous_transforms = [
+        "AtomizeResidues",
+        "FeaturizeMSALikeAF3",
+        "EncodeAF3TokenLevelFeatures",
+    ]
+    incompatible_previous_transforms = ["AggregateFeaturesLikeAF3"]
+
+    def check_input(self, data: Dict[str, Any]) -> None:
+        """
+        Checks if the input data contains the required keys and types.
+
+        Args:
+            data (Dict[str, Any]): The input data dictionary.
+
+        Raises:
+            KeyError: If a required key is missing from the input data.
+            TypeError: If a value in the input data is not of the expected type.
+        """
+        check_contains_keys(data, ["msa_features", "atom_array"])
+        check_is_instance(data, "msa_features", dict)
+        check_is_instance(data, "atom_array", AtomArray)
+
+        # Check MSA features
+        msa_features = data["msa_features"]
+        check_contains_keys(msa_features, ["msa_features_per_recycle_dict", "msa_static_features_dict"])
+        check_is_instance(msa_features, "msa_features_per_recycle_dict", dict)
+        check_is_instance(msa_features, "msa_static_features_dict", dict)
+
+        # Check specific MSA feature keys
+        msa_per_recycle = msa_features["msa_features_per_recycle_dict"]
+        check_contains_keys(msa_per_recycle, ["msa", "has_insertion", "insertion_value"])
+        msa_static = msa_features["msa_static_features_dict"]
+        check_contains_keys(msa_static, ["profile", "insertion_mean"])
+
+    def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Aggregates features into the format expected by AlphaFold 3.
+
+        This method processes the input data, combining MSA features, ground truth
+        structures, and other relevant information into a standardized format.
+
+        Args:
+            data (Dict[str, Any]): The input data dictionary containing MSA features,
+                atom array, and other relevant information.
+
+        Returns:
+            Dict[str, Any]: The processed data dictionary with aggregated features.
+        """
+        # Initialize feats dictionary if not present
+        if "feats" not in data:
+            data["feats"] = {}
+
+        # Aggregate MSA features
+        msa_feats = data["msa_features"]
+        data["feats"] |= {
+            "msa": torch.stack(msa_feats["msa_features_per_recycle_dict"]["msa"]),
+            "has_deletion": torch.stack(msa_feats["msa_features_per_recycle_dict"]["has_insertion"]),
+            "deletion_value": torch.stack(msa_feats["msa_features_per_recycle_dict"]["insertion_value"]),
+            "profile": msa_feats["msa_static_features_dict"]["profile"],
+            "deletion_mean": msa_feats["msa_static_features_dict"]["insertion_mean"],
+        }
+
+        # Process ground truth structure
+        atom_array = data["atom_array"]
+        coord_atom_lvl = atom_array.coord
+        mask_atom_lvl = atom_array.occupancy > 0.0
+
+        _token_rep_idxs = get_af3_token_representative_idxs(atom_array)
+        coord_token_lvl = atom_array.coord[_token_rep_idxs]
+        mask_token_lvl = atom_array.occupancy[_token_rep_idxs] > 0.0
+
+        data["ground_truth"] = {
+            "coord_atom_lvl": torch.tensor(coord_atom_lvl),
+            "mask_atom_lvl": torch.tensor(mask_atom_lvl),
+            "coord_token_lvl": torch.tensor(coord_token_lvl),
+            "mask_token_lvl": torch.tensor(mask_token_lvl),
+        }
+
+        return data

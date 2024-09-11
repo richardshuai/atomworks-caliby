@@ -1,3 +1,5 @@
+import time
+
 import biotite.structure as struc
 import numpy as np
 import pytest
@@ -8,6 +10,7 @@ from datahub.transforms.rdkit_utils import (
     atom_array_from_rdkit,
     atom_array_to_rdkit,
     generate_conformers,
+    res_name_to_rdkit_with_conformers,
     sample_rdkit_conformer_for_atom_array,
     smiles_to_rdkit,
 )
@@ -112,6 +115,29 @@ def test_sample_rdkit_conformer_consistency(test_atom_array):
     #          This is not a strict requirement for conformation generation and
     #          may need to be adjusted when adding more test examples.
     assert rmsd < 4.0, f"RMSD is too high: {rmsd}. Test failed for {test_atom_array.res_name[0]}."
+
+
+def test_conformer_generation_for_simple_molecules():
+    start = time.time()
+    mol = res_name_to_rdkit_with_conformers("ALA", n_conformers=3, timeout_seconds=2)
+    end = time.time()
+    assert mol.GetNumConformers() == 3
+    assert end - start < 2.5, "Conformer generation took too long."
+
+
+def test_conformer_fallback_for_challenging_molecules():
+    start = time.time()
+    mol = res_name_to_rdkit_with_conformers("HEM", n_conformers=3, timeout_seconds=2)
+    end = time.time()
+    assert mol.GetNumConformers() == 3
+    assert end - start < 2.5, "Conformer generation took too long."
+
+
+def test_conformer_generation_for_molecules_with_many_rotatable_bonds():
+    # Test inspired by https://github.com/rdkit/rdkit/issues/1433#issuecomment-305097888
+    mol = Chem.MolFromSmiles("CCCCCCCC[N+](CCCCCCCC)(CCCCCCCC)CCCCCCCC")
+    mol_with_conf = generate_conformers(mol, seed=42, n_conformers=10, infer_hydrogens=True, optimize=True)
+    assert mol_with_conf.GetNumConformers() == 10
 
 
 def test_fixing_molecules():

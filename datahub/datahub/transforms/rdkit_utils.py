@@ -347,6 +347,8 @@ def generate_conformers(
     num_threads: int = 1,
     infer_hydrogens: bool = True,
     optimize: bool = False,
+    attempts_with_distance_geometry: int = 10,
+    attempts_with_random_coordinates: int = 10_000,
     **uff_optimize_kwargs: dict,
 ) -> Mol:
     """
@@ -414,6 +416,8 @@ def generate_conformers(
     assert (
         Chem.GetDefaultPickleProperties() == Chem.PropertyPickleOptions.AllProps
     ), "Default pickle properties are not set to all properties. Annotation loss will occur."
+    assert attempts_with_distance_geometry > 0, "Attempts with distance geometry must be greater than 0."
+    assert attempts_with_random_coordinates > 0, "Attempts with random coordinates must be greater than 0."
 
     # Infer hydrogens if needed, i.e. if they are not present in the molecule. Normally this should
     # always be set to `True` to generate realistic conformations. The only reason to set this to `False`
@@ -427,20 +431,25 @@ def generate_conformers(
     params.enforceChirality = True
     params.useRandomCoords = False
     params.numThreads = num_threads
+    params.maxAttempts = attempts_with_distance_geometry
 
     try:
-        rdDistGeom.EmbedMultipleConfs(mol, numConfs=int(n_conformers), params=params)
-        if mol.GetNumConformers() < n_conformers:
+        successful_cids = rdDistGeom.EmbedMultipleConfs(mol, numConfs=int(n_conformers), params=params)
+        if len(successful_cids) < n_conformers:
             logger.warning(
-                "Initial conformer generation based on distance geometry failed. "
+                f"Initial conformer generation based on distance geometry failed. Successful: {len(successful_cids)}. "
                 "Falling back to generating a conformer starting from random coordinates."
             )
             raise RuntimeError("Failed to generate enough conformers.")
     except RuntimeError:
+        # Addresses issues with bad conformers, which happens when distance embeddings fail due to
+        #  too many constraints or rotatable bonds, see for example:
+        # https://github.com/rdkit/rdkit/issues/1433#issuecomment-305097888
         params.useRandomCoords = True
         params.enforceChirality = False
-        rdDistGeom.EmbedMultipleConfs(mol, numConfs=int(n_conformers), params=params)
-        if mol.GetNumConformers() < n_conformers:
+        params.maxAttempts = attempts_with_random_coordinates
+        successful_cids = rdDistGeom.EmbedMultipleConfs(mol, numConfs=int(n_conformers), params=params)
+        if len(successful_cids) < n_conformers:
             raise RuntimeError(
                 f"Requested {n_conformers} conformers, but only {mol.GetNumConformers()} were generated."
             )
@@ -459,7 +468,6 @@ def optimize_conformers(
     numThreads: int = 1,
     maxIters: int = 200,
     vdwThresh: float = 10.0,
-    confId: int = -1,
     ignoreInterfragInteractions: bool = True,
 ) -> Mol:
     """
@@ -823,7 +831,7 @@ def atom_array_to_rdkit(
 
 
 @timeout(strategy="subprocess")
-def sample_rdkit_conformer_for_atom_array(atom_array: AtomArray, seed: int | None = None) -> Mol:
+def sample_rdkit_conformer_for_atom_array(atom_array: AtomArray, seed: int | None = None) -> AtomArray:
     """
     Sample a conformer for a Biotite AtomArray using RDKit.
 
@@ -890,7 +898,7 @@ def res_name_to_rdkit_with_conformers(
     mol = res_name_to_rdkit(res_name)
 
     # ... get idealized conformer from CCD entry
-    idealized_conformer = mol.GetConformer(0)
+    idealized_conformer = Chem.Conformer(mol.GetConformer(0))  # creates a copy
 
     # ... try generating `count` conformers within a given time limit
     try:
@@ -904,7 +912,7 @@ def res_name_to_rdkit_with_conformers(
     missing_conformers = n_conformers - mol.GetNumConformers()
     if missing_conformers > 0:
         for _ in range(missing_conformers):
-            mol.AddConformer(idealized_conformer)
+            mol.AddConformer(Chem.Conformer(idealized_conformer), assignId=True)
 
     return mol
 

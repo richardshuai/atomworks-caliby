@@ -19,9 +19,11 @@ from datahub.transforms.atom_array import (
 )
 from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
+from datahub.transforms.bonds import GetAF3TokenBondFeatures
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
+from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
 from datahub.transforms.msa.msa import (
     EncodeMSA,
     FeaturizeMSALikeAF3,
@@ -178,6 +180,7 @@ def build_af3_transform_pipeline(
         EncodeMSA(encoding=af3_sequence_encoding, token_to_use_for_gap=af3_sequence_encoding.token_to_idx["<G>"]),
         # ...fill MSA, indexing into only the portions of the polymers that are present in the cropped structure
         FillFullMSAFromEncoded(pad_token=af3_sequence_encoding.token_to_idx["<G>"]),
+        GetAF3TokenBondFeatures(),
         # ...featurize MSA
         ConvertToTorch(
             keys=[
@@ -189,10 +192,11 @@ def build_af3_transform_pipeline(
         FeaturizeMSALikeAF3(
             encoding=af3_sequence_encoding,
             n_recycles=n_recycles,
-            n_msa=n_msa,  # Paper model: 10
+            n_msa=n_msa,
         ),
+        AggregateFeaturesLikeAF3(),
         # ... remove all non-feature keys (to make compatible wit generic batch_collate, which only allows tensors, numpy arrays, str, etc.)
-        SubsetToKeys(["example_id", "feats"]),
+        SubsetToKeys(["example_id", "feats", "ground_truth"]),
     ]
 
     # ... compose final pipeline

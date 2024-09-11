@@ -3,6 +3,7 @@ import scipy
 from biotite.structure import AtomArray
 
 from datahub.transforms._checks import (
+    check_atom_array_annotation,
     check_atom_array_has_bonds,
     check_contains_keys,
     check_is_instance,
@@ -236,5 +237,97 @@ class AddRF2AATraversalDistanceMatrix(Transform):
         # Add to the data dictionary
         # NOTE: This matrix will have infinity values, which are handled downstream by the model
         data["rf2aa_traversal_distance_matrix"] = traversal_distance_matrix
+
+        return data
+
+
+def get_bond_distances(atom_array: AtomArray) -> np.ndarray:
+    """Returns the bond distance (adjacency) list as a 1D array."""
+    coords = atom_array.coord
+    atom1_idxs, atom2_idxs, _ = atom_array.bonds.as_array().T
+    return np.linalg.norm(coords[atom1_idxs] - coords[atom2_idxs], axis=1)
+
+
+def get_bond_distance_matrix(atom_array: AtomArray) -> np.ndarray:
+    """Returns the bond adjacency matrix with bond distances as values."""
+    atom1_idxs, atom2_idxs, _ = atom_array.bonds.as_array().T
+    bond_distances = get_bond_distances(atom_array)
+    bond_distance_matrix = np.full((atom_array.array_length(), atom_array.array_length()), np.nan)
+    bond_distance_matrix[atom1_idxs, atom2_idxs] = bond_distances
+    bond_distance_matrix[atom2_idxs, atom1_idxs] = bond_distances
+    return bond_distance_matrix
+
+
+def get_af3_token_bond_features(atom_array: AtomArray, distance_cutoff: float = 2.4) -> np.ndarray:
+    """
+    Generates AF3-style token bond features for an AtomArray.
+    For bonds between multi-atom tokens (i.e., residues), we define the "bond distance" as the minimum distance between an atom of one token and any atom of the other token.
+
+    From AF3:
+        Returns a 2D matrix indicating if there is a bond between any atom in
+        token i and token j, restricted to just polymer-ligand and ligand-ligand
+        bonds and bonds less than 2.4 Å during training.
+
+    Args:
+        - atom_array (AtomArray): The input AtomArray containing atomic coordinates and bond information.
+        - distance_cutoff (float, optional): The maximum distance (in Angstroms) for considering a bond. Defaults to 2.4.
+
+    Returns:
+        - np.ndarray: A boolean matrix where True indicates a bond between tokens that meets the specified criteria.
+    """
+    token_start_end_idxs = get_token_starts(atom_array, add_exclusive_stop=True)
+    token_starts = token_start_end_idxs[:-1]
+    token_bonds = apply_segment_wise_2d(get_bond_distance_matrix(atom_array), token_start_end_idxs, np.nanmin)
+
+    # remove bonds below distance cutoff
+    token_bonds = token_bonds < distance_cutoff
+
+    # remove token self-bonds
+    np.fill_diagonal(token_bonds, False)
+
+    # remove poly-poly bonds
+    is_poly_poly_bond = np.outer(atom_array.is_polymer[token_starts], atom_array.is_polymer[token_starts])
+    token_bonds[is_poly_poly_bond] = False
+
+    return token_bonds
+
+
+class GetAF3TokenBondFeatures(Transform):
+    """
+    Transform that generates AF3-style token bond features for an AtomArray.
+
+    This transform creates a 2D matrix indicating if there is a bond between any atom in
+    token i and token j, restricted to just polymer-ligand and ligand-ligand bonds and
+    bonds less than a specified distance cutoff.
+
+    Args:
+        - distance_cutoff (float, optional): The maximum distance (in Angstroms) for considering a bond.
+            Defaults to 2.4.
+
+    Returns:
+        - dict: A dictionary containing the input data and the new 'af3_token_bond_features' key with
+            the computed boolean matrix.
+    """
+
+    requires_previous_transforms = ["AtomizeResidues"]
+
+    def __init__(self, distance_cutoff: float = 2.4):
+        self.distance_cutoff = distance_cutoff
+
+    def check_input(self, data: dict):
+        check_contains_keys(data, ["atom_array"])
+        check_is_instance(data, "atom_array", AtomArray)
+        check_nonzero_length(data, "atom_array")
+        check_atom_array_has_bonds(data)
+        check_atom_array_annotation(data, ["is_polymer", "atomize"])
+
+    def forward(self, data: dict) -> dict:
+        atom_array = data["atom_array"]
+        af3_token_bond_features = get_af3_token_bond_features(atom_array, self.distance_cutoff)
+
+        if "feats" not in data:
+            data["feats"] = {}
+
+        data["feats"]["token_bonds"] = af3_token_bond_features
 
         return data

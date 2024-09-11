@@ -341,6 +341,8 @@ class Compose(Transform):
                 This is useful for debugging when dealing with probabilistic transformations. The RNG state
                 is returned with the error message if the transform pipeline fails, allowing you to instantiate
                 the same RNG state with `eval` for debugging.
+            - print_rng_state (bool): Whether to print the RNG state upon failure. This can be useful
+                for debugging and reproducing specific states for transforms with stochasticity.
 
         Raises:
             ValueError: If `transforms` is not a list or tuple, if it is empty, or if it contains elements that
@@ -400,6 +402,24 @@ class Compose(Transform):
         rng_state_dict: dict[str, Any] | None = None,
         _stop_before: Transform | str | int | None = None,
     ) -> dict:
+        """
+        Apply a series of transformations to the input data.
+
+        Args:
+            data (dict): The input data to be transformed.
+            rng_state_dict (dict[str, Any] | None, optional): Random number generator state dictionary.
+                If provided, sets the RNG state before applying transforms. Defaults to None.
+            _stop_before (Transform | str | int | None, optional): Specifies a point to stop the transformation
+                process. Can be a Transform instance, a string (transform class name), or an integer (index).
+                Defaults to None.
+
+        Returns:
+            dict: The transformed data.
+
+        Raises:
+            Exception: If any transform in the pipeline fails, with details about the failure point and RNG state.
+        """
+
         # set the RNG state context if given
         with (
             rng_state(rng_state_dict, include_cuda=False) if rng_state_dict else contextlib.nullcontext()
