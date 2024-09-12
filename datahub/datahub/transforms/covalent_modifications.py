@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from biotite.structure import AtomArray
 
-from datahub.preprocessing.process import DataPreprocessor
+from datahub.preprocessing.utils import get_inter_pn_unit_bond_mask
 from datahub.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -39,7 +39,7 @@ class FlagAndReassignCovalentModifications(Transform):
         atom_array = data["atom_array"]
 
         # Get all inter-PN unit bonds in the entry (i.e. between a polymer and a non-polymer PN unit)
-        inter_pn_unit_bond_mask = DataPreprocessor.get_inter_pn_unit_bond_mask(atom_array)
+        inter_pn_unit_bond_mask = get_inter_pn_unit_bond_mask(atom_array)
         bonds_to_check = atom_array.bonds.as_array()[inter_pn_unit_bond_mask]
 
         # Filter out bonds that are not between a polymer and a non-polymer PN unit

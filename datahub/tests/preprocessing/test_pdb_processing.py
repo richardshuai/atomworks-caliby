@@ -144,11 +144,6 @@ def validate_interfaces_dataframe(interfaces_df, test_cases):
                 interface_df["involves_metal"].iloc[0] == involves_metal
             ), f"{pdb_id}: Metal involvement for interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} is incorrect"
 
-            # Assert that contacting_pn_unit_iids is a subset of close_pn_unit_iids
-            assert (
-                set(interface_df["contacting_pn_unit_iids"].iloc[0]) <= set(interface_df["close_pn_unit_iids"].iloc[0])
-            ), f"{pdb_id}: PN units in interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} are not properly categorized"
-
 
 if __name__ == "__main__":
     pytest.main(["-v", "-x", "--log-cli-level=WARNING", __file__])

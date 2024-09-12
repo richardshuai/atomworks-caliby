@@ -60,14 +60,12 @@ _USER = os.getenv("USER")
 _SHARED_COLUMNS_TO_LOAD = ["example_id", "pdb_id", "assembly_id", "method"]
 PN_UNITS_COLUMNS_TO_LOAD = _SHARED_COLUMNS_TO_LOAD + [
     "q_pn_unit_iid",
-    "q_pn_unit_close_pn_unit_iids",
     "q_pn_unit_type",
     "q_pn_unit_non_polymer_res_names",
 ]
 INTERFACES_COLUMNS_TO_LOAD = _SHARED_COLUMNS_TO_LOAD + [
     "pn_unit_1_iid",
     "pn_unit_2_iid",
-    "close_pn_unit_iids",
     "pn_unit_1_type",
     "pn_unit_2_type",
     "pn_unit_1_non_polymer_res_names",
