@@ -251,14 +251,9 @@ class PandasDataset(BaseDataset):
 
         # Apply filters, if provided
         self.filters = filters
-        original_num_rows = len(self._data)
         self._already_filtered = False
         if exists(filters):
-            logger.info(f"Applying filters: {filters}")
             self._apply_filters(filters)
-            logger.info(
-                f"Filtered dataset from {original_num_rows:,} to {len(self._data):,} rows (dropped {original_num_rows - len(self._data):,} rows)"
-            )
         self._already_filtered = True
 
         if id_column is not None:
@@ -372,13 +367,22 @@ class PandasDataset(BaseDataset):
             Warning: If the filter did not remove any rows.
             ValueError: If the filter removed all rows.
         """
+        rows_removed = original_num_rows - filtered_num_rows
+        percent_removed = (rows_removed / original_num_rows) * 100
+        percent_remaining = (filtered_num_rows / original_num_rows) * 100
+
         if filtered_num_rows == original_num_rows:
-            logger.warning(f"Query '{query}' did not remove any rows.")
+            logger.warning(f"Query '{query}' on dataset {self.name} did not remove any rows.")
         elif filtered_num_rows == 0:
-            raise ValueError(f"Query '{query}' removed all rows.")
+            raise ValueError(f"Query '{query}' on dataset {self.name} removed all rows.")
         else:
             logger.info(
-                f"Query '{query}' filtered dataset from {original_num_rows:,} to {filtered_num_rows:,} rows (dropped {original_num_rows - filtered_num_rows:,} rows)"
+                f"\n+-------------------------------------------+\n"
+                f"Query '{query}' on dataset {self.name}:\n"
+                f"  - Started with: {original_num_rows:,} rows\n"
+                f"  - Removed: {rows_removed:,} rows ({percent_removed:.2f}%)\n"
+                f"  - Remaining: {filtered_num_rows:,} rows ({percent_remaining:.2f}%)\n"
+                f"+-------------------------------------------+\n"
             )
 
 
