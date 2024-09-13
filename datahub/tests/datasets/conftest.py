@@ -1,9 +1,7 @@
 from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
-from datahub.datasets.base import NamedConcatDataset
+from datahub.datasets.base import NamedConcatDataset, PandasDataset, StructuralDatasetWrapper
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
-from datahub.datasets.wrapped_structural_dataset import WrappedStructuralDataset
-from datahub.datasets.base import PandasDataset
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
@@ -37,7 +35,7 @@ TEST_INTERFACES_FILTERS = [
 
 
 # Define the PDB datasets with their respective parsers...
-RF2AA_PN_UNITS_DATASET = WrappedStructuralDataset(
+RF2AA_PN_UNITS_DATASET = StructuralDatasetWrapper(
     dataset_parser=PNUnitsDFParser(),
     cif_parser=CIF_PARSER,
     transform=build_rf2aa_transform_pipeline(
@@ -51,17 +49,17 @@ RF2AA_PN_UNITS_DATASET = WrappedStructuralDataset(
         assert_rf2aa_assumptions=False,
     ),
     dataset=PandasDataset(
-        name = "pn_units",
-        id_column = "example_id",
-        data = PN_UNITS_DF,
-        filters = SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
-        columns_to_load = None,  # Load all columns
+        name="pn_units",
+        id_column="example_id",
+        data=PN_UNITS_DF,
+        filters=SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
+        columns_to_load=None,  # Load all columns
     ),
     cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
     save_failed_examples_to_dir=None,
 )
 
-AF3_PN_UNITS_DATASET = WrappedStructuralDataset(
+AF3_PN_UNITS_DATASET = StructuralDatasetWrapper(
     dataset_parser=PNUnitsDFParser(),
     cif_parser=CIF_PARSER,
     transform=build_af3_transform_pipeline(
@@ -73,16 +71,16 @@ AF3_PN_UNITS_DATASET = WrappedStructuralDataset(
         crop_spatial_probability=2 / 3,
     ),
     dataset=PandasDataset(
-        name = "pn_units",
-        id_column = "example_id",
-        data = PN_UNITS_DF,
-        filters = SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
-        columns_to_load = None,  # Load all columns
+        name="pn_units",
+        id_column="example_id",
+        data=PN_UNITS_DF,
+        filters=SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
+        columns_to_load=None,  # Load all columns
     ),
     save_failed_examples_to_dir=None,
 )
 
-RF2AA_INTERFACES_DATASET = WrappedStructuralDataset(
+RF2AA_INTERFACES_DATASET = StructuralDatasetWrapper(
     dataset_parser=InterfacesDFParser(),
     cif_parser=CIF_PARSER,
     transform=build_rf2aa_transform_pipeline(
@@ -96,17 +94,17 @@ RF2AA_INTERFACES_DATASET = WrappedStructuralDataset(
         convert_feats_to_rf2aa_input_tuple=False,
     ),
     dataset=PandasDataset(
-        name = "interfaces",
-        id_column = "example_id",
-        data = INTERFACES_DF,
-        filters = SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
-        columns_to_load = None,  # Load all columns
+        name="interfaces",
+        id_column="example_id",
+        data=INTERFACES_DF,
+        filters=SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
+        columns_to_load=None,  # Load all columns
     ),
     cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
     save_failed_examples_to_dir=None,
 )
 
-AF3_INTERFACES_DATASET = WrappedStructuralDataset(
+AF3_INTERFACES_DATASET = StructuralDatasetWrapper(
     dataset_parser=InterfacesDFParser(),
     cif_parser=CIF_PARSER,
     transform=build_af3_transform_pipeline(
@@ -118,11 +116,11 @@ AF3_INTERFACES_DATASET = WrappedStructuralDataset(
         crop_contiguous_probability=0.0,
     ),
     dataset=PandasDataset(
-        name = "interfaces",
-        id_column = "example_id",
-        data = INTERFACES_DF,
-        filters = SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
-        columns_to_load = None,  # Load all columns
+        name="interfaces",
+        id_column="example_id",
+        data=INTERFACES_DF,
+        filters=SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
+        columns_to_load=None,  # Load all columns
     ),
     cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
     save_failed_examples_to_dir=None,

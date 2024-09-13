@@ -39,8 +39,8 @@ from toolz.curried import assoc, compose, keyfilter, map
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from datahub.datasets.base import StructuralDatasetWrapper
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
-from datahub.datasets.wrapped_structural_dataset import WrappedStructuralDataset
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
 from datahub.utils.rng import (
     capture_rng_states,
@@ -89,14 +89,14 @@ INTERFACES_FILTERS = _SHARED_FILTERS + [
 ]
 
 
-def _get_rf2aa_dataset_from_path(dataset_path: Path) -> WrappedStructuralDataset:
+def _get_rf2aa_dataset_from_path(dataset_path: Path) -> StructuralDatasetWrapper:
     from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 
     assert (
         "pn_unit" in dataset_path.name or "interface" in dataset_path.name
     ), "Dataset must be a pn_unit or interface dataset."
 
-    pdb_dataset = WrappedStructuralDataset(
+    pdb_dataset = StructuralDatasetWrapper(
         name="dataset",
         dataset_path=dataset_path,
         cif_parser=CIFParser(),
@@ -119,14 +119,14 @@ def _get_rf2aa_dataset_from_path(dataset_path: Path) -> WrappedStructuralDataset
     return pdb_dataset
 
 
-def _get_af3_dataset_from_path(dataset_path: Path) -> WrappedStructuralDataset:
+def _get_af3_dataset_from_path(dataset_path: Path) -> StructuralDatasetWrapper:
     from datahub.pipelines.af3 import build_af3_transform_pipeline
 
     assert (
         "pn_unit" in dataset_path.name or "interface" in dataset_path.name
     ), "Dataset must be a pn_unit or interface dataset."
 
-    pdb_dataset = WrappedStructuralDataset(
+    pdb_dataset = StructuralDatasetWrapper(
         name="dataset",
         dataset_path=dataset_path,
         cif_parser=CIFParser(),

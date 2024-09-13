@@ -6,9 +6,9 @@ It's still a work-in-progress; additional contributions (to the codebase, AND th
 ## What is the high-level sampling and data loading workflow?
 
 At a high-level, dataloading occurs through the following steps:
-1. Sample a dataset index to load via a Sampler. Dataset indices represent examples in a dataframe that we want featurize and pass to the model for training. For example, the index "1" in the dataset "PDB Chains" might correspond to PDB ID "3ne2", biassembly "2", PN Unit (similar to a chain, see the `Glossary` in the `cifutils` `README`) "A_1".
-2. Call `__getitem__` on the top-level dataset associated with the Torch `DataLoader` using the dataset index
-3. Given that dataset index (e.g., "1"), call `__getitem__` on the corresponding dataset to retrieve the relevant row. For example, our row could be a `pd.Series` containing values: `{"pdb_id": "3ne2", "q_pn_unit_iid": "A_1", "assembly": "2", "extra_info": "proteins4ever"}`
+1. Sample a dataset index to load via a Sampler, like standard PyTorch. Dataset indices represent examples in a dataframe that we want featurize and pass to the model for training. For example, the index "1" in the dataset "PDB Chains" might correspond to PDB ID "3ne2", biassembly "2", PN Unit (similar to a chain, see the `Glossary` in the `cifutils` `README`) "A_1".
+2. Call `__getitem__` on the top-level dataset associated with the Torch `DataLoader` using the dataset index (e.g., "1"). There may be multiple datasets concatenated together, so we must identify which dataset the example came from to call the appropriate `__getitem__` method to load the dataframe row.
+3. Given that dataset index (e.g., "1"), call `__getitem__` on the corresponding sub-dataset to retrieve the relevant row. For example, our row could be a `pd.Series` containing values: `{"pdb_id": "3ne2", "q_pn_unit_iid": "A_1", "assembly": "2", "extra_info": "proteins4ever"}`
 4. (Within `load_from_row`) Parse the dataframe row into a standardized format we can proceed with. Although often trivial, we must standardize the outputs of individual dataset `__getitems__` before proceeding, build the path to the CIF/PDB file, and aggregate the appropriate information. For our example, we may use the `PNUnitsDFParser` (which inherits the `ABC` `RowParser`) to parse our `pd.Series` row into a dictionary like `{"example_id": "{pn_unit}{3ne2}{2}{A_1}", "path": "/somewhere/on/digs/3ne2.cif", "q_pn_units": "A_1"}`. Only the `example_id` and the `path` are required; however, some transformations must receive additional fiels (`q_pn_units` for cropping, for example).
 5. (Within `load_from_row`) Given the path provided in the standardized dictionary, load the CIF/PDB file with the `CIFParser`.
 6. (Within `load_from_row`) Combine the output of the `CIFParser` with the output from the `PNUnitsDFParser.
@@ -58,10 +58,10 @@ If using the standard MSA loading transforms, for MSAs to be correctly recognize
 For templates, we don't currently support any way to add additional sources.
 
 ### Step 4: Update the main training YAML.
-Update the main training YAML with the new dataset (i.e., instantiate a `PandasDataset` wrapped within a `WrappedStructuralDataset`), and you're good to go!
+Update the main training YAML with the new dataset (i.e., instantiate a `PandasDataset` wrapped within a `StructuralDatasetWrapper`), and you're good to go!
 
 ## How do we handle hierarchical dataset and sampling structures in Datahub?
-We implemented a hierarchical dataset and sampling schema that can be extended indefinitely. Note that this setup is somewhat complex; most scenarios can be handled with a `WrappedStructuralDataset` around a `PandasDataset`, or something similar.
+We implemented a hierarchical dataset and sampling schema that can be extended indefinitely. Note that this setup is somewhat complex; most scenarios can be handled with a `StructuralDatasetWrapper` around a `PandasDataset`, or something similar.
 
 ### Example: Possible AF-3 Style Training Setup
 For RF2AA, we have the following approximate dataset structure:
@@ -72,13 +72,13 @@ For RF2AA, we have the following approximate dataset structure:
         ---------------------------------
         |                               |
  FB Distillation                NamedConcatDataset
-(WrappedStructuralDataset               |
+(StructuralDatasetWrapper               |
  wrapping a PandasDataset)              |
                                         |
                                 -----------------------
                                 |                     |
                       Interfaces Dataset       PN Units Dataset
-                    (WrappedStructuralDataset  (WrappedStructuralDataset
+                    (StructuralDatasetWrapper  (StructuralDatasetWrapper
                      wrapping a PandasDataset)  wrapping a PandasDataset)
 ```
 
