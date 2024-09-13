@@ -81,7 +81,7 @@ class StructuralDatasetWrapper(BaseDataset):
             transform (Transform | Compose, optional): Transformation pipeline to apply to the data. See `datahub.transforms.base`.
             return_key (str, optional): Key to return from the data dictionary instead of the entire dictionary.
             save_failed_examples_to_dir (PathLike | str | None, optional): Directory to save failed examples. Defaults to "/net/scratch/failures".
-        
+
         Example usage:
             ```python
             dataset = StructuralDatasetDecorator(dataset=PandasDataset(data="path/to/data.csv"), ...)
