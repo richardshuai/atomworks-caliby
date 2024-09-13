@@ -21,8 +21,8 @@ import numpy as np
 import pandas as pd
 from os import PathLike
 from pathlib import Path
-
-from cifutils.utils.io_utils import read_cif_file, load_structure
+import io
+from cifutils.utils.io_utils import read_any, get_structure, to_cif_buffer
 from cifutils.common import exists
 from cifutils.transforms.categories import (
     get_chain_info_from_category,
@@ -196,7 +196,7 @@ class CIFParser:
     def parse_from_cif(
         self,
         *,
-        filename: PathLike,
+        filename_or_buffer: PathLike | io.StringIO,
         save_to_cache: bool,
         assume_residues_all_resolved: bool = False,
         add_missing_atoms: bool = True,
@@ -268,11 +268,14 @@ class CIFParser:
         data_dict["extra_info"] = {}
 
         # ...read the CIF file into the dictionary (we will clean up the dictionary before returning)
-        cif_file = read_cif_file(filename)
+        cif_file = read_any(filename_or_buffer, file_type="cif")
         data_dict["cif_block"] = cif_file.block
 
         # ...load metadata into "metadata" key (either from RCSB standard fields, or from the custom `extra_metadata` field)
-        fallback_filename = Path(filename).stem
+        if isinstance(filename_or_buffer, io.StringIO):
+            fallback_filename = "unknown_id"
+        else:
+            fallback_filename = Path(filename_or_buffer).stem
         data_dict["metadata"] = get_metadata_from_category(data_dict["cif_block"], fallback_id=fallback_filename)
 
         # ...load structure into the "atom_array_stack" key using the RCSB labels for sequence ids, and later update for non-polymers
@@ -286,16 +289,16 @@ class CIFParser:
             common_extra_fields += ["b_factor", "occupancy", "charge"]
 
         try:
-            atom_array_stack = load_structure(
+            atom_array_stack = get_structure(
                 data_dict["cif_block"],
                 common_extra_fields,
                 assume_residues_all_resolved,
                 model,
             )
         except InvalidFileError:
-            logger.info(f"Invalid file error encountered for {filename}; loading with only one model")
+            logger.info("Invalid file error encountered; loading with only one model")
             # Try again, choosing only the first model
-            atom_array_stack = load_structure(
+            atom_array_stack = get_structure(
                 data_dict["cif_block"],
                 common_extra_fields,
                 assume_residues_all_resolved,
@@ -483,3 +486,34 @@ class CIFParser:
             "metadata": data_dict["metadata"],
             "extra_info": data_dict["extra_info"],
         }
+
+    def parse_from_pdb(self, *, filename: PathLike, **parse_from_cif_kwargs):
+        """
+        Parse a PDB file and return chain information, residue information, atom array, metadata, and legacy data.
+
+        Args:
+            filename (str): Path to the PDB file.
+            **parse_from_cif_kwargs: Additional keyword arguments to pass to `parse_from_cif`.
+
+        Returns:
+            dict: A dictionary containing the following keys:
+                'chain_info': A dictionary mapping chain ID to sequence, type, RCSB entity,
+                    EC number, and other information.
+                'ligand_info': A dictionary containing ligand of interest information.
+                'atom_array_stack': An AtomArrayStack instance representing the asymmetric unit.
+                'assemblies': A dictionary mapping assembly IDs to AtomArrayStack instances.
+                'metadata': A dictionary containing metadata about the structure
+                    (e.g., resolution, deposition date, etc.).
+        """
+        # ...read the PDB file into a CIF block
+        pdb_file = read_any(filename)
+        atom_array_stack = pdb_file.get_structure(
+            model=None,
+            altloc="all",
+            extra_fields=["b_factor", "occupancy", "charge"],
+            include_bonds=True,
+        )
+        cif_buffer = to_cif_buffer(atom_array_stack, id=Path(filename).stem)
+
+        # ...parse the CIF block into a dictionary
+        return self.parse_from_cif(cif_block=cif_buffer, **parse_from_cif_kwargs)

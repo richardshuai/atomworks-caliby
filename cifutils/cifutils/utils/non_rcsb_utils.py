@@ -9,6 +9,8 @@ from biotite.structure import AtomArray
 import biotite.structure as struc
 from cifutils.common import deduplicate_iterator
 from cifutils.utils.residue_utils import get_chem_comp_type
+from cifutils.utils.sequence_utils import get_1_from_3_letter_code
+from cifutils.enums import ChainType
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
     POLYPEPTIDE_L_CHEM_TYPES,
@@ -17,6 +19,7 @@ from cifutils.constants import (
     DNA_LIKE_CHEM_TYPES,
 )
 import logging
+import numpy as np
 
 logger = logging.getLogger("cifutils")
 
@@ -28,14 +31,27 @@ def load_monomer_sequence_information_from_atom_array(chain_info_dict: dict, ato
 
     Assumes that there are no fully unresolved residues in the AtomArray; otherwise, the sequence will be incomplete.
     """
-    for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
+    for chain_id in np.unique(atom_array.chain_id):
         chain_atom_array = atom_array[atom_array.chain_id == chain_id]
         residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
+        chain_type = ChainType(atom_array.chain_type[0])
 
         if chain_id not in chain_info_dict:
             chain_info_dict[chain_id] = {}
         chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
         chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)
+
+        # Create the processed single-letter sequence representations
+        processed_entity_non_canonical_sequence = [
+            get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=False) for residue in residue_name_list
+        ]
+        processed_entity_canonical_sequence = [
+            get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=True) for residue in residue_name_list
+        ]
+        chain_info_dict[chain_id]["processed_entity_non_canonical_sequence"] = "".join(
+            processed_entity_non_canonical_sequence
+        )
+        chain_info_dict[chain_id]["processed_entity_canonical_sequence"] = "".join(processed_entity_canonical_sequence)
 
     return chain_info_dict
 

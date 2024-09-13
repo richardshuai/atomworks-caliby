@@ -11,7 +11,7 @@ import py3Dmol
 from biotite.structure import AtomArray
 from cifutils.constants import METAL_ELEMENTS
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
-from cifutils.utils.io_utils import to_cif
+from cifutils.utils.io_utils import to_cif_string
 
 logger = logging.getLogger("cifutils")
 
@@ -86,7 +86,7 @@ def view(
         structure = structure[structure.occupancy > 0]
 
     # Convert the structure to a temporary CIF string for interacting with py3Dmol
-    _tmp_cif_str = to_cif(structure)
+    _tmp_cif_str = to_cif_string(structure)
     # ... add the structure model to the view in mmCIF format
     view.addModel(_tmp_cif_str, "structure", format="mmcif")
 
@@ -108,7 +108,6 @@ def view(
             & struc.filter_nucleotides(structure[structure.chain_id == chain_id])
         )
         is_ion = np.all(_is_metal(structure[structure.chain_id == chain_id].element))
-        print(f"Chain {chain_id} - Protein: {is_protein}, Nucleic: {is_nucleic}, Ion: {is_ion}")
 
         if is_protein or is_nucleic:
             # Apply protein or nucleic acid style
