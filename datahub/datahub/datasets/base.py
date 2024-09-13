@@ -1,4 +1,5 @@
 import copy
+from abc import ABC, abstractmethod
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
@@ -12,10 +13,61 @@ from datahub.common import exists
 from datahub.datasets import logger
 
 
-class PandasDataset(Dataset):
+class BaseDataset(ABC):
     """
-    A base class for datasets that are stored as Pandas DataFrames.
-    The underlying dataframe can be accessed via the `data` attribute.
+    Abstract base class for datasets. All dataset types (e.g., Pandas, Polars) should inherit from this class
+    and implement its methods.
+
+    In addition to the standard PyTorch Dataset methods (`__getitem__`, `__len__`), this class requires
+    implementations for converting between example IDs and indices, which is necessary for our nested dataset structure.
+    """
+
+    @abstractmethod
+    def __getitem__(self, idx: int) -> Any:
+        pass
+
+    @abstractmethod
+    def __len__(self) -> int:
+        pass
+
+    @abstractmethod
+    def __contains__(self, example_id: str) -> bool:
+        """Check if the dataset contains the example ID."""
+        pass
+
+    @abstractmethod
+    def id_to_idx(self, example_id: str | list[str]) -> int | list[int]:
+        """Convert an example ID or list of example IDs to the corresponding index or indices."""
+        pass
+
+    @abstractmethod
+    def idx_to_id(self, idx: int | list[int]) -> str | list[str]:
+        """Convert an index or list of indices to the corresponding example ID or IDs."""
+        pass
+    
+
+
+class PandasDataset(BaseDataset):
+    """
+    A wrapper around PyTorch's Dataset class that allows for easy loading, filtering, and indexing of datasets stored as Pandas DataFrames.
+    The underlying DataFrame can be accessed via the `data` property.
+
+    For example usage, see the tests in `tests/datasets/test_datasets.py`.
+
+    Args:
+        data (pd.DataFrame | PathLike): The dataset, either as a Pandas DataFrame or a path to a file.
+        id_column (str | None, optional): The column to use as the index; must be unique within the DataFrame. Defaults to None.
+            For example, we use the `example_id` column as the index in the `PDBDataset`. By setting the dataframe index to the `example_id`
+            column, we can retrieve the row corresponding to a specific example ID by calling `dataset.data.loc[example_id]` in O(1) time.
+        filters (list[str] | None, optional): A list of query strings to filter the data. Defaults to None. For examples on how to specify filters,
+            see the docstring for `_apply_filters`.
+        name (str | None, optional): The name of the dataset. Defaults to None. Useful for debugging and logging.
+        columns_to_load (list[str] | None, optional): Specific columns to load if data is provided as a file path. Defaults to None. Helpful for
+            large datasets where only a subset of columns is needed (if using `parquet` or other columnar storage formats).
+        **load_kwargs (Any): Additional keyword arguments for loading the data.
+
+    Attributes:
+        data (pd.DataFrame): The underlying DataFrame, accessible via the `data` property.
     """
 
     def __init__(
@@ -30,6 +82,8 @@ class PandasDataset(Dataset):
     ):
         if name is not None:
             self.name = name
+        else:
+            self.name = "<PandasDataset>"
 
         # Load the data from the path, if provided (and load only the specified columns)
         if isinstance(data, (PathLike, str)):

@@ -363,7 +363,7 @@ class RemoveUnsupportedChainTypes(Transform):
     requires_previous_transforms = []
 
     def check_input(self, data: dict):
-        check_contains_keys(data, ["atom_array", "query_pn_unit_iids", "pdb_id"])
+        check_contains_keys(data, ["atom_array", "query_pn_unit_iids"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_type", "pn_unit_iid"])
 
@@ -375,7 +375,7 @@ class RemoveUnsupportedChainTypes(Transform):
         )
         assert np.all(
             np.isin(query_pn_unit_chain_types, SUPPORTED_CHAIN_TYPES)
-        ), f"{data['pdb_id']}: Query PN unit has an unsupported chain type: {query_pn_unit_chain_types}"
+        ), f"Query PN unit has an unsupported chain type: {query_pn_unit_chain_types}"
 
         # Then, we filter out chains with unsupported chain types
         data["atom_array"] = atom_array[np.isin(atom_array.chain_type, SUPPORTED_CHAIN_TYPES)]

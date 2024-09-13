@@ -3,9 +3,9 @@ import logging
 import pytest
 from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
-from datahub.datasets.base import NamedConcatDataset, get_row_and_index_by_example_id
+from datahub.datasets.base import NamedConcatDataset, get_row_and_index_by_example_id, PandasDataset
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
-from datahub.datasets.pdb_dataset import PDBDataset
+from datahub.datasets.wrapped_structural_dataset import WrappedStructuralDataset
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from tests.conftest import (
     CIF_PARSER,
@@ -32,32 +32,44 @@ TEST_INTERFACES_FILTERS = [
 ]
 
 # Define the PDB datasets with their respective parsers...
-PN_UNITS_DATASET = PDBDataset(
-    name="pn_units",
-    dataset_path=PN_UNITS_DF,
-    cif_parser=CIF_PARSER,
+# (We must redefine due to the filters we imposed in the conftest)
+# Define the PDB datasets with their respective parsers...
+PN_UNITS_DATASET = WrappedStructuralDataset(
     dataset_parser=PNUnitsDFParser(),
-    id_column="example_id",
-    filters=TEST_PN_UNITS_FILTERS,
+    cif_parser=CIF_PARSER,
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
         assert_rf2aa_assumptions=True,
     ),
+    dataset=PandasDataset(
+        name = "pn_units",
+        id_column = "example_id",
+        data = PN_UNITS_DF,
+        filters = TEST_PN_UNITS_FILTERS,
+    ),
+    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
+    return_key="feats",
+    save_failed_examples_to_dir=None,
 )
 
-INTERFACES_DATASET = PDBDataset(
-    name="interfaces",
-    dataset_path=INTERFACES_DF,
-    cif_parser=CIF_PARSER,
+INTERFACES_DATASET = WrappedStructuralDataset(
     dataset_parser=InterfacesDFParser(),
-    id_column="example_id",
-    filters=TEST_INTERFACES_FILTERS,
+    cif_parser=CIF_PARSER,
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
         assert_rf2aa_assumptions=True,
     ),
+    dataset=PandasDataset(
+        name = "interfaces",
+        id_column = "example_id",
+        data = INTERFACES_DF,
+        filters = TEST_INTERFACES_FILTERS,
+    ),
+    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
+    return_key="feats",
+    save_failed_examples_to_dir=None,
 )
 
 # ...build the ConcatDataset

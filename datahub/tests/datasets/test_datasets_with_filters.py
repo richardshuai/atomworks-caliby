@@ -3,8 +3,7 @@ import logging
 import numpy as np
 import pytest
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser
-from datahub.datasets.pdb_dataset import PDBDataset
+from datahub.datasets.base import PandasDataset
 from tests.conftest import PN_UNITS_DF
 from tests.datasets.conftest import RF2AA_INTERFACES_DATASET, RF2AA_PN_UNITS_DATASET
 
@@ -14,7 +13,7 @@ from tests.datasets.conftest import RF2AA_INTERFACES_DATASET, RF2AA_PN_UNITS_DAT
 def test_filter_impact():
     # Check that the filter had an impact (rows were dropped)
     original_data_length = len(PN_UNITS_DF)
-    filtered_data_length = len(RF2AA_PN_UNITS_DATASET.data)
+    filtered_data_length = len(RF2AA_PN_UNITS_DATASET)
     assert filtered_data_length < original_data_length, "Filter did not reduce the number of rows"
 
 
@@ -64,12 +63,9 @@ def test_filter_no_impact(caplog):
     # Test for filters that do not remove any rows
     filters = ["resolution != -1"]
     with caplog.at_level(logging.WARNING):
-        PDBDataset(
-            name="test",
-            dataset_path=PN_UNITS_DF.copy(),
-            dataset_parser=PNUnitsDFParser(),
+        PandasDataset(
+            data=PN_UNITS_DF.copy(),
             filters=filters,
-            transform=None,
         )
     assert "did not remove any rows" in caplog.text, "Warning for no impact filter not raised"
 
@@ -78,12 +74,9 @@ def test_filter_remove_all_rows():
     # Test for filters that remove all rows
     filters = ["resolution < 0.0"]
     with pytest.raises(ValueError, match="removed all rows"):
-        PDBDataset(
-            name="test",
-            dataset_path=PN_UNITS_DF.copy(),
-            dataset_parser=PNUnitsDFParser(),
+        PandasDataset(
+            data=PN_UNITS_DF.copy(),
             filters=filters,
-            transform=None,
         )
 
 

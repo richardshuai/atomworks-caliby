@@ -69,10 +69,10 @@ def test_pdb_datasets():
     }
 
     pn_units_dataset_weights = calculate_weights_for_pdb_dataset_df(
-        dataset_df=RF2AA_PN_UNITS_DATASET._data, alphas=alphas, beta=b_pn_unit
+        dataset_df=RF2AA_PN_UNITS_DATASET.data, alphas=alphas, beta=b_pn_unit
     )
     interfaces_dataset_weights = calculate_weights_for_pdb_dataset_df(
-        dataset_df=RF2AA_INTERFACES_DATASET._data, alphas=alphas, beta=b_interface
+        dataset_df=RF2AA_INTERFACES_DATASET.data, alphas=alphas, beta=b_interface
     )
     pdb_dataset_weights = torch.cat([pn_units_dataset_weights, interfaces_dataset_weights])  # NOTE: Order matters!
 

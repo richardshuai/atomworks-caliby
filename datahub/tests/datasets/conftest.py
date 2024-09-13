@@ -2,7 +2,8 @@ from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
 from datahub.datasets.base import NamedConcatDataset
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
-from datahub.datasets.pdb_dataset import PDBDataset
+from datahub.datasets.wrapped_structural_dataset import WrappedStructuralDataset
+from datahub.datasets.base import PandasDataset
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
@@ -36,13 +37,9 @@ TEST_INTERFACES_FILTERS = [
 
 
 # Define the PDB datasets with their respective parsers...
-RF2AA_PN_UNITS_DATASET = PDBDataset(
-    name="pn_units",
-    dataset_path=PN_UNITS_DF,
+RF2AA_PN_UNITS_DATASET = WrappedStructuralDataset(
     dataset_parser=PNUnitsDFParser(),
-    filters=SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
     cif_parser=CIF_PARSER,
-    columns_to_load=None,  # Load all columns
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -53,19 +50,20 @@ RF2AA_PN_UNITS_DATASET = PDBDataset(
         convert_feats_to_rf2aa_input_tuple=False,
         assert_rf2aa_assumptions=False,
     ),
-    id_column="example_id",
-    return_key="feats",
+    dataset=PandasDataset(
+        name = "pn_units",
+        id_column = "example_id",
+        data = PN_UNITS_DF,
+        filters = SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
+        columns_to_load = None,  # Load all columns
+    ),
+    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
     save_failed_examples_to_dir=None,
-    cif_cache_dir="/projects/ml/RF2_allatom/cache/cif",
 )
 
-AF3_PN_UNITS_DATASET = PDBDataset(
-    name="pn_units",
-    dataset_path=PN_UNITS_DF,
+AF3_PN_UNITS_DATASET = WrappedStructuralDataset(
     dataset_parser=PNUnitsDFParser(),
-    filters=SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
     cif_parser=CIF_PARSER,
-    columns_to_load=None,  # Load all columns
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -74,19 +72,19 @@ AF3_PN_UNITS_DATASET = PDBDataset(
         crop_contiguous_probability=1 / 3,
         crop_spatial_probability=2 / 3,
     ),
-    id_column="example_id",
-    return_key=None,
+    dataset=PandasDataset(
+        name = "pn_units",
+        id_column = "example_id",
+        data = PN_UNITS_DF,
+        filters = SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
+        columns_to_load = None,  # Load all columns
+    ),
     save_failed_examples_to_dir=None,
-    cif_cache_dir="/projects/ml/RF2_allatom/cache/cif",
 )
 
-RF2AA_INTERFACES_DATASET = PDBDataset(
-    name="interfaces",
-    dataset_path=INTERFACES_DF,
+RF2AA_INTERFACES_DATASET = WrappedStructuralDataset(
     dataset_parser=InterfacesDFParser(),
-    filters=SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
     cif_parser=CIF_PARSER,
-    columns_to_load=None,  # Load all columns
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -97,19 +95,20 @@ RF2AA_INTERFACES_DATASET = PDBDataset(
         assert_rf2aa_assumptions=False,
         convert_feats_to_rf2aa_input_tuple=False,
     ),
-    id_column="example_id",
-    return_key="feats",
+    dataset=PandasDataset(
+        name = "interfaces",
+        id_column = "example_id",
+        data = INTERFACES_DF,
+        filters = SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
+        columns_to_load = None,  # Load all columns
+    ),
+    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
     save_failed_examples_to_dir=None,
-    cif_cache_dir="/projects/ml/RF2_allatom/cache/cif",
 )
 
-AF3_INTERFACES_DATASET = PDBDataset(
-    name="interfaces",
-    dataset_path=INTERFACES_DF,
+AF3_INTERFACES_DATASET = WrappedStructuralDataset(
     dataset_parser=InterfacesDFParser(),
-    filters=SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
     cif_parser=CIF_PARSER,
-    columns_to_load=None,  # Load all columns
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -118,10 +117,15 @@ AF3_INTERFACES_DATASET = PDBDataset(
         crop_spatial_probability=1.0,
         crop_contiguous_probability=0.0,
     ),
-    id_column="example_id",
-    return_key=None,
+    dataset=PandasDataset(
+        name = "interfaces",
+        id_column = "example_id",
+        data = INTERFACES_DF,
+        filters = SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
+        columns_to_load = None,  # Load all columns
+    ),
+    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
     save_failed_examples_to_dir=None,
-    cif_cache_dir="/projects/ml/RF2_allatom/cache/cif",
 )
 
 # ...build the ConcatDataset

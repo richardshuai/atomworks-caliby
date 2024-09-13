@@ -45,7 +45,7 @@ def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
     for sample in tqdm(data_loader):
         example_id = sample["example_id"][0]
         try:
-            assert_satisfies_rf2aa_assumptions(sample)
+            assert_satisfies_rf2aa_assumptions(sample["feats"])
         except AssertionError as e:
             # Update message with sample index
             rng_state_dict = pdb_dataset.get_dataset_by_idx(
