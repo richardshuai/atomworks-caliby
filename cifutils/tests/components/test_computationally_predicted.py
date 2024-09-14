@@ -27,5 +27,15 @@ def test_load_with_all_resolved(path: str):
     assert result["metadata"]["extra_metadata"] is not None
 
 
+def test_af2_predicted_pdb_example():
+    result = CIF_PARSER_BIOTITE.parse(
+        filename=DIR / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb",
+        remove_waters=True,
+        residues_to_remove=[],
+    )
+    # Check if processing runs through
+    assert result is not None
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
