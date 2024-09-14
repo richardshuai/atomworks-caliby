@@ -23,6 +23,15 @@ from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
 
 logger = logging.getLogger("cifutils")
 
+def _get_logged_in_user():
+    """
+    Get the logged in user.
+    """
+    try:
+        return os.getlogin()
+    except OSError:
+        return "unknown_user"
+
 
 def load_any(
     file_or_buffer: os.PathLike | io.StringIO | io.BytesIO,
@@ -169,7 +178,7 @@ def to_cif_buffer(
     structure: AtomArray,
     *,
     id: str = "unknown_id",
-    author: str = os.getlogin(),
+    author: str = _get_logged_in_user(),
     date: str = datetime.now().strftime("%Y-%m-%d"),
     time: str = datetime.now().strftime("%H:%M:%S"),
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
@@ -235,7 +244,7 @@ def to_cif_string(
     structure: AtomArray,
     *,
     id: str = "unknown_id",
-    author: str = os.getlogin(),
+    author: str = _get_logged_in_user(),
     date: str = datetime.now().strftime("%Y-%m-%d"),
     time: str = datetime.now().strftime("%H:%M:%S"),
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
@@ -265,7 +274,7 @@ def to_cif_file(
     path: os.PathLike,
     *,
     id: str = "unknown_id",
-    author: str = os.getlogin(),
+    author: str = _get_logged_in_user(),
     date: str = datetime.now().strftime("%Y-%m-%d"),
     time: str = datetime.now().strftime("%H:%M:%S"),
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
