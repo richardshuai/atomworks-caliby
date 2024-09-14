@@ -130,6 +130,4 @@ AF3_INTERFACES_DATASET = StructuralDatasetWrapper(
 RF2AA_PDB_DATASET = ConcatDatasetWithID(
     datasets=[RF2AA_PN_UNITS_DATASET, RF2AA_INTERFACES_DATASET]
 )  # NOTE: Order matters!
-AF3_PDB_DATASET = ConcatDatasetWithID(
-    datasets=[AF3_PN_UNITS_DATASET, AF3_INTERFACES_DATASET]
-)  # NOTE: Order matters!
+AF3_PDB_DATASET = ConcatDatasetWithID(datasets=[AF3_PN_UNITS_DATASET, AF3_INTERFACES_DATASET])  # NOTE: Order matters!
