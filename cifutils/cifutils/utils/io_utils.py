@@ -32,6 +32,7 @@ def load_any(
     assume_residues_all_resolved: bool = False,
     include_bonds: bool = True,
     model: int | None = None,
+    altloc: Literal["first", "occupancy", "all"] = "occupancy",
 ) -> AtomArrayStack | AtomArray:
     """
     Convenience function for loading a structure from a file or buffer.
@@ -43,16 +44,18 @@ def load_any(
         assume_residues_all_resolved=assume_residues_all_resolved,
         include_bonds=include_bonds,
         model=model,
+        altloc=altloc,
     )
 
 
 def get_structure(
-    file_obj: pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile,
+    file_obj: pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile | pdbx.CIFBlock,
     *,
     extra_fields: list[str] = [],
     assume_residues_all_resolved: bool = False,
     include_bonds: bool = True,
     model: int | None = None,
+    altloc: Literal["first", "occupancy", "all"] = "occupancy",
 ) -> AtomArrayStack | AtomArray:
     """
     Load example structure into Biotite's AtomArrayStack using the specified fields and assumptions.
@@ -62,6 +65,7 @@ def get_structure(
        - extra_fields (list): List of extra fields to include as AtomArray annotations.
        - assume_residues_all_resolved (bool): If True, assumes all residues are resolved and sets occupancy to 1.0 for all atoms.
        - model (int): The model number to use for loading the structure.
+       - altloc (Literal["first", "occupancy", "all"]): The altloc ID to use for loading the structure.
 
     Returns:
         AtomArrayStack: The loaded structure with the specified fields and assumptions.
@@ -70,15 +74,13 @@ def get_structure(
         Biotite documentation (https://www.biotite-python.org/apidoc/biotite.structure.io.pdbx.get_structure.html#biotite.structure.io.pdbx.get_structure)
     """
     match type(file_obj):
-        case pdbx.CIFFile | pdbx.BinaryCIFFile:
+        case pdbx.CIFFile | pdbx.BinaryCIFFile | pdbx.CIFBlock:
             atom_array_stack = pdbx.get_structure(
                 file_obj,
                 model=model,
                 extra_fields=extra_fields,
                 use_author_fields=False,
-                altloc="occupancy"
-                if not assume_residues_all_resolved
-                else "first",  # If we're assuming residues are all resolved, we only need the first altloc (and we don't have occupancy)
+                altloc=altloc,
                 include_bonds=include_bonds,
             )
         case biotite_pdb.PDBFile:
@@ -86,9 +88,7 @@ def get_structure(
                 file_obj,
                 model=model,
                 extra_fields=extra_fields,
-                altloc="occupancy"
-                if not assume_residues_all_resolved
-                else "first",  # If we're assuming residues are all resolved, we only need the first altloc (and we don't have occupancy)
+                altloc=altloc,
                 include_bonds=include_bonds,
             )
         case _:
@@ -191,7 +191,13 @@ def to_cif_buffer(
     """
     structure = structure.copy()
     cif_file = pdbx.CIFFile()
+
+    # If elements are given as atomic numbers, convert them to element symbols
     structure.element = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x))(structure.element)
+
+    # If altloc information is present but no altloc id is given, set all to "."
+    if "altloc_id" in structure.get_annotation_categories() and structure.altloc_id[0].strip() == "":
+        structure.altloc_id = ["."] * structure.array_length()
 
     block = pdbx.convert._get_or_create_block(cif_file, block_name=id)
     Category = block.subcomponent_class()
