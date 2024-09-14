@@ -92,7 +92,7 @@ We may choose to implement a corresponding sampling schema like so:
                0.2                     0.8
              Sampler1              MixedSampler
                                     /       \
-                                   0.7       0.2
+                                   0.7       0.3
                                 Sampler2   Sampler3
 
 ```
