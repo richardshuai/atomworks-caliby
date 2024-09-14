@@ -237,7 +237,7 @@ class PandasDataset(BaseDataset):
         if name is not None:
             self.name = name
         else:
-            self.name = "<PandasDataset>"
+            self.name = f"<PandasDataset{hex(id(self))}>"
 
         # Load the data from the path, if provided (and load only the specified columns)
         if isinstance(data, (PathLike, str)):
