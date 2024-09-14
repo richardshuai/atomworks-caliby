@@ -4,7 +4,7 @@ Example usage: python count_af3_tokens.py --pn_units_df_path /projects/ml/RF2_al
 
 import logging
 from functools import partial
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 from os import PathLike
 from pathlib import Path
 
@@ -27,12 +27,11 @@ from datahub.transforms.covalent_modifications import FlagAndReassignCovalentMod
 from datahub.utils.token import get_token_starts
 from tests.conftest import get_digs_path
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    handlers=[
-                        logging.StreamHandler(),
-                        logging.FileHandler('count_af3_tokens.log')
-                    ])
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("count_af3_tokens.log")],
+)
 logger = logging.getLogger(__name__)
 
 
@@ -143,43 +142,95 @@ def process_pdb_id(row: pd.Series, parser: CIFParser, cache_dir: PathLike) -> li
     counts = count_af3_style_tokens_in_atom_array_from_file(file_path, assembly_ids, parser, cache_dir=cache_dir)
     results = []
     for assembly_id in assembly_ids:
-        results.append(
-            {
-                "pdb_id": pdb_id,
-                "assembly_id": assembly_id,
-                "n_atomized_tokens": counts[assembly_id]["n_atomized_tokens"],
-                "n_non_atomized_tokens": counts[assembly_id]["n_non_atomized_tokens"],
-            }
-        )
+        try:
+            results.append(
+                {
+                    "pdb_id": pdb_id,
+                    "assembly_id": assembly_id,
+                    "n_atomized_tokens": counts[assembly_id]["n_atomized_tokens"],
+                    "n_non_atomized_tokens": counts[assembly_id]["n_non_atomized_tokens"],
+                }
+            )
+        except KeyError:
+            logger.error(f"Assembly ID {assembly_id} not found in {pdb_id}")
     return results
 
 
-def add_af3_style_token_counts_to_pn_units_df(
-    pn_units_df_path: PathLike, cache_dir: PathLike | None = "/projects/ml/RF2_allatom/cache/msa"
-) -> pd.DataFrame:
-    # ...load the pn_units_df
-    # (We must load the entire parquet into memory such that we can later create a new column and re-save)
+def generate_af3_token_counts_df(
+    pn_units_df_path: PathLike,
+    tokens_df_output_path: PathLike | None = None,
+    existing_tokens_df_path: PathLike | None = None,
+    cache_dir: PathLike | None = "/projects/ml/RF2_allatom/cache/msa",
+    num_workers: int = 2,
+    task_id: int = 0,
+    num_tasks: int = 1,
+) -> None:
+    """
+    Generates a DataFrame with AF3-style token counts for each unique (pdb_id, assembly_id) pair in the input DataFrame.
+
+    Args:
+        pn_units_df_path (PathLike): Path to the input Parquet file containing the pn_units DataFrame.
+        tokens_df_output_path (PathLike | None): Path to save the token counts DataFrame. If None, saves to the same directory as the input file with a unique name. Defaults to None.
+        existing_tokens_df_path (PathLike | None): Path to an existing tokens DataFrame to be updated. Defaults to None.
+        cache_dir (PathLike | None): Directory to cache intermediate files. Defaults to "/projects/ml/RF2_allatom/cache/msa".
+        num_workers (int): Number of worker processes to use for parallel processing. Defaults to 16.
+        task_id (int): The ID of the current task in the job array. Defaults to 0.
+        num_tasks (int): The total number of tasks in the job array. Defaults to 1.
+
+    Returns:
+        None
+    """
+    logger.info(f"Counting tokens with arguments: num_workers={num_workers}, task_id={task_id}, num_tasks={num_tasks}")
+
+    # Load the DataFrame
     pn_units_df_path = Path(pn_units_df_path)
     pn_units_df = pd.read_parquet(pn_units_df_path)
 
-    # ...deduplicate
+    # Deduplicate the DataFrame
     subset = ["pdb_id", "assembly_id"]
     deduped_df = pn_units_df[subset].drop_duplicates()
 
-    # ...instantiate the CIFParser
-    parser = CIFParser()
+    # If an existing tokens DataFrame path is provided, load it and filter out existing entries
+    if existing_tokens_df_path:
+        existing_tokens_df_path = Path(existing_tokens_df_path)
+        if existing_tokens_df_path.exists():
+            existing_tokens_df = pd.read_parquet(existing_tokens_df_path)
+            initial_length = len(deduped_df)
 
-    # ...group by pdb_id to get the relevant assembly IDs
+            # Filter out rows that already exist in the existing tokens DataFrame
+            deduped_df = deduped_df.merge(existing_tokens_df[subset], on=subset, how='left', indicator=True)
+            deduped_df = deduped_df[deduped_df['_merge'] == 'left_only'].drop(columns=['_merge'])
+
+            new_length = len(deduped_df)
+            logger.info(f"Filtered out {initial_length - new_length} existing entries from the input DataFrame.")
+        else:
+            logger.info("No existing tokens DataFrame found. Proceeding with all input entries.")
+
+    # Group by pdb_id and get a list of assembly_ids for each pdb_id (so we don't need to load multiple CIFs for each assembly)
     grouped = deduped_df.groupby("pdb_id")["assembly_id"].apply(list).reset_index()
     grouped = [group for _, group in grouped.iterrows()]
 
-    # ...multiprocessing parameters
-    num_workers = min(cpu_count(), 16)  # Adjust based on your system
+    # Sort by PDB ID (for reproducibility)
+    grouped = sorted(grouped, key=lambda x: x["pdb_id"])
+
+    # Determine the slice of the DataFrame to process
+    total_rows = len(grouped)
+    slice_size = (total_rows + num_tasks - 1) // num_tasks  # Ceiling division
+    logger.info(f"Total rows: {total_rows}, slice size: {slice_size}")
+    start_index = task_id * slice_size
+    end_index = min(start_index + slice_size, total_rows)
+    grouped = grouped[start_index:end_index]
+    logger.info(f"Processing rows {start_index} to {end_index} of {total_rows}...")
+
+    # Initialize the CIFParser
+    parser = CIFParser()
+
+    # Determine the chunk size for multiprocessing
     chunksize = min(100, max(1, len(grouped) // num_workers), len(grouped))
 
     logger.info(f"Counting tokens for each example using {num_workers} workers...")
 
-    # ...get the token counts for each entry, indeed by assembly_id
+    # Process each pdb_id and count tokens
     aggregated_results = []
     partial_process_pdb_id = partial(process_pdb_id, parser=parser, cache_dir=cache_dir)
 
@@ -188,25 +239,16 @@ def add_af3_style_token_counts_to_pn_units_df(
         for results in tqdm(results_generator, total=len(grouped)):
             aggregated_results.extend(results)
 
-    # ...create a DataFrame from the results
+    # Create a DataFrame from the results
     token_counts_df = pd.DataFrame(aggregated_results)
 
-    # ...merge the token counts back to the original DataFrame
-    new_pn_units_df = pd.merge(
-        pn_units_df,
-        token_counts_df[["pdb_id", "assembly_id", "n_atomized_tokens", "n_non_atomized_tokens"]],
-        on=["pdb_id", "assembly_id"],
-        how="left",
-    )
-
-    # ...save the DataFrame back to disk
-    # Add "af3_token_counts" to the path
-    pn_units_df_path = pn_units_df_path.with_name(pn_units_df_path.stem + "_af3_token_counts" + pn_units_df_path.suffix)
-    logger.info(f"Saving the updated `pn_units_df` to {pn_units_df_path}...")
-    new_pn_units_df.to_parquet(pn_units_df_path)
-
-    logger.info("Done!")
+    # Save the token counts DataFrame to disk
+    if tokens_df_output_path is None:
+        tokens_df_output_path = pn_units_df_path.parent / f"af3_token_counts_{start_index}_{end_index}.parquet"
+    tokens_df_output_path = Path(tokens_df_output_path)
+    logger.info(f"Saving the token counts DataFrame to {tokens_df_output_path}...")
+    token_counts_df.to_parquet(tokens_df_output_path)
 
 
 if __name__ == "__main__":
-    fire.Fire(add_af3_style_token_counts_to_pn_units_df)
+    fire.Fire(generate_af3_token_counts_df)
