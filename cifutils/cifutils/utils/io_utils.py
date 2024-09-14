@@ -23,6 +23,7 @@ from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
 
 logger = logging.getLogger("cifutils")
 
+
 def _get_logged_in_user():
     """
     Get the logged in user.
@@ -84,12 +85,17 @@ def get_structure(
     """
     match type(file_obj):
         case pdbx.CIFFile | pdbx.BinaryCIFFile | pdbx.CIFBlock:
+            # Filter extra annotations to fields that are actually present in the file
+            if not isinstance(file_obj, pdbx.CIFBlock):
+                cif_block = file_obj.block
+            extra_fields = _filter_extra_fields(extra_fields, cif_block["atom_site"])
+
             atom_array_stack = pdbx.get_structure(
                 file_obj,
                 model=model,
                 extra_fields=extra_fields,
                 use_author_fields=False,
-                altloc=altloc,
+                altloc="first" if "occupancy" not in extra_fields else altloc,
                 include_bonds=include_bonds,
             )
         case biotite_pdb.PDBFile:
@@ -306,3 +312,31 @@ def to_cif_file(
             ).getvalue()
         )
     return path
+
+
+def _filter_extra_fields(extra_fields: list[str], atom_site: pdbx.CIFCategory) -> list[str]:
+    """
+    Filter the extra fields to only include fields that are actually present in the file.
+    """
+    _translate_builtin_fields = {
+        "atom_id": "id",
+        "charge": "pdbx_formal_charge",
+        "b_factor": "B_iso_or_equiv",
+        "occupancy": "occupancy",
+    }
+    _fields_with_default = {
+        "label_entity_id",
+        "auth_seq_id",
+    }
+
+    filtered_extra_fields = []
+    for field in extra_fields:
+        if field in _fields_with_default:
+            filtered_extra_fields.append(field)
+            continue
+        if _translate_builtin_fields.get(field, field) in atom_site:
+            filtered_extra_fields.append(field)
+        else:
+            logger.warning(f"Field {field} not found in file, ignoring.")
+
+    return filtered_extra_fields

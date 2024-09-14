@@ -128,7 +128,13 @@ class CIFParser:
         return supported_residues
 
     def parse(
-        self, *, load_from_cache: bool = False, save_to_cache: bool = False, cache_dir: PathLike = None, **kwargs
+        self,
+        filename: PathLike,
+        *,
+        load_from_cache: bool = False,
+        save_to_cache: bool = False,
+        cache_dir: PathLike = None,
+        **kwargs,
     ):
         """
         Entrypoint for CIF parsing, which can either:
@@ -136,9 +142,14 @@ class CIFParser:
             - Load the CIF from a cached directory, re-building bioassemblies on-the-fly
 
         In addition to the arguments in `parse_cif_from_rcsb`, this function can also include the following arguments:
-            load_from_cache (bool, optional): Whether to load pre-compiled results from cache. Defaults to False.
-            save_to_cache (bool, optional): Whether to save pre-compiled results to cache. Defaults to False.
-            cache_dir (PathLike, optional): Directory path to save pre-compiled results. Defaults to None.
+
+        Args:
+            - filename (PathLike | io.StringIO | io.BytesIO): Path to the CIF file. May be any format of CIF file
+                (e.g. .cif, .cif.gz, .pdb), Although .cif files are *strongly* recommended.
+            - load_from_cache (bool, optional): Whether to load pre-compiled results from cache. Defaults to False.
+            - save_to_cache (bool, optional): Whether to save pre-compiled results to cache. Defaults to False.
+            - cache_dir (PathLike, optional): Directory path to save pre-compiled results. Defaults to None.
+            - `parse_from_cif` arguments: Any arguments supported by `parse_from_cif`
         """
         self._validate_arguments(**kwargs)
 
@@ -152,7 +163,7 @@ class CIFParser:
             if isinstance(assembly_info, (list, tuple)):
                 assembly_info = ",".join(assembly_info)
 
-            cache_file_path = cache_dir / f"{Path(kwargs['filename']).stem}_assembly_{assembly_info}.pkl.gz"
+            cache_file_path = cache_dir / f"{Path(filename).stem}_assembly_{assembly_info}.pkl.gz"
 
         if load_from_cache and cache_dir:
             try:
@@ -182,7 +193,14 @@ class CIFParser:
                 logger.error(f"Error loading from cache: {e}")
 
         # Parse from CIF
-        result = self.parse_from_cif(save_to_cache=save_to_cache, **kwargs)
+        filename = Path(filename)
+        if filename.suffix in [".pdb", ".pdb.gz"]:
+            result = self.parse_from_pdb(filename=filename, **kwargs)
+        elif filename.suffix in [".cif", ".cif.gz"]:
+            result = self.parse_from_cif(filename=filename, **kwargs)
+        else:
+            raise ValueError(f"Unsupported file type: {filename.suffix}. Please use a .cif, .cif.gz, or .pdb file.")
+
         if save_to_cache and cache_dir:
             # We want our cache to include:
             #   (1) All keys in `result` excep the assemblies and
@@ -196,8 +214,8 @@ class CIFParser:
 
     def parse_from_cif(
         self,
-        *,
         filename: PathLike | io.StringIO | io.BytesIO,
+        *,
         save_to_cache: bool = False,
         assume_residues_all_resolved: bool = False,
         add_missing_atoms: bool = True,
@@ -285,10 +303,10 @@ class CIFParser:
             "label_entity_id",
             "auth_seq_id",  # for non-polymer residue indexing
             "atom_id",
+            "b_factor",
+            "occupancy",
+            "charge",
         ]
-        # if not assume_residues_all_resolved:
-        # If we're not assuming residues are all resolved, we need to load the b_factor and occupancy fields
-        common_extra_fields += ["b_factor", "occupancy", "charge"]
 
         try:
             atom_array_stack = get_structure(
@@ -518,11 +536,19 @@ class CIFParser:
         pdb_file = read_any(filename)
         atom_array_stack = pdb_file.get_structure(
             model=None,
-            altloc="all",
+            altloc="first",
             extra_fields=["b_factor", "occupancy", "charge", "atom_id"],
             include_bonds=True,
         )
         cif_buffer = to_cif_buffer(atom_array_stack, id=Path(filename).stem)
+
+        if (
+            "assume_residues_all_resolved" in parse_from_cif_kwargs
+            and not parse_from_cif_kwargs["assume_residues_all_resolved"]
+        ):
+            logger.warning(
+                "PDB file detected; assuming all residues are resolved. We highly recommend using CIF files instead."
+            )
 
         # ...parse the CIF block into a dictionary
         parse_from_cif_kwargs["file_type"] = "pdb"
