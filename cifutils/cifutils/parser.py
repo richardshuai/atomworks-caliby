@@ -196,7 +196,7 @@ class CIFParser:
         filename = Path(filename)
         if filename.suffix in [".pdb", ".pdb.gz"]:
             result = self.parse_from_pdb(filename=filename, **kwargs)
-        elif filename.suffix in [".cif", ".cif.gz"]:
+        elif filename.suffix in [".cif", ".cif.gz", ".bcif", ".bcif.gz"]:
             result = self.parse_from_cif(filename=filename, **kwargs)
         else:
             raise ValueError(f"Unsupported file type: {filename.suffix}. Please use a .cif, .cif.gz, or .pdb file.")
@@ -288,7 +288,7 @@ class CIFParser:
         data_dict["extra_info"] = {}
 
         # ...read the CIF file into the dictionary (we will clean up the dictionary before returning)
-        cif_file = read_any(filename, file_type="cif")
+        cif_file = read_any(filename)
         data_dict["cif_block"] = cif_file.block
 
         # ...load metadata into "metadata" key (either from RCSB standard fields, or from the custom `extra_metadata` field)

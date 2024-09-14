@@ -37,5 +37,13 @@ def test_af2_predicted_pdb_example():
     assert result is not None
 
 
+def test_bcif_example():
+    result = CIF_PARSER_BIOTITE.parse(
+        filename=DIR / "6lyz.bcif",
+    )
+    # Check if processing runs through
+    assert result is not None
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
