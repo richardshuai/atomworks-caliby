@@ -195,9 +195,21 @@ class CIFParser:
         # Parse from CIF
         filename = Path(filename)
         if str(filename).endswith((".pdb", ".pdb.gz")):
-            result = self.parse_from_pdb(filename=filename, **kwargs)
+            result = self.parse_from_pdb(
+                filename=filename,
+                save_to_cache=save_to_cache,
+                cache_dir=cache_dir,
+                load_from_cache=load_from_cache,
+                **kwargs,
+            )
         elif str(filename).endswith((".cif", ".cif.gz", ".bcif", ".bcif.gz")):
-            result = self.parse_from_cif(filename=filename, **kwargs)
+            result = self.parse_from_cif(
+                filename=filename,
+                save_to_cache=save_to_cache,
+                cache_dir=cache_dir,
+                load_from_cache=load_from_cache,
+                **kwargs,
+            )
         else:
             raise ValueError(f"Unsupported file type: {filename.suffix}. Please use a .cif, .cif.gz, or .pdb file.")
 
@@ -461,14 +473,14 @@ class CIFParser:
 
         # ...optionally, build assemblies and add assembly-specifc annotation (instance IDs)
         if exists(build_assembly):
-            if "pdbx_struct_assembly" not in data_dict["cif_block"].keys():
+            if "pdbx_struct_assembly" in data_dict["cif_block"].keys():
+                # ...build the assemblies from the CIF file, adding the `iid` annotations as we do so
+                assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
+                struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
+            else:
                 # ...if there are no assemblies, set the `assembly_gen_category` and `struct_oper_category` to identity operations
                 assembly_gen_category = get_identity_assembly_gen_category(list(data_dict["chain_info_dict"].keys()))
                 struct_oper_category = get_identity_op_expr_category()
-            else:
-                # ...otherwise, build the assemblies from the CIF file, adding the `iid` annotations as we do so
-                assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
-                struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
 
             data_dict["assemblies"] = process_assemblies(
                 assembly_gen_category=assembly_gen_category,
