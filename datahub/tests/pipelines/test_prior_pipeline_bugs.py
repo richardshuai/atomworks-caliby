@@ -4,7 +4,7 @@ import pytest
 from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
 from datahub.datasets.base import (
-    NamedConcatDataset,
+    ConcatDatasetWithID,
     PandasDataset,
     StructuralDatasetWrapper,
     get_row_and_index_by_example_id,
@@ -77,7 +77,7 @@ INTERFACES_DATASET = StructuralDatasetWrapper(
 )
 
 # ...build the ConcatDataset
-PDB_DATASET = NamedConcatDataset(datasets=[PN_UNITS_DATASET, INTERFACES_DATASET], name="pdb")  # NOTE: Order matters!
+PDB_DATASET = ConcatDatasetWithID(datasets=[PN_UNITS_DATASET, INTERFACES_DATASET], name="pdb")  # NOTE: Order matters!
 
 PRIOR_PIPELINE_BUGS = [
     "{['pdb', 'interfaces']}{2pno}{3}{['DB_1', 'G_1']}",

@@ -1,6 +1,6 @@
 from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
-from datahub.datasets.base import NamedConcatDataset, PandasDataset, StructuralDatasetWrapper
+from datahub.datasets.base import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
 from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
@@ -127,9 +127,9 @@ AF3_INTERFACES_DATASET = StructuralDatasetWrapper(
 )
 
 # ...build the ConcatDataset
-RF2AA_PDB_DATASET = NamedConcatDataset(
-    datasets=[RF2AA_PN_UNITS_DATASET, RF2AA_INTERFACES_DATASET], name="pdb"
+RF2AA_PDB_DATASET = ConcatDatasetWithID(
+    datasets=[RF2AA_PN_UNITS_DATASET, RF2AA_INTERFACES_DATASET]
 )  # NOTE: Order matters!
-AF3_PDB_DATASET = NamedConcatDataset(
-    datasets=[AF3_PN_UNITS_DATASET, AF3_INTERFACES_DATASET], name="pdb"
+AF3_PDB_DATASET = ConcatDatasetWithID(
+    datasets=[AF3_PN_UNITS_DATASET, AF3_INTERFACES_DATASET]
 )  # NOTE: Order matters!

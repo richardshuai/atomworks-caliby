@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 
-from datahub.datasets.base import FallbackDatasetWrapper, NamedConcatDataset, PandasDataset
+from datahub.datasets.base import FallbackDatasetWrapper, ConcatDatasetWithID, PandasDataset
 from datahub.samplers import DistributedMixedSampler, FallbackSamplerWrapper, MixedSampler
 from tests.datasets.test_datasets import create_dummy_dataset
 
@@ -82,7 +82,7 @@ def test_distributed_mixed_sampler():
         {"sampler": sampler_2, "dataset": dataset2, "probability": 0.1},
     ]
     # First mixed sampler
-    datasets_1_2_concat = NamedConcatDataset([dataset1, dataset2], name="1_2")
+    datasets_1_2_concat = ConcatDatasetWithID([dataset1, dataset2])
     mixed_sampler = MixedSampler(datasets_info=datasets_info_1_2, n_examples_per_epoch=None)
     # Second mixed sampler
     sampler_3 = SequentialSampler(dataset3)
@@ -90,7 +90,7 @@ def test_distributed_mixed_sampler():
         {"sampler": mixed_sampler, "dataset": datasets_1_2_concat, "probability": 0.5},
         {"sampler": sampler_3, "dataset": dataset3, "probability": 0.5},
     ]
-    dataset_1_2_3_concat = NamedConcatDataset([datasets_1_2_concat, dataset3], name="1_2_3")
+    dataset_1_2_3_concat = ConcatDatasetWithID([datasets_1_2_concat, dataset3])
     dist_mixed_sampler_rank_0 = DistributedMixedSampler(
         datasets_info=datasets_info_2,
         n_examples_per_epoch=50,

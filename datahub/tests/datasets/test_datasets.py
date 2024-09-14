@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import SequentialSampler, WeightedRandomSampler
 
 from datahub.datasets.base import (
-    NamedConcatDataset,
+    ConcatDatasetWithID,
     PandasDataset,
     get_row_and_index_by_example_id,
 )
@@ -34,13 +34,13 @@ def test_nested_dummy_datasets():
     dataset4 = create_dummy_dataset(length=10, name="4")
     dataset5 = create_dummy_dataset(length=10, name="5")
 
-    dataset_1_2 = NamedConcatDataset(datasets=[dataset1, dataset2], name="1,2")
+    dataset_1_2 = ConcatDatasetWithID(datasets=[dataset1, dataset2])
     assert len(dataset_1_2) == 20
 
-    dataset_3_4_5 = NamedConcatDataset(datasets=[dataset3, dataset4, dataset5], name="3,4,5")
+    dataset_3_4_5 = ConcatDatasetWithID(datasets=[dataset3, dataset4, dataset5])
     assert len(dataset_3_4_5) == 30
 
-    dataset_1_2_3_4_5 = NamedConcatDataset(datasets=[dataset_1_2, dataset_3_4_5], name="1,2,3,4,5")
+    dataset_1_2_3_4_5 = ConcatDatasetWithID(datasets=[dataset_1_2, dataset_3_4_5])
     assert len(dataset_1_2_3_4_5) == 50
 
     for idx in range(len(dataset_1_2_3_4_5)):
@@ -111,7 +111,7 @@ def test_pdb_datasets():
     )
 
     # ...create a dataset including both datasets
-    concat_dataset = NamedConcatDataset(datasets=datasets, name="full")
+    concat_dataset = ConcatDatasetWithID(datasets=datasets)
 
     # +---------------------------- Tests and assertions ----------------------------+
 

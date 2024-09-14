@@ -101,8 +101,11 @@ class StructuralDatasetWrapper(BaseDataset):
         # ...initialize the CIFParser, if not provided
         self.cif_parser = cif_parser if cif_parser else CIFParser()
 
-        # ...carry forward the data, noting that it shouldn't be modified with "_"
+        # ...carry forward the data
         self.data = self.dataset.data
+
+        # ...carry forward the name
+        self.name = self.dataset.name if hasattr(self.dataset, "name") else repr(self.dataset)
 
     def __getitem__(self, idx: int) -> Any:
         """
@@ -237,7 +240,7 @@ class PandasDataset(BaseDataset):
         if name is not None:
             self.name = name
         else:
-            self.name = f"<PandasDataset{hex(id(self))}>"
+            self.name = repr(self)
 
         # Load the data from the path, if provided (and load only the specified columns)
         if isinstance(data, (PathLike, str)):
@@ -377,15 +380,13 @@ class PandasDataset(BaseDataset):
             )
 
 
-class NamedConcatDataset(ConcatDataset):
+class ConcatDatasetWithID(ConcatDataset):
     """Equivalent to `torch.utils.data.ConcatDataset` but allows accessing examples by ID."""
 
     datasets: list[Dataset]
 
-    def __init__(self, datasets: list[Dataset], name: str | None = None):
+    def __init__(self, datasets: list[Dataset]):
         super().__init__(datasets)
-        if name is not None:
-            self.name = name
 
         # Print the length of each dataset
         for i, dataset in enumerate(datasets):
@@ -468,10 +469,9 @@ class NamedConcatDataset(ConcatDataset):
         return self.get_dataset_by_idx(idx)
 
 
-def get_row_and_index_by_example_id(dataset: NamedConcatDataset, example_id: str) -> dict:
+def get_row_and_index_by_example_id(dataset: ConcatDatasetWithID, example_id: str) -> dict:
     """
     Retrieve a row and its index from a nested dataset structure by its example ID.
-    The constituent Datasets must be named to allow for recursive search.
 
     Parameters:
         dataset (PandasDataset | ConcatDataset): The dataset or concatenated dataset to search.
@@ -485,7 +485,7 @@ def get_row_and_index_by_example_id(dataset: NamedConcatDataset, example_id: str
     idx = dataset.id_to_idx(example_id)
 
     _local_idx = copy.deepcopy(idx)
-    while isinstance(dataset, NamedConcatDataset):
+    while isinstance(dataset, ConcatDatasetWithID):
         dataset = dataset.get_dataset_by_idx(_local_idx)
         _local_idx = dataset.id_to_idx(example_id)
 
