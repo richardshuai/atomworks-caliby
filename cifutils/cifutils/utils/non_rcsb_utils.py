@@ -20,6 +20,7 @@ from cifutils.constants import (
 )
 import logging
 import numpy as np
+from biotite.structure.io.pdbx import CIFCategory
 
 logger = logging.getLogger("cifutils")
 
@@ -34,12 +35,26 @@ def load_monomer_sequence_information_from_atom_array(chain_info_dict: dict, ato
     for chain_id in np.unique(atom_array.chain_id):
         chain_atom_array = atom_array[atom_array.chain_id == chain_id]
         residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
-        chain_type = ChainType(atom_array.chain_type[0])
 
         if chain_id not in chain_info_dict:
             chain_info_dict[chain_id] = {}
         chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
         chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)
+
+    return chain_info_dict
+
+
+def infer_processed_entity_sequences_from_atom_array(chain_info_dict: dict, atom_array: AtomArray) -> dict:
+    """
+    Infer processed entity sequences from an AtomArray.
+    """
+    for chain_id in np.unique(atom_array.chain_id):
+        chain_atom_array = atom_array[atom_array.chain_id == chain_id]
+        _, residue_name_list = struc.get_residues(chain_atom_array)
+        chain_type = ChainType(chain_atom_array.chain_type[0])
+
+        if chain_id not in chain_info_dict:
+            chain_info_dict[chain_id] = {}
 
         # Create the processed single-letter sequence representations
         processed_entity_non_canonical_sequence = [
@@ -91,7 +106,6 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
             # Increment the count for the chain type
             if chem_comp in AA_LIKE_CHEM_TYPES:
                 chain_type_counts["aa_like"] += 1
-
             if chem_comp in POLYPEPTIDE_D_CHEM_TYPES:
                 chain_type_counts["polypeptide(D)"] += 1
             elif chem_comp in POLYPEPTIDE_L_CHEM_TYPES:
@@ -138,3 +152,33 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
         chain_info_dict[chain_id] = {"is_polymer": is_polymer, "type": chain_type}
 
     return chain_info_dict
+
+
+def get_identity_op_expr_category() -> CIFCategory:
+    return CIFCategory.deserialize(
+        """_pdbx_struct_oper_list.id                   1 
+        _pdbx_struct_oper_list.type                 'identity operation' 
+        _pdbx_struct_oper_list.name                 1_555 
+        _pdbx_struct_oper_list.symmetry_operation   x,y,z 
+        _pdbx_struct_oper_list.matrix[1][1]         1.0000000000 
+        _pdbx_struct_oper_list.matrix[1][2]         0.0000000000 
+        _pdbx_struct_oper_list.matrix[1][3]         0.0000000000 
+        _pdbx_struct_oper_list.vector[1]            0.0000000000 
+        _pdbx_struct_oper_list.matrix[2][1]         0.0000000000 
+        _pdbx_struct_oper_list.matrix[2][2]         1.0000000000 
+        _pdbx_struct_oper_list.matrix[2][3]         0.0000000000 
+        _pdbx_struct_oper_list.vector[2]            0.0000000000 
+        _pdbx_struct_oper_list.matrix[3][1]         0.0000000000 
+        _pdbx_struct_oper_list.matrix[3][2]         0.0000000000 
+        _pdbx_struct_oper_list.matrix[3][3]         1.0000000000 
+        _pdbx_struct_oper_list.vector[3]            0.0000000000 """
+    )
+
+
+def get_identity_assembly_gen_category(chain_ids: list[str]) -> CIFCategory:
+    return CIFCategory.deserialize(
+        f"""_pdbx_struct_assembly_gen.assembly_id 1
+        _pdbx_struct_assembly_gen.oper_expression 1
+        _pdbx_struct_assembly_gen.asym_id_list {",".join(chain_ids)}
+        """
+    )

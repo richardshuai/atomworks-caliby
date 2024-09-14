@@ -46,11 +46,12 @@ from cifutils.transforms.atom_array import (
 from cifutils.utils.non_rcsb_utils import (
     load_monomer_sequence_information_from_atom_array,
     infer_chain_info_from_atom_array,
+    infer_processed_entity_sequences_from_atom_array,
 )
 from cifutils.utils.bond_utils import cached_bond_utils_factory
 from cifutils.utils.assembly_utils import process_assemblies
 from cifutils.utils.residue_utils import cached_residue_utils_factory, add_missing_atoms_as_unresolved
-
+from cifutils.utils.non_rcsb_utils import get_identity_assembly_gen_category, get_identity_op_expr_category
 import biotite.structure as struc
 from biotite.structure import AtomArrayStack
 from biotite.file import InvalidFileError
@@ -196,8 +197,8 @@ class CIFParser:
     def parse_from_cif(
         self,
         *,
-        filename_or_buffer: PathLike | io.StringIO,
-        save_to_cache: bool,
+        filename: PathLike | io.StringIO | io.BytesIO,
+        save_to_cache: bool = False,
         assume_residues_all_resolved: bool = False,
         add_missing_atoms: bool = True,
         add_bonds: bool = True,
@@ -209,6 +210,7 @@ class CIFParser:
         convert_mse_to_met: bool = False,
         keep_hydrogens: bool = True,
         model: int | None = None,
+        **kwargs,
     ) -> dict:
         """
         Parse the CIF file (must contain information from the PDB) and return chain
@@ -217,7 +219,7 @@ class CIFParser:
         Args:
             save_to_cache (bool): Whether to save the results to cache (see `parse`).
             filename (str): Path to the CIF file. May be any format of CIF file
-                (e.g., gz, bcif, etc.).
+                (e.g., gz, bcif, etc.). This can be a path to a file or a buffer.
             assume_residues_all_resolved (bool): Whether we can assume when parsing
                 that all residues are represented, and all atoms are present. Required
                 for distillation examples that do not have all RCSB fields. Defaults to False.
@@ -268,14 +270,14 @@ class CIFParser:
         data_dict["extra_info"] = {}
 
         # ...read the CIF file into the dictionary (we will clean up the dictionary before returning)
-        cif_file = read_any(filename_or_buffer, file_type="cif")
+        cif_file = read_any(filename, file_type="cif")
         data_dict["cif_block"] = cif_file.block
 
         # ...load metadata into "metadata" key (either from RCSB standard fields, or from the custom `extra_metadata` field)
-        if isinstance(filename_or_buffer, io.StringIO):
+        if isinstance(filename, (io.StringIO, io.BytesIO)):
             fallback_filename = "unknown_id"
         else:
-            fallback_filename = Path(filename_or_buffer).stem
+            fallback_filename = Path(filename).stem
         data_dict["metadata"] = get_metadata_from_category(data_dict["cif_block"], fallback_id=fallback_filename)
 
         # ...load structure into the "atom_array_stack" key using the RCSB labels for sequence ids, and later update for non-polymers
@@ -284,24 +286,24 @@ class CIFParser:
             "auth_seq_id",  # for non-polymer residue indexing
             "atom_id",
         ]
-        if not assume_residues_all_resolved:
-            # If we're not assuming residues are all resolved, we need to load the b_factor and occupancy fields
-            common_extra_fields += ["b_factor", "occupancy", "charge"]
+        # if not assume_residues_all_resolved:
+        # If we're not assuming residues are all resolved, we need to load the b_factor and occupancy fields
+        common_extra_fields += ["b_factor", "occupancy", "charge"]
 
         try:
             atom_array_stack = get_structure(
-                data_dict["cif_block"],
-                common_extra_fields,
-                assume_residues_all_resolved,
-                model,
+                cif_file,
+                extra_fields=common_extra_fields,
+                assume_residues_all_resolved=assume_residues_all_resolved,
+                model=model,
             )
         except InvalidFileError:
             logger.info("Invalid file error encountered; loading with only one model")
             # Try again, choosing only the first model
             atom_array_stack = get_structure(
-                data_dict["cif_block"],
-                common_extra_fields,
-                assume_residues_all_resolved,
+                cif_file,
+                extra_fields=common_extra_fields,
+                assume_residues_all_resolved=assume_residues_all_resolved,
                 model=1,
             )
 
@@ -382,6 +384,11 @@ class CIFParser:
             # ...add the ChainType annotation to the AtomArray
             atom_array = add_chain_type_annotation(atom_array, data_dict["chain_info_dict"])
 
+            if assume_residues_all_resolved:
+                data_dict["chain_info_dict"] = infer_processed_entity_sequences_from_atom_array(
+                    data_dict["chain_info_dict"], atom_array
+                )
+
             # ...optionally, resolve arginine naming ambiguity (AF3-style)
             if fix_arginines:
                 atom_array = resolve_arginine_naming_ambiguity(atom_array)
@@ -437,24 +444,26 @@ class CIFParser:
         # ...optionally, build assemblies and add assembly-specifc annotation (instance IDs)
         if exists(build_assembly):
             if "pdbx_struct_assembly" not in data_dict["cif_block"].keys():
-                # ...if there are no assemblies, return the atom array stack as the only assembly
-                data_dict["assemblies"] = {"1": atom_array_stack}
+                # ...if there are no assemblies, set the `assembly_gen_category` and `struct_oper_category` to identity operations
+                assembly_gen_category = get_identity_assembly_gen_category(list(data_dict["chain_info_dict"].keys()))
+                struct_oper_category = get_identity_op_expr_category()
             else:
                 # ...otherwise, build the assemblies from the CIF file, adding the `iid` annotations as we do so
                 assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
                 struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
-                data_dict["assemblies"] = process_assemblies(
-                    assembly_gen_category=assembly_gen_category,
-                    struct_oper_category=struct_oper_category,
-                    atom_array_stack=data_dict["atom_array_stack"],
-                    build_assembly=build_assembly,
-                    patch_symmetry_centers=patch_symmetry_centers,
-                )
 
-                # If we're caching, we need to store the assembly information in extra_info
-                if save_to_cache:
-                    data_dict["extra_info"]["assembly_gen_category"] = assembly_gen_category
-                    data_dict["extra_info"]["struct_oper_category"] = struct_oper_category
+            data_dict["assemblies"] = process_assemblies(
+                assembly_gen_category=assembly_gen_category,
+                struct_oper_category=struct_oper_category,
+                atom_array_stack=data_dict["atom_array_stack"],
+                build_assembly=build_assembly,
+                patch_symmetry_centers=patch_symmetry_centers,
+            )
+
+            # If we're caching, we need to store the assembly information in extra_info
+            if save_to_cache:
+                data_dict["extra_info"]["assembly_gen_category"] = assembly_gen_category
+                data_dict["extra_info"]["struct_oper_category"] = struct_oper_category
         else:
             data_dict["assemblies"] = {}
 
@@ -487,7 +496,7 @@ class CIFParser:
             "extra_info": data_dict["extra_info"],
         }
 
-    def parse_from_pdb(self, *, filename: PathLike, **parse_from_cif_kwargs):
+    def parse_from_pdb(self, filename: PathLike, **parse_from_cif_kwargs):
         """
         Parse a PDB file and return chain information, residue information, atom array, metadata, and legacy data.
 
@@ -510,10 +519,11 @@ class CIFParser:
         atom_array_stack = pdb_file.get_structure(
             model=None,
             altloc="all",
-            extra_fields=["b_factor", "occupancy", "charge"],
+            extra_fields=["b_factor", "occupancy", "charge", "atom_id"],
             include_bonds=True,
         )
         cif_buffer = to_cif_buffer(atom_array_stack, id=Path(filename).stem)
 
         # ...parse the CIF block into a dictionary
-        return self.parse_from_cif(cif_block=cif_buffer, **parse_from_cif_kwargs)
+        parse_from_cif_kwargs["file_type"] = "pdb"
+        return self.parse_from_cif(filename=cif_buffer, assume_residues_all_resolved=True, **parse_from_cif_kwargs)
