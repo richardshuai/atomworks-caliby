@@ -77,7 +77,7 @@ INTERFACES_DATASET = StructuralDatasetWrapper(
 )
 
 # ...build the ConcatDataset
-PDB_DATASET = ConcatDatasetWithID(datasets=[PN_UNITS_DATASET, INTERFACES_DATASET], name="pdb")  # NOTE: Order matters!
+PDB_DATASET = ConcatDatasetWithID(datasets=[PN_UNITS_DATASET, INTERFACES_DATASET])  # NOTE: Order matters!
 
 PRIOR_PIPELINE_BUGS = [
     "{['pdb', 'interfaces']}{2pno}{3}{['DB_1', 'G_1']}",
