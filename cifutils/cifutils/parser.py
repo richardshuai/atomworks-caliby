@@ -194,9 +194,9 @@ class CIFParser:
 
         # Parse from CIF
         filename = Path(filename)
-        if filename.suffix in [".pdb", ".pdb.gz"]:
+        if str(filename).endswith((".pdb", ".pdb.gz")):
             result = self.parse_from_pdb(filename=filename, **kwargs)
-        elif filename.suffix in [".cif", ".cif.gz", ".bcif", ".bcif.gz"]:
+        elif str(filename).endswith((".cif", ".cif.gz", ".bcif", ".bcif.gz")):
             result = self.parse_from_cif(filename=filename, **kwargs)
         else:
             raise ValueError(f"Unsupported file type: {filename.suffix}. Please use a .cif, .cif.gz, or .pdb file.")
