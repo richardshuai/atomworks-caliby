@@ -627,7 +627,7 @@ def atom_array_from_rdkit(
     for idx, rdatom in enumerate(mol.GetAtoms()):
         atoms.append(
             struc.Atom(
-                element=rdatom.GetAtomicNum() if elements_as_int else rdatom.GetSymbol(),
+                element=str(rdatom.GetAtomicNum()) if elements_as_int else rdatom.GetSymbol(),
                 coord=coords[idx],
                 charge=rdatom.GetFormalCharge(),
                 hyb=_RDKIT_HYBRIDIZATION_TO_INT[rdatom.GetHybridization()],
