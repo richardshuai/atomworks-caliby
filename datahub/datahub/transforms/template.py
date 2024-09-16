@@ -343,10 +343,15 @@ class AddRFTemplates(Transform):
         self.filter_by_query_length = filter_by_query_length
 
     def check_input(self, data: dict[str, Any]) -> None:
-        check_contains_keys(data, ["atom_array", "chain_info", "pdb_id"])
+        check_contains_keys(data, ["atom_array", "chain_info"])
         check_is_instance(data, "atom_array", AtomArray)
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        if "pdb_id" not in data:
+            logger.warning("No PDB ID found in data. Skipping template addition.")
+            data["template"] = {}
+            return data
+
         pdb_id = data["pdb_id"]
         chain_info = data["chain_info"]
 
