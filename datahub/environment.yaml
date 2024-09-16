@@ -31,8 +31,9 @@ dependencies:
     - einops==0.7.0
     - pyarrow==17.0.0
     - fastparquet==2024.5.0
+    - ipykernel>=6.29.4,<7
     - git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git@v1.0.0
-    - git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/cifutils.git@v1.0.1
+    - git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/cifutils.git@v1.0.2
     ## Not needed but possibly useful
     # hydra-core
     # jaxtyping
