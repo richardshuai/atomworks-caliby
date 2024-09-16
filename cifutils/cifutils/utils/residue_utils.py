@@ -55,7 +55,7 @@ def cached_residue_utils_factory(known_residues: list[str], data_by_residue: cal
                 [np.nan, np.nan, np.nan],
                 res_name=residue_name,
                 atom_name=atom_name,
-                element=atom_data["element"],
+                element=str(atom_data["element"]),
                 charge=atom_data["charge"],
                 hyb=atom_data["hyb"],
                 nhyd=atom_data["nhyd"],
