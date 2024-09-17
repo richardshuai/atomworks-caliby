@@ -874,12 +874,6 @@ class FeaturizeMSALikeRF2AA(Transform):
                     shuffled_indices[: self.n_extra_rows]
                 ]  # [n_extra_rows] (int)
 
-                # ...remove the last row of the not_selected_indices, since it will be the query sequence (a RF2AA novelty)
-                not_selected_indices = not_selected_indices[:-1]
-
-            # ...insert the query sequence as the first row of the extra MSA (a RF2AA novelty)
-            not_selected_indices = torch.cat([torch.tensor([0], dtype=torch.int64), not_selected_indices], dim=0)
-
             # ============================================================
             # (5) BUILD THE RETURN DICTIONARY
             # ============================================================
