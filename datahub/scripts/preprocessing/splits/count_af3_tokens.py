@@ -198,8 +198,8 @@ def generate_af3_token_counts_df(
             initial_length = len(deduped_df)
 
             # Filter out rows that already exist in the existing tokens DataFrame
-            deduped_df = deduped_df.merge(existing_tokens_df[subset], on=subset, how='left', indicator=True)
-            deduped_df = deduped_df[deduped_df['_merge'] == 'left_only'].drop(columns=['_merge'])
+            deduped_df = deduped_df.merge(existing_tokens_df[subset], on=subset, how="left", indicator=True)
+            deduped_df = deduped_df[deduped_df["_merge"] == "left_only"].drop(columns=["_merge"])
 
             new_length = len(deduped_df)
             logger.info(f"Filtered out {initial_length - new_length} existing entries from the input DataFrame.")
@@ -244,7 +244,9 @@ def generate_af3_token_counts_df(
 
     # Save the token counts DataFrame to disk
     if tokens_df_output_path is None:
-        tokens_df_output_path = pn_units_df_path.parent / f"af3_token_counts_{start_index}_{end_index}.parquet"
+        output_dir = pn_units_df_path.parent / "af3_token_counts"
+        output_dir.mkdir(exist_ok=True)
+        tokens_df_output_path = output_dir / f"af3_token_counts_{start_index}_{end_index}.parquet"
     tokens_df_output_path = Path(tokens_df_output_path)
     logger.info(f"Saving the token counts DataFrame to {tokens_df_output_path}...")
     token_counts_df.to_parquet(tokens_df_output_path)
