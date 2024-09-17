@@ -203,7 +203,7 @@ class StructuralDatasetWrapper(BaseDataset):
 
     def __getattr__(self, name):
         """Delegate attribute access to the wrapped dataset."""
-        return getattr(self._dataset, name)
+        return getattr(self.dataset, name)
 
 
 class PandasDataset(BaseDataset):
