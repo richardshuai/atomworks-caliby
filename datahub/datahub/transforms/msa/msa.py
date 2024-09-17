@@ -217,8 +217,16 @@ class LoadPolymerMSAs(Transform):
     def __init__(
         self,
         protein_msa_dirs: list[dict] = [
-            {"dir": "/projects/msa/rf2aa_af3/rf2aa_paper_model_protein_msas", "extension": ".a3m.gz"},
-            {"dir": "/projects/msa/rf2aa_af3/missing_msas_through_2024_08_12", "extension": ".msa0.a3m.gz"},
+            {
+                "dir": "/projects/msa/rf2aa_af3/rf2aa_paper_model_protein_msas",
+                "extension": ".a3m.gz",
+                "directory_depth": 2,
+            },
+            {
+                "dir": "/projects/msa/rf2aa_af3/missing_msas_through_2024_08_12",
+                "extension": ".msa0.a3m.gz",
+                "directory_depth": 2,
+            },
         ],
         rna_msa_dirs: list[dict] = [{"dir": "/projects/msa/rf2aa_af3/rf2aa_paper_model_rna_msas", "extension": ".afa"}],
         max_msa_sequences: int = 10000,
@@ -235,6 +243,24 @@ class LoadPolymerMSAs(Transform):
         check_contains_keys(data, ["atom_array", "chain_info"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_type", "chain_id"])
+
+    def _get_nested_msa_path(self, base_dir: Path, sequence_hash: str, extension: str, depth: int) -> Path:
+        """
+        Construct the nested MSA file path based on the directory depth.
+
+        Args:
+            base_dir (Path): The base directory where the MSAs are stored.
+            sequence_hash (str): The SHA-256 hash of the sequence.
+            extension (str): The file extension of the MSA files.
+            depth (int): The directory nesting depth.
+
+        Returns:
+            Path: The constructed path to the MSA file.
+        """
+        nested_path = base_dir
+        for i in range(depth):
+            nested_path /= sequence_hash[2 * i : 2 * (i + 1)]
+        return (nested_path / sequence_hash).with_suffix(extension)
 
     def _load_msa_data(
         self, chain_type: ChainType, sequence: str, query_chain_msa_tax_id: str
@@ -265,9 +291,13 @@ class LoadPolymerMSAs(Transform):
 
             # ...loop through all protein MSA directories, checking if the requested MSA file exists
             for protein_msa_dir in self.protein_msa_dirs:
-                protein_msa_file = (Path(protein_msa_dir["dir"]) / sequence_hash).with_suffix(
-                    protein_msa_dir["extension"]
+                # ...build the path to the MSA file based on the directory depth
+                depth = protein_msa_dir.get("directory_depth", 0)
+                protein_msa_file = self._get_nested_msa_path(
+                    Path(protein_msa_dir["dir"]), sequence_hash, protein_msa_dir["extension"], depth
                 )
+
+                # ...load the MSA file if it exists
                 if protein_msa_file.exists():
                     # ...parse the MSA file (either A3M or FASTA)
                     msa, ins, tax_ids = parse_msa(
@@ -277,7 +307,7 @@ class LoadPolymerMSAs(Transform):
                     # ...convert to integers, using the protein one-letter ASCII lookup table
                     msa = AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE[msa.view(np.uint8)]
 
-                    # ...don't look ath the other protein MSA directories if we found the file
+                    # (Don't look at the other protein MSA directories if we found the file in this one)
                     break
 
         elif chain_type == ChainType.RNA:
@@ -289,7 +319,10 @@ class LoadPolymerMSAs(Transform):
 
             # ...loop through all RNA MSA directories, checking if the requested MSA file exists
             for rna_msa_dir in self.rna_msa_dirs:
-                rna_msa_file = (Path(rna_msa_dir["dir"]) / sequence_hash).with_suffix(rna_msa_dir["extension"])
+                depth = rna_msa_dir.get("directory_depth", 0)
+                rna_msa_file = self._get_nested_msa_path(
+                    Path(rna_msa_dir["dir"]), sequence_hash, rna_msa_dir["extension"], depth
+                )
                 if rna_msa_file.exists():
                     # ...parse the MSA file (either A3M or FASTA)
                     msa, ins, tax_ids = parse_msa(
@@ -299,7 +332,7 @@ class LoadPolymerMSAs(Transform):
                     # ...convert to integers
                     msa = RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE[msa.view(np.uint8)]
 
-                    # ...don't look ath the other RNA MSA directories if we found the file
+                    # (Don't look ath the other RNA MSA directories if we found the file)
                     break
 
         # ...pre-calculate the sequence similarity to the query sequence for each row in the MSA
