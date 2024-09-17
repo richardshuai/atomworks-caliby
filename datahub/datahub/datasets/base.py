@@ -13,12 +13,14 @@ import pandas as pd
 from cifutils import CIFParser
 from torch.utils.data import ConcatDataset, Dataset
 
-from datahub.common import exists
+from datahub.common import default, exists
 from datahub.datasets import logger
 from datahub.datasets.dataframe_parsers import RowParser, load_from_row
 from datahub.transforms.base import Compose, Transform, TransformedDict
 from datahub.utils.debug import save_failed_example_to_disk
 from datahub.utils.rng import capture_rng_states
+
+_USER = default(os.getenv("USER"), "")
 
 
 class BaseDataset(ABC):
@@ -63,7 +65,7 @@ class StructuralDatasetWrapper(BaseDataset):
         cif_parser_args: dict | None = None,
         transform: Transform | Compose | None = None,
         return_key: str | None = None,
-        save_failed_examples_to_dir: PathLike | str | None = "/net/scratch/failures",
+        save_failed_examples_to_dir: PathLike | str | None = f"/net/scratch/{_USER}/failures",
     ):
         """
         Decorator (wrapper) for an arbitrary Dataset (e.g., PandasDataset, PolarsDataset, etc.) to handle loading of structural data from PDB or CIF files,
@@ -80,7 +82,7 @@ class StructuralDatasetWrapper(BaseDataset):
             cif_parser_args (dict, optional): Arguments to pass to the CIFParser (will override the defaults). Defaults to None.
             transform (Transform | Compose, optional): Transformation pipeline to apply to the data. See `datahub.transforms.base`.
             return_key (str, optional): Key to return from the data dictionary instead of the entire dictionary.
-            save_failed_examples_to_dir (PathLike | str | None, optional): Directory to save failed examples. Defaults to "/net/scratch/failures".
+            save_failed_examples_to_dir (PathLike | str | None, optional): Directory to save failed examples. Defaults to f"/net/scratch/{_USER}/failures".
 
         Example usage:
             ```python

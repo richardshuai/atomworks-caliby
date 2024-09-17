@@ -1,8 +1,12 @@
+import logging
 import os
 import pickle
 import re
 
-_USER = os.getenv("USER")
+from datahub.common import default
+
+logger = logging.getLogger("datahub")
+_USER = default(os.getenv("USER"), "")
 
 try:
     import wandb
@@ -25,7 +29,7 @@ def save_failed_example_to_disk(
     fail_dir: str = f"/net/scratch/{_USER}/failures",
 ):
     """
-    Saves a failed example to disk as a pickle file.
+    Attempts to save a failed example to disk as a pickle file.
 
     Args:
         - example_id (str): The ID of the example.
@@ -36,20 +40,25 @@ def save_failed_example_to_disk(
     Returns:
         None
     """
-    # Get wandb run ID if currently in a wandb run
-    run_id = ""
-    if wandb is not None and hasattr(wandb, "run") and wandb.run is not None:
-        run_id = wandb.run.id
-    file_path = os.path.join(fail_dir, run_id, _remove_special_characters(example_id) + ".pkl")
+    try:
+        # Get wandb run ID if currently in a wandb run
+        run_id = ""
+        if wandb is not None and hasattr(wandb, "run") and wandb.run is not None:
+            run_id = wandb.run.id
+        file_path = os.path.join(fail_dir, run_id, _remove_special_characters(example_id) + ".pkl")
 
-    # Ensure the fail directory exists
-    os.makedirs(os.path.dirname(file_path), exist_ok=True, mode=0o777)  # Allow everyone to read/write
+        # Ensure the fail directory exists
+        os.makedirs(os.path.dirname(file_path), exist_ok=True, mode=0o777)  # Allow everyone to read/write
 
-    with open(file_path, "wb") as f:
-        data = {
-            "example_id": example_id,
-            "rng_state_dict": rng_state_dict,
-            "error_msg": error_msg,
-            "wandb_run_id": run_id,
-        } | data
-        pickle.dump(data, f)
+        with open(file_path, "wb") as f:
+            data = {
+                "example_id": example_id,
+                "rng_state_dict": rng_state_dict,
+                "error_msg": error_msg,
+                "wandb_run_id": run_id,
+            } | data
+            pickle.dump(data, f)
+    except KeyboardInterrupt as e:
+        raise e
+    except Exception as e:
+        logger.critical(f"Failed to save failed example to disk: {e}")
