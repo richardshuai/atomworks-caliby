@@ -19,6 +19,25 @@ def open_file(filename: PathLike) -> TextIO:
     return filename.open("r")
 
 
+def get_nested_msa_path(base_dir: Path, sequence_hash: str, extension: str, depth: int) -> Path:
+    """
+    Construct the nested MSA file path based on the directory depth.
+
+    Args:
+        base_dir (Path): The base directory where the MSAs are stored.
+        sequence_hash (str): The SHA-256 hash of the sequence.
+        extension (str): The file extension of the MSA files.
+        depth (int): The directory nesting depth.
+
+    Returns:
+        Path: The constructed path to the MSA file.
+    """
+    nested_path = Path(base_dir)
+    for i in range(depth):
+        nested_path /= Path(sequence_hash[2 * i : 2 * (i + 1)])
+    return (nested_path / sequence_hash).with_suffix(extension)
+
+
 def extract_tax_id(line: str, unknown_tax_id: str = "") -> str:
     """Extract taxonomy ID from the header line"""
     # ...extract the TaxID from the header line

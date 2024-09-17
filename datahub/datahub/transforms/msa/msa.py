@@ -40,7 +40,7 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     transform_ins_counts,
     uniformly_select_rows,
 )
-from datahub.transforms.msa._msa_loading_utils import parse_msa
+from datahub.transforms.msa._msa_loading_utils import get_nested_msa_path, parse_msa
 from datahub.transforms.msa._msa_pairing_utils import join_multiple_msas_by_tax_id
 from datahub.utils.misc import cache_to_disk_as_pickle, grouped_count, hash_sequence
 from datahub.utils.token import apply_token_wise, get_token_count, get_token_starts
@@ -175,24 +175,31 @@ class LoadPolymerMSAs(Transform):
     """
     Load MSAs for all polymer chains in the AtomArray.
 
-    For the MSAs that we find, store the MSA (as a np.array of integers), insertions, tax IDs, and pre-computed
-    sequence similarities in `polymer_msas_by_chain_id` indexed by chain_id (e.g., "A").
+    For the MSAs that are found, store the MSA (as a np.array of integers), insertions,
+    tax IDs, and pre-computed sequence similarities in `polymer_msas_by_chain_id`
+    indexed by chain_id (e.g., "A").
 
     Args:
         protein_msa_dirs (list[dict]): The directories containing the protein MSAs and
             their associated file types, as a list of dictionaries. If multiple
-            directories are provided, we will search all of them. Note that: (a) the
-            directory structure must be flat (i.e., no subdirectories), (b) the files
-            must be named using the SHA-256 hash of the sequence (see `hash_sequence` in
-            `utils/misc`), and (c) order matters - we will search the directories in the
-            order they are provided, and return the first match
+            directories are provided, all of them will be searched. Keys in the dictionary
+            are:
+                - dir (str): The directory where the MSA files are stored.
+                - extension (str): The file extension of the MSA files (e.g., ".a3m.gz" or ".fasta").
+                - directory_depth (int, optional): The directory nesting depth, i.e., the MSA file
+                  might be stored at `dir/d8/07/d8074f77ba.a3m.gz`. Must be sharded
+                  by the first two characters of the sequence hash. Defaults to 0 (flat directory).
+            Note:
+                (a) The files must be named using the SHA-256 hash of the sequence (see `hash_sequence` in
+                    `utils/misc`).
+                (b) Order matters - directories will be searched in the order provided, and the first match will be returned.
         rna_msa_dirs (list[dict]): The directories containing the RNA MSAs and their
             associated file types, as a list of dictionaries. See `protein_msa_dirs`
             for directory structure details.
         max_msa_sequences (int, optional): The maximum number of sequences to load from
-            the MSA files. Defaults to 10000. Only applies when loading; we further
-            sub-sample MSA downstream (e.g., for the standard or extra MSA stack).
-            AF-3 used a large value (~16K), but our MSA's on disk are already
+            the MSA files. Defaults to 10000. Only applies when loading; further
+            sub-sampling of the MSA occurs downstream (e.g., for the standard or extra MSA stack).
+            AF-3 used a large value (~16K), but our MSAs on disk are already
             pre-filtered to 10K.
         msa_cache_dir (PathLike, optional): The directory to cache the parsed MSA data
             (since loading from text files is slow). If None, caching is turned off.
@@ -244,24 +251,6 @@ class LoadPolymerMSAs(Transform):
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_type", "chain_id"])
 
-    def _get_nested_msa_path(self, base_dir: Path, sequence_hash: str, extension: str, depth: int) -> Path:
-        """
-        Construct the nested MSA file path based on the directory depth.
-
-        Args:
-            base_dir (Path): The base directory where the MSAs are stored.
-            sequence_hash (str): The SHA-256 hash of the sequence.
-            extension (str): The file extension of the MSA files.
-            depth (int): The directory nesting depth.
-
-        Returns:
-            Path: The constructed path to the MSA file.
-        """
-        nested_path = base_dir
-        for i in range(depth):
-            nested_path /= sequence_hash[2 * i : 2 * (i + 1)]
-        return (nested_path / sequence_hash).with_suffix(extension)
-
     def _load_msa_data(
         self, chain_type: ChainType, sequence: str, query_chain_msa_tax_id: str
     ) -> tuple[np.array, np.array, np.array]:
@@ -293,7 +282,7 @@ class LoadPolymerMSAs(Transform):
             for protein_msa_dir in self.protein_msa_dirs:
                 # ...build the path to the MSA file based on the directory depth
                 depth = protein_msa_dir.get("directory_depth", 0)
-                protein_msa_file = self._get_nested_msa_path(
+                protein_msa_file = get_nested_msa_path(
                     Path(protein_msa_dir["dir"]), sequence_hash, protein_msa_dir["extension"], depth
                 )
 
@@ -320,7 +309,7 @@ class LoadPolymerMSAs(Transform):
             # ...loop through all RNA MSA directories, checking if the requested MSA file exists
             for rna_msa_dir in self.rna_msa_dirs:
                 depth = rna_msa_dir.get("directory_depth", 0)
-                rna_msa_file = self._get_nested_msa_path(
+                rna_msa_file = get_nested_msa_path(
                     Path(rna_msa_dir["dir"]), sequence_hash, rna_msa_dir["extension"], depth
                 )
                 if rna_msa_file.exists():
