@@ -1,5 +1,6 @@
 import copy
 import logging
+import time
 from functools import cache, lru_cache, wraps
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,7 @@ from datahub.transforms._checks import (
     check_nonzero_length,
 )
 from datahub.transforms.base import Transform
-from datahub.utils.timeout import timeout
+from datahub.utils.timeout import timeout as timeout_decorator
 
 logger = logging.getLogger(__name__)
 # ... disable RDKit logging
@@ -337,7 +338,7 @@ def remove_hydrogens(mol: Mol) -> Mol:
 
 
 @_preserve_annotations
-@timeout(strategy="subprocess")
+@timeout_decorator(strategy="subprocess")
 def generate_conformers(
     mol: Mol,
     *,
@@ -462,7 +463,7 @@ def generate_conformers(
 
 
 @_preserve_annotations
-@timeout(strategy="subprocess")
+@timeout_decorator(strategy="subprocess")
 def optimize_conformers(
     mol: Mol,
     numThreads: int = 1,
@@ -521,8 +522,7 @@ def get_chiral_centers(mol: Mol) -> list[int]:
     """
     # Infer 3D coordinates if not present
     if mol.GetNumConformers() == 0:
-        Chem.EmbedMolecule(mol, enforceChirality=True, useExpTorsionAnglePrefs=True, useBasicKnowledge=True)
-        Chem.UFFOptimizeMolecule(mol)
+        generate_conformers(mol, n_conformers=1)
 
     # Assign chiral tags based on the 3D structure
     Chem.AssignAtomChiralTagsFromStructure(mol)
@@ -548,6 +548,84 @@ def get_chiral_centers(mol: Mol) -> list[int]:
             )
 
     return tetrahedral_chiral_centers
+
+
+def find_automorphisms(mol: Chem.Mol, max_automorphs: int = 1000, timeout: float | None = None) -> np.ndarray:
+    """
+    Find automorphisms of a given RDKit molecule.
+
+    This function identifies the automorphisms (symmetry-related atom swaps) of the input molecule
+    and returns them as a numpy array. If the search for automorphisms times out, it returns a single
+    automorphism representing the identity (no swaps).
+
+    Args:
+        mol (Chem.Mol): The RDKit molecule for which to find automorphisms.
+        max_automorphs (int): The maximum number of automorphisms to return. These are deterministically
+            set to be the first `max_automorphs` automorphisms found by RDKit.
+            For model training it is recommended to deterministically select the automorphisms
+            to be used (as done in this transform) as a model might otherwise be nudged towards a specific
+            automorph in one training step, but that automorph then does not show up in the next training
+            step, leading to a moving target problem.
+
+    Returns:
+        automorphs (np.ndarray): A numpy array of shape [n_automorphs, n_atoms, 2], where each element
+            represents an automorphism as list of paired atom indices (from_idx, to_idx).
+            If the search fails (e.g. due to running out of memory), returns an array with
+            a single automorphism representing the identity (no swaps).
+
+    References:
+        - https://sourceforge.net/p/rdkit/mailman/message/27897393/
+
+    Example:
+        >>> from openbabel import pybel
+        >>> mol = pybel.readstring("smi", "c1c(O)cccc1(O)").OBMol
+        >>> automorphisms = find_automorphisms(mol)
+        >>> print(automorphisms)
+            [[[0 0]
+              [1 1]
+              [2 2]
+              [3 3]
+              [4 4]
+              [5 5]
+              [6 6]
+              [7 7]]
+
+             [[0 0]
+              [1 6]
+              [2 7]
+              [3 5]
+              [4 4]
+              [5 3]
+              [6 1]
+              [7 2]]]
+    """
+
+    # NOTE: We compute the automorphisms via a substructure match. This may not be the computationally most
+    #  efficient way, but still works well even for highly symmetric molecules (e.g. 60C).
+    #  (c.f. https://sourceforge.net/p/rdkit/mailman/message/27897393/)
+    #  The probably optimal way to do this would be to access internal symmetry labels for models
+    #  (c.f. https://sourceforge.net/p/rdkit/mailman/message/27902778/)
+    #  but this would require using an underlying graph librarly like nauty to determine the automorphisms of
+    #  the coloured graph. Until we run into performance issues, we will stick with the current approach.
+    @timeout_decorator(default_timeout=timeout, strategy="subprocess")
+    def _find_automorphisms() -> tuple:
+        return mol.GetSubstructMatches(mol, uniquify=False, maxMatches=max_automorphs, useChirality=False)
+
+    _start = time.time()
+    try:
+        automorphs_tuple = _find_automorphisms()
+    except TimeoutError:
+        logger.warning(
+            f"Automorphism search timed out after {time.time() - _start:.2f}s. Returning identity automorphism."
+        )
+        automorphs_tuple = (tuple(range(mol.GetNumAtoms())),)
+
+    # Turn the tuple of automorphisms into a numpy array of shape [n_automorphs, n_atoms, 2]
+    automorphs = np.array(automorphs_tuple)
+    n_automorphs, n_atoms = automorphs.shape
+    identity = np.tile(np.arange(n_atoms), (n_automorphs, 1))
+
+    return np.stack([identity, automorphs], axis=-1)
 
 
 def smiles_to_rdkit(smile: str, sanitize: bool = True) -> Mol:
@@ -830,7 +908,7 @@ def atom_array_to_rdkit(
     return mol
 
 
-@timeout(strategy="subprocess")
+@timeout_decorator(strategy="subprocess")
 def sample_rdkit_conformer_for_atom_array(atom_array: AtomArray, seed: int | None = None) -> AtomArray:
     """
     Sample a conformer for a Biotite AtomArray using RDKit.
