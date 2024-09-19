@@ -2,6 +2,7 @@ import copy
 import logging
 import time
 from functools import cache, lru_cache, wraps
+from os import PathLike
 from pathlib import Path
 from typing import Any
 
@@ -11,10 +12,10 @@ import toolz
 from biotite.structure import AtomArray
 from cifutils.constants import METAL_ELEMENTS
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, Mol, rdDistGeom
+from rdkit.Chem import AllChem, Mol, rdDistGeom, rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
-from datahub.common import default
+from datahub.common import default, exists
 from datahub.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -824,7 +825,7 @@ def atom_array_to_rdkit(
 
     is_hydrogen = np.isin(atom_array.element, ["H", "D", "T", "1", 1])
     if np.any(is_hydrogen) and infer_hydrogens:
-        logger.info(f"Found {np.sum(is_hydrogen)} hydrogen atoms in the AtomArray. Removing them.")
+        logger.debug(f"Found {np.sum(is_hydrogen)} hydrogen atoms in the AtomArray. Removing them.")
     atom_array = atom_array[~is_hydrogen] if infer_hydrogens else atom_array
 
     for atom_id, atom in enumerate(atom_array):
@@ -844,18 +845,20 @@ def atom_array_to_rdkit(
 
     # Set bonds
     _should_be_aromatic = set()
-    for bond in atom_array.bonds.as_array():
-        atom1, atom2, bond_type = list(map(int, bond))
-        if bond_type == struc.bonds.BondType.ANY:
-            # ... warn if underspecified bonds are encountered
-            logger.warning("Encountered BondType.ANY. Interpreting as single bond.")
-        bond_order, bond_is_aromatic = _BIOTITE_BOND_TYPE_TO_RDKIT[bond_type]
-        mol.AddBond(atom1, atom2, order=bond_order)
-        if bond_is_aromatic and not attempt_fixing_corrupted_molecules:
-            # ... set aromaticity explicitly (and require the molecule makes sense later)
-            mol.GetAtomWithIdx(atom1).SetIsAromatic(True)
-            mol.GetAtomWithIdx(atom2).SetIsAromatic(True)
-        _should_be_aromatic.union({atom1, atom2})
+
+    if exists(atom_array.bonds):
+        for bond in atom_array.bonds.as_array():
+            atom1, atom2, bond_type = list(map(int, bond))
+            if bond_type == struc.bonds.BondType.ANY:
+                # ... warn if underspecified bonds are encountered
+                logger.warning("Encountered BondType.ANY. Interpreting as single bond.")
+            bond_order, bond_is_aromatic = _BIOTITE_BOND_TYPE_TO_RDKIT[bond_type]
+            mol.AddBond(atom1, atom2, order=bond_order)
+            if bond_is_aromatic and not attempt_fixing_corrupted_molecules:
+                # ... set aromaticity explicitly (and require the molecule makes sense later)
+                mol.GetAtomWithIdx(atom1).SetIsAromatic(True)
+                mol.GetAtomWithIdx(atom2).SetIsAromatic(True)
+            _should_be_aromatic.union({atom1, atom2})
 
     # Set coordinates
     if set_coord:
@@ -940,14 +943,109 @@ def sample_rdkit_conformer_for_atom_array(atom_array: AtomArray, seed: int | Non
 
 @lru_cache(maxsize=1000)
 def res_name_to_rdkit(
-    res_name: str, set_coord: bool = True, infer_hydrogens: bool = True, **atom_array_to_rdkit_kwargs
+    res_name: str,
+    set_coord: bool = True,
+    infer_hydrogens: bool = True,
+    ccd_dir: PathLike | None = Path("/projects/ml/RF2_allatom/cifutils_biotite/ccd_ligands_2024_05_31/ccd"),
+    **atom_array_to_rdkit_kwargs,
 ) -> Mol:
     """
-    Get an RDKit molecule from a CCD res_name.
+    Convert a CCD residue name to an RDKit molecule.
+
+    This function retrieves an RDKit molecule corresponding to a given CCD residue name.
+    If `ccd_dir` is not provided, Biotite's internal CCD is used. Otherwise, the specified local CCD directory is used.
+    By default, the function returns the 'ideal' conformer from the CCD entry.
+
+    Args:
+        res_name (str): The residue name to convert. I.e, 'ALA', 'GLY', '9RH', etc.
+        set_coord (bool): Whether to set coordinates for the molecule. Defaults to True.
+        infer_hydrogens (bool): Whether to infer missing hydrogens. Defaults to True.
+        ccd_dir (PathLike): Path to the local CCD directory. If None, Biotite's internal CCD is used.
+        **atom_array_to_rdkit_kwargs: Additional keyword arguments passed to the `atom_array_to_rdkit` function.
+
+    Returns:
+        Mol: The RDKit molecule corresponding to the given residue name.
     """
-    return atom_array_to_rdkit(
-        struc.info.residue(res_name), set_coord=set_coord, infer_hydrogens=infer_hydrogens, **atom_array_to_rdkit_kwargs
-    )
+    if ccd_dir is None:
+        # ...use Biotite's internal CCD (WARNING: may be outdated)
+        return atom_array_to_rdkit(
+            struc.info.residue(res_name),
+            set_coord=set_coord,
+            infer_hydrogens=infer_hydrogens,
+            **atom_array_to_rdkit_kwargs,
+        )
+    elif Path(ccd_dir).exists():
+        # ...use the local CCD directory, which we assume is sharded by the first character of the res_name (as it should be, since we're using `rsync`)
+        path = ccd_dir / res_name[0] / res_name / f"{res_name}.cif"
+        cif_file = struc.io.pdbx.CIFFile.read(path)
+        return atom_array_to_rdkit(
+            struc.io.pdbx.get_component(cif_file),
+            set_coord=set_coord,
+            infer_hydrogens=infer_hydrogens,
+            **atom_array_to_rdkit_kwargs,
+        )
+    else:
+        raise FileNotFoundError(f"CCD directory not found: {ccd_dir}")
+
+
+def calculate_tanimoto_similarity_between_two_rdkit_mols(mol1: Chem.Mol, mol2: Chem.Mol) -> float:
+    """Calculate the Tanimoto similarity between two RDKit molecules."""
+    # ...get the Morgan fingerprints
+    fp1 = get_morgan_fingerprint_from_rdkit_mol(mol1)
+    fp2 = get_morgan_fingerprint_from_rdkit_mol(mol2)
+
+    # ...calculate the Tanimoto similarity
+    return calculate_tanimoto_similarity(fp1, fp2)
+
+
+def get_morgan_fingerprint_from_rdkit_mol(mol: Chem.Mol, radius: int = 2, n_bits: int = 2048) -> np.ndarray:
+    """
+    Generates the Morgan fingerprint for an RDKit molecule.
+
+    From the AF-3 supplementary material:
+        > We measure ligand Tanimoto similarity using RDKit v.2023_03_3 Morgan fingerprints (radius 2, 2048 bits)
+
+    References:
+        - AF-3 Supplement
+        - https://greglandrum.github.io/rdkit-blog/posts/2023-01-18-fingerprint-generator-tutorial.html
+    """
+    morgan_fingerprint_generator = rdFingerprintGenerator.GetMorganGenerator(radius=radius, fpSize=n_bits)
+    fingerprint = morgan_fingerprint_generator.GetFingerprintAsNumPy(mol)
+    return fingerprint
+
+
+def calculate_tanimoto_similarity(fp1: np.ndarray | list, fp2: np.ndarray | list) -> float:
+    """
+    Calculates the Tanimoto similarity between two Morgan fingerprints.
+
+    NOTE: More precisely, we're calculating the Jaccard coefficient, as we require the fingerprints to be binary.
+
+    Args:
+        fp1 (np.ndarray | list): The first Morgan fingerprint.
+        fp2 (np.ndarray | list): The second Morgan fingerprint.
+
+    Returns:
+        float: The Tanimoto similarity between the two fingerprints.
+
+    Example:
+        fp1 = np.array([1, 0, 1, 0, 1])
+        fp2 = np.array([1, 1, 0, 0, 1])
+        similarity = tanimoto_similarity(fp1, fp2)
+        print(similarity)  # Output: 0.5
+    """
+
+    # Ensure the fingerprints are numpy arrays
+    fp1 = np.asarray(fp1)
+    fp2 = np.asarray(fp2)
+
+    # Calculate the Tanimoto similarity
+    intersection = np.sum(fp1 & fp2)
+    union = np.sum(fp1 | fp2)
+
+    if union == 0:
+        return 0.0  # Avoid division by zero
+
+    return intersection / union
 
 
 def res_name_to_rdkit_with_conformers(
