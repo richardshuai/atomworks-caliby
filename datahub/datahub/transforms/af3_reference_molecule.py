@@ -3,13 +3,14 @@ from typing import Any
 
 import biotite.structure as struc
 import numpy as np
+import toolz
 from biotite.structure import AtomArray
 from rdkit import Chem
 
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
 from datahub.transforms.atom_array import add_global_token_id_annotation
 from datahub.transforms.base import Transform
-from datahub.transforms.rdkit_utils import atom_array_from_rdkit, res_name_to_rdkit_with_conformers
+from datahub.transforms.rdkit_utils import atom_array_from_rdkit, find_automorphisms, res_name_to_rdkit_with_conformers
 
 logger = logging.getLogger("datahub")
 
@@ -71,6 +72,60 @@ def _encode_atom_names_like_af3(atom_names: np.ndarray) -> np.ndarray:
     return atom_names.reshape(-1, 4) - 32
 
 
+def _map_reference_conformer_to_residue(
+    res_name: str, atom_names: np.ndarray, conformer: AtomArray, automorphs: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Maps the coordinate and automorphism information from a reference conformer to a
+    given residue, dropping all atoms that are not in the residue.
+
+    Args:
+        - res_name (str): The name of the residue to map to.
+        - atom_names (np.ndarray): Array of atom names in the residue to map to.
+        - conformer (AtomArray): The reference conformer.
+        - automorphs (np.ndarray): Array of automorphisms for the conformer.
+
+    Returns:
+        - ref_pos (np.ndarray): Reference positions for atoms in the residue.
+        - ref_mask (np.ndarray): Mask indicating valid reference positions.
+        - automorphs (np.ndarray): Filtered and adjusted automorphisms for the residue.
+    """
+
+    # ... mark the atoms that are in the residue (keep) and where
+    keep = np.zeros(len(conformer), dtype=bool)  # [n_atoms_in_conformer]
+    to_within_res_idx = -np.ones(len(conformer), dtype=int)  # [n_atoms_in_conformer]
+
+    for i, atom_name in enumerate(atom_names):
+        matching_atom_idx = np.where(conformer.atom_name == atom_name)[0]
+        if len(matching_atom_idx) == 0:
+            logger.warning(f"Atom {atom_name} not found in conformer for residue {res_name} with {atom_names=}.")
+            continue
+        matching_atom_idx = matching_atom_idx[0]
+        keep[matching_atom_idx] = True
+        to_within_res_idx[matching_atom_idx] = i
+
+    # ... fill the reference positions
+    coord = conformer.coord[keep][to_within_res_idx[keep]]
+    ref_pos = coord  # [n_atoms_in_res, 3]
+    ref_mask = np.isfinite(coord).all(axis=-1)  # [n_atoms_in_res]
+
+    # ... filter the automorphs to only keep the ones that are relevant
+    # ... 1. change the 'in-conformer' index to the 'in-residue' index,
+    #        dropping any atoms that are not in the residue
+    automorphs = to_within_res_idx[automorphs][:, keep, :]  # [n_automorphs, n_atoms_in_res, 2]
+    # ... 2. drop any automorphs that would include atoms not in the residue
+    #        (-1 got assigned to atoms not in residue)
+    _has_all_atoms_in_residue = (automorphs >= 0).all(axis=(-1, -2))  # [n_automorphs]
+    automorphs = automorphs[_has_all_atoms_in_residue]
+    # ... 3. drop any automorphs that are duplicates when only considering
+    #        the atoms that are in the residue
+    _, _is_first_unique = np.unique(automorphs, axis=0, return_index=True)
+    _is_first_unique = np.sort(_is_first_unique)
+    automorphs = automorphs[_is_first_unique]
+
+    return ref_pos, ref_mask, automorphs  # [n_atoms_in_res, 3], [n_atoms_in_res], [n_automorphs, n_atoms_in_res, 2]
+
+
 def get_af3_reference_molecule_features(
     atom_array: AtomArray, conformer_generation_timeout: float = 10.0, **generate_conformers_kwargs
 ) -> dict[str, Any]:
@@ -97,6 +152,8 @@ def get_af3_reference_molecule_features(
       Each character is encoded as ord(c) - 32, and names are padded to length 4.
     - ref_space_uid: [N_atoms] Numerical encoding of the chain id and residue index associated with
       this reference conformer. Each (chain id, residue index) tuple is assigned an integer on first appearance.
+    - ref_automorphs: dict(int, torch.Tensor): A dictionary mapping the `ref_space_uid` to the automorphisms
+        of the reference conformer.
 
     Reference:
         - Section 2.8 of the AF3 supplementary information
@@ -112,9 +169,15 @@ def get_af3_reference_molecule_features(
         res_stochiometry=res_stochiometry, timeout_seconds=conformer_generation_timeout, **generate_conformers_kwargs
     )
 
+    # ... get automorphisms for each molecule
+    ref_mol_automorphs = toolz.valmap(find_automorphisms, ref_mols)
+    _max_automorphs = max(map(len, ref_mol_automorphs.values()))
+
     # ... get reference positions for each residue
     ref_pos = np.zeros((len(atom_array), 3), dtype=np.float32)
-    ref_mask = np.zeros((len(atom_array), 3), dtype=bool)
+    ref_mask = np.zeros(len(atom_array), dtype=bool)
+    ref_automorphs = np.zeros((_max_automorphs, len(atom_array), 2), dtype=int)
+    ref_automorphs_mask = np.zeros((_max_automorphs, len(atom_array)), dtype=bool)
 
     # Fill `ref_pos` and `ref_mask` arrays
     # ... helper variables to iterate over residues
@@ -125,28 +188,38 @@ def get_af3_reference_molecule_features(
 
     # ... iterate over all residues in the atom array and fill the `ref_pos` and `ref_mask` arrays
     #     using the next reference conformer for each residue type
-    for _res_start, _res_end in zip(_res_starts, _res_ends):
-        res_name = atom_array.res_name[_res_start]
+    max_automorphs = 1
+    for res_start, res_end in zip(_res_starts, _res_ends):
+        res_name = atom_array.res_name[res_start]
 
         # ... turn conformer into an atom array
-        conf_arr = atom_array_from_rdkit(
+        conformer = atom_array_from_rdkit(
             ref_mols[res_name],
             conformer_id=_next_conf_idx[res_name],
             remove_hydrogens=True,
         )
 
-        # ... match the atoms that are in present in the residue and set the reference position and mask
-        for _atom_idx, atom_name in enumerate(atom_array.atom_name[_res_start:_res_end]):
-            matching_atom_idx = np.where(conf_arr.atom_name == atom_name)[0]
-            if len(matching_atom_idx) == 0:
-                logger.warning(f"Atom {atom_name} not found in conformer for residue {res_name}.")
-                continue
-            matching_atom_idx = matching_atom_idx[0]
-            coords = conf_arr.coord[matching_atom_idx]
-            ref_pos[_res_start + _atom_idx] = coords
-            ref_mask[_res_start + _atom_idx] = np.isfinite(coords).all()
+        # ... map the reference conformer information to the given residue
+        _ref_pos, _ref_mask, _ref_automorphs = _map_reference_conformer_to_residue(
+            res_name=res_name,
+            atom_names=atom_array.atom_name[res_start:res_end],
+            conformer=conformer,
+            automorphs=ref_mol_automorphs[res_name],
+        )
 
+        # ... fill the reference features for this residue
+        ref_pos[res_start:res_end] = _ref_pos
+        ref_mask[res_start:res_end] = _ref_mask
+        ref_automorphs[: len(_ref_automorphs), res_start:res_end] = _ref_automorphs
+        ref_automorphs_mask[: len(_ref_automorphs), res_start:res_end] = True
+        max_automorphs = max(max_automorphs, len(_ref_automorphs))
+
+        # ... update to the next conformer index
         _next_conf_idx[res_name] += 1
+
+    # ... resize the reference automorphism arrays to the maximum number of automorphisms
+    ref_automorphs = ref_automorphs[:max_automorphs]
+    ref_automorphs_mask = ref_automorphs_mask[:max_automorphs]
 
     # Generate remaining reference features
     # ... element
@@ -165,6 +238,8 @@ def get_af3_reference_molecule_features(
         "ref_charge": ref_charge,  # (n_atoms)
         "ref_atom_name_chars": ref_atom_name_chars,  # (n_atoms, 4)
         "ref_space_uid": ref_space_uid,  # (n_atoms)
+        "ref_automorphs": ref_automorphs,  # (max_automorphs, n_atoms, 2), residue-local indices
+        "ref_automorphs_mask": ref_automorphs_mask,  # (max_automorphs, n_atoms)
     }
 
 
