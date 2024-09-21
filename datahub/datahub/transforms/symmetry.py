@@ -9,6 +9,7 @@ import networkx as nx
 import numpy as np
 import torch
 from biotite.structure import AtomArray
+from cifutils.utils.bond_utils import hash_graph
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
@@ -92,8 +93,8 @@ def apply_automorphs(data: torch.Tensor, automorphs: np.ndarray | torch.Tensor) 
     #  This is very rare, but for example for automorphisms of the structure `R2R`
     #  openbabel returns automorphisms where the first column is not sorted. To resolve this one can either (1)
     #  sort the last dimension of automorphs such that the first column is sorted or (2) use the `scatter` operation
-    #  to permute the atoms in the data to the desired positions. We chose the latter here.
-    # TODO: Re-evaluate whether we want to sort the automorphs from openbabel instead of using scatter.
+    #  to permute the atoms in the data to the desired positions. We chose the latter here, as it is more
+    #  general and can also handle cases where the identity automorphism is not given as sorted indices
     data_automorphs = torch.scatter(
         data_automorphs, dim=1, index=to_atom_idx, src=data_automorphs
     )  # [n_automorphs, *data.shape]
@@ -268,6 +269,27 @@ def instance_to_token_lvl_isomorphisms(
 
 
 def identify_isomorphic_chains_based_on_molecule_entity(atom_array: AtomArray):
+    """
+    Identifies isomorphic molecules based on the molecule entity annotation.
+
+    This function creates a dictionary mapping molecule entities to their corresponding molecule IDs.
+    Molecules with the same entity are considered isomorphic.
+
+    Args:
+        - atom_array (AtomArray): The atom array containing molecule entity and molecule ID annotations.
+
+    Returns:
+        - dict[int | str, list[int | str]]: A dictionary where keys are molecule entities and values
+            are lists of molecule IDs belonging to that entity.
+
+    Example:
+        >>> atom_array = AtomArray(
+        ...     ...
+        ... )  # AtomArray with molecule_entity and molecule_iid annotations
+        >>> isomorphic_molecules = identify_isomorphic_chains_based_on_molecule_entity(atom_array)
+        >>> print(isomorphic_molecules)
+        {"A,B": [1, 2, 3], "C": [4, 5]}
+    """
     # Create a dictionary of molecule entities to molecule iids
     # e.g. {"A,B": [1, 2, 3], "C": [4, 5]}
     isomorphic_molecules = _create_instance_to_entity_map(atom_array.molecule_iid, atom_array.molecule_entity)
@@ -275,17 +297,29 @@ def identify_isomorphic_chains_based_on_molecule_entity(atom_array: AtomArray):
 
 
 def identify_isomorphic_chains_based_on_chain_entity(atom_array: AtomArray) -> dict[int | str, list[int | str]]:
+    """
+    Identifies isomorphic chains based on the chain entity annotation.
+
+    This function creates a dictionary mapping chain entities to their corresponding chain IDs.
+    Chains with the same entity are considered isomorphic.
+
+    Args:
+        - atom_array (AtomArray): The atom array containing chain entity and chain ID annotations.
+
+    Returns:
+        - dict[int | str, list[int | str]]: A dictionary where keys are chain entities and values
+            are lists of chain IDs belonging to that entity.
+
+    Example:
+        >>> atom_array = AtomArray(...)  # AtomArray with chain_entity and chain_iid annotations
+        >>> isomorphic_chains = identify_isomorphic_chains_based_on_chain_entity(atom_array)
+        >>> print(isomorphic_chains)
+        {1: ['A', 'B', 'C'], 2: ['D', 'E', 'F'], 3: ['G']}
+    """
     # Create a dictionary of chain entities to chain iids
     # e.g. {1: [A, B, C], 2: [D, E, F], 3: [G]}
     isomorphic_chains = _create_instance_to_entity_map(atom_array.chain_iid, atom_array.chain_entity)
     return isomorphic_chains
-
-
-# TODO: Add functionality to regenerate mappings based on a crop
-def identify_isomorphic_structures(atom_array: AtomArray):
-    # Everything that a user may provide counts as making a chain isomorphic.
-    #  Essentially for us this is the molecule level
-    pass
 
 
 class AddPostCropMoleculeEntityToFreeFloatingLigands(Transform):
@@ -335,18 +369,7 @@ class AddPostCropMoleculeEntityToFreeFloatingLigands(Transform):
                 nx.set_node_attributes(mol_graph, {idx: elt for idx, elt in enumerate(molecule.element)}, "element")
 
                 # ... compute WL-hash
-                mol_hash = nx.algorithms.graph_hashing.weisfeiler_lehman_graph_hash(
-                    mol_graph, edge_attr="bond_type", node_attr="element"
-                )
-                # NOTE: `mol_graph` will be an empty graph in the cases where there are no bonds, which can happen e.g. in
-                #  the `C4A,CMA` contiguous crop of a HEM molecule, which would then be equivalent to the `C4A` crop.
-                #  To avoid these cases we add the number of atoms and bonds to the hash.
-                mol_hash += f"{len(molecule)}_{len(molecule.bonds.as_array())}"
-                # For extra paranoia, we also add the molecular formula
-                mol_formula = "".join(
-                    [f"{elt}:{count}" for elt, count in zip(*np.unique(molecule.element, return_counts=True))]
-                )
-                mol_hash += f"_{mol_formula}"
+                mol_hash = hash_graph(mol_graph, edge_attr="bond_type", node_attr="element")
 
             # ... add molecule hash to lookup table for assigning
             if mol_hash not in hash_to_entity:
