@@ -3,6 +3,7 @@ import time
 import biotite.structure as struc
 import numpy as np
 import pytest
+from assertpy import assert_that
 from biotite.structure import AtomArray
 from rdkit import Chem
 
@@ -10,6 +11,8 @@ from datahub.transforms.rdkit_utils import (
     atom_array_from_rdkit,
     atom_array_to_rdkit,
     generate_conformers,
+    get_morgan_fingerprint_from_rdkit_mol,
+    res_name_to_rdkit,
     res_name_to_rdkit_with_conformers,
     sample_rdkit_conformer_for_atom_array,
     smiles_to_rdkit,
@@ -160,6 +163,49 @@ def test_fixing_molecules():
     #     in_place=True,
     # )
     # assert Chem.MolToInchi(mol) == Chem.MolToInchi(mol_correct)
+
+
+@pytest.fixture(scope="module")
+def molecules():
+    # Create RDKit molecules for some amino acids and small molecules
+    mols = {
+        "Leucine": res_name_to_rdkit("LEU"),
+        "Isoleucine": res_name_to_rdkit("ILE"),
+        "Glycine": res_name_to_rdkit("GLY"),
+        "HEM": res_name_to_rdkit("HEM"),
+        "NAG": res_name_to_rdkit("NAG"),
+        "BMA": res_name_to_rdkit("BMA"),
+    }
+    return mols
+
+
+def test_fingerprints(molecules):
+    # Generate fingerprints for each molecule
+    fingerprints = {name: get_morgan_fingerprint_from_rdkit_mol(mol) for name, mol in molecules.items()}
+
+    # Calculate similarities and check if similar molecules have higher similarity scores
+    sim_leu_ile = Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["Isoleucine"])
+    sim_leu_gly = Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["Glycine"])
+    sim_nag_bma = Chem.DataStructs.TanimotoSimilarity(fingerprints["NAG"], fingerprints["BMA"])
+    sim_nag_hem = Chem.DataStructs.TanimotoSimilarity(fingerprints["NAG"], fingerprints["HEM"])
+
+    # Assert that leucine is more similar to isoleucine than to glycine
+    assert_that(sim_leu_ile).is_greater_than(sim_leu_gly).described_as(
+        "Leucine should be more similar to Isoleucine than to Glycine"
+    )
+
+    # Asser that sugars (NAG and BMA) are more similar to each other than to HEM by at least a factor of 5
+    assert_that(sim_nag_bma).is_greater_than(5 * sim_nag_hem).described_as(
+        "Sugars should be more similar to each other than to HEM"
+    )
+
+    # Residues should have a similarity of 1.0 with themselves
+    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["Leucine"])).is_equal_to(1.0)
+
+    # Lycine and [NAG, BMA, HEM] should be less similar than 0.3 (very different)
+    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["NAG"])).is_less_than(0.3)
+    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["BMA"])).is_less_than(0.3)
+    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["HEM"])).is_less_than(0.3)
 
 
 if __name__ == "__main__":

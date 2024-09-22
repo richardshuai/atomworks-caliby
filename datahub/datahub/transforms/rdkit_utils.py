@@ -14,6 +14,7 @@ from cifutils.constants import METAL_ELEMENTS
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Mol, rdDistGeom, rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
+from rdkit.DataStructs import ExplicitBitVect
 
 from datahub.common import default, exists
 from datahub.transforms._checks import (
@@ -988,17 +989,7 @@ def res_name_to_rdkit(
         raise FileNotFoundError(f"CCD directory not found: {ccd_dir}")
 
 
-def calculate_tanimoto_similarity_between_two_rdkit_mols(mol1: Chem.Mol, mol2: Chem.Mol) -> float:
-    """Calculate the Tanimoto similarity between two RDKit molecules."""
-    # ...get the Morgan fingerprints
-    fp1 = get_morgan_fingerprint_from_rdkit_mol(mol1)
-    fp2 = get_morgan_fingerprint_from_rdkit_mol(mol2)
-
-    # ...calculate the Tanimoto similarity
-    return calculate_tanimoto_similarity(fp1, fp2)
-
-
-def get_morgan_fingerprint_from_rdkit_mol(mol: Chem.Mol, radius: int = 2, n_bits: int = 2048) -> np.ndarray:
+def get_morgan_fingerprint_from_rdkit_mol(mol: Chem.Mol, radius: int = 2, n_bits: int = 2048) -> ExplicitBitVect:
     """
     Generates the Morgan fingerprint for an RDKit molecule.
 
@@ -1010,42 +1001,8 @@ def get_morgan_fingerprint_from_rdkit_mol(mol: Chem.Mol, radius: int = 2, n_bits
         - https://greglandrum.github.io/rdkit-blog/posts/2023-01-18-fingerprint-generator-tutorial.html
     """
     morgan_fingerprint_generator = rdFingerprintGenerator.GetMorganGenerator(radius=radius, fpSize=n_bits)
-    fingerprint = morgan_fingerprint_generator.GetFingerprintAsNumPy(mol)
+    fingerprint = morgan_fingerprint_generator.GetFingerprint(mol)
     return fingerprint
-
-
-def calculate_tanimoto_similarity(fp1: np.ndarray | list, fp2: np.ndarray | list) -> float:
-    """
-    Calculates the Tanimoto similarity between two Morgan fingerprints.
-
-    NOTE: More precisely, we're calculating the Jaccard coefficient, as we require the fingerprints to be binary.
-
-    Args:
-        fp1 (np.ndarray | list): The first Morgan fingerprint.
-        fp2 (np.ndarray | list): The second Morgan fingerprint.
-
-    Returns:
-        float: The Tanimoto similarity between the two fingerprints.
-
-    Example:
-        fp1 = np.array([1, 0, 1, 0, 1])
-        fp2 = np.array([1, 1, 0, 0, 1])
-        similarity = tanimoto_similarity(fp1, fp2)
-        print(similarity)  # Output: 0.5
-    """
-
-    # Ensure the fingerprints are numpy arrays
-    fp1 = np.asarray(fp1)
-    fp2 = np.asarray(fp2)
-
-    # Calculate the Tanimoto similarity
-    intersection = np.sum(fp1 & fp2)
-    union = np.sum(fp1 | fp2)
-
-    if union == 0:
-        return 0.0  # Avoid division by zero
-
-    return intersection / union
 
 
 def res_name_to_rdkit_with_conformers(

@@ -7,20 +7,25 @@ import fire
 import pandas as pd
 from tqdm import tqdm
 
-from datahub.transforms.rdkit_utils import res_name_to_rdkit
+from datahub.transforms.rdkit_utils import get_morgan_fingerprint_from_rdkit_mol, res_name_to_rdkit
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def build_residue_to_rdkit_map(pn_units_df_path: str | os.PathLike, output_pickle_path: str | os.PathLike) -> None:
+def build_residue_to_rdkit_molecule_and_morgan_fingerprint_map(
+    pn_units_df_path: str | os.PathLike, output_pickle_path: str | os.PathLike
+) -> None:
     """
-    Processes the pn_units DataFrame to build a map from residue names to RD Kit molecule objects,
-    and saves the result as a pickle file.
+    Processes the pn_units DataFrame to build a map from residue names to RDKit molecule objects and their Morgan fingerprints,
+    then saves the result as a pickle file.
 
     Args:
-        pn_units_path (Union[str, os.PathLike]): Path to the pn_units DataFrame.
+        pn_units_df_path (Union[str, os.PathLike]): Path to the pn_units DataFrame.
         output_pickle_path (Union[str, os.PathLike]): Path to save the output pickle file.
+
+    Returns:
+        None: The function saves the output to a file and does not return any value.
 
     Example:
         python build_residue_to_rdkit_map.py /path/to/pn_units_df.parquet /path/to/output_directory/output.pkl
@@ -57,8 +62,12 @@ def build_residue_to_rdkit_map(pn_units_df_path: str | os.PathLike, output_pickl
     logger.info("Building residue name to RD Kit molecule map...")
     for res_name in tqdm(q_pn_unit_non_polymer_res_names_split_unique, desc="Processing residues"):
         try:
-            rdkit_molecule = res_name_to_rdkit(res_name, sanitize=False, attempt_fixing_corrupted_molecules=False)
-            residue_name_to_rdkit_molecule[res_name] = rdkit_molecule
+            rdkit_molecule = res_name_to_rdkit(res_name, sanitize=True, attempt_fixing_corrupted_molecules=True)
+            morgan_fingerprint = get_morgan_fingerprint_from_rdkit_mol(rdkit_molecule)
+            residue_name_to_rdkit_molecule[res_name] = {
+                "mol": rdkit_molecule,
+                "morgan_fingerprint": morgan_fingerprint,
+            }
         except Exception as e:
             n_failures += 1
             logger.info(f"Failed to convert residue name to RD Kit molecule: {res_name}, with error: {e}")
@@ -77,4 +86,4 @@ def build_residue_to_rdkit_map(pn_units_df_path: str | os.PathLike, output_pickl
 
 
 if __name__ == "__main__":
-    fire.Fire(build_residue_to_rdkit_map)
+    fire.Fire(build_residue_to_rdkit_molecule_and_morgan_fingerprint_map)
