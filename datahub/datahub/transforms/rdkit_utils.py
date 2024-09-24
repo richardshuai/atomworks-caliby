@@ -88,7 +88,7 @@ _BIOTITE_BOND_TYPE_TO_RDKIT = {
 Maps (biotite bond type) -> (rdkit bond type, is_aromatic)
 """
 
-_BIOTITE_DEFAULT_ANNOTATIONS = ["chain_id", "res_id", "res_name", "atom_name"]
+_BIOTITE_DEFAULT_ANNOTATIONS = ["chain_id", "res_id", "res_name", "atom_name", "hetero"]
 
 
 class ChEMBLNormalizer:
@@ -714,6 +714,7 @@ def atom_array_from_rdkit(
                 nhyd=rdatom.GetTotalNumHs(),
                 hvydeg=rdatom.GetDegree() - rdatom.GetTotalNumHs(),
                 rdkit_atom_id=rdatom.GetIntProp("rdkit_atom_id") if rdatom.HasProp("rdkit_atom_id") else -1,
+                hetero=True,  # per default, set all atoms to be hetero atoms
             )
         )
     atom_array = struc.array(atoms)
