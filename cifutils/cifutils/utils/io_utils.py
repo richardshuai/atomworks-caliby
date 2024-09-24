@@ -17,6 +17,7 @@ from contextlib import nullcontext
 import os
 from cifutils.common import default
 from datetime import datetime
+from cifutils.common import exists
 
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
 
@@ -185,8 +186,8 @@ def to_cif_buffer(
     *,
     id: str = "unknown_id",
     author: str = _get_logged_in_user(),
-    date: str = datetime.now().strftime("%Y-%m-%d"),
-    time: str = datetime.now().strftime("%H:%M:%S"),
+    date: str | None = None,
+    time: str | None = None,
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
 ) -> io.StringIO:
     """Convert an AtomArray structure to a CIF formatted StringIO buffer.
@@ -206,6 +207,11 @@ def to_cif_buffer(
     """
     structure = structure.copy()
     cif_file = pdbx.CIFFile()
+
+    if not exists(date):
+        date = datetime.now().strftime("%Y-%m-%d")
+    if not exists(time):
+        time = datetime.now().strftime("%H:%M:%S")
 
     # If elements are given as atomic numbers, convert them to element symbols
     structure.element = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x))(structure.element)
@@ -251,8 +257,8 @@ def to_cif_string(
     *,
     id: str = "unknown_id",
     author: str = _get_logged_in_user(),
-    date: str = datetime.now().strftime("%Y-%m-%d"),
-    time: str = datetime.now().strftime("%H:%M:%S"),
+    date: str | None = None,
+    time: str | None = None,
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
 ) -> str:
     """Convert an AtomArray structure to a CIF formatted string.
@@ -281,8 +287,8 @@ def to_cif_file(
     *,
     id: str = "unknown_id",
     author: str = _get_logged_in_user(),
-    date: str = datetime.now().strftime("%Y-%m-%d"),
-    time: str = datetime.now().strftime("%H:%M:%S"),
+    date: str | None = None,
+    time: str | None = None,
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
 ) -> str:
     """Convert an AtomArray structure to a CIF formatted file.
@@ -312,6 +318,50 @@ def to_cif_file(
             ).getvalue()
         )
     return path
+
+
+def to_pdb_buffer(
+    structure: AtomArray,
+) -> io.StringIO:
+    """Convert an AtomArray structure to a PDB formatted StringIO buffer.
+
+    NOTE: It's recommended to use `to_cif_buffer` instead of this function. That function
+    is more flexible and can handle extra annotations and metadata that PDB does not support.
+
+    Args:
+        - structure (AtomArray): The atomic structure to be converted.
+
+    Returns:
+        StringIO: The PDB formatted StringIO buffer of the structure.
+    """
+    # Create a PDBFile object
+    pdb_file = biotite_pdb.PDBFile()
+
+    # Set the structure and bonds
+    pdb_file.set_structure(structure)
+
+    # Convert to string
+    buffer = io.StringIO()
+    pdb_file.write(buffer)
+    return buffer
+
+
+def to_pdb_string(
+    structure: AtomArray,
+) -> str:
+    """
+    Convert an AtomArray structure to a PDB formatted string.
+
+    NOTE: It's recommended to use `to_cif_string` instead of this function. That function
+    is more flexible and can handle extra annotations and metadata that PDB does not support.
+
+    Args:
+        - structure (AtomArray): The atomic structure to be converted.
+
+    Returns:
+        str: The PDB formatted string representation of the structure.
+    """
+    return to_pdb_buffer(structure).getvalue()
 
 
 def _filter_extra_fields(extra_fields: list[str], atom_site: pdbx.CIFCategory) -> list[str]:
