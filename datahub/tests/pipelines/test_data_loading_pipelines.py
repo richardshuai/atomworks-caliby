@@ -17,9 +17,9 @@ from datahub.datasets.base import ConcatDatasetWithID, get_row_and_index_by_exam
 from tests.datasets.conftest import (
     AF3_AF2FB_DISTILLATION_DATASET,
     AF3_PDB_DATASET,
+    AF3_VALIDATION_DATASET,
     RF2AA_AF2FB_DISTILLATION_DATASET,
     RF2AA_PDB_DATASET,
-    AF3_VALIDATION_DATASET,
     RF2AA_VALIDATION_DATASET,
 )
 

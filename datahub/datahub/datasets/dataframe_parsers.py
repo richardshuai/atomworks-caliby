@@ -165,6 +165,7 @@ class ValidationDFParser(MetadataRowParser):
             - interfaces_to_score: A list of tuples like (pn_unit_iid_1, pn_unit_iid_2, interface_type), which represent low-homology interfaces to score.
             - pn_units_to_score: A list of tuples like (pn_unit_iid, pn_unit_type), which represent low-homology pn_units to score.
     """
+
     def __init__(self, base_dir: Path = Path("/databases/rcsb/cif"), file_extension: str = ".cif.gz"):
         self.base_dir = base_dir
         self.file_extension = file_extension
@@ -194,6 +195,7 @@ class ValidationDFParser(MetadataRowParser):
                 "pn_units_to_score": pn_units_to_score,
             },
         }
+
 
 class AF2FB_DistillationParser(MetadataRowParser):
     """
