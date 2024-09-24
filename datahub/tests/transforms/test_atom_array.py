@@ -2,7 +2,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
+from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata
 from datahub.transforms.atom_array import (
     AddMoleculeSymmetricIdAnnotation,
     AddProteinTerminiAnnotation,
@@ -24,7 +24,7 @@ from tests.transforms.msa.test_pair_and_merge_polymer_msas import MSA_PAIRING_PI
 @pytest.mark.parametrize("example_id", ["{['pdb', 'pn_units']}{4gqa}{2}{['C_3']}"])
 def test_remove_unresolved_pn_units(example_id):
     row = PN_UNITS_DF[PN_UNITS_DF["example_id"] == example_id].iloc[0]
-    data = load_from_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
 
     # Artificially set the occupancy for all atoms in chain_iid "G_1" to 0
     data["atom_array"].occupancy[data["atom_array"].chain_iid == "G_1"] = 0

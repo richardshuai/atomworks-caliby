@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 from cifutils import CIFParser
@@ -18,14 +18,14 @@ DEFAULT_CIF_PARSER_ARGS = {
     "keep_hydrogens": False,
     "model": None,
     "cache_dir": None,
-    "load_from_cache": False,
-    "save_to_cache": False,
 }
 
 
-class RowParser(ABC):
+class MetadataRowParser(ABC):
     """
-    Abstract base class for RowParsers.
+    Abstract base class for MetadataRowParsers.
+
+    A MetadataRowParser is a class that parses a row from a DataFrame on disk into a format digestible by the `load_example_from_metadata_row` function.
 
     In the common case that a model is trained on multiple datasets, each with their own dataframe and base data format,
     we must ensure that the data pipeline receives a consistent input format. By way of example, when training an
@@ -56,7 +56,7 @@ class RowParser(ABC):
         return output
 
     @abstractmethod
-    def _parse(self, row: pd.Series) -> Dict[str, Any]:
+    def _parse(self, row: pd.Series) -> dict[str, Any]:
         """
         Abstract method to be implemented by subclasses for parsing a DataFrame row.
 
@@ -64,11 +64,11 @@ class RowParser(ABC):
             row (pd.Series): DataFrame row to parse.
 
         Returns:
-            Dict[str, Any]: Parsed output dictionary, including required keys.
+            dict[str, Any]: Parsed output dictionary, including required keys.
         """
         pass
 
-    def validate_output(self, output: Dict[str, Any]) -> None:
+    def validate_output(self, output: dict[str, Any]) -> None:
         """Validate the output dictionary for required keys and their types."""
         for key in self.required_schema.keys():
             if key not in output:
@@ -82,7 +82,7 @@ class RowParser(ABC):
                 raise TypeError(f"Key '{key}' has incorrect type: expected {expected_type}, got {type(output[key])}")
 
 
-class PNUnitsDFParser(RowParser):
+class PNUnitsDFParser(MetadataRowParser):
     """
     Parser for pn_units DataFrame rows.
 
@@ -96,7 +96,7 @@ class PNUnitsDFParser(RowParser):
         self.base_dir = base_dir
         self.file_extension = file_extension
 
-    def _parse(self, row: pd.Series) -> Dict[str, Any]:
+    def _parse(self, row: pd.Series) -> dict[str, Any]:
         # For the Query DF, the query pn_unit is the only pn_unit in the query
         query_pn_unit_iids = [row["q_pn_unit_iid"]]
 
@@ -117,7 +117,7 @@ class PNUnitsDFParser(RowParser):
         }
 
 
-class InterfacesDFParser(RowParser):
+class InterfacesDFParser(MetadataRowParser):
     """
     Parser for interfaces DataFrame rows.
 
@@ -131,7 +131,7 @@ class InterfacesDFParser(RowParser):
         self.base_dir = base_dir
         self.file_extension = file_extension
 
-    def _parse(self, row: pd.Series) -> Dict[str, Any]:
+    def _parse(self, row: pd.Series) -> dict[str, Any]:
         # For the Interfaces DF, there are two query pn_units
         query_pn_unit_iids = [row["pn_unit_1_iid"], row["pn_unit_2_iid"]]
 
@@ -151,8 +151,53 @@ class InterfacesDFParser(RowParser):
             "extra_info": extra_info,
         }
 
+class ValidationDFParser(MetadataRowParser):
+    """
+    Parser for AF-3-style validation DataFrame rows. 
 
-class AF2FB_DistillationParser(RowParser):
+    As output, we give:
+        - pdb_id: The PDB ID of the structure.
+        - assembly_id: The assembly ID of the structure, required to load the correct assembly from the CIF file.
+        - path: The path to the CIF file.
+        - example_id: An identifier created on-the-fly that combines the pdb_id and assembly_id.
+        - ground_truth: A dictionary containing non-feature information for loss and validation. For validation, we initialize with the following:
+            - interfaces_to_score: A list of tuples like (pn_unit_iid_1, pn_unit_iid_2, interface_type), which represent low-homology interfaces to score.
+            - pn_units_to_score: A list of tuples like (pn_unit_iid, pn_unit_type), which represent low-homology pn_units to score.
+    """
+    def __init__(self, base_dir: Path = Path("/databases/rcsb/cif"), file_extension: str = ".cif.gz"):
+        self.base_dir = base_dir
+        self.file_extension = file_extension
+    
+    def _parse(self, row: pd.Series) -> dict[str, Any]:
+        # Build the path to the CIF file
+        pdb_id = row["pdb_id"]
+        path = Path(f"{self.base_dir}/{pdb_id[1:3]}/{pdb_id}{self.file_extension}")
+
+        # Extract the interfaces and pn_units to score
+        # Example: [(A_1, B_1, "protein-protein"), (B_1, C_1, "protein-ligand")]
+        interfaces_to_score = eval(row["interfaces_to_score"])
+        [
+            (row["pn_unit_1_iid"], row["pn_unit_2_iid"], row["interface_type"])
+        ]
+
+        # Example: [(A_1, "protein"), (B_1, "DNA")]
+        pn_units_to_score = eval(row["pn_units_to_score"])
+
+        # Create an example_id from the pdb_id and assembly_id
+        example_id = f"{pdb_id}_{row['assembly_id']}"
+
+        return {
+            "example_id": example_id,
+            "path": path,
+            "pdb_id": pdb_id,
+            "assembly_id": row["assembly_id"],
+            "ground_truth": {
+                "interfaces_to_score": interfaces_to_score,
+                "pn_units_to_score": pn_units_to_score,
+            },
+        }
+
+class AF2FB_DistillationParser(MetadataRowParser):
     """
     Parser for AF2FB distillation metadata.
 
@@ -232,24 +277,24 @@ class AF2FB_DistillationParser(RowParser):
         }
 
 
-def load_from_row(
-    row: pd.Series,
-    row_parser: RowParser,
+def load_example_from_metadata_row(
+    metadata_row: pd.Series,
+    metadata_row_parser: MetadataRowParser,
     *,
     cif_parser: CIFParser | None = None,
     cif_parser_args: dict | None = None,
 ) -> dict:
     """
-    Load data from a DataFrame row into a common format using a given row parsing function and CIFParser.
+    Load training/validation example from a DataFrame row into a common format using the given metadata row parsing function and CIFParser.
 
     Performs the following steps:
-        (1) Parse the row into a common dictionary format using the provided row parsing function.
+        (1) Parse the row into a common dictionary format using the provided row parsing function and metadata row.
         (2) Load the CIF file from the information in the common dictionary format (i.e., the "path" key).
         (3) Combine the parsed row data and the loaded CIF data into a single dictionary.
 
     Args:
-        row (pd.Series): The DataFrame row to parse.
-        row_parser (RowParser): The parser to use for converting the row into a dictionary format.
+        metadata_row (pd.Series): The DataFrame row to parse.
+        metadata_row_parser (MetadataRowParser): The parser to use for converting the row into a dictionary format.
         cif_parser (CIFParser, optional): The parser to use for loading CIF data. Defaults to None.
         cif_parser_args (dict, optional): Additional arguments for the CIF parser. Defaults to None.
 
@@ -257,8 +302,8 @@ def load_from_row(
         dict: A dictionary containing the parsed row data and additional loaded CIF data.
     """
     # Load common outputs from the dataframe using the provided parsing function
-    # See the `RowParser` class for more details on the expected output schema
-    parsed_row = row_parser.parse(row)
+    # See the `MetadataRowParser` class for more details on the expected output schema
+    parsed_row = metadata_row_parser.parse(metadata_row)
 
     if cif_parser is None:
         logger.warning("No parser provided. Initializing default parser; this may take a few seconds.")

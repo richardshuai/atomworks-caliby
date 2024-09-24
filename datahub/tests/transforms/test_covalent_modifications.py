@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
+from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata
 from datahub.transforms.base import Compose
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from tests.conftest import CIF_PARSER, PN_UNITS_DF
@@ -34,7 +34,7 @@ def test_covalent_modifications(test_case: dict[str, Any]):
 
     assert row is not None
 
-    data = load_from_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
 
     # Apply transforms
     unprocessed_atom_array = data["atom_array"]

@@ -334,13 +334,17 @@ class AddPostCropMoleculeEntityToFreeFloatingLigands(Transform):
     """
 
     def check_input(self, data: dict[str, Any]) -> None:
-        check_contains_keys(data, ["atom_array", "crop_info"])
+        check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(
             data, required=["molecule_entity", "molecule_iid", "is_polymer", "atom_id", "pn_unit_iid", "atomize"]
         )
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        if "crop_info" not in data:
+            # Cropping did not occur; return the identity transform (e.g., we're in the validation loop)
+            return data
+
         atom_array = data["atom_array"]
         atom_array.set_annotation("post_crop_molecule_entity", atom_array.molecule_entity.copy())
 

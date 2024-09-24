@@ -15,7 +15,7 @@ from torch.utils.data import ConcatDataset, Dataset
 
 from datahub.common import default, exists
 from datahub.datasets import logger
-from datahub.datasets.dataframe_parsers import RowParser, load_from_row
+from datahub.datasets.dataframe_parsers import MetadataRowParser, load_example_from_metadata_row
 from datahub.transforms.base import Compose, Transform, TransformedDict
 from datahub.utils.debug import save_failed_example_to_disk
 from datahub.utils.rng import capture_rng_states
@@ -60,7 +60,7 @@ class StructuralDatasetWrapper(BaseDataset):
     def __init__(
         self,
         dataset: Dataset,
-        dataset_parser: RowParser,
+        dataset_parser: MetadataRowParser,
         cif_parser: CIFParser | None = None,
         cif_parser_args: dict | None = None,
         transform: Transform | Compose | None = None,
@@ -71,13 +71,13 @@ class StructuralDatasetWrapper(BaseDataset):
         Decorator (wrapper) for an arbitrary Dataset (e.g., PandasDataset, PolarsDataset, etc.) to handle loading of structural data from PDB or CIF files,
         parsing, and applying a Transformation pipeline to the data.
 
-        Designed to be used with a Transforms pipeline to process the data and a RowParser to convert the dataset rows into a common dictionary format.
+        Designed to be used with a Transforms pipeline to process the data and a MetadataRowParser to convert the dataset rows into a common dictionary format.
 
         For more detail, see the README in the `datasets` directory.
 
         Args:
             dataset (Dataset): The dataset to wrap. For example, a PandasDataset, PolarsDataset, or standard PyTorch Dataset.
-            dataset_parser (RowParser): Parser to convert dataset rows into a common dictionary format. See `datahub.datasets.dataframe_parsers`.
+            dataset_parser (MetadataRowParser): Parser to convert dataset rows into a common dictionary format. See `datahub.datasets.dataframe_parsers`.
             cif_parser (CIFParser, optional): Parser for CIF files. If None, a new CIFParser will be created.
             cif_parser_args (dict, optional): Arguments to pass to the CIFParser (will override the defaults). Defaults to None.
             transform (Transform | Compose, optional): Transformation pipeline to apply to the data. See `datahub.transforms.base`.
@@ -139,19 +139,19 @@ class StructuralDatasetWrapper(BaseDataset):
         row = self.dataset[idx]
 
         # Process the row into a transform-ready dictionary with the given CIF and dataset parsers
-        # We require the "data" dictionary output from `load_from_row` to contain, at a minimum:
+        # We require the "data" dictionary output from `load_example_from_metadata_row` to contain, at a minimum:
         #   (a) An "id" key, which uniquely identifies the example within the dataframe; and,
         #   (b) The "path" key, which is the path to the CIF file
         _start_parse_time = time.time()
-        data = load_from_row(row, self.dataset_parser, cif_parser=self.cif_parser, cif_parser_args=self.cif_parser_args)
+        data = load_example_from_metadata_row(row, self.dataset_parser, cif_parser=self.cif_parser, cif_parser_args=self.cif_parser_args)
         _stop_parse_time = time.time()
 
         # Manually add timing for cif-parsing
         data = TransformedDict(data)
         data.__transform_history__.append(
             dict(
-                name="load_from_row",
-                instance=hex(id(load_from_row)),
+                name="load_example_from_metadata_row",
+                instance=hex(id(load_example_from_metadata_row)),
                 start_time=_start_parse_time,
                 end_time=_stop_parse_time,
                 processing_time=_stop_parse_time - _start_parse_time,

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
+from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES
 from datahub.transforms.atom_array import (
     RemoveUnsupportedChainTypes,
@@ -24,7 +24,7 @@ def test_remove_unsupported_chain_types(pdb_id: str):
     assert not rows.empty
 
     for _, row in rows.iterrows():
-        data = load_from_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+        data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
         is_unsupported_type = row["q_pn_unit_type"] not in SUPPORTED_CHAIN_TYPES
         original_atom_array = data["atom_array"].copy()
 

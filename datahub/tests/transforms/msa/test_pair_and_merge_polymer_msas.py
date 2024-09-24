@@ -3,7 +3,7 @@ import copy
 import numpy as np
 import pytest
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_from_row
+from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata
 from datahub.transforms.base import Compose
 from datahub.transforms.msa._msa_pairing_utils import (
     _get_matched_indices,
@@ -386,7 +386,7 @@ MSA_PAIRING_PIPELINE_TEST_CASES = ["3ejj", "1mna", "1hge"]
 def test_msa_pairing_pipline(pdb_id: str):
     row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
 
-    data = load_from_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
 
     # Apply initial transforms
     # fmt: off
