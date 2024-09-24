@@ -35,7 +35,7 @@ dependencies:
     - hydra-core>=1.3.0,<1.4
     - pymol-remote>=0.0.5  # has no conflicting dependencies
     - git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git@v1.0.0
-    - git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/cifutils.git@v1.0.2
+    - git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/cifutils.git@v1.0.3
     ## Not needed but possibly useful
     # jaxtyping
     # dotenv
