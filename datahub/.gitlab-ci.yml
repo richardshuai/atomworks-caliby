@@ -25,7 +25,9 @@ integration-test-job:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
       when: on_success
       allow_failure: false
-    - when: on_success
+    - when: manual
+      allow_failure: true
+    - when: never
       allow_failure: true
   script:
     - echo "Running slow tests"
