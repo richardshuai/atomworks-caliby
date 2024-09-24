@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from biotite.database import rcsb
 from biotite.structure import AtomArray, AtomArrayStack
-from cifutils.utils.io_utils import load_any, get_structure, read_any, to_cif_string
+from cifutils.utils.io_utils import load_any, get_structure, read_any, to_cif_string, to_pdb_string
 import tempfile
 from contextlib import nullcontext
 import io
@@ -139,6 +139,29 @@ def test_to_cif_string():
         "#\n"
     )
     assert metadata_serealized in cif_string2
+
+
+def test_to_pdb_string():
+    pdb_buffer = rcsb.fetch("6lyz", "pdb")
+    pdb_structure = load_any(pdb_buffer, file_type="pdb", extra_fields=["b_factor", "occupancy", "charge"], model=1)
+    n_atoms = pdb_structure.array_length()
+    pdb_string = to_pdb_string(pdb_structure)
+    assert isinstance(pdb_string, str)
+    assert len(pdb_string) > 0
+
+    # Test that we can load the pdb string back into an AtomArray
+    pdb_buffer2 = io.StringIO(pdb_string)
+    pdb_structure2 = load_any(pdb_buffer2, file_type="pdb", extra_fields=["b_factor", "occupancy", "charge"], model=1)
+    assert pdb_structure2.array_length() == n_atoms
+    assert np.allclose(pdb_structure.coord, pdb_structure2.coord)
+    assert np.all(pdb_structure.atom_name == pdb_structure2.atom_name)
+    assert np.all(pdb_structure.element == pdb_structure2.element)
+    assert np.all(pdb_structure.charge == pdb_structure2.charge)
+    assert np.all(pdb_structure.chain_id == pdb_structure2.chain_id)
+    assert np.all(pdb_structure.res_name == pdb_structure2.res_name)
+    assert np.all(pdb_structure.res_id == pdb_structure2.res_id)
+    assert np.all(pdb_structure.b_factor == pdb_structure2.b_factor)
+    assert np.all(pdb_structure.occupancy == pdb_structure2.occupancy)
 
 
 if __name__ == "__main__":
