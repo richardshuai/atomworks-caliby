@@ -360,13 +360,18 @@ class AggregateFeaturesLikeRF2AA(Transform):
         data_outputs["task"] = "sm_compl" if np.any(token_wise_atom_array.atomize) else "poly_only"
         data_outputs["symmgp"] = "C1"  # (Assume no special symmetry group -- C1=cyclical 1 == identity)
 
+        # Map `chain_iid` from integers to strings
+        int_to_chain_iid = {v: k for k, v in data["encoded"]["chain_iid_to_int"].items()}
+        vectorized_map = np.vectorize(lambda x: int_to_chain_iid[x])
+        chain_iid_token_lvl = vectorized_map(data["encoded"]["chain_iid"])
+
         # Add in additional ground truth information needed for loss computation and evaluation
         # (We may already have ground_truth in the data, i.e., during validation, when we pass extra information for evaluation)
         if "ground_truth" not in data:
             data["ground_truth"] = {}
         data["ground_truth"].update(
             {
-                "chain_iid_token_lvl": data["encoded"]["chain_iid"]  # np.ndarray of strings with shape (n_tokens,)
+                "chain_iid_token_lvl": chain_iid_token_lvl,  # numpy.ndarray of strings with shape (n_tokens,)
             }
         )
 

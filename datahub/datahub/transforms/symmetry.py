@@ -474,7 +474,7 @@ class CreateSymmetryCopyAxisLikeRF2AA(Transform):
         self.max_isomorphisms = max_isomorphisms
 
     def check_input(self, data: dict[str, Any]) -> None:
-        check_contains_keys(data, ["atom_array", "encoded", "openbabel", "crop_info"])
+        check_contains_keys(data, ["atom_array", "encoded", "openbabel"])
 
         # check cropped atom_array:
         check_is_instance(data, "atom_array", AtomArray)
@@ -487,13 +487,14 @@ class CreateSymmetryCopyAxisLikeRF2AA(Transform):
         check_is_instance(data["encoded"], "xyz", (torch.Tensor, np.ndarray))
         check_is_instance(data["encoded"], "mask", (torch.Tensor, np.ndarray))
 
-        # check crop data (pre-cropped atom array):
-        check_contains_keys(data["crop_info"], ["atom_array"])
-        check_is_instance(data["crop_info"], "atom_array", AtomArray)
-        check_atom_array_annotation(
-            data["crop_info"],
-            required=["molecule_entity", "molecule_iid", "is_polymer", "atom_id", "pn_unit_iid", "atomize"],
-        )
+        # check crop data (pre-cropped atom array), if provided (e.g. during training, but not during validation):
+        if "crop_info" in data:
+            check_contains_keys(data["crop_info"], ["atom_array"])
+            check_is_instance(data["crop_info"], "atom_array", AtomArray)
+            check_atom_array_annotation(
+                data["crop_info"],
+                required=["molecule_entity", "molecule_iid", "is_polymer", "atom_id", "pn_unit_iid", "atomize"],
+            )
 
     def assert_nonpoly_come_after_polys(self, atom_array: AtomArray) -> None:
         is_poly = lambda x: x.is_polymer & ~x.atomize  # noqa
@@ -741,12 +742,17 @@ class CreateSymmetryCopyAxisLikeRF2AA(Transform):
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         # NOTATION: a = atom-level, t = token-level, tidx = token-level index, tmask = token-level mask
+
         encoded = data["encoded"]
-        pre_array = data["crop_info"]["atom_array"]  # AtomArray before cropping
+        pre_array = (
+            data["crop_info"]["atom_array"] if "crop_info" in data else data["atom_array"]
+        )  # AtomArray before cropping
         post_array = data["atom_array"]  # AtomArray after cropping
 
         # Get crop information at token level
-        crop_tidxs = data["crop_info"]["crop_token_idxs"]
+        crop_tidxs = (
+            data["crop_info"]["crop_token_idxs"] if "crop_info" in data else np.arange(get_token_count(pre_array))
+        )
         crop_tmask = np.zeros(get_token_count(pre_array), dtype=bool)
         crop_tmask[crop_tidxs] = True
 

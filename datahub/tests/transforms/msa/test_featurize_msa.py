@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import torch
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata
+from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
@@ -181,7 +181,7 @@ def test_fill_full_msa_from_encoded(pdb_id):
     - The insertions match (i.e., we didn't lose any)
     """
     row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
-    data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
 
     encoding = RF2AA_ATOM36_ENCODING
     res_names_to_ignore = encoding.tokens[
@@ -560,7 +560,7 @@ def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
 
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
         row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
-        data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+        data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
         pipeline = Compose(
             [
                 RemoveHydrogens(),
@@ -651,7 +651,7 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
 
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
         row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
-        data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+        data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
         pipeline = Compose(
             [
                 AddWithinPolyResIdxAnnotation(),

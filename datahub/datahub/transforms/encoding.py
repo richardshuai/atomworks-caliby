@@ -541,8 +541,8 @@ class EncodeAF3TokenLevelFeatures(Transform):
             "sym_name": sym_name,  # (N_entities)
         }
 
-        #### HACK: Needed for MSA transformations, which rely on the encoded query sequence
-        # We should find a consistent way to handle this across RF2AA and AF3 (e.g., "encoded" vs. "feats/restype")
+        # HACK: MSA transformations rely on the encoded query sequence being stored in "encoded/seq"
+        # We could consider finding a consistent place to store the encoded query sequence across RF2AA and AF3 (e.g., "encoded" vs. "feats/restype")
         data["encoded"] = {"seq": restype}
 
         return data

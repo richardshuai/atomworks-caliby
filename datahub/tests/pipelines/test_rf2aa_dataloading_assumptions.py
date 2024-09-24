@@ -19,6 +19,10 @@ from tests.datasets.conftest import RF2AA_PDB_DATASET
 logger = logging.getLogger(__name__)
 
 
+def identity_collate_fn(batch):
+    return batch
+
+
 @pytest.mark.slow
 def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
     NUM_RANDOM_EXAMPLES = 10
@@ -40,6 +44,7 @@ def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
         subset,
         batch_size=1,
         shuffle=False,
+        collate_fn=identity_collate_fn,
     )
 
     for sample in tqdm(data_loader):

@@ -5,7 +5,7 @@ from biotite.structure import AtomArray
 
 from datahub.transforms._checks import check_contains_keys, check_is_instance
 from datahub.transforms.base import Transform
-from datahub.utils.token import get_af3_token_representative_idxs
+from datahub.utils.token import get_af3_token_representative_idxs, get_token_starts
 
 
 class AggregateFeaturesLikeAF3(Transform):
@@ -88,8 +88,10 @@ class AggregateFeaturesLikeAF3(Transform):
         coord_token_lvl = atom_array.coord[_token_rep_idxs]
         mask_token_lvl = atom_array.occupancy[_token_rep_idxs] > 0.0
 
-        # Get the chain ID for each token (created by `EncodeAtomArray`)
-        chain_iid_token_lvl = data["encoded"]["chain_iid"]
+        # ...get chain_iid for each token (needed in validation for scoring)
+        token_starts = get_token_starts(atom_array)
+        token_level_array = atom_array[token_starts]
+        chain_iid_token_lvl = token_level_array.chain_iid
 
         # (We may already have ground_truth in the data, i.e., during validation, when we pass extra information for evaluation)
         if "ground_truth" not in data:
@@ -101,7 +103,7 @@ class AggregateFeaturesLikeAF3(Transform):
                 "mask_atom_lvl": torch.tensor(mask_atom_lvl),
                 "coord_token_lvl": torch.tensor(coord_token_lvl),
                 "mask_token_lvl": torch.tensor(mask_token_lvl),
-                "chain_iid_token_lvl": chain_iid_token_lvl,  # np.ndarray of strings with shape (n_tokens,)
+                "chain_iid_token_lvl": chain_iid_token_lvl,  # numpy.ndarray of strings with shape (n_tokens,)
             }
         )
 

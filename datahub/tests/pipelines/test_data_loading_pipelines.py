@@ -68,14 +68,14 @@ def identity_collate_fn(batch):
     return batch
 
 
-@pytest.mark.parametrize("dataset", DATASETS_TO_TEST)
+@pytest.mark.parametrize("dataset_to_test", DATASETS_TO_TEST)
 @pytest.mark.slow
 def test_data_loading_pipeline_single_worker(dataset_to_test: dict):
     dataset = dataset_to_test["dataset"]
     dataset_type = dataset_to_test["type"]
 
     """Test random examples using a DataLoader and assert that they run through without error and the result is not None."""
-    NUM_RANDOM_EXAMPLES = 1
+    NUM_RANDOM_EXAMPLES = 3
 
     # Set the seed for reproducibility
     np.random.seed(0)
@@ -111,13 +111,16 @@ def test_data_loading_pipeline_single_worker(dataset_to_test: dict):
         if dataset_type == "validation":
             assert "ground_truth" in sample[0], f"Missing 'ground_truth' key in sample with example_id: {example_id}"
             assert (
-                "chain_iid_to_token_idx" in sample[0]
-            ), f"Missing 'chain_iid_to_token_idx' key in sample with example_id: {example_id}"
+                "chain_iid_token_lvl" in sample[0]["ground_truth"]
+            ), f"Missing 'chain_iid_token_lvl' key in sample with example_id: {example_id}"
 
 
-@pytest.mark.parametrize("dataset", DATASETS_TO_TEST)
+@pytest.mark.parametrize("datasets_to_test", DATASETS_TO_TEST)
 @pytest.mark.slow
-def test_data_loading_pipeline_with_multiple_workers(dataset: ConcatDatasetWithID):
+def test_data_loading_pipeline_with_multiple_workers(datasets_to_test: dict):
+    dataset = datasets_to_test["dataset"]
+    dataset_type = datasets_to_test["type"]
+
     """Test random examples using a DataLoader and assert that they run through without error and the result is not None."""
     NUM_RANDOM_EXAMPLES = 5
 
@@ -160,6 +163,13 @@ def test_data_loading_pipeline_with_multiple_workers(dataset: ConcatDatasetWithI
         assert row is not None, f"Failed to get row from example_id for example_id: {example_id}"
         assert sample is not None, f"Sample is None, with example_id: {example_id}"
 
+        # For validation datasets, also check that the "ground_truth" key contains information on which chains/interfaces to score, and the map from token index to `chain_iid`
+        if dataset_type == "validation":
+            assert "ground_truth" in sample[0], f"Missing 'ground_truth' key in sample with example_id: {example_id}"
+            assert (
+                "chain_iid_token_lvl" in sample[0]["ground_truth"]
+            ), f"Missing 'chain_iid_token_lvl' key in sample with example_id: {example_id}"
+
 
 @pytest.mark.parametrize("dataset", DATASETS_TO_TEST)
 @pytest.mark.benchmark
@@ -184,5 +194,4 @@ def test_data_loading_benchmark(benchmark, dataset: ConcatDatasetWithID):
 
 
 if __name__ == "__main__":
-    # pytest.main(["-v", "-x", "--log-cli-level=INFO", "-m slow", __file__])
-    test_data_loading_pipeline_single_worker(DATASETS_TO_TEST[0])
+    pytest.main(["-v", "-x", "--log-cli-level=INFO", "-m slow", __file__])

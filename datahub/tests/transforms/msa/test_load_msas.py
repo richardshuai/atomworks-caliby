@@ -10,7 +10,7 @@ import pytest
 from cifutils.enums import ChainType
 from tqdm import tqdm
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata
+from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.transforms.atom_array import RemoveHydrogens, RemoveUnsupportedChainTypes
 from datahub.transforms.base import Compose
 from datahub.transforms.msa._msa_constants import (
@@ -70,7 +70,7 @@ def test_load_msas(test_case: dict[str, Any]):
     assert row is not None
 
     # Process the row
-    data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
 
     # Apply transforms
     # fmt: off
@@ -127,7 +127,7 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str):
     chain_id = test_case["chain_id"]
     row = PN_UNITS_DF[(PN_UNITS_DF["pdb_id"] == pdb_id.lower()) & (PN_UNITS_DF["q_pn_unit_id"] == chain_id)].iloc[0]
     assert row is not None
-    data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
 
     # ...perform setup
     common_pipeline = Compose(

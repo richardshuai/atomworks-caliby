@@ -7,7 +7,7 @@ import pytest
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
 
 from datahub.datasets.base import get_row_and_index_by_example_id
-from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser, load_example_from_metadata
+from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
@@ -125,7 +125,7 @@ BENCHMARK_EXAMPLE_IDS = [example["id"] for example in BENCHMARK_EXAMPLES]
 def _get_example(example_id: str) -> dict:
     row = get_row_and_index_by_example_id(RF2AA_PDB_DATASET, example_id)["row"]
     dataset_parser = PNUnitsDFParser() if "pn_units" in example_id else InterfacesDFParser()
-    return load_example_from_metadata(metadata_row=row, metadata_row_parser=dataset_parser, cif_parser=CIF_PARSER)
+    return load_example_from_metadata_row(metadata_row=row, metadata_row_parser=dataset_parser, cif_parser=CIF_PARSER)
 
 
 def get_example(example_id: str) -> dict:

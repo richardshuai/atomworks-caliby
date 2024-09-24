@@ -190,6 +190,7 @@ RF2AA_VALIDATION_DATASET = StructuralDatasetWrapper(
     dataset=PandasDataset(
         name="validation",
         data=VALIDATION_DF,
+        id_column="example_id",
         columns_to_load=None,  # Load all columns
     ),
     save_failed_examples_to_dir=None,
@@ -209,6 +210,7 @@ AF3_VALIDATION_DATASET = StructuralDatasetWrapper(
     ),
     dataset=PandasDataset(
         name="validation",
+        id_column="example_id",
         data=VALIDATION_DF,
         columns_to_load=None,  # Load all columns
     ),

@@ -160,7 +160,7 @@ class ValidationDFParser(MetadataRowParser):
         - pdb_id: The PDB ID of the structure.
         - assembly_id: The assembly ID of the structure, required to load the correct assembly from the CIF file.
         - path: The path to the CIF file.
-        - example_id: An identifier created on-the-fly that combines the pdb_id and assembly_id.
+        - example_id: An identifier that combines the pdb_id and assembly_id.
         - ground_truth: A dictionary containing non-feature information for loss and validation. For validation, we initialize with the following:
             - interfaces_to_score: A list of tuples like (pn_unit_iid_1, pn_unit_iid_2, interface_type), which represent low-homology interfaces to score.
             - pn_units_to_score: A list of tuples like (pn_unit_iid, pn_unit_type), which represent low-homology pn_units to score.
@@ -182,11 +182,8 @@ class ValidationDFParser(MetadataRowParser):
         # Example: [(A_1, "protein"), (B_1, "DNA")]
         pn_units_to_score = eval(row["pn_units_to_score"])
 
-        # Create an example_id from the pdb_id and assembly_id
-        example_id = f"{pdb_id}_{row['assembly_id']}"
-
         return {
-            "example_id": example_id,
+            "example_id": row["example_id"],
             "path": path,
             "pdb_id": pdb_id,
             "assembly_id": row["assembly_id"],
