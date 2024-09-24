@@ -11,10 +11,8 @@ unit-test-job:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
       when: always
       allow_failure: false
-    - if: $CI_COMMIT_BRANCH != "main"
-      when: manual
+    - when: manual
       allow_failure: true
-    - when: never
   script:
     - echo "Running fast unit tests"
     - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
@@ -27,11 +25,8 @@ integration-test-job:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main" && $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
       when: on_success
       allow_failure: false
-    - if: $CI_COMMIT_BRANCH != "main"
-      when: on_success
+    - when: on_success
       allow_failure: true
-    - when: manual
-    - when: never
   script:
     - echo "Running slow tests"
     - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
