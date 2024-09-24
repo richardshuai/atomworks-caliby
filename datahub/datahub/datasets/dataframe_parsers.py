@@ -152,6 +152,86 @@ class InterfacesDFParser(RowParser):
         }
 
 
+class AF2FB_DistillationParser(RowParser):
+    """
+    Parser for AF2FB distillation metadata.
+
+    The AF2FB distillation dataset is provided courtesy of Meta/Facebook.
+    It contains ~7.6 Mio AF2 predicted structures from UniRef50.
+
+    Metadata (i.e. which sequences, which cluster identities @ 30% seq.id,
+    whether a sequence has an msa & template, sequence_hash etc.) are stored
+    in the `af2_distillation_facebook.parquet` dataframe.
+
+    The parquet has the following columns:
+        - example_id
+        - n_atoms
+        - n_res
+        - mean_plddt
+        - min_plddt
+        - median_plddt
+        - sequence_hash
+        - has_msa
+        - msa_depth
+        - has_template
+        - cluster_id
+        - seq (!WARNING: this is a relatively data-heavy column)
+    """
+
+    def __init__(self, base_dir: str = "/squash/af2_distillation_facebook", file_extension: str = ".cif"):
+        """
+        Initialize the AF2FB_DistillationParser.
+
+        This parser is designed to handle the AF2FB distillation dataset, which contains
+        approximately 7.6 million AlphaFold2 predicted structures from UniRef50.
+
+        Args:
+            - base_dir (str): The base directory where the AF2FB distillation dataset is stored.
+                Defaults to "/squash/af2_distillation_facebook", which is stored on `tukwila` for
+                ML model training.
+            - file_extension (str): The file extension of the structure files. Defaults to ".cif".
+
+        Raises:
+            - AssertionError: If the specified dataset directory does not exist.
+        """
+        self.dataset_dir = Path(base_dir)
+        self.file_extension = file_extension
+        assert self.dataset_dir.exists(), f"Dataset directory {self.dataset_dir} does not exist."
+
+    @staticmethod
+    def _get_shard_from_hash(hash_value: str) -> str:
+        """Due to the size of the AF2FB dataset, we store it with 2-level sharding.
+
+        The two layers of sharding is an optimization technique for faster filesystem
+        performance. (Do not put more than 10k files in any directory).
+
+        Example:
+            - example_id: UniRef50_A0A1S3ZVX8
+            - sequence_hash: f771c39dfbf
+
+        therefore the two level shard is `f7/71/` and the files can be found at
+            -  ./cif/f7/71/UniRef50_A0A1S3ZVX8.cif
+            -  ./msa/f7/71/f771c39dfbf.a3m
+            -  ./template/f7/71/f771c39dfbf.atab
+        """
+        return f"{hash_value[:2]}/{hash_value[2:4]}/"
+
+    def _parse(self, row: pd.Series) -> dict:
+        example_id = row["example_id"]
+        sequence_hash = row["sequence_hash"]
+
+        path = (
+            self.dataset_dir / "cif" / self._get_shard_from_hash(sequence_hash) / f"{example_id}{self.file_extension}"
+        )
+
+        return {
+            "example_id": example_id,
+            "path": path,
+            "assembly_id": "1",  # just default to the first assembly (=identity if none given)
+            "sequence_hash": sequence_hash,
+        }
+
+
 def load_from_row(
     row: pd.Series,
     row_parser: RowParser,

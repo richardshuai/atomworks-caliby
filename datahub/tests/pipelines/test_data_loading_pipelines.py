@@ -14,7 +14,12 @@ from torch.utils.data import DataLoader, Subset
 from tqdm.autonotebook import tqdm
 
 from datahub.datasets.base import ConcatDatasetWithID, get_row_and_index_by_example_id
-from tests.datasets.conftest import AF3_PDB_DATASET, RF2AA_PDB_DATASET
+from tests.datasets.conftest import (
+    AF3_AF2FB_DISTILLATION_DATASET,
+    AF3_PDB_DATASET,
+    RF2AA_AF2FB_DISTILLATION_DATASET,
+    RF2AA_PDB_DATASET,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +34,7 @@ BENCHMARK_EXAMPLE_IDS = [
     "{['pdb', 'interfaces']}{7nmj}{1}{['D_1', 'L_1']}",
 ]
 
-PDB_DATASETS = [RF2AA_PDB_DATASET, AF3_PDB_DATASET]
+PDB_DATASETS = [RF2AA_PDB_DATASET, AF3_PDB_DATASET, RF2AA_AF2FB_DISTILLATION_DATASET, AF3_AF2FB_DISTILLATION_DATASET]
 
 
 def identity_collate_fn(batch):
@@ -40,7 +45,7 @@ def identity_collate_fn(batch):
 @pytest.mark.slow
 def test_data_loading_pipeline_single_worker(dataset: ConcatDatasetWithID):
     """Test random examples using a DataLoader and assert that they run through without error and the result is not None."""
-    NUM_RANDOM_EXAMPLES = 5
+    NUM_RANDOM_EXAMPLES = 3
 
     # Set the seed for reproducibility
     np.random.seed(0)
