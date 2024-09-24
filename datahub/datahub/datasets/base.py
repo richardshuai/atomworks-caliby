@@ -65,7 +65,7 @@ class StructuralDatasetWrapper(BaseDataset):
         cif_parser_args: dict | None = None,
         transform: Transform | Compose | None = None,
         return_key: str | None = None,
-        save_failed_examples_to_dir: PathLike | str | None = f"/net/scratch/{_USER}/failures",
+        save_failed_examples_to_dir: PathLike | str | None = f"/net/scratch/{_USER}/failures" if _USER else None,
     ):
         """
         Decorator (wrapper) for an arbitrary Dataset (e.g., PandasDataset, PolarsDataset, etc.) to handle loading of structural data from PDB or CIF files,

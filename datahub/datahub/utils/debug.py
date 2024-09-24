@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 import re
+from datetime import datetime
 
 from datahub.common import default
 
@@ -56,9 +57,13 @@ def save_failed_example_to_disk(
                 "rng_state_dict": rng_state_dict,
                 "error_msg": error_msg,
                 "wandb_run_id": run_id,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "user": _USER,
             } | data
             pickle.dump(data, f)
     except KeyboardInterrupt as e:
         raise e
     except Exception as e:
-        logger.critical(f"Failed to save failed example to disk: {e}")
+        logger.warning(
+            f"Failed to save failed example to disk: {e}. Are you sure the directory exists? Do you have write permissions?"
+        )

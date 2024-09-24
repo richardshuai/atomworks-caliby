@@ -19,7 +19,7 @@ from toolz import valmap
 from datahub.transforms._checks import check_contains_keys, check_does_not_contain_keys
 from datahub.utils.rng import capture_rng_states, rng_state, serialize_rng_state_dict
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("transforms")
 DEBUG = os.getenv("DEBUG", True)
 if DEBUG:
     logger.setLevel(logging.DEBUG)
