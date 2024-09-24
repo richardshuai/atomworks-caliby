@@ -1,11 +1,8 @@
 import collections
-import gzip
 import hashlib
 import logging
 import numbers
-import pickle
-from functools import lru_cache, wraps
-from os import PathLike
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -19,70 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 # TODO: Distribute logically and rename away from `misc`
-def cache_to_disk_as_pickle(cache_dir: PathLike | None = None, use_gzip: bool = True):
-    """
-    A decorator to cache the results of a function to disk as a pickle file.
-
-    Creates a unique cached pickle file for each set of function arguments using an MD5 hash.
-    If the cache file exists, the result is loaded from the file. Otherwise, the
-    function is called, and the result is saved to the cache file.
-
-    If `cache_dir` is `None`, caching is disabled and the function is always executed.
-
-    Args:
-        cache_dir (PathLike or None): The directory where cache files will be stored, or
-            `None` to disable caching.
-        use_gzip (bool): Whether to use gzip compression for the cache files.
-
-
-    Returns:
-        function: The wrapped function with optional disk caching enabled.
-    """
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if cache_dir is None:
-                # If caching is disabled, always execute the function
-                return func(self, *args, **kwargs)
-
-            # ...create cache directory if it doesn't exist
-            cache_dir_path = Path(cache_dir)
-            cache_dir_path.mkdir(parents=True, exist_ok=True)
-
-            # ...create a unique cache file path based on the MD5 hash of function arguments
-            args_repr = f"{args}_{kwargs}"
-            hash_object = hashlib.md5(args_repr.encode())
-            file_extension = ".pkl.gz" if use_gzip else ".pkl"
-            cache_file = cache_dir_path / f"{func.__name__}_{hash_object.hexdigest()}{file_extension}"
-
-            # ...check if cache file exists
-            open_func = gzip.open if use_gzip else open
-            if cache_file.exists():
-                try:
-                    # ...try to load the result from cache file
-                    with open_func(cache_file, "rb") as f:
-                        result = pickle.load(f)
-                    return result
-
-                except Exception as e:
-                    # ...fallback to executing the function, with a warning
-                    logger.error(f"Error loading cache file {cache_file}: {e}")
-
-            # ...if cache file doesn't exist, execute the function
-            result = func(self, *args, **kwargs)
-
-            # ...and save the result to cache file
-            with open_func(cache_file, "wb") as f:
-                pickle.dump(result, f)
-
-            return result
-
-        return wrapper
-
-    return decorator
-
-
 def dfill(a: np.ndarray) -> np.ndarray:
     """
     Takes an array and returns the indices at which the value changes, repeating each index until the next change occurs.

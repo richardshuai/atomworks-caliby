@@ -40,9 +40,10 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     transform_ins_counts,
     uniformly_select_rows,
 )
-from datahub.transforms.msa._msa_loading_utils import get_nested_msa_path, parse_msa
+from datahub.transforms.msa._msa_loading_utils import parse_msa
 from datahub.transforms.msa._msa_pairing_utils import join_multiple_msas_by_tax_id
-from datahub.utils.misc import cache_to_disk_as_pickle, grouped_count, hash_sequence
+from datahub.utils.io import cache_to_disk_as_pickle, get_sharded_file_path
+from datahub.utils.misc import grouped_count, hash_sequence
 from datahub.utils.token import apply_token_wise, get_token_count, get_token_starts
 
 logger = logging.getLogger(__name__)
@@ -282,7 +283,7 @@ class LoadPolymerMSAs(Transform):
             for protein_msa_dir in self.protein_msa_dirs:
                 # ...build the path to the MSA file based on the directory depth
                 depth = protein_msa_dir.get("directory_depth", 0)
-                protein_msa_file = get_nested_msa_path(
+                protein_msa_file = get_sharded_file_path(
                     Path(protein_msa_dir["dir"]), sequence_hash, protein_msa_dir["extension"], depth
                 )
 
@@ -309,7 +310,7 @@ class LoadPolymerMSAs(Transform):
             # ...loop through all RNA MSA directories, checking if the requested MSA file exists
             for rna_msa_dir in self.rna_msa_dirs:
                 depth = rna_msa_dir.get("directory_depth", 0)
-                rna_msa_file = get_nested_msa_path(
+                rna_msa_file = get_sharded_file_path(
                     Path(rna_msa_dir["dir"]), sequence_hash, rna_msa_dir["extension"], depth
                 )
                 if rna_msa_file.exists():

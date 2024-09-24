@@ -17,8 +17,8 @@ from datahub.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
     RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
 )
-from datahub.transforms.msa._msa_loading_utils import get_nested_msa_path
 from datahub.transforms.msa.msa import LoadPolymerMSAs
+from datahub.utils.io import get_sharded_file_path
 from datahub.utils.misc import hash_sequence
 from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
@@ -210,7 +210,7 @@ def process_pdb_id(pdb_id):
 
                 # ...loop through all protein MSA directories, checking if the requested MSA file exists
                 for protein_msa_dir in PROTEIN_MSA_DIRS:
-                    protein_msa_file = get_nested_msa_path(
+                    protein_msa_file = get_sharded_file_path(
                         protein_msa_dir["dir"],
                         sequence_hash,
                         protein_msa_dir["extension"],
@@ -233,7 +233,7 @@ def process_pdb_id(pdb_id):
 
             # ...loop through all RNA MSA directories, checking if the requested MSA file exists
             for rna_msa_dir in RNA_MSA_DIRS:
-                rna_msa_file = get_nested_msa_path(
+                rna_msa_file = get_sharded_file_path(
                     rna_msa_dir["dir"], sequence_hash, rna_msa_dir["extension"], rna_msa_dir["directory_depth"]
                 )
                 if rna_msa_file.exists():

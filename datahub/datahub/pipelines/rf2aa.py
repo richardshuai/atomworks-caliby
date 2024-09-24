@@ -182,7 +182,7 @@ def build_rf2aa_transform_pipeline(
     black_hole_init: bool = True,
     black_hole_init_noise_scale: float = 5.0,  # Angstroms (Paper: 5.0)
     # Cache params:
-    msa_cache_dir: PathLike | str | None = "/projects/ml/RF2_allatom/cache/msa",
+    msa_cache_dir: PathLike | str | None = None,
     assert_rf2aa_assumptions: bool = True,
     convert_feats_to_rf2aa_input_tuple: bool = True,
 ) -> Compose:

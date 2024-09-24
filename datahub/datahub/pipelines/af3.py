@@ -64,7 +64,7 @@ def build_af3_transform_pipeline(
     n_msa: int = 10_000,  # Paper: ?? I think ~12K?
     dense_msa: bool = True,  # True for AF3
     # Cache paths
-    msa_cache_dir: PathLike | str | None = "/projects/ml/RF2_allatom/cache/msa",
+    msa_cache_dir: PathLike | str | None = None,
 ):
     """Build the AF3 pipeline with specified parameters.
 
