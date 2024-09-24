@@ -27,8 +27,6 @@ integration-test-job:
       allow_failure: false
     - when: manual
       allow_failure: true
-    - when: never
-      allow_failure: true
   script:
     - echo "Running slow tests"
     - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
