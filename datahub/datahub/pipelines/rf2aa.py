@@ -250,11 +250,12 @@ def build_rf2aa_transform_pipeline(
     Returns:
         Compose: A composed transformation pipeline.
     """
-    assert np.isclose(
-        crop_contiguous_probability + crop_spatial_probability, 1.0, atol=1e-6
-    ), "Crop probabilities must sum to 1.0"
-    assert crop_size > 0, "Crop size must be greater than 0"
-    assert crop_center_cutoff_distance > 0, "Crop center cutoff distance must be greater than 0"
+    if crop_contiguous_probability > 0 or crop_spatial_probability > 0:
+        assert np.isclose(
+            crop_contiguous_probability + crop_spatial_probability, 1.0, atol=1e-6
+        ), "Crop probabilities must sum to 1.0"
+        assert crop_size > 0, "Crop size must be greater than 0"
+        assert crop_center_cutoff_distance > 0, "Crop center cutoff distance must be greater than 0"
 
     if unresolved_ligand_atom_limit is None:
         unresolved_ligand_atom_limit = 1_000_000
@@ -312,25 +313,26 @@ def build_rf2aa_transform_pipeline(
         GetChiralCentersFromOpenBabel(),
     ]
 
-    contiguous_crop_transform = CropContiguousLikeAF3(crop_size=crop_size, keep_uncropped_atom_array=True)
-    spatial_crop_transform = CropSpatialLikeAF3(
-        crop_size=crop_size, crop_center_cutoff_distance=crop_center_cutoff_distance, keep_uncropped_atom_array=True
-    )
-    if crop_contiguous_probability > 0 and crop_spatial_probability > 0:
-        transforms += [
-            # ...crop around our query pn_unit(s) early, since we don't need the full structure moving forward
-            RandomRoute(
-                transforms=[
-                    contiguous_crop_transform,
-                    spatial_crop_transform,
-                ],
-                probs=[crop_contiguous_probability, crop_spatial_probability],
-            ),
-        ]
-    elif crop_contiguous_probability > 0:
-        transforms.append(contiguous_crop_transform)
-    elif crop_spatial_probability > 0:
-        transforms.append(spatial_crop_transform)
+    if crop_contiguous_probability > 0 or crop_spatial_probability > 0:
+        contiguous_crop_transform = CropContiguousLikeAF3(crop_size=crop_size, keep_uncropped_atom_array=True)
+        spatial_crop_transform = CropSpatialLikeAF3(
+            crop_size=crop_size, crop_center_cutoff_distance=crop_center_cutoff_distance, keep_uncropped_atom_array=True
+        )
+        if crop_contiguous_probability > 0 and crop_spatial_probability > 0:
+            transforms += [
+                # ...crop around our query pn_unit(s) early, since we don't need the full structure moving forward
+                RandomRoute(
+                    transforms=[
+                        contiguous_crop_transform,
+                        spatial_crop_transform,
+                    ],
+                    probs=[crop_contiguous_probability, crop_spatial_probability],
+                ),
+            ]
+        elif crop_contiguous_probability > 0:
+            transforms.append(contiguous_crop_transform)
+        elif crop_spatial_probability > 0:
+            transforms.append(spatial_crop_transform)
 
     transforms += [
         AddPostCropMoleculeEntityToFreeFloatingLigands(),
@@ -427,6 +429,6 @@ def build_rf2aa_transform_pipeline(
     if convert_feats_to_rf2aa_input_tuple:
         transforms.append(ApplyFunction(_convert_feats_to_rf2aa_input_tuple))
 
-    transforms.append(SubsetToKeys(["example_id", "feats"]))
+    transforms.append(SubsetToKeys(["example_id", "feats", "ground_truth"]))
 
     return Compose(transforms, track_rng_state=True)

@@ -88,11 +88,21 @@ class AggregateFeaturesLikeAF3(Transform):
         coord_token_lvl = atom_array.coord[_token_rep_idxs]
         mask_token_lvl = atom_array.occupancy[_token_rep_idxs] > 0.0
 
-        data["ground_truth"] = {
-            "coord_atom_lvl": torch.tensor(coord_atom_lvl),
-            "mask_atom_lvl": torch.tensor(mask_atom_lvl),
-            "coord_token_lvl": torch.tensor(coord_token_lvl),
-            "mask_token_lvl": torch.tensor(mask_token_lvl),
-        }
+        # Get the chain ID for each token (created by `EncodeAtomArray`)
+        chain_iid_token_lvl = data["encoded"]["chain_iid"]
+
+        # (We may already have ground_truth in the data, i.e., during validation, when we pass extra information for evaluation)
+        if "ground_truth" not in data:
+            data["ground_truth"] = {}
+
+        data["ground_truth"].update(
+            {
+                "coord_atom_lvl": torch.tensor(coord_atom_lvl),
+                "mask_atom_lvl": torch.tensor(mask_atom_lvl),
+                "coord_token_lvl": torch.tensor(coord_token_lvl),
+                "mask_token_lvl": torch.tensor(mask_token_lvl),
+                "chain_iid_token_lvl": chain_iid_token_lvl,  # np.ndarray of strings with shape (n_tokens,)
+            }
+        )
 
         return data

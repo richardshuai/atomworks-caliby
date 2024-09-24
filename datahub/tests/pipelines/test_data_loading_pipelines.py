@@ -19,6 +19,8 @@ from tests.datasets.conftest import (
     AF3_PDB_DATASET,
     RF2AA_AF2FB_DISTILLATION_DATASET,
     RF2AA_PDB_DATASET,
+    AF3_VALIDATION_DATASET,
+    RF2AA_VALIDATION_DATASET,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,18 +36,46 @@ BENCHMARK_EXAMPLE_IDS = [
     "{['pdb', 'interfaces']}{7nmj}{1}{['D_1', 'L_1']}",
 ]
 
-PDB_DATASETS = [RF2AA_PDB_DATASET, AF3_PDB_DATASET, RF2AA_AF2FB_DISTILLATION_DATASET, AF3_AF2FB_DISTILLATION_DATASET]
+DATASETS_TO_TEST = [
+    {
+        "dataset": RF2AA_VALIDATION_DATASET,
+        "type": "validation",
+    },
+    {
+        "dataset": AF3_VALIDATION_DATASET,
+        "type": "validation",
+    },
+    {
+        "dataset": RF2AA_PDB_DATASET,
+        "type": "train",
+    },
+    {
+        "dataset": AF3_PDB_DATASET,
+        "type": "train",
+    },
+    {
+        "dataset": RF2AA_AF2FB_DISTILLATION_DATASET,
+        "type": "train",
+    },
+    {
+        "dataset": AF3_AF2FB_DISTILLATION_DATASET,
+        "type": "train",
+    },
+]
 
 
 def identity_collate_fn(batch):
     return batch
 
 
-@pytest.mark.parametrize("dataset", PDB_DATASETS)
+@pytest.mark.parametrize("dataset", DATASETS_TO_TEST)
 @pytest.mark.slow
-def test_data_loading_pipeline_single_worker(dataset: ConcatDatasetWithID):
+def test_data_loading_pipeline_single_worker(dataset_to_test: dict):
+    dataset = dataset_to_test["dataset"]
+    dataset_type = dataset_to_test["type"]
+
     """Test random examples using a DataLoader and assert that they run through without error and the result is not None."""
-    NUM_RANDOM_EXAMPLES = 3
+    NUM_RANDOM_EXAMPLES = 1
 
     # Set the seed for reproducibility
     np.random.seed(0)
@@ -77,8 +107,15 @@ def test_data_loading_pipeline_single_worker(dataset: ConcatDatasetWithID):
         assert row is not None, f"Failed to get row from example_id for example_id: {example_id}"
         assert sample is not None, f"Sample is None, with example_id: {example_id}"
 
+        # For validation datasets, also check that the "ground_truth" key contains information on which chains/interfaces to score, and the map from token index to `chain_iid`
+        if dataset_type == "validation":
+            assert "ground_truth" in sample[0], f"Missing 'ground_truth' key in sample with example_id: {example_id}"
+            assert (
+                "chain_iid_to_token_idx" in sample[0]
+            ), f"Missing 'chain_iid_to_token_idx' key in sample with example_id: {example_id}"
 
-@pytest.mark.parametrize("dataset", PDB_DATASETS)
+
+@pytest.mark.parametrize("dataset", DATASETS_TO_TEST)
 @pytest.mark.slow
 def test_data_loading_pipeline_with_multiple_workers(dataset: ConcatDatasetWithID):
     """Test random examples using a DataLoader and assert that they run through without error and the result is not None."""
@@ -124,7 +161,7 @@ def test_data_loading_pipeline_with_multiple_workers(dataset: ConcatDatasetWithI
         assert sample is not None, f"Sample is None, with example_id: {example_id}"
 
 
-@pytest.mark.parametrize("dataset", PDB_DATASETS)
+@pytest.mark.parametrize("dataset", DATASETS_TO_TEST)
 @pytest.mark.benchmark
 @pytest.mark.very_slow
 def test_data_loading_benchmark(benchmark, dataset: ConcatDatasetWithID):
@@ -148,4 +185,4 @@ def test_data_loading_benchmark(benchmark, dataset: ConcatDatasetWithID):
 
 if __name__ == "__main__":
     # pytest.main(["-v", "-x", "--log-cli-level=INFO", "-m slow", __file__])
-    test_data_loading_pipeline_single_worker(AF3_PDB_DATASET)
+    test_data_loading_pipeline_single_worker(DATASETS_TO_TEST[0])

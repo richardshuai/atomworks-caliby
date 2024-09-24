@@ -13,7 +13,11 @@ from datahub.samplers import (
     MixedSampler,
     calculate_weights_for_pdb_dataset_df,
 )
-from tests.datasets.conftest import RF2AA_INTERFACES_DATASET, RF2AA_PDB_DATASET, RF2AA_PN_UNITS_DATASET
+from tests.datasets.conftest import (
+    RF2AA_INTERFACES_DATASET,
+    RF2AA_PDB_DATASET,
+    RF2AA_PN_UNITS_DATASET,
+)
 
 
 def create_dummy_dataset(length: int, name: str, dataset_class: PandasDataset = PandasDataset):
@@ -55,8 +59,8 @@ def test_nested_dummy_datasets():
         assert _idx == idx
 
 
-def test_pdb_datasets():
-    # +---------------------------- PDB Dataset ----------------------------+
+def test_structural_datasets():
+    # +------------------ Structural Dataset (PandasDataset wrapped with a StructuralDatasetWrapper) ------------------+
     num_examples_per_epoch = 100
 
     # ...calculate the weights based on the AF-3 weighting methodology

@@ -214,7 +214,9 @@ def test_chiral_featurization_with_covalent_modification(test_case: dict):
         & (PN_UNITS_DF["q_pn_unit_iid"] == test_case["residues_to_be_atomized"][0]["polymer_pn_unit_iid"])
     ].iloc[0]  # Get the first row with the given pdb_id and q_pn_unit_iid
 
-    data = load_example_from_metadata(row, PNUnitsDFParser(), cif_parser=CIF_PARSER, cif_parser_args={"keep_hydrogens": True})
+    data = load_example_from_metadata(
+        row, PNUnitsDFParser(), cif_parser=CIF_PARSER, cif_parser_args={"keep_hydrogens": True}
+    )
 
     pipe = Compose(
         [

@@ -16,6 +16,9 @@ TEST_DATA_DIR = Path(__file__).resolve().parent / "data"
 PN_UNITS_DF = pd.read_parquet(f"{TEST_DATA_DIR}/pn_units_df.parquet")
 INTERFACES_DF = pd.read_parquet(f"{TEST_DATA_DIR}/interfaces_df.parquet")
 
+# The validation dataset is small, so we don't need to use a subset
+VALIDATION_DF = pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/entry_level_val_df.parquet")
+
 PROTEIN_MSA_DIRS = [
     {
         "dir": "/projects/msa/rf2aa_af3/rf2aa_paper_model_protein_msas",

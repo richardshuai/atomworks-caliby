@@ -100,11 +100,13 @@ def build_af3_transform_pipeline(
         - AlphaFold 3 Supplementary Information.
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
-    assert np.isclose(
-        crop_contiguous_probability + crop_spatial_probability, 1.0, atol=1e-6
-    ), "Crop probabilities must sum to 1.0"
-    assert crop_size > 0, "Crop size must be greater than 0"
-    assert crop_center_cutoff_distance > 0, "Crop center cutoff distance must be greater than 0"
+
+    if crop_contiguous_probability > 0 or crop_spatial_probability > 0:
+        assert np.isclose(
+            crop_contiguous_probability + crop_spatial_probability, 1.0, atol=1e-6
+        ), "Crop probabilities must sum to 1.0"
+        assert crop_size > 0, "Crop size must be greater than 0"
+        assert crop_center_cutoff_distance > 0, "Crop center cutoff distance must be greater than 0"
 
     af3_sequence_encoding = AF3SequenceEncoding()
 
@@ -126,25 +128,27 @@ def build_af3_transform_pipeline(
     ]
 
     # Crop
-    contiguous_crop_transform = CropContiguousLikeAF3(crop_size=crop_size, keep_uncropped_atom_array=True)
-    spatial_crop_transform = CropSpatialLikeAF3(
-        crop_size=crop_size, crop_center_cutoff_distance=crop_center_cutoff_distance, keep_uncropped_atom_array=True
-    )
-    if crop_contiguous_probability > 0 and crop_spatial_probability > 0:
-        transforms += [
-            # ...crop around our query pn_unit(s) early, since we don't need the full structure moving forward
-            RandomRoute(
-                transforms=[
-                    contiguous_crop_transform,
-                    spatial_crop_transform,
-                ],
-                probs=[crop_contiguous_probability, crop_spatial_probability],
-            ),
-        ]
-    elif crop_contiguous_probability > 0:
-        transforms.append(contiguous_crop_transform)
-    elif crop_spatial_probability > 0:
-        transforms.append(spatial_crop_transform)
+    if crop_contiguous_probability > 0 or crop_spatial_probability > 0:
+        contiguous_crop_transform = CropContiguousLikeAF3(crop_size=crop_size, keep_uncropped_atom_array=True)
+        spatial_crop_transform = CropSpatialLikeAF3(
+            crop_size=crop_size, crop_center_cutoff_distance=crop_center_cutoff_distance, keep_uncropped_atom_array=True
+        )
+
+        if crop_contiguous_probability > 0 and crop_spatial_probability > 0:
+            transforms += [
+                # ...crop around our query pn_unit(s) early, since we don't need the full structure moving forward
+                RandomRoute(
+                    transforms=[
+                        contiguous_crop_transform,
+                        spatial_crop_transform,
+                    ],
+                    probs=[crop_contiguous_probability, crop_spatial_probability],
+                ),
+            ]
+        elif crop_contiguous_probability > 0:
+            transforms.append(contiguous_crop_transform)
+        elif crop_spatial_probability > 0:
+            transforms.append(spatial_crop_transform)
 
     transforms += [
         EncodeAF3TokenLevelFeatures(sequence_encoding=af3_sequence_encoding),

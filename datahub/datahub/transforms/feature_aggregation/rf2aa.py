@@ -35,8 +35,6 @@ class AggregateFeaturesLikeRF2AA(Transform):
         The small molecule tokens are appended to the first sequence in all the MSA features and the remaining MSA sequences are initialized with gap tokens.
         Small molecules receive empty template features which are concatenated block diagonally to the protein features.
 
-        # TODO: Include an updated table of all outputs, with correct shapes
-
         | Input (dimension)         | Description                                                                                                                                        |
         |---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
         | msa_masked                | (Nnum_clusters, L, 164) Clustered MSA with some portions of the sequences masked. For atom nodes, the first sequence has its respective atom       |
@@ -361,6 +359,16 @@ class AggregateFeaturesLikeRF2AA(Transform):
         data_outputs["example_id"] = data["example_id"]
         data_outputs["task"] = "sm_compl" if np.any(token_wise_atom_array.atomize) else "poly_only"
         data_outputs["symmgp"] = "C1"  # (Assume no special symmetry group -- C1=cyclical 1 == identity)
+
+        # Add in additional ground truth information needed for loss computation and evaluation
+        # (We may already have ground_truth in the data, i.e., during validation, when we pass extra information for evaluation)
+        if "ground_truth" not in data:
+            data["ground_truth"] = {}
+        data["ground_truth"].update(
+            {
+                "chain_iid_token_lvl": data["encoded"]["chain_iid"]  # np.ndarray of strings with shape (n_tokens,)
+            }
+        )
 
         data["feats"] = data_outputs
         return data

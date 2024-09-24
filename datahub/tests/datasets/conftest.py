@@ -1,7 +1,7 @@
 from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
 from datahub.datasets.base import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
-from datahub.datasets.dataframe_parsers import AF2FB_DistillationParser, InterfacesDFParser, PNUnitsDFParser
+from datahub.datasets.dataframe_parsers import AF2FB_DistillationParser, InterfacesDFParser, PNUnitsDFParser, ValidationDFParser
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
@@ -11,6 +11,7 @@ from tests.conftest import (
     PN_UNITS_DF,
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,
+    VALIDATION_DF,
 )
 
 SHARED_TEST_FILTERS = [
@@ -162,6 +163,49 @@ RF2AA_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=[{"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}],
         rna_msa_dirs=[],
+    )
+)
+
+# Validation datasets
+
+# ...for RF2AA
+RF2AA_VALIDATION_DATASET = StructuralDatasetWrapper(
+    dataset_parser=ValidationDFParser(),
+    cif_parser=CIF_PARSER,
+    transform=build_rf2aa_transform_pipeline(
+        protein_msa_dirs=PROTEIN_MSA_DIRS,
+        rna_msa_dirs=RNA_MSA_DIRS,
+        n_recycles=5,
+        crop_size=256,
+        crop_spatial_probability=0.0,  # NOTE: Zero probability for cropping; we don't crop during validation
+        crop_contiguous_probability=0.0,  # NOTE: Zero probability for cropping ; we don't crop during validation
+        assert_rf2aa_assumptions=False,
+        convert_feats_to_rf2aa_input_tuple=False,
+    ),
+    dataset=PandasDataset(
+        name="validation",
+        data=VALIDATION_DF,
+        columns_to_load=None,  # Load all columns
+    ),
+    save_failed_examples_to_dir=None,
+)
+
+# ...for AF3
+AF3_VALIDATION_DATASET = StructuralDatasetWrapper(
+    dataset_parser=ValidationDFParser(),
+    cif_parser=CIF_PARSER,
+    transform=build_af3_transform_pipeline(
+        protein_msa_dirs=PROTEIN_MSA_DIRS,
+        rna_msa_dirs=RNA_MSA_DIRS,
+        n_recycles=5,
+        crop_size=256,
+        crop_spatial_probability=0.0,  # NOTE: Zero probability for cropping; we don't crop during validation
+        crop_contiguous_probability=0.0,  # NOTE: Zero probability for cropping ; we don't crop during validation
+    ),
+    dataset=PandasDataset(
+        name="validation",
+        data=VALIDATION_DF,
+        columns_to_load=None,  # Load all columns
     ),
     save_failed_examples_to_dir=None,
 )

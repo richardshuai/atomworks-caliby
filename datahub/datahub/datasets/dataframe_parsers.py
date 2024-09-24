@@ -151,9 +151,10 @@ class InterfacesDFParser(MetadataRowParser):
             "extra_info": extra_info,
         }
 
+
 class ValidationDFParser(MetadataRowParser):
     """
-    Parser for AF-3-style validation DataFrame rows. 
+    Parser for AF-3-style validation DataFrame rows.
 
     As output, we give:
         - pdb_id: The PDB ID of the structure.
@@ -167,19 +168,16 @@ class ValidationDFParser(MetadataRowParser):
     def __init__(self, base_dir: Path = Path("/databases/rcsb/cif"), file_extension: str = ".cif.gz"):
         self.base_dir = base_dir
         self.file_extension = file_extension
-    
+
     def _parse(self, row: pd.Series) -> dict[str, Any]:
         # Build the path to the CIF file
         pdb_id = row["pdb_id"]
         path = Path(f"{self.base_dir}/{pdb_id[1:3]}/{pdb_id}{self.file_extension}")
 
         # Extract the interfaces and pn_units to score
+
         # Example: [(A_1, B_1, "protein-protein"), (B_1, C_1, "protein-ligand")]
         interfaces_to_score = eval(row["interfaces_to_score"])
-        [
-            (row["pn_unit_1_iid"], row["pn_unit_2_iid"], row["interface_type"])
-        ]
-
         # Example: [(A_1, "protein"), (B_1, "DNA")]
         pn_units_to_score = eval(row["pn_units_to_score"])
 
