@@ -73,7 +73,8 @@ def cache_to_disk_as_pickle(cache_dir: PathLike | None = None, use_gzip: bool = 
             # ...if cache file doesn't exist, execute the function
             result = func(self, *args, **kwargs)
 
-            # ...and save the result to cache file
+            # ...and save the result to cache file, creating directories if necessary
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
             with open_func(cache_file, "wb") as f:
                 pickle.dump(result, f)
 
