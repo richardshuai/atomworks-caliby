@@ -486,6 +486,35 @@ class FilterToProteins(ApplyFunctionToAtomArray):
         super().__init__(func=lambda arr: arr[struc.filter_polymer(arr, pol_type="peptide", min_size=min_size)])
 
 
+def add_protein_termini_annotation(atom_array: AtomArray) -> AtomArray:
+    """
+    Adds the annotation is_N_terminus and is_C_terminus to the respective residues in the atom array.
+
+    Args:
+        atom_array (AtomArray): The AtomArray that the annotations will be added to
+    
+    Returns:
+        AtomArray: The AtomArray with is_N_terminus and is_C_terminus annotations
+    """
+
+    is_linear_protein = np.isin(
+        atom_array.chain_type, [ChainType.POLYPEPTIDE_D, ChainType.POLYPEPTIDE_L]
+    )  # We can't use PROTEINS from data_constants.py, since that includes CYCLIC_PSEUDO_PEPTIDE
+
+    # Annotate N-termini
+    is_first_in_chain = atom_array.res_id == 1
+    atom_array.set_annotation("is_N_terminus", is_first_in_chain & is_linear_protein)
+
+    # Annotate C-termini
+    last_res_idxs = struc.get_chain_starts(atom_array, add_exclusive_stop=True)[1:] - 1
+    is_last_in_chain = np.zeros(len(atom_array), dtype=bool)
+    is_last_in_chain[last_res_idxs] = True
+    is_last_in_chain = apply_and_spread_residue_wise(atom_array, is_last_in_chain, function=np.any)
+    atom_array.set_annotation("is_C_terminus", is_last_in_chain & is_linear_protein)
+    
+    return atom_array
+
+
 class AddProteinTerminiAnnotation(Transform):
     """
     Annotate protein termini (i.e. N- and C-terminus) for protein chains in the atom array.
@@ -500,22 +529,7 @@ class AddProteinTerminiAnnotation(Transform):
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
-
-        is_linear_protein = np.isin(
-            atom_array.chain_type, [ChainType.POLYPEPTIDE_D, ChainType.POLYPEPTIDE_L]
-        )  # We can't use PROTEINS from data_constants.py, since that includes CYCLIC_PSEUDO_PEPTIDE
-
-        # Annotate N-termini
-        is_first_in_chain = atom_array.res_id == 1
-        atom_array.set_annotation("is_N_terminus", is_first_in_chain & is_linear_protein)
-
-        # Annotate C-termini
-        last_res_idxs = struc.get_chain_starts(atom_array, add_exclusive_stop=True)[1:] - 1
-        is_last_in_chain = np.zeros(len(atom_array), dtype=bool)
-        is_last_in_chain[last_res_idxs] = True
-        atom_array.set_annotation("is_C_terminus", is_last_in_chain & is_linear_protein)
-
-        data["atom_array"] = atom_array
+        data["atom_array"] = add_protein_termini_annotation(atom_array)
         return data
 
 
