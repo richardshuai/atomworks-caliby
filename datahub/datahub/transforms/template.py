@@ -803,7 +803,10 @@ def featurize_templates_like_af3(
             template_unit_vector[tmpl_idx, ix1.astype(int), ix2.astype(int)] = ca_direction_in_frames
 
     # ... bucketize the distogram
-    template_distogram = torch.bucketize(template_distogram, boundaries=distogram_bins)
+    template_distogram = torch.bucketize(
+        template_distogram,
+        boundaries=torch.as_tensor(distogram_bins, dtype=template_distogram.dtype, device=template_distogram.device),
+    )
 
     return {
         "template_restype": res_type,
