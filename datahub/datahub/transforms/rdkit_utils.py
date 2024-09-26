@@ -775,7 +775,7 @@ def atom_array_from_rdkit(
             elif np.issubdtype(val.dtype, np.str_):
                 default = ""
             else:
-                logger.warning(f"Unsupported annotation dtype: {val.dtype}. Skipping.")
+                logger.warning(f"Unsupported annotation dtype: {val.dtype} for annotation: {key}. Skipping.")
                 continue
 
             vals = np.full(len(atom_array), default, dtype=val.dtype)
