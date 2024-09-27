@@ -98,6 +98,10 @@ def test_featurize_rf_templates(test_case: dict, encoding: TokenEncoding, n_temp
     with rng_state(create_rng_state_from_seeds(12345)):
         data = pipe(data)
 
+    atom_array = data["atom_array"]
+    n_tokens = len(atom_array[atom_array.atom_name == "CA"])
+    len_token_vocabulary = len(encoding.token_atoms)
+
     xyz_encoded = data["encoded"]["xyz"]
     mask_encoded = data["encoded"]["mask"]
     seq_encoded = torch.nn.functional.one_hot(torch.tensor(data["encoded"]["seq"]), encoding.n_tokens)
@@ -107,9 +111,9 @@ def test_featurize_rf_templates(test_case: dict, encoding: TokenEncoding, n_temp
     t1d_template = data["template_feat"]["t1d"]
 
     # Check the template features are of the correct shape
-    assert xyz_template.shape[0] == n_template
-    assert mask_template.shape[0] == n_template
-    assert t1d_template.shape[0] == n_template
+    assert xyz_template.shape == (n_template, n_tokens, 36, 3)
+    assert mask_template.shape == (n_template, n_tokens, 36)
+    assert t1d_template.shape == (n_template, n_tokens, len_token_vocabulary -1 + 1) # -1 for removing mask, +1 for alignment confidence
 
     assert xyz_template[0].shape == xyz_encoded.shape
     assert mask_template[0].shape == mask_encoded.shape

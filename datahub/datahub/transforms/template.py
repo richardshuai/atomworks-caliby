@@ -807,6 +807,8 @@ def featurize_templates_like_af3(
         template_distogram,
         boundaries=torch.as_tensor(distogram_bins, dtype=template_distogram.dtype, device=template_distogram.device),
     )
+    n_bins = len(distogram_bins) + 1
+    template_distogram = torch.nn.functional.one_hot(template_distogram, num_classes=n_bins)
 
     return {
         "template_restype": res_type,
