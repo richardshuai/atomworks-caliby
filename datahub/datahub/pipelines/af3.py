@@ -15,6 +15,7 @@ from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
     HandleUndesiredResTokens,
     RemoveHydrogens,
+    RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
 )
 from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
@@ -112,6 +113,7 @@ def build_af3_transform_pipeline(
 
     transforms = [
         RemoveHydrogens(),
+        RemoveTerminalOxygen(),
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
         HandleUndesiredResTokens(undesired_res_names),  # e.g., non-standard residues
         FlagAndReassignCovalentModifications(),

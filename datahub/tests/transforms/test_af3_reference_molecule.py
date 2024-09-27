@@ -110,7 +110,7 @@ def test_get_af3_reference_molecule_features_res(res_name):
     atom_array = atom_array[atom_array.element != "H"]
     # ... turn element into atomic number
     atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.capitalize()] for el in atom_array.element])
-
+    n_atom = len(atom_array)
     features = get_af3_reference_molecule_features(atom_array)
     assert "ref_pos" in features
     assert "ref_mask" in features
@@ -131,6 +131,7 @@ def test_get_af3_reference_molecule_features_res(res_name):
         assert (
             len(features["ref_automorphs"]) == 1
         ), f"Expected 1 conformer for {res_name}, but got {len(features['ref_automorphs'])}"
+    assert features["ref_pos"].shape == (n_atom, 3)
 
 
 def test_get_af3_reference_molecule_features_chain():
@@ -139,6 +140,7 @@ def test_get_af3_reference_molecule_features_chain():
     atom_array = atom_array[atom_array.element != "H"]
     # ... turn element into atomic number
     atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.capitalize()] for el in atom_array.element])
+    n_atoms = len(atom_array)
 
     features = get_af3_reference_molecule_features(atom_array)
     assert "ref_pos" in features
@@ -149,12 +151,20 @@ def test_get_af3_reference_molecule_features_chain():
     assert (
         len(features["ref_automorphs"]) == 1000
     ), f"Expected 1000 conformers but got {len(features['ref_automorphs'])}"
-
+    
+    assert features["ref_pos"].shape == (n_atoms, 3)
+    assert features["ref_mask"].shape == (n_atoms,)
+    assert features["ref_element"].shape == (n_atoms,)
+    assert features["ref_charge"].shape == (n_atoms,)
+    assert features["ref_atom_name_chars"].shape == (n_atoms, 4)
+    assert features["ref_automorphs"].shape == (1000, n_atoms, 2)
+    
     # Inspect automorphs visually:
     # import matplotlib.pyplot as plt
     # plt.matshow(features["ref_automorphs_mask"][:10])
     # plt.matshow(features["ref_automorphs"][:10, :, 0])
     # plt.matshow(features["ref_automorphs"][:10, :, 1])
+
 
 
 if __name__ == "__main__":

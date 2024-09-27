@@ -76,8 +76,19 @@ def assert_input_feature_dimensions(feats):
     residue_3letter = decoder.decode(f["restype"])
     atoms_per_token = np.array([RF2_ATOM23_ENCODING.token_atoms[res] for res in residue_3letter]) # todo: vectorize
     number_atoms_per_token = np.array([np.sum([len(s) > 0 for s in row]) for row in atoms_per_token])
-    assert np.all(number_atoms_per_token > 0)
     
+    # sanity check every residue has at least one atom
+    assert np.all(number_atoms_per_token > 0)
+     
+    # sanity check that every residue has the same number of atoms
+    from collections import defaultdict
+    counter = defaultdict(list)
+    for i, res in enumerate(residue_3letter):
+        counter[res].append(number_atoms_per_token[i])
+    
+    for k, v in counter.items():
+        assert len(set(v)) == 1, f"residue {k} has different number of atoms per token"
+
     n_atoms = np.sum(number_atoms_per_token)
     
     n_templates = f["template_restype"].shape[0]
@@ -98,17 +109,19 @@ def assert_input_feature_dimensions(feats):
     assert f["ref_atom_name_chars"].shape == (n_atoms, 4)
     assert f["ref_space_uid"].shape == (n_atoms,)
     #TODO: why are these in the input encoding???
-    assert f["ref_automorphs"].shape == (n_atoms,3)
-    assert f["ref_automorphs_mask"].shape == (n_atoms,)
+    assert f["ref_automorphs"].shape[1:] == (n_atoms,2)
+    assert f["ref_automorphs_mask"].shape[1:] == (n_atoms,)
 
     # templates
     assert f["template_restype"].shape == (n_templates, n_token,)
-    assert f["template_pseudo_beta_mask"].shape == (n_templates, n_token, n_token,)
-    assert f["template_frame_mask"].shape == (n_templates, n_token,)
+    assert f["template_pseudo_beta_mask"].shape == (n_templates, n_token,)
+    assert f["template_backbone_frame_mask"].shape == (n_templates, n_token,)
     assert f["template_distogram"].shape == (n_templates, n_token, n_token, 39)
     assert f["template_unit_vector"].shape == (n_templates, n_token, n_token, 3)
+
     # bond feats
     assert f["token_bonds"].shape == (n_token, n_token)
+
     # msa
     assert f["msa"].shape == (n_sequences, n_token, 32) 
     assert f["has_deletion"].shape == (n_sequences, n_token)
