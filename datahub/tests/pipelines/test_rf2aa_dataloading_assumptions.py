@@ -28,9 +28,10 @@ def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
     NUM_RANDOM_EXAMPLES = 10
 
     # Set the seed for reproducibility
-    np.random.seed(42)
-    torch.manual_seed(42)
-    random.seed(42)
+    seed = 42
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    random.seed(seed)
 
     # Select deterministic examples to profile
     # NOTE: TEST_FILTERS ensures we don't end up with any huge examples that would slow down the test
