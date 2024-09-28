@@ -667,7 +667,6 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
                 ConvertToTorch(keys=["polymer_msas_by_chain_id", "encoded", "full_msa_details"]),
                 FeaturizeMSALikeAF3(
                     encoding=encoding,
-                    n_recycles=n_recycles,
                     n_msa=100,
                 ),
             ],
@@ -700,8 +699,8 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
         )
 
         # Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
-        # with open(SAVED_RESULT_PATH, "wb") as f:
-        #     pickle.dump(output["msa_features"], f)
+#        with open(SAVED_RESULT_PATH, "wb") as f:
+            #pickle.dump(output["msa_features"], f)
 
         # Check that the new_encoded_msa matches the saved results
         with open(SAVED_RESULT_PATH, "rb") as f:

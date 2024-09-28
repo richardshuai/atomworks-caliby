@@ -72,9 +72,9 @@ class AggregateFeaturesLikeAF3(Transform):
         # Aggregate MSA features
         msa_feats = data["msa_features"]
         data["feats"] |= {
-            "msa": torch.stack(msa_feats["msa_features_per_recycle_dict"]["msa"]),
-            "has_deletion": torch.stack(msa_feats["msa_features_per_recycle_dict"]["has_insertion"]),
-            "deletion_value": torch.stack(msa_feats["msa_features_per_recycle_dict"]["insertion_value"]),
+            "msa": msa_feats["msa_features_per_recycle_dict"]["msa"],
+            "has_deletion": msa_feats["msa_features_per_recycle_dict"]["has_insertion"],
+            "deletion_value": msa_feats["msa_features_per_recycle_dict"]["insertion_value"],
             "profile": msa_feats["msa_static_features_dict"]["profile"],
             "deletion_mean": msa_feats["msa_static_features_dict"]["insertion_mean"],
         }

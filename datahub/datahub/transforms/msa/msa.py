@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from biotite.structure import AtomArray
 from cifutils.enums import ChainType
 
@@ -1016,12 +1017,10 @@ class FeaturizeMSALikeAF3(Transform):
         self,
         *,
         encoding: AF3SequenceEncoding,
-        n_recycles: int,
         n_msa: int,
         eps: float = 1e-6,
     ):
         self.encoding = encoding
-        self.n_recycles = n_recycles
         self.n_msa = n_msa
         self.eps = eps
 
@@ -1040,7 +1039,6 @@ class FeaturizeMSALikeAF3(Transform):
             msa_raw_ins=data["full_msa_details"]["msa_raw_ins"],
             n_msa=self.n_msa,
             encoding=self.encoding,
-            n_recycles=self.n_recycles,
             eps=self.eps,
         )
 
@@ -1055,7 +1053,6 @@ def featurize_msa_like_af3(
     msa_raw_ins: torch.Tensor,
     n_msa: int,
     encoding: AF3SequenceEncoding,
-    n_recycles: int,
     eps: float = 1e-6,
 ):
     """Functional version of FeaturizeMSALikeAF3. See FeaturizeMSALikeAF3 for more details."""
@@ -1071,11 +1068,12 @@ def featurize_msa_like_af3(
         eps=eps,
     )
 
+    has_insertion = msa_raw_ins > 0  # [n_rows, n_tokens_across_chains] (bool)
     # ...generate features for each recycle
     msa_features_per_recycle_dict = {
-        "msa": [],  # [n_msa, n_tokens_across_chains, n_tokens] (float)
-        "has_insertion": [],  # [n_msa, n_tokens_across_chains] (bool)
-        "insertion_value": [],  # [n_msa, n_tokens_across_chains] (float)
+        "msa": F.one_hot(encoded_msa, num_classes=encoding.n_tokens),  # [n_msa, n_tokens_across_chains, n_tokens] (float)
+        "has_insertion": has_insertion,  # [n_msa, n_tokens_across_chains] (bool)
+        "insertion_value": msa_raw_ins,  # [n_msa, n_tokens_across_chains] (float)
     }
 
     # ...and the features that do not differ across recycles
@@ -1083,15 +1081,6 @@ def featurize_msa_like_af3(
         "profile": full_msa_profile,  # [n_tokens_across_chains, n_tokens] (float)
         "insertion_mean": ins_mean,  # [n_tokens_across_chains] (float)
     }
-
-    for _ in range(n_recycles):
-        # ...uniformly select n_msa sequences from the n_rows sequences in the (paired) MSA
-        selected_indices, _ = uniformly_select_rows(n_rows, n_msa, preserve_first_index=True)
-
-        # ...fill in the MSA features
-        msa_features_per_recycle_dict["msa"].append(encoded_msa[selected_indices])
-        msa_features_per_recycle_dict["has_insertion"].append(msa_raw_ins[selected_indices] > 0)
-        msa_features_per_recycle_dict["insertion_value"].append(transform_ins_counts(msa_raw_ins[selected_indices]))
 
     return {
         "msa_features_per_recycle_dict": msa_features_per_recycle_dict,
