@@ -958,7 +958,7 @@ def compute_atom_to_token_map(atom_array: AtomArray) -> dict:
     # ...assert that the token_id array is zero-indexed
     assert atom_array.token_id[0] == 0
 
-    return atom_array.token_id
+    return atom_array.token_id.astype(np.int32)
 
 
 class ComputeAtomToTokenMap(Transform):
