@@ -113,7 +113,11 @@ def test_featurize_rf_templates(test_case: dict, encoding: TokenEncoding, n_temp
     # Check the template features are of the correct shape
     assert xyz_template.shape == (n_template, n_tokens, 36, 3)
     assert mask_template.shape == (n_template, n_tokens, 36)
-    assert t1d_template.shape == (n_template, n_tokens, len_token_vocabulary -1 + 1) # -1 for removing mask, +1 for alignment confidence
+    assert t1d_template.shape == (
+        n_template,
+        n_tokens,
+        len_token_vocabulary - 1 + 1,
+    )  # -1 for removing mask, +1 for alignment confidence
 
     assert xyz_template[0].shape == xyz_encoded.shape
     assert mask_template[0].shape == mask_encoded.shape

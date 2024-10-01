@@ -152,14 +152,14 @@ def test_get_af3_reference_molecule_features_chain():
     assert (
         len(features["ref_automorphs"]) == 1000
     ), f"Expected 1000 conformers but got {len(features['ref_automorphs'])}"
-    
+
     assert features["ref_pos"].shape == (n_atoms, 3)
     assert features["ref_mask"].shape == (n_atoms,)
     assert features["ref_element"].shape == (n_atoms,)
     assert features["ref_charge"].shape == (n_atoms,)
     assert features["ref_atom_name_chars"].shape == (n_atoms, 4)
     assert features["ref_automorphs"].shape == (1000, n_atoms, 2)
-    
+
     # Inspect automorphs visually:
     # import matplotlib.pyplot as plt
     # plt.matshow(features["ref_automorphs_mask"][:10])

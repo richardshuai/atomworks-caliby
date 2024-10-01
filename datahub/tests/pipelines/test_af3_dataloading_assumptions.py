@@ -2,16 +2,15 @@
 Includes tests to assert that the data loading pipeline outputs examples that satisfy the assumptions of the AF3 model.
 """
 
-
-import pytest
-import numpy as np
-import torch
 import random
 
-from tqdm import tqdm
+import numpy as np
+import torch
 from torch.utils.data import DataLoader, Subset
+from tqdm import tqdm
+
 from tests.datasets.conftest import AF3_PDB_DATASET
-from datahub.encoding_definitions import RF2_ATOM23_ENCODING, AF3SequenceEncoding
+
 
 def test_satisfies_af3_dataloading_assumptions(pdb_dataset=AF3_PDB_DATASET):
     """
@@ -21,11 +20,11 @@ def test_satisfies_af3_dataloading_assumptions(pdb_dataset=AF3_PDB_DATASET):
 
     # Set the seed for reproducibility
     seed = 42
-    
+
     np.random.seed(seed)
     torch.manual_seed(seed)
     random.seed(seed)
-    
+
     # Select deterministic examples to profile
     # NOTE: TEST_FILTERS ensures we don't end up with any huge examples that would slow down the test
     deterministic_indices = np.random.choice(len(pdb_dataset), NUM_RANDOM_EXAMPLES, replace=False)
@@ -56,7 +55,7 @@ def test_satisfies_af3_dataloading_assumptions(pdb_dataset=AF3_PDB_DATASET):
 def assert_satisfies_af3_assumptions(sample):
     """
     Asserts that the features satisfy the assumptions of the AF3 model.
-    """ 
+    """
     n_tokens, n_atoms, n_sequences, n_templates = assert_input_feature_dimensions(sample["feats"])
     assert_ground_truth_dimensions(sample["ground_truth"], n_tokens, n_atoms)
     return True
@@ -67,7 +66,7 @@ def assert_input_feature_dimensions(feats):
     Asserts that the input features have the correct dimensions for the AF3 model.
     """
     # Check the dimensions of the input features
-    #assert "f" in feats
+    # assert "f" in feats
     # find I, L and N
 
     f = feats
@@ -91,14 +90,23 @@ def assert_input_feature_dimensions(feats):
     assert f["ref_charge"].shape == (n_atoms,)
     assert f["ref_atom_name_chars"].shape == (n_atoms, 4, 64)
     assert f["ref_space_uid"].shape == (n_atoms,)
-    #TODO: why are these in the input encoding???
-    assert f["ref_automorphs"].shape[1:] == (n_atoms,2)
+    # TODO: why are these in the input encoding???
+    assert f["ref_automorphs"].shape[1:] == (n_atoms, 2)
     assert f["ref_automorphs_mask"].shape[1:] == (n_atoms,)
 
     # templates
-    assert f["template_restype"].shape == (n_templates, n_token,)
-    assert f["template_pseudo_beta_mask"].shape == (n_templates, n_token,)
-    assert f["template_backbone_frame_mask"].shape == (n_templates, n_token,)
+    assert f["template_restype"].shape == (
+        n_templates,
+        n_token,
+    )
+    assert f["template_pseudo_beta_mask"].shape == (
+        n_templates,
+        n_token,
+    )
+    assert f["template_backbone_frame_mask"].shape == (
+        n_templates,
+        n_token,
+    )
     assert f["template_distogram"].shape == (n_templates, n_token, n_token, 39)
     assert f["template_unit_vector"].shape == (n_templates, n_token, n_token, 3)
 
@@ -106,12 +114,13 @@ def assert_input_feature_dimensions(feats):
     assert f["token_bonds"].shape == (n_token, n_token)
 
     # msa
-    assert f["msa"].shape == (n_sequences, n_token, 32) 
+    assert f["msa"].shape == (n_sequences, n_token, 32)
     assert f["has_deletion"].shape == (n_sequences, n_token)
     assert f["deletion_value"].shape == (n_sequences, n_token)
     assert f["profile"].shape == (n_token, 32)
     assert f["deletion_mean"].shape == (n_token,)
     return n_token, n_atoms, n_templates, n_sequences
+
 
 def assert_ground_truth_dimensions(ground_truth, n_tokens, n_atoms):
     """
@@ -122,4 +131,3 @@ def assert_ground_truth_dimensions(ground_truth, n_tokens, n_atoms):
     assert ground_truth["coord_token_lvl"].shape == (n_tokens, 3)
     assert ground_truth["mask_token_lvl"].shape == (n_tokens,)
     assert ground_truth["chain_iid_token_lvl"].shape == (n_tokens,)
-    

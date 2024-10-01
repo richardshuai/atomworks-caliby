@@ -8,7 +8,6 @@ from biotite.structure import AtomArray
 from rdkit import Chem
 
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
-from datahub.transforms.atom_array import add_global_token_id_annotation
 from datahub.transforms.base import Transform
 from datahub.transforms.rdkit_utils import atom_array_from_rdkit, find_automorphisms, res_name_to_rdkit_with_conformers
 
@@ -274,7 +273,9 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["res_name", "element", "charge", "atom_name", "token_id"])
         atom_array = data["atom_array"]
-        assert len(atom_array[atom_array.atom_name == "OXT"]) == 0, "OXT atoms should be removed before applying this transform."
+        assert (
+            len(atom_array[atom_array.atom_name == "OXT"]) == 0
+        ), "OXT atoms should be removed before applying this transform."
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]

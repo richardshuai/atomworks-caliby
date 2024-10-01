@@ -1071,7 +1071,9 @@ def featurize_msa_like_af3(
     has_insertion = msa_raw_ins > 0  # [n_rows, n_tokens_across_chains] (bool)
     # ...generate features for each recycle
     msa_features_per_recycle_dict = {
-        "msa": F.one_hot(encoded_msa, num_classes=encoding.n_tokens),  # [n_msa, n_tokens_across_chains, n_tokens] (float)
+        "msa": F.one_hot(
+            encoded_msa, num_classes=encoding.n_tokens
+        ),  # [n_msa, n_tokens_across_chains, n_tokens] (float)
         "has_insertion": has_insertion,  # [n_msa, n_tokens_across_chains] (bool)
         "insertion_value": msa_raw_ins,  # [n_msa, n_tokens_across_chains] (float)
     }

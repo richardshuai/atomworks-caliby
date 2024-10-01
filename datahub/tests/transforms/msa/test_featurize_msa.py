@@ -646,7 +646,6 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
     """
     # Hyperparameters (to be defined in Hydra)
     encoding = RF2AA_ATOM36_ENCODING
-    n_recycles = 5  # We choose 5 recycles to ensure we would find any drift across recycles
     PAD_TOKEN = encoding.token_to_idx["UNK"]
 
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
@@ -699,8 +698,8 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
         )
 
         # Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
-#        with open(SAVED_RESULT_PATH, "wb") as f:
-            #pickle.dump(output["msa_features"], f)
+        #        with open(SAVED_RESULT_PATH, "wb") as f:
+        # pickle.dump(output["msa_features"], f)
 
         # Check that the new_encoded_msa matches the saved results
         with open(SAVED_RESULT_PATH, "rb") as f:

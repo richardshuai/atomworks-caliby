@@ -110,5 +110,3 @@ class AggregateFeaturesLikeAF3(Transform):
         )
 
         return data
-
-
