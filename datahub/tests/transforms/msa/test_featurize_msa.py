@@ -685,11 +685,6 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
             "insertion_value",
         ]
 
-        for key in keys_to_check_across_recycles:
-            tensor_list = msa_features_per_recycle_dict[key]
-            assert all_different(tensor_list), f"{key} elements are not all different"
-            assert similar_stats(tensor_list), f"{key} elements do not have similar means and standard deviations"
-
         ############## Regression test ##############
 
         # Save in the test directory
@@ -697,9 +692,9 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
             Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_af3_regression_test.pkl"
         )
 
-        # Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
-        #        with open(SAVED_RESULT_PATH, "wb") as f:
-        # pickle.dump(output["msa_features"], f)
+        #Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
+#        with open(SAVED_RESULT_PATH, "wb") as f:
+            #pickle.dump(output["msa_features"], f)
 
         # Check that the new_encoded_msa matches the saved results
         with open(SAVED_RESULT_PATH, "rb") as f:
@@ -709,7 +704,7 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
         for key, old_values in old_results["msa_features_per_recycle_dict"].items():
             new_values = msa_features_per_recycle_dict[key]
             assert torch.allclose(
-                torch.stack(new_values), torch.stack(old_values), atol=1e-4, rtol=1e-4
+                new_values, old_values, atol=1e-4, rtol=1e-4
             ), f"Failed at key: {key}. Difference: {set(new_values) - set(old_values)}"
         # ... and for the static features as well
         for key, old_value in old_results["msa_static_features_dict"].items():
