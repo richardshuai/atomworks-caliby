@@ -79,6 +79,8 @@ class AggregateFeaturesLikeAF3(Transform):
             "profile": msa_feats["msa_static_features_dict"]["profile"],
             "deletion_mean": msa_feats["msa_static_features_dict"]["insertion_mean"],
         }
+        # NOTE: Each atom name is encoded as `ord(c) - 32`, which shifts the character values to create a 
+        # more compact one-hot encoding (as the first 32 Unicode characters will not occur in an atom name)
         data["feats"]["ref_atom_name_chars"] = F.one_hot(data["feats"]["ref_atom_name_chars"].long(), num_classes=64)
 
         # Process ground truth structure
