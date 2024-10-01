@@ -4,6 +4,8 @@ import pytest
 import torch
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 
+
+from datahub.transforms.atom_array import add_global_token_id_annotation
 from datahub.transforms.af3_reference_molecule import (
     _map_reference_conformer_to_residue,
     get_af3_reference_molecule_features,
@@ -18,7 +20,7 @@ def test_contrieved_tyr():
     orig = orig[orig.atom_name != "OXT"]
     orig = orig[orig.element != "H"]
     orig[np.array([5, 6])] = orig[np.array([6, 5])]  # swap two atoms
-
+    orig = add_global_token_id_annotation(orig)
     # Create reference molecule
     conformer = struc.info.residue("TYR")
     automorphs = find_automorphisms(atom_array_to_rdkit(conformer, infer_hydrogens=False))
@@ -109,6 +111,7 @@ def test_get_af3_reference_molecule_features_res(res_name):
     atom_array = struc.info.residue(res_name)
     atom_array = atom_array[atom_array.atom_name != "OXT"]
     atom_array = atom_array[atom_array.element != "H"]
+    atom_array = add_global_token_id_annotation(atom_array)
     # ... turn element into atomic number
     atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.capitalize()] for el in atom_array.element])
     n_atom = len(atom_array)
@@ -139,6 +142,8 @@ def test_get_af3_reference_molecule_features_chain():
     atom_array = struc.info.residue("ALA") + struc.info.residue("R2R") + struc.info.residue("TYR")
     atom_array = atom_array[atom_array.atom_name != "OXT"]
     atom_array = atom_array[atom_array.element != "H"]
+    atom_array = add_global_token_id_annotation(atom_array)
+
     # ... turn element into atomic number
     atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.capitalize()] for el in atom_array.element])
     n_atoms = len(atom_array)
