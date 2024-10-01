@@ -71,7 +71,7 @@ def assert_input_feature_dimensions(feats):
 
     f = feats
     n_token = f["restype"].shape[0]
-    n_atoms = f["token_to_atom_map"].shape[0]
+    n_atoms = f["atom_to_token_map"].shape[0]
 
     n_templates = f["template_restype"].shape[0]
     n_sequences = f["msa"].shape[0]
