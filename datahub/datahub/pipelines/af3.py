@@ -14,7 +14,7 @@ from datahub.transforms.atom_array import (
     AddGlobalTokenIdAnnotation,
     AddWithinChainInstanceResIdx,
     AddWithinPolyResIdxAnnotation,
-    ComputeTokenToAtomMap,
+    ComputeAtomToTokenMap,
     HandleUndesiredResTokens,
     RemoveHydrogens,
     RemoveTerminalOxygen,
@@ -160,7 +160,7 @@ def build_af3_transform_pipeline(
         GetAF3ReferenceMoleculeFeatures(
             conformer_generation_timeout=conformer_generation_timeout,
         ),
-        ComputeTokenToAtomMap(),
+        ComputeAtomToTokenMap(),
         AddRFTemplates(
             max_n_template=n_template,
             pick_top=pick_top_templates,

@@ -264,6 +264,8 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
 
+    requires_previous_transforms = ["AddGlobalTokenIdAnnotation"]
+
     def __init__(self, conformer_generation_timeout: float = 10.0, **generate_conformers_kwargs):
         self.conformer_generation_timeout = conformer_generation_timeout
         self.generate_conformers_kwargs = generate_conformers_kwargs

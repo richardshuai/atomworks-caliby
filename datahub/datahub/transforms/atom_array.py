@@ -952,18 +952,27 @@ class RaiseIfTooManyAtoms(Transform):
 
 
 def compute_atom_to_token_map(atom_array: AtomArray) -> dict:
+    # ...assert that the token_id array is continuous (e.g., we applied AddGlobalTokenIDAnnotation post-crop)
+    assert np.all(np.diff(atom_array.token_id) == 1)
+
+    # ...assert that the token_id array is zero-indexed
+    assert atom_array.token_id[0] == 0
+
     return atom_array.token_id
 
 
-class ComputeTokenToAtomMap(Transform):
+class ComputeAtomToTokenMap(Transform):
     """
-    Add `[n_atom]` array to the `feats` dictionary that includes the `token_id` for each atom.
+    Add length `[n_atom]` array to the `feats` dictionary that indicates the `token_id` for each atom.
     """
+
+    requires_previous_transforms = ["AddGlobalTokenIdAnnotation"]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array", "feats"])
         check_is_instance(data, "atom_array", AtomArray)
+        check_atom_array_annotation(data, ["token_id"])
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        data["feats"]["atom_to_token_map"] = compute_atom_to_token(data["atom_array"])
+        data["feats"]["atom_to_token_map"] = compute_atom_to_token_map(data["atom_array"])
         return data

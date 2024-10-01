@@ -8,7 +8,7 @@ from datahub.transforms.atom_array import (
     AddMoleculeSymmetricIdAnnotation,
     AddProteinTerminiAnnotation,
     AddWithinPolyResIdxAnnotation,
-    ComputeTokenToAtomMap,
+    ComputeAtomToTokenMap,
     RemoveHydrogens,
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
