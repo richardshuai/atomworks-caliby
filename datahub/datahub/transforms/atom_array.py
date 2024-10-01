@@ -951,13 +951,13 @@ class RaiseIfTooManyAtoms(Transform):
         return data
 
 
-def compute_token_to_atom_map(atom_array: AtomArray) -> dict:
+def compute_atom_to_token_map(atom_array: AtomArray) -> dict:
     return atom_array.token_id
 
 
 class ComputeTokenToAtomMap(Transform):
     """
-    Add `[n_atom]` array to the `feats` dictionary that includes the `token_id` for each atom. 
+    Add `[n_atom]` array to the `feats` dictionary that includes the `token_id` for each atom.
     """
 
     def check_input(self, data: dict[str, Any]) -> None:
@@ -965,5 +965,5 @@ class ComputeTokenToAtomMap(Transform):
         check_is_instance(data, "atom_array", AtomArray)
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        data["feats"]["token_to_atom_map"] = compute_token_to_atom_map(data["atom_array"])
+        data["feats"]["atom_to_token_map"] = compute_atom_to_token(data["atom_array"])
         return data
