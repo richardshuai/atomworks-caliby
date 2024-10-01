@@ -11,8 +11,10 @@ from datahub.encoding_definitions import AF3SequenceEncoding
 from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
 from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
+    AddGlobalTokenIdAnnotation,
     AddWithinChainInstanceResIdx,
     AddWithinPolyResIdxAnnotation,
+    ComputeTokenToAtomMap,
     HandleUndesiredResTokens,
     RemoveHydrogens,
     RemoveTerminalOxygen,
@@ -153,10 +155,12 @@ def build_af3_transform_pipeline(
             transforms.append(spatial_crop_transform)
 
     transforms += [
+        AddGlobalTokenIdAnnotation(), # required for reference molecule features and TokenToAtomMap
         EncodeAF3TokenLevelFeatures(sequence_encoding=af3_sequence_encoding),
         GetAF3ReferenceMoleculeFeatures(
             conformer_generation_timeout=conformer_generation_timeout,
         ),
+        ComputeTokenToAtomMap(), 
         AddRFTemplates(
             max_n_template=n_template,
             pick_top=pick_top_templates,

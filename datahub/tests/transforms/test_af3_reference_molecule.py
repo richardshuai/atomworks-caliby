@@ -101,6 +101,7 @@ def test_contrieved_tyr():
         "GLN",
         "HIS",
         "TRP",
+        "UNK",
         "R2R",
     ],
 )
@@ -164,7 +165,6 @@ def test_get_af3_reference_molecule_features_chain():
     # plt.matshow(features["ref_automorphs_mask"][:10])
     # plt.matshow(features["ref_automorphs"][:10, :, 0])
     # plt.matshow(features["ref_automorphs"][:10, :, 1])
-
 
 
 if __name__ == "__main__":

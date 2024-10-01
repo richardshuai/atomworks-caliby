@@ -7,6 +7,8 @@ from datahub.transforms.atom_array import (
     AddMoleculeSymmetricIdAnnotation,
     AddProteinTerminiAnnotation,
     AddWithinPolyResIdxAnnotation,
+    AddGlobalTokenIdAnnotation,
+    ComputeTokenToAtomMap,
     RemoveHydrogens,
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
@@ -284,6 +286,22 @@ def test_sort_poly_then_non_poly():
     # Check that the bonds are still valid (aka no bonds were broken)
     assert len(sorted_atom_array.bonds.as_array()) == len(atom_array.bonds.as_array())
 
+@pytest.mark.parametrize("pdb_id", ["1a8o", "1rxz", "7ea5"])
+def test_compute_sequence_to_token_map(pdb_id):
+    data = cached_parse(pdb_id)
+    pipe = Compose(
+        [
+            AddGlobalTokenIdAnnotation(),
+            ComputeTokenToAtomMap(),
+        ],
+        track_rng_state=False,
+    )
+    n_atoms = len(data["atom_array"])
+    result = pipe(data)
+
+    # sequence to token map contains which token every atom came from
+    assert n_atoms == result["token_to_atom_map"].shape[0]
+    
 
 if __name__ == "__main__":
     pytest.main(["-v", "-x", "--log-cli-level=WARNING", __file__])

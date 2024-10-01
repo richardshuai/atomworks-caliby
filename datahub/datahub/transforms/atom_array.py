@@ -949,3 +949,15 @@ class RaiseIfTooManyAtoms(Transform):
             example_id = data["example_id"]
             raise ValueError(f"{example_id} exceeds max allowed number of atoms! ({num_atoms:,} > {self.max_atoms:,}).")
         return data
+
+def compute_token_to_atom_map(atom_array: AtomArray) -> dict:
+    return atom_array.token_id
+
+class ComputeTokenToAtomMap(Transform):
+    def check_input(self, data: dict[str, Any]) -> None:
+        check_contains_keys(data, ["atom_array", "encoded"])
+        check_is_instance(data, "atom_array", AtomArray)
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        data["feats"]["token_to_atom_map"] = compute_token_to_atom_map(data["atom_array"])
+        return data

@@ -69,28 +69,10 @@ def assert_input_feature_dimensions(feats):
     #assert "f" in feats
     # find I, L and N
 
-    #f = feats["f"]
     f = feats
     n_token = f["restype"].shape[0]
-    decoder = AF3SequenceEncoding()
-    residue_3letter = decoder.decode(f["restype"])
-    atoms_per_token = np.array([RF2_ATOM23_ENCODING.token_atoms[res] for res in residue_3letter]) # todo: vectorize
-    number_atoms_per_token = np.array([np.sum([len(s) > 0 for s in row]) for row in atoms_per_token])
-    
-    # sanity check every residue has at least one atom
-    assert np.all(number_atoms_per_token > 0)
-     
-    # sanity check that every residue has the same number of atoms
-    from collections import defaultdict
-    counter = defaultdict(list)
-    for i, res in enumerate(residue_3letter):
-        counter[res].append(number_atoms_per_token[i])
-    
-    for k, v in counter.items():
-        assert len(set(v)) == 1, f"residue {k} has different number of atoms per token"
+    n_atoms = f["token_to_atom_map"].shape[0]
 
-    n_atoms = np.sum(number_atoms_per_token)
-    
     n_templates = f["template_restype"].shape[0]
     n_sequences = f["msa"].shape[0]
     assert f["residue_index"].shape == (n_token,)

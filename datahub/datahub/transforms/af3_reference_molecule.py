@@ -229,7 +229,7 @@ def get_af3_reference_molecule_features(
     # ... atom name
     ref_atom_name_chars = _encode_atom_names_like_af3(atom_array.atom_name)
     # ... space uid (type conversion needed for some older torch versions)
-    ref_space_uid = add_global_token_id_annotation(atom_array).token_id.astype(np.int64)
+    ref_space_uid = atom_array.token_id.astype(np.int64)
     return {
         "ref_pos": ref_pos,  # (n_atoms, 3)
         "ref_mask": ref_mask,  # (n_atoms)
@@ -272,7 +272,7 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
-        check_atom_array_annotation(data, ["res_name", "element", "charge", "atom_name"])
+        check_atom_array_annotation(data, ["res_name", "element", "charge", "atom_name", "token_id"])
         atom_array = data["atom_array"]
         assert len(atom_array[atom_array.atom_name == "OXT"]) == 0, "OXT atoms should be removed before applying this transform."
 

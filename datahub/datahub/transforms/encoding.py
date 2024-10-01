@@ -484,7 +484,6 @@ class EncodeAF3TokenLevelFeatures(Transform):
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array = data["atom_array"]
-
         # ... get token-level array
         token_starts = get_token_starts(atom_array)
         token_level_array = atom_array[token_starts]
