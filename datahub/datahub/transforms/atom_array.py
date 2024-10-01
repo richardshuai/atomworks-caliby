@@ -953,7 +953,7 @@ class RaiseIfTooManyAtoms(Transform):
 
 def compute_atom_to_token_map(atom_array: AtomArray) -> dict:
     # ...assert that the token_id array is continuous (e.g., we applied AddGlobalTokenIDAnnotation post-crop)
-    assert np.all((np.diff(atom_array.token_id) == 0) |(np.diff(atom_array.token_id) == 1))
+    assert np.all((np.diff(atom_array.token_id) == 0) | (np.diff(atom_array.token_id) == 1))
 
     # ...assert that the token_id array is zero-indexed
     assert atom_array.token_id[0] == 0

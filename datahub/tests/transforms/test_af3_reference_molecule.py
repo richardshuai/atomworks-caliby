@@ -4,12 +4,11 @@ import pytest
 import torch
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 
-
-from datahub.transforms.atom_array import add_global_token_id_annotation
 from datahub.transforms.af3_reference_molecule import (
     _map_reference_conformer_to_residue,
     get_af3_reference_molecule_features,
 )
+from datahub.transforms.atom_array import add_global_token_id_annotation
 from datahub.transforms.rdkit_utils import atom_array_to_rdkit, find_automorphisms
 from datahub.transforms.symmetry import apply_automorphs
 

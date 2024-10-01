@@ -678,13 +678,6 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
         msa_features_per_recycle_dict = output["msa_features"]["msa_features_per_recycle_dict"]
         msa_static_features_dict = output["msa_features"]["msa_static_features_dict"]
 
-        # List of keys to check for being different and having similar sums
-        keys_to_check_across_recycles = [
-            "msa",
-            "has_insertion",
-            "insertion_value",
-        ]
-
         ############## Regression test ##############
 
         # Save in the test directory
@@ -692,9 +685,9 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
             Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_af3_regression_test.pkl"
         )
 
-        #Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
-#        with open(SAVED_RESULT_PATH, "wb") as f:
-            #pickle.dump(output["msa_features"], f)
+        # Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
+        #        with open(SAVED_RESULT_PATH, "wb") as f:
+        # pickle.dump(output["msa_features"], f)
 
         # Check that the new_encoded_msa matches the saved results
         with open(SAVED_RESULT_PATH, "rb") as f:
