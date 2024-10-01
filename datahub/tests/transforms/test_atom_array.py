@@ -297,11 +297,12 @@ def test_compute_sequence_to_token_map(pdb_id):
         ],
         track_rng_state=False,
     )
+    data["feats"] = {}
     n_atoms = len(data["atom_array"])
     result = pipe(data)
 
     # sequence to token map contains which token every atom came from
-    assert n_atoms == result["token_to_atom_map"].shape[0]
+    assert n_atoms == result["feats"]["token_to_atom_map"].shape[0]
 
 
 if __name__ == "__main__":

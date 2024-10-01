@@ -956,8 +956,12 @@ def compute_token_to_atom_map(atom_array: AtomArray) -> dict:
 
 
 class ComputeTokenToAtomMap(Transform):
+    """
+    Add `[n_atom]` array to the `feats` dictionary that includes the `token_id` for each atom. 
+    """
+
     def check_input(self, data: dict[str, Any]) -> None:
-        check_contains_keys(data, ["atom_array", "encoded"])
+        check_contains_keys(data, ["atom_array", "feats"])
         check_is_instance(data, "atom_array", AtomArray)
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
