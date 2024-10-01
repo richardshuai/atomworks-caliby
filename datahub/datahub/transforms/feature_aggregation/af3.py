@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 import torch
+import torch.nn.functional as F
 from biotite.structure import AtomArray
 
 from datahub.transforms._checks import check_contains_keys, check_is_instance
@@ -78,6 +79,7 @@ class AggregateFeaturesLikeAF3(Transform):
             "profile": msa_feats["msa_static_features_dict"]["profile"],
             "deletion_mean": msa_feats["msa_static_features_dict"]["insertion_mean"],
         }
+        data["feats"]["ref_atom_name_chars"] = F.one_hot(data["feats"]["ref_atom_name_chars"].long(), num_classes=64)
 
         # Process ground truth structure
         atom_array = data["atom_array"]
