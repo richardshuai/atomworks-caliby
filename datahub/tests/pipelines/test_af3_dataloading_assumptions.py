@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
-from tests.datasets.conftest import AF3_PDB_DATASET
+from tests.datasets.conftest import AF3_PDB_DATASET, TEST_DIFFUSION_BATCH_SIZE
 
 
 def test_satisfies_af3_dataloading_assumptions(pdb_dataset=AF3_PDB_DATASET):
@@ -58,8 +58,9 @@ def assert_satisfies_af3_assumptions(sample):
     """
     n_tokens, n_atoms, n_sequences, n_templates = assert_input_feature_dimensions(sample["feats"])
     assert_ground_truth_dimensions(sample["ground_truth"], n_tokens, n_atoms)
-    assert "t" in sample
-    assert "noise" in sample
+    assert sample["t"].shape == (TEST_DIFFUSION_BATCH_SIZE,)
+    assert sample["noise"].shape == (TEST_DIFFUSION_BATCH_SIZE, n_atoms, 3)
+
     return True
 
 

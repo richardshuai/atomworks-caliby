@@ -65,6 +65,7 @@ RF2AA_PN_UNITS_DATASET = StructuralDatasetWrapper(
     save_failed_examples_to_dir=None,
 )
 
+TEST_DIFFUSION_BATCH_SIZE = 32 # NOTE: setting to a value other than the default for testing purposes
 AF3_PN_UNITS_DATASET = StructuralDatasetWrapper(
     dataset_parser=PNUnitsDFParser(),
     cif_parser=CIF_PARSER,
@@ -75,6 +76,7 @@ AF3_PN_UNITS_DATASET = StructuralDatasetWrapper(
         crop_size=256,
         crop_contiguous_probability=1 / 3,
         crop_spatial_probability=2 / 3,
+        diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,
     ),
     dataset=PandasDataset(
         name="pn_units",
@@ -120,6 +122,7 @@ AF3_INTERFACES_DATASET = StructuralDatasetWrapper(
         crop_size=256,
         crop_spatial_probability=1.0,
         crop_contiguous_probability=0.0,
+        diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,
     ),
     dataset=PandasDataset(
         name="interfaces",
