@@ -58,6 +58,7 @@ def assert_satisfies_af3_assumptions(sample):
     Asserts that the features satisfy the assumptions of the AF3 model.
     """ 
     n_tokens, n_atoms, n_sequences, n_templates = assert_input_feature_dimensions(sample["feats"])
+    assert_ground_truth_dimensions(sample["ground_truth"], n_tokens, n_atoms)
     return True
 
 
@@ -112,3 +113,13 @@ def assert_input_feature_dimensions(feats):
     assert f["deletion_mean"].shape == (n_token,)
     return n_token, n_atoms, n_templates, n_sequences
 
+def assert_ground_truth_dimensions(ground_truth, n_tokens, n_atoms):
+    """
+    Asserts that the ground truth features have the correct dimensions for the AF3 model.
+    """
+    assert ground_truth["coord_atom_lvl"].shape == (n_atoms, 3)
+    assert ground_truth["mask_atom_lvl"].shape == (n_atoms,)
+    assert ground_truth["coord_token_lvl"].shape == (n_tokens, 3)
+    assert ground_truth["mask_token_lvl"].shape == (n_tokens,)
+    assert ground_truth["chain_iid_token_lvl"].shape == (n_tokens,)
+    
