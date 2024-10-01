@@ -492,7 +492,7 @@ def add_protein_termini_annotation(atom_array: AtomArray) -> AtomArray:
 
     Args:
         atom_array (AtomArray): The AtomArray that the annotations will be added to
-    
+
     Returns:
         AtomArray: The AtomArray with is_N_terminus and is_C_terminus annotations
     """
@@ -511,7 +511,7 @@ def add_protein_termini_annotation(atom_array: AtomArray) -> AtomArray:
     is_last_in_chain[last_res_idxs] = True
     is_last_in_chain = apply_and_spread_residue_wise(atom_array, is_last_in_chain, function=np.any)
     atom_array.set_annotation("is_C_terminus", is_last_in_chain & is_linear_protein)
-    
+
     return atom_array
 
 
