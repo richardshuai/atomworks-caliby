@@ -58,6 +58,8 @@ def assert_satisfies_af3_assumptions(sample):
     """
     n_tokens, n_atoms, n_sequences, n_templates = assert_input_feature_dimensions(sample["feats"])
     assert_ground_truth_dimensions(sample["ground_truth"], n_tokens, n_atoms)
+    assert "t" in sample
+    assert "noise" in sample
     return True
 
 
