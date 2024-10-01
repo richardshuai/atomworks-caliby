@@ -65,7 +65,7 @@ RF2AA_PN_UNITS_DATASET = StructuralDatasetWrapper(
     save_failed_examples_to_dir=None,
 )
 
-TEST_DIFFUSION_BATCH_SIZE = 32 # NOTE: setting to a value other than the default for testing purposes
+TEST_DIFFUSION_BATCH_SIZE = 32  # NOTE: setting to a value other than the default for testing purposes
 AF3_PN_UNITS_DATASET = StructuralDatasetWrapper(
     dataset_parser=PNUnitsDFParser(),
     cif_parser=CIF_PARSER,

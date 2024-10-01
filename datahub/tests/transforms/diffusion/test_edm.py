@@ -1,9 +1,10 @@
-import pytest
-import torch
 import pickle
 from pathlib import Path
 
-from datahub.transforms.diffusion.edm import sample_t_edm, sample_noise_edm
+import torch
+
+from datahub.transforms.diffusion.edm import sample_noise_edm, sample_t_edm
+
 
 def test_edm_t_sampling():
     torch.manual_seed(0)
@@ -15,12 +16,10 @@ def test_edm_t_sampling():
 
     # regression test; does the distribution match?
 
-    SAVED_RESULT_PATH = (
-        Path(__file__).resolve().parents[2] / "data" / f"edm_t_sampled.pkl"
-    )
+    SAVED_RESULT_PATH = Path(__file__).resolve().parents[2] / "data" / "edm_t_sampled.pkl"
     # Uncomment to save t for regression tests, as a pickle (JSON is too slow)
-    #with open(SAVED_RESULT_PATH, "wb") as f:
-        #pickle.dump(t, f)
+    # with open(SAVED_RESULT_PATH, "wb") as f:
+    # pickle.dump(t, f)
 
     with open(SAVED_RESULT_PATH, "rb") as f:
         expected_t = pickle.load(f)
@@ -33,22 +32,21 @@ def test_edm_noise_sampling():
     diffusion_batch_size = 1000
     sigma_data = 1.0
 
-    t = torch.randn(diffusion_batch_size) * sigma_data # spoofing t sampling to decouple tests
+    t = torch.randn(diffusion_batch_size) * sigma_data  # spoofing t sampling to decouple tests
     noise = sample_noise_edm(t, num_atoms)
     assert noise.shape == (diffusion_batch_size, num_atoms, 3)
 
     # regression test; does the distribution match?
 
-    SAVED_RESULT_PATH = (
-        Path(__file__).resolve().parents[2] / "data" / f"edm_noise_sampled.pkl"
-    )
+    SAVED_RESULT_PATH = Path(__file__).resolve().parents[2] / "data" / "edm_noise_sampled.pkl"
     # Uncomment to save noise for regression tests, as a pickle (JSON is too slow)
-    #with open(SAVED_RESULT_PATH, "wb") as f:
-        #pickle.dump(noise, f)
+    # with open(SAVED_RESULT_PATH, "wb") as f:
+    # pickle.dump(noise, f)
 
     with open(SAVED_RESULT_PATH, "rb") as f:
         expected_noise = pickle.load(f)
     assert torch.eq(noise, expected_noise).all()
+
 
 def test_sample_edm_noise_transform():
     torch.manual_seed(0)
