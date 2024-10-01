@@ -80,6 +80,7 @@ INTERFACES_DATASET = StructuralDatasetWrapper(
 PDB_DATASET = ConcatDatasetWithID(datasets=[PN_UNITS_DATASET, INTERFACES_DATASET])  # NOTE: Order matters!
 
 PRIOR_PIPELINE_BUGS = [
+    # "{['pdb', 'interfaces']}{1pfi}{1}{['B_12', 'C_12']}", # Integer overflow for number of isomorphisms
     "{['pdb', 'interfaces']}{2pno}{3}{['DB_1', 'G_1']}",
     "{['pdb', 'interfaces']}{7ah0}{1}{['A_1', 'B_1']}",
     "{['pdb', 'interfaces']}{4u4h}{2}{['A_1', 'A_2']}",

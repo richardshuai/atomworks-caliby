@@ -110,10 +110,20 @@ def _create_instance_to_entity_map(iids: np.ndarray, entities: np.ndarray) -> di
     entity_to_iid = {entity: iids[entities == entity] for entity in np.unique(entities)}
     return entity_to_iid
 
-
 def _n_possible_isomorphisms(group_to_instance_map: dict[int | str, Sequence[int]]) -> int:
     """Compute the number of possible isomorphisms for a given entity->instances mapping."""
-    return np.prod([math.factorial(len(v)) for v in group_to_instance_map.values()])
+    try:
+        product = np.prod([math.factorial(len(v)) for v in group_to_instance_map.values()])
+        result = int(product)
+    except OverflowError:
+        # Handle overflow by returning the maximum integer value
+        return (1 << 31) - 1
+
+    # Check if the result is less than zero (paranoia)
+    if result < 0:
+        return (1 << 31) - 1  # Return the maximum 32-bit integer value
+    
+    return result
 
 
 def get_isomorphisms_from_symmetry_groups(
