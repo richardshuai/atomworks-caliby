@@ -21,6 +21,7 @@ from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, Subset
 from datahub.transforms.bonds import GetAF3TokenBondFeatures
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
+from datahub.transforms.diffusion.edm import SampleEDMNoise
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
 from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
 from datahub.transforms.filters import (
@@ -70,6 +71,8 @@ def build_af3_transform_pipeline(
     dense_msa: bool = True,  # True for AF3
     # Cache paths
     msa_cache_dir: PathLike | str | None = None,
+    sigma_data: float = 16.0,
+    diffusion_batch_size: int = 48,
 ):
     """Build the AF3 pipeline with specified parameters.
 
@@ -206,8 +209,9 @@ def build_af3_transform_pipeline(
             n_msa=n_msa,
         ),
         AggregateFeaturesLikeAF3(),
+        SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),
         # ... remove all non-feature keys (to make compatible wit generic batch_collate, which only allows tensors, numpy arrays, str, etc.)
-        SubsetToKeys(["example_id", "feats", "ground_truth"]),
+        SubsetToKeys(["example_id", "feats", "t", "noise", "ground_truth"]),
     ]
 
     # ... compose final pipeline
