@@ -129,8 +129,8 @@ def assert_ground_truth_dimensions(ground_truth, n_tokens, n_atoms):
     """
     Asserts that the ground truth features have the correct dimensions for the AF3 model.
     """
-    assert ground_truth["coord_atom_lvl"].shape == (n_atoms, 3)
-    assert ground_truth["mask_atom_lvl"].shape == (n_atoms,)
+    assert ground_truth["coord_atom_lvl"].shape == (TEST_DIFFUSION_BATCH_SIZE, n_atoms, 3)
+    assert ground_truth["mask_atom_lvl"].shape == (TEST_DIFFUSION_BATCH_SIZE, n_atoms,)
     assert ground_truth["coord_token_lvl"].shape == (n_tokens, 3)
     assert ground_truth["mask_token_lvl"].shape == (n_tokens,)
     assert ground_truth["chain_iid_token_lvl"].shape == (n_tokens,)

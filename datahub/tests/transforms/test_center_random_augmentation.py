@@ -16,8 +16,8 @@ def test_center():
 def test_random_augmentation():
     torch.manual_seed(0)
 
-    coord_atom_lvl = torch.randn(1, 10, 3)
     batch_size = 1
+    coord_atom_lvl = torch.randn(batch_size, 10, 3)
 
     coord_atom_lvl_augmented = random_augmentation(coord_atom_lvl, batch_size=batch_size)
 

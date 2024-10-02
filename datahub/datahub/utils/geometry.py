@@ -96,6 +96,30 @@ def apply_rigid(
     rots, trans = rigid
     return einsum(rots, points, "... i j, ... j -> ... i") + trans
 
+def apply_batched_rigid(
+    rigid: tuple[torch.Tensor, torch.Tensor],
+    points: torch.Tensor,
+) -> torch.Tensor:
+    """
+    Apply a batch of rigid body transformations to a set of batched points via (p -> R @ p + t).
+    (i.e. first rotate then translate)
+
+    Args:
+        - rigid (tuple[torch.Tensor, torch.Tensor]): A tuple containing the rotation matrix (R) and
+          translation vector (t) representing the rigid body transformation.
+        - points (torch.Tensor): A tensor of shape [batch_size, ..., 3] representing the points to transform.
+
+    Returns:
+        - torch.Tensor: A tensor of shape [batch_size, ..., 3] representing the transformed points.
+
+    NOTE: This transforms `p` from the local frame of the `rigid` to the global frame.
+    """
+    rots, trans = rigid
+    batch, length, _ = points.shape
+    assert rots.shape == (batch, 3, 3), "rotation dimension must match the points dimension"
+    assert trans.shape == (batch, 3), "translation dimension must match the points dimension"
+    trans = trans.unsqueeze(1).expand(-1, length, -1)
+    return einsum(rots, points, "b i j, b l j -> b l i") + trans
 
 def invert_rigid(rigid: tuple[torch.Tensor, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor]:
     """

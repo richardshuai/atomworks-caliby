@@ -2,7 +2,7 @@ import torch
 
 from datahub.transforms._checks import check_contains_keys
 from datahub.transforms.base import Transform
-from datahub.utils.geometry import get_random_rigid, apply_rigid
+from datahub.utils.geometry import get_random_rigid, apply_batched_rigid
 
 
 def center(coord_atom_lvl, mask_atom_lvl):
@@ -12,8 +12,12 @@ def center(coord_atom_lvl, mask_atom_lvl):
     return coord_atom_lvl
 
 def random_augmentation(coord_atom_lvl, batch_size, s=1.0):
-    rigid = get_random_rigid(batch_size, scale=1.0)
-    return apply_rigid(rigid, coord_atom_lvl)
+    rigid = get_random_rigid(batch_size, scale=s)
+    
+    # get random rigid squeezes dimension for batch_size=1
+    if batch_size == 1:
+        rigid = rigid[0].unsqueeze(0), rigid[1].unsqueeze(0)
+    return apply_batched_rigid(rigid, coord_atom_lvl)
 
 
 class CenterRandomAugmentation(Transform):

@@ -18,7 +18,9 @@ from datahub.transforms.atom_array import (
 )
 from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
+from datahub.transforms.batch_structures import BatchStructures
 from datahub.transforms.bonds import GetAF3TokenBondFeatures
+from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.diffusion.edm import SampleEDMNoise
@@ -209,6 +211,8 @@ def build_af3_transform_pipeline(
             n_msa=n_msa,
         ),
         AggregateFeaturesLikeAF3(),
+        BatchStructures(batch_size=diffusion_batch_size), 
+        CenterRandomAugmentation(batch_size=diffusion_batch_size),
         SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),
         # ... remove all non-feature keys (to make compatible wit generic batch_collate, which only allows tensors, numpy arrays, str, etc.)
         SubsetToKeys(["example_id", "feats", "t", "noise", "ground_truth"]),
