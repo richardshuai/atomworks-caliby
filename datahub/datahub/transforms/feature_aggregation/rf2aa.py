@@ -247,16 +247,14 @@ class AggregateFeaturesLikeRF2AA(Transform):
         # +------------------------------------------------------------------------+
 
         # NOTE: `idx` values for non-polymers hold no semantic value and are unused by the network
-        #data_outputs["idx_pdb"] = torch.from_numpy(
+        # data_outputs["idx_pdb"] = torch.from_numpy(
         #    token_wise_atom_array.res_id.astype(np.int64)
-        #)  # [n_tokens_across_chains] (int)
-        delta=(token_wise_atom_array.res_id[1:]-token_wise_atom_array.res_id[:-1])
-        delta[delta<=0]=0
-        delta += 100*(token_wise_atom_array.chain_id[1:]!=token_wise_atom_array.chain_id[:-1])
+        # )  # [n_tokens_across_chains] (int)
+        delta = token_wise_atom_array.res_id[1:] - token_wise_atom_array.res_id[:-1]
+        delta[delta <= 0] = 0
+        delta += 100 * (token_wise_atom_array.chain_id[1:] != token_wise_atom_array.chain_id[:-1])
         data_outputs["idx_pdb"] = torch.from_numpy(
-            np.cumsum(
-                np.concatenate([token_wise_atom_array.res_id[0:1],delta],axis=0),axis=0
-            ).astype(np.int64)
+            np.cumsum(np.concatenate([token_wise_atom_array.res_id[0:1], delta], axis=0), axis=0).astype(np.int64)
         )
 
         # +------------------------------------------------------------------------+

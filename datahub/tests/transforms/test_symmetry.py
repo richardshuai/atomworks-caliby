@@ -5,14 +5,13 @@ from biotite.structure import AtomArray
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
-    RemoveHydrogens,
-    RemoveTerminalOxygen,
     SortLikeRF2AA,
 )
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Compose
 from datahub.transforms.crop import CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAtomArray
+from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
 from datahub.transforms.openbabel_utils import AddOpenBabelMoleculesForAtomizedMolecules
 from datahub.transforms.symmetry import (
     CreateSymmetryCopyAxisLikeRF2AA,

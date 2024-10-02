@@ -3,10 +3,11 @@ import pytest
 from rdkit import Chem
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, HandleUndesiredResTokens, RemoveHydrogens
+from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Compose
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from datahub.transforms.filters import HandleUndesiredResTokens, RemoveHydrogens
 from datahub.transforms.rdkit_utils import (
     AddRDKitMoleculesForAtomizedMolecules,
     GenerateRDKitConformers,

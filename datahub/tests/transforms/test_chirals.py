@@ -8,12 +8,13 @@ from openbabel import openbabel, pybel
 
 from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, RemoveHydrogens
+from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Compose
 from datahub.transforms.chirals import AddRF2AAChiralFeatures, get_dih, get_rf2aa_chiral_features
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropSpatialLikeAF3
+from datahub.transforms.filters import RemoveHydrogens
 from datahub.transforms.openbabel_utils import (
     AddOpenBabelMoleculesForAtomizedMolecules,
     GetChiralCentersFromOpenBabel,

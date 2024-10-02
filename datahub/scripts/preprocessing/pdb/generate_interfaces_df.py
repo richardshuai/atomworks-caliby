@@ -126,6 +126,8 @@ def process_pdb_id_group(group: pd.DataFrame) -> list[dict]:
                 "pn_unit_2_is_multiresidue": pn_unit_2_data["q_pn_unit_is_multiresidue"],
                 "pn_unit_1_sequence_length": pn_unit_1_data["q_pn_unit_sequence_length"],
                 "pn_unit_2_sequence_length": pn_unit_2_data["q_pn_unit_sequence_length"],
+                "pn_unit_1_num_resolved_residues": pn_unit_1_data["q_pn_unit_num_resolved_residues"],
+                "on_unit_2_num_resolved_residues": pn_unit_2_data["q_pn_unit_num_resolved_residues"],
 
                 # ...partners
                 # (Must meet minimum number of sub-5A contacts to be considered a partner)
@@ -187,7 +189,7 @@ def generate_interfaces_df(df: pd.DataFrame) -> pd.DataFrame:
     entries_by_pdb_id_and_assembly_id = [group for _, group in df.groupby(["pdb_id", "assembly_id"])]
     num_workers = min(cpu_count(), 14)  # Adjust based on your system
     chunksize = min(
-        100, max(1, len(entries_by_pdb_id_and_assembly_id) // num_workers), len(entries_by_pdb_id_and_assembly_id)
+        2000, max(1, len(entries_by_pdb_id_and_assembly_id) // num_workers), len(entries_by_pdb_id_and_assembly_id)
     )
 
     logger.info(f"Generating interfaces dataframe using {num_workers} workers...")

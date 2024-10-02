@@ -11,8 +11,8 @@ from cifutils.enums import ChainType
 from tqdm import tqdm
 
 from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata_row
-from datahub.transforms.atom_array import RemoveHydrogens, RemoveUnsupportedChainTypes
 from datahub.transforms.base import Compose
+from datahub.transforms.filters import RemoveHydrogens, RemoveUnsupportedChainTypes
 from datahub.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
     RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,

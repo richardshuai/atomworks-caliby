@@ -11,11 +11,11 @@ from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_fro
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
-    RemoveHydrogens,
 )
 from datahub.transforms.atomize import AtomizeResidues
 from datahub.transforms.base import Compose, ConvertToTorch
 from datahub.transforms.encoding import EncodeAtomArray
+from datahub.transforms.filters import RemoveHydrogens
 from datahub.transforms.msa._msa_featurizing_utils import (
     assign_extra_rows_to_cluster_representatives,
     build_indices_should_be_counted_masks,

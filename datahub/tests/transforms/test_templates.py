@@ -5,12 +5,10 @@ from datahub.encoding_definitions import RF2_ATOM36_ENCODING, RF2AA_ATOM36_ENCOD
 from datahub.transforms.atom_array import (
     AddGlobalTokenIdAnnotation,
     AddWithinPolyResIdxAnnotation,
-    FilterToProteins,
-    RemoveHydrogens,
-    RemoveTerminalOxygen,
 )
 from datahub.transforms.base import Compose
 from datahub.transforms.encoding import EncodeAtomArray, TokenEncoding
+from datahub.transforms.filters import FilterToProteins, RemoveHydrogens, RemoveTerminalOxygen
 from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeRF2AA, RF2AATemplate
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from tests.conftest import cached_parse

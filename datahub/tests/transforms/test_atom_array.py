@@ -2,16 +2,12 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.transforms.atom_array import (
     AddGlobalTokenIdAnnotation,
     AddMoleculeSymmetricIdAnnotation,
     AddProteinTerminiAnnotation,
     AddWithinPolyResIdxAnnotation,
     ComputeAtomToTokenMap,
-    RemoveHydrogens,
-    RemoveTerminalOxygen,
-    RemoveUnresolvedPNUnits,
     RenumberNonPolymerResidueIdx,
     chain_instance_iter,
     sort_poly_then_non_poly,
@@ -19,74 +15,8 @@ from datahub.transforms.atom_array import (
 from datahub.transforms.base import Compose
 from datahub.transforms.msa._msa_constants import THREE_LETTER_TO_MSA_INTEGER
 from datahub.transforms.msa.msa import LoadPolymerMSAs
-from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS, cached_parse
+from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, cached_parse
 from tests.transforms.msa.test_pair_and_merge_polymer_msas import MSA_PAIRING_PIPELINE_TEST_CASES
-
-
-@pytest.mark.parametrize("example_id", ["{['pdb', 'pn_units']}{4gqa}{2}{['C_3']}"])
-def test_remove_unresolved_pn_units(example_id):
-    row = PN_UNITS_DF[PN_UNITS_DF["example_id"] == example_id].iloc[0]
-    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
-
-    # Artificially set the occupancy for all atoms in chain_iid "G_1" to 0
-    data["atom_array"].occupancy[data["atom_array"].chain_iid == "G_1"] = 0
-
-    pipeline = Compose(
-        [
-            RemoveUnresolvedPNUnits(),
-        ],
-        track_rng_state=False,
-    )
-    output = pipeline(data)
-
-    # Assert that the atom array has no unresolved PN units
-    pn_unit_iids = np.unique(output["atom_array"].pn_unit_iid)
-    resolved_mask = output["atom_array"].occupancy != 0
-    resolved_pn_unit_iids = np.unique(output["atom_array"].pn_unit_iid[resolved_mask])
-
-    assert set(pn_unit_iids) == set(resolved_pn_unit_iids)
-
-
-def test_remove_hydrogens_original_pdb():
-    atom_array = struc.info.residue("ILE")
-    assert "H" in atom_array.element
-
-    data = {"atom_array": atom_array}
-
-    transform = RemoveHydrogens()
-    data = transform(data)
-
-    atom_array_new = data["atom_array"]
-    assert "H" not in atom_array_new.element
-    assert len(atom_array_new) == len(atom_array[atom_array.element != "H"])
-
-
-@pytest.mark.parametrize("pdb_id", ["5ocm", "1b4y", "1tqn"])
-def test_remove_hydrogens_parsed_pdb(pdb_id: str):
-    data = cached_parse(pdb_id, keep_hydrogens=True)
-    atom_array = data["atom_array"]
-    assert "1" in atom_array.element
-
-    transform = RemoveHydrogens()
-    data = transform(data)
-
-    atom_array_new = data["atom_array"]
-    assert "1" not in atom_array_new.element
-    assert len(atom_array_new) == len(atom_array[atom_array.element != "1"])
-
-
-def test_remove_terminal_oxygen():
-    atom_array = struc.info.residue("ILE")
-    assert "OXT" in atom_array.atom_name
-
-    data = {"atom_array": atom_array}
-
-    transform = RemoveTerminalOxygen()
-    data = transform(data)
-
-    atom_array_new = data["atom_array"]
-    assert "OXT" not in atom_array_new.atom_name
-    assert len(atom_array_new) == len(atom_array) - 1
 
 
 @pytest.mark.parametrize("pdb_id", ["5ocm", "6lyz"])

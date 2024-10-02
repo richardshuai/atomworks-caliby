@@ -16,14 +16,14 @@ from cifutils.parser import CIFParser
 from tqdm import tqdm
 
 from datahub.common import exists
-from datahub.transforms.atom_array import (
+from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
+from datahub.transforms.base import Compose
+from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from datahub.transforms.filters import (
     HandleUndesiredResTokens,
     RemoveHydrogens,
     RemoveUnresolvedPNUnits,
 )
-from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
-from datahub.transforms.base import Compose
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.utils.token import get_token_starts
 from tests.conftest import get_digs_path
 

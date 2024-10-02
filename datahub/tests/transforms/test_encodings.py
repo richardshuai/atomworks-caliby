@@ -11,14 +11,14 @@ from datahub.encoding_definitions import (
     RF2AA_ATOM36_ENCODING,
     TokenEncoding,
 )
-from datahub.transforms.atom_array import (
+from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.base import Compose, Identity
+from datahub.transforms.encoding import AddTokenAnnotation, EncodeAtomArray, get_token_count
+from datahub.transforms.filters import (
     FilterToProteins,
     RemoveHydrogens,
     RemoveTerminalOxygen,
 )
-from datahub.transforms.atomize import AtomizeResidues
-from datahub.transforms.base import Compose, Identity
-from datahub.transforms.encoding import AddTokenAnnotation, EncodeAtomArray, get_token_count
 from tests.conftest import cached_parse
 
 

@@ -15,10 +15,6 @@ from datahub.transforms.atom_array import (
     AddWithinChainInstanceResIdx,
     AddWithinPolyResIdxAnnotation,
     ComputeAtomToTokenMap,
-    HandleUndesiredResTokens,
-    RemoveHydrogens,
-    RemoveTerminalOxygen,
-    RemoveUnresolvedPNUnits,
 )
 from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
@@ -27,6 +23,12 @@ from datahub.transforms.covalent_modifications import FlagAndReassignCovalentMod
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
 from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
+from datahub.transforms.filters import (
+    HandleUndesiredResTokens,
+    RemoveHydrogens,
+    RemoveTerminalOxygen,
+    RemoveUnresolvedPNUnits,
+)
 from datahub.transforms.msa.msa import (
     EncodeMSA,
     FeaturizeMSALikeAF3,

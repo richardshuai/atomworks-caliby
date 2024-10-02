@@ -11,8 +11,6 @@ from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFPars
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
-    RemoveHydrogens,
-    RemoveTerminalOxygen,
     atom_id_to_token_idx,
 )
 from datahub.transforms.atomize import AtomizeResidues
@@ -22,6 +20,7 @@ from datahub.transforms.crop import (
     CropContiguousLikeAF3,
     CropSpatialLikeAF3,
 )
+from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.token import apply_and_spread_token_wise, get_token_count, get_token_starts
 from tests.conftest import CIF_PARSER
