@@ -5,6 +5,7 @@ from datahub.transforms.base import Transform
 
 
 def sample_t_edm(sigma_data, diffusion_batch_size):
+    # Reference for h-params: NVIDIA EDM Paper (https://arxiv.org/pdf/2206.00364)
     t = sigma_data * torch.exp(-1.2 + 1.5 * torch.normal(mean=0, std=1, size=(diffusion_batch_size,)))
     return t
 
