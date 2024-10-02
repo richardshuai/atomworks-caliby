@@ -1,7 +1,7 @@
-import pytest
 import numpy as np
 
 from cifutils.utils.sequence_utils import is_pyramidine, is_purine, is_unknown_nucleotide
+
 
 def test_is_pyramidine():
     sequence = [
@@ -11,14 +11,14 @@ def test_is_pyramidine():
         "VAL",
         "ALA",
         "DA",
-        "DC", 
+        "DC",
         "DG",
-        "DT", 
+        "DT",
         "UNK",
         "A",
-        "C", 
+        "C",
         "G",
-        "U", 
+        "U",
         "DX",
         "X",
     ]
@@ -43,23 +43,23 @@ def test_is_pyramidine():
     ]
     assert (is_pyramidine(sequence) == np.array(expected)).all()
 
+
 def test_is_purine():
-    
     sequence = [
         "MET",
         "LEU",
         "GLY",
         "VAL",
         "ALA",
-        "DA", 
-        "DC", 
+        "DA",
+        "DC",
         "DG",
-        "DT", 
+        "DT",
         "UNK",
-        "A", 
-        "C", 
-        "G", 
-        "U", 
+        "A",
+        "C",
+        "G",
+        "U",
         "DX",
         "X",
     ]
@@ -84,6 +84,7 @@ def test_is_purine():
     ]
     assert (is_purine(sequence) == np.array(expected)).all()
 
+
 def test_is_unknown_nucleotide():
     sequence = [
         "MET",
@@ -91,15 +92,15 @@ def test_is_unknown_nucleotide():
         "GLY",
         "VAL",
         "ALA",
-        "DA", 
-        "DC", 
+        "DA",
+        "DC",
         "DG",
-        "DT", 
+        "DT",
         "UNK",
-        "A", 
-        "C", 
-        "G", 
-        "U", 
+        "A",
+        "C",
+        "G",
+        "U",
         "DX",
         "X",
     ]
@@ -124,4 +125,3 @@ def test_is_unknown_nucleotide():
     ]
 
     assert (is_unknown_nucleotide(sequence) == np.array(expected)).all()
-
