@@ -96,6 +96,7 @@ def apply_rigid(
     rots, trans = rigid
     return einsum(rots, points, "... i j, ... j -> ... i") + trans
 
+
 def apply_batched_rigid(
     rigid: tuple[torch.Tensor, torch.Tensor],
     points: torch.Tensor,
@@ -120,6 +121,7 @@ def apply_batched_rigid(
     assert trans.shape == (batch, 3), "translation dimension must match the points dimension"
     trans = trans.unsqueeze(1).expand(-1, length, -1)
     return einsum(rots, points, "b i j, b l j -> b l i") + trans
+
 
 def invert_rigid(rigid: tuple[torch.Tensor, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor]:
     """

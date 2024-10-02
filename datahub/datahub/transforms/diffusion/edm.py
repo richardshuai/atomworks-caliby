@@ -16,7 +16,6 @@ def sample_noise_edm(t, num_atoms):
 
 
 class SampleEDMNoise(Transform):
-
     requires_previous_transforms = ["BatchStructures"]
 
     def __init__(self, sigma_data, diffusion_batch_size, **kwargs):
@@ -27,7 +26,9 @@ class SampleEDMNoise(Transform):
     def check_input(self, data):
         check_contains_keys(data, ["ground_truth"])
         check_contains_keys(data["ground_truth"], ["coord_atom_lvl"])
-        assert data["ground_truth"]["coord_atom_lvl"].shape[0] == self.diffusion_batch_size, "must batch coordinates before applying this transform"
+        assert (
+            data["ground_truth"]["coord_atom_lvl"].shape[0] == self.diffusion_batch_size
+        ), "must batch coordinates before applying this transform"
 
     def forward(self, data):
         t = sample_t_edm(self.sigma_data, self.diffusion_batch_size)

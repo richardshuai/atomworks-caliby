@@ -211,7 +211,7 @@ def build_af3_transform_pipeline(
             n_msa=n_msa,
         ),
         AggregateFeaturesLikeAF3(),
-        BatchStructures(batch_size=diffusion_batch_size), 
+        BatchStructures(batch_size=diffusion_batch_size),
         CenterRandomAugmentation(batch_size=diffusion_batch_size),
         SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),
         # ... remove all non-feature keys (to make compatible wit generic batch_collate, which only allows tensors, numpy arrays, str, etc.)

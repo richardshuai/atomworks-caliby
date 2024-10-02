@@ -1,7 +1,9 @@
+import pytest
 import torch
 
-import pytest
-from datahub.transforms.center_random_augmentation import center, random_augmentation
+from datahub.transforms.base import Compose
+from datahub.transforms.batch_structures import BatchStructures
+from datahub.transforms.center_random_augmentation import CenterRandomAugmentation, center, random_augmentation
 
 
 def test_center():
@@ -12,6 +14,7 @@ def test_center():
 
     coord_atom_lvl_center = center(coord_atom_lvl, mask_atom_lvl)
     assert torch.allclose(coord_atom_lvl_center[mask_atom_lvl].mean(0), torch.zeros(3), atol=1e-6, rtol=1e-6)
+
 
 def test_random_augmentation():
     torch.manual_seed(0)
@@ -25,22 +28,27 @@ def test_random_augmentation():
     assert not torch.allclose(coord_atom_lvl, coord_atom_lvl_augmented)
     # FUTURE: test with kabsch algorithm to align the augmented structure to the original one
 
-def test_center_random_augmentation():
+
+@pytest.mark.parametrize("batch_size", [1, 2])
+def test_center_random_augmentation(batch_size):
     torch.manual_seed(0)
 
-    coord_atom_lvl = torch.randn(1, 10, 3)
-    mask_atom_lvl = torch.tensor([0, 1, 1, 1, 1, 1, 1, 1, 1, 1])[None].bool()
-    batch_size = 1
+    coord_atom_lvl = torch.randn(10, 3)
+    mask_atom_lvl = torch.tensor([0, 1, 1, 1, 1, 1, 1, 1, 1, 1]).bool()
+    atom_array = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-    from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
+    pipe = Compose([BatchStructures(batch_size=batch_size), CenterRandomAugmentation(batch_size)])
+    data = {
+        "ground_truth": {"coord_atom_lvl": coord_atom_lvl, "mask_atom_lvl": mask_atom_lvl},
+        "atom_array": atom_array,
+    }
 
-    transform = CenterRandomAugmentation(batch_size)
-    data = {"ground_truth": {"coord_atom_lvl": coord_atom_lvl, "mask_atom_lvl": mask_atom_lvl}}
-
-    data = transform(data)
-
+    data = pipe(data)
+    mask_atom_lvl = data["ground_truth"]["mask_atom_lvl"]
     assert data["ground_truth"]["coord_atom_lvl"].shape == (batch_size, 10, 3)
     # make sure the structure was translated
-    assert not torch.allclose(data["ground_truth"]["coord_atom_lvl"][mask_atom_lvl].mean(0), torch.zeros(3), atol=1e-6, rtol=1e-6)
+    assert not torch.allclose(
+        data["ground_truth"]["coord_atom_lvl"][mask_atom_lvl].mean(0), torch.zeros(3), atol=1e-6, rtol=1e-6
+    )
     # make sure the structure was rotated
     assert not torch.allclose(coord_atom_lvl, data["ground_truth"]["coord_atom_lvl"], atol=1e-6, rtol=1e-6)
