@@ -23,6 +23,7 @@ def test_random_augmentation():
 
     assert coord_atom_lvl_augmented.shape == (batch_size, 10, 3)
     assert not torch.allclose(coord_atom_lvl, coord_atom_lvl_augmented)
+    # FUTURE: test with kabsch algorithm to align the augmented structure to the original one
 
 def test_center_random_augmentation():
     torch.manual_seed(0)
