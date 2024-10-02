@@ -24,6 +24,7 @@ class CenterRandomAugmentation(Transform):
     """
     Centers coordinates and then randomly rotates and translates the input coordinates.
     """
+    requires_previous_transforms = ["BatchStructures"]
     def __init__(self, batch_size, **kwargs):
         super().__init__(**kwargs)
         self.batch_size = batch_size

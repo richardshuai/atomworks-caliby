@@ -16,6 +16,9 @@ def sample_noise_edm(t, num_atoms):
 
 
 class SampleEDMNoise(Transform):
+
+    requires_previous_transforms = ["BatchStructures"]
+
     def __init__(self, sigma_data, diffusion_batch_size, **kwargs):
         super().__init__(**kwargs)
         self.sigma_data = sigma_data
