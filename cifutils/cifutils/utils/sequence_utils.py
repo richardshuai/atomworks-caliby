@@ -119,7 +119,7 @@ def get_3_from_1_letter_code(
         return unknown_protein_three_letter
 
 
-def is_pyramidine(res_names: list | np.array) -> np.array:
+def is_pyramidine(res_names: list | np.ndarray) -> np.ndarray:
     """
     Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a pyramidine.
     """
@@ -131,7 +131,7 @@ def is_pyramidine(res_names: list | np.array) -> np.array:
     return apply(np.asarray(res_names))
 
 
-def is_purine(res_names: list | np.array) -> np.array:
+def is_purine(res_names: list | np.ndarray) -> np.ndarray:
     """
     Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a purine.
     """
@@ -143,7 +143,7 @@ def is_purine(res_names: list | np.array) -> np.array:
     return apply(np.asarray(res_names))
 
 
-def is_unknown_nucleotide(res_names: list | np.array) -> np.array:
+def is_unknown_nucleotide(res_names: list | np.ndarray) -> np.ndarray:
     """
     Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is an unknown nucleotide.
     """
