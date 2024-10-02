@@ -4,7 +4,7 @@ from datahub.transforms.base import Transform
 
 class BatchStructures(Transform):
     """
-    Tiles the input structures to match the batch size.
+    Tiles the input structures to match the diffusion batch size. In AF-3, we first batch input structures (broadcast the ground truth down the batch dimension), and then perform data augmentations such as differentially noising and rotating each structure.
     """
 
     def __init__(self, batch_size, **kwargs):
