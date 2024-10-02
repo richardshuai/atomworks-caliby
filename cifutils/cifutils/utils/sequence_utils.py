@@ -5,6 +5,8 @@ __all__ = [
     "get_3_from_1_letter_code",
 ]
 
+import numpy as np
+
 from cifutils.utils.io_utils import logger
 from cifutils.enums import ChainType
 from Bio.Data.PDBData import (
@@ -115,3 +117,32 @@ def get_3_from_1_letter_code(
     else:
         logger.error(f"Unsupported chain type: {chain_type}, returning unknown protein residue (i.e., UNK).")
         return unknown_protein_three_letter
+
+
+def is_pyramidine(res_names: list) -> np.array:
+    """
+    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a pyramidine.
+    """
+    def is_pyramidine_residue(res_name: str) -> bool:
+        return res_name in ["C", "U", "DC", "DT"]
+    apply = np.vectorize(is_pyramidine_residue)
+    return apply(np.array(res_names))
+
+
+def is_purine(res_names: list) -> np.array:
+    """
+    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a purine.
+    """
+    def is_purine_residue(res_name: str) -> bool:
+        return res_name in ["A", "G", "DA", "DG"]
+    apply = np.vectorize(is_purine_residue)
+    return apply(np.array(res_names))
+
+def is_unknown_nucleotide(res_names: list) -> np.array:
+    """
+    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is an unknown nucleotide.
+    """
+    def is_unknown_nucleotide_residue(res_name: str) -> bool:
+        return res_name in ["X", "DX"]
+    apply = np.vectorize(is_unknown_nucleotide_residue)
+    return apply(np.array(res_names))
