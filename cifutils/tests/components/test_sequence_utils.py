@@ -42,6 +42,7 @@ def test_is_pyramidine():
         False,
     ]
     assert (is_pyramidine(sequence) == np.array(expected)).all()
+    assert (is_purine(np.array(sequence)) == np.array(expected)).all()
 
 
 def test_is_purine():
@@ -83,6 +84,7 @@ def test_is_purine():
         False,
     ]
     assert (is_purine(sequence) == np.array(expected)).all()
+    assert (is_purine(np.array(sequence)) == np.array(expected)).all()
 
 
 def test_is_unknown_nucleotide():
@@ -125,3 +127,4 @@ def test_is_unknown_nucleotide():
     ]
 
     assert (is_unknown_nucleotide(sequence) == np.array(expected)).all()
+    assert (is_unknown_nucleotide(np.array(sequence)) == np.array(expected)).all()
