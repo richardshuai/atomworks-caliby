@@ -26,7 +26,7 @@ def test_edm_t_sampling():
     with open(SAVED_RESULT_PATH, "rb") as f:
         expected_t = pickle.load(f)
     assert torch.allclose(
-        t, 
+        t,
         expected_t,
         atol=1e-4,
         rtol=1e-4,
@@ -53,7 +53,7 @@ def test_edm_noise_sampling():
     with open(SAVED_RESULT_PATH, "rb") as f:
         expected_noise = pickle.load(f)
     assert torch.allclose(
-        noise, 
+        noise,
         expected_noise,
         atol=1e-4,
         rtol=1e-4,

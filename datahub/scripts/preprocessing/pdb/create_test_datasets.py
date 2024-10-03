@@ -44,7 +44,7 @@ PDB_IDS_TO_INCLUDE_IN_TEST_DATASETS = [
     "3SJM", "4I7Z", "4OLB", "4RES", "6BGN", "6VET", "6ZSJ", "5RX1", "7D9H", 
     "5S4P", "4GQA", "7AH0", "4U4H", "2PNO", "1PFI", 
     "1S2K", # Polymer with < 4 resolved residues
-    "6Z3R", # Unresolved backbone coordinates (and thus cannot built backbone frame)
+    "6Z3R", # Causes NaN's to enter the network
 ]
 # fmt: on
 

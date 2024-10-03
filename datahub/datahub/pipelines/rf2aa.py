@@ -14,6 +14,7 @@ from datahub.transforms.atom_array import (
     AddGlobalTokenIdAnnotation,
     AddProteinTerminiAnnotation,
     AddWithinPolyResIdxAnnotation,
+    MaskResiduesWithUnresolvedBackboneAtoms,
     SortLikeRF2AA,
 )
 from datahub.transforms.atom_frames import AddAtomFrames
@@ -32,10 +33,10 @@ from datahub.transforms.feature_aggregation.rf2aa import AggregateFeaturesLikeRF
 from datahub.transforms.filters import (
     HandleUndesiredResTokens,
     RemoveHydrogens,
+    RemovePolymersWithTooFewResolvedResidues,
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
     RemoveUnsupportedChainTypes,
-    RemovePolymersWithTooFewResolvedResidues,
 )
 from datahub.transforms.msa.msa import (
     EncodeMSA,
@@ -275,6 +276,7 @@ def build_rf2aa_transform_pipeline(
         RemoveTerminalOxygen(),  # RF2AA does not encode terminal oxygen for AA residues.
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
         RemovePolymersWithTooFewResolvedResidues(min_residues=4),  # Remove polymers with too few resolved residues
+        MaskResiduesWithUnresolvedBackboneAtoms(),
         # ...remove unsupported chain types
         RemoveUnsupportedChainTypes(),  # e.g., DNA_RNA_HYBRID, POLYPEPTIDE_D, etc.
         # RaiseIfTooManyAtoms(max_atoms=max_allowed_num_atoms),

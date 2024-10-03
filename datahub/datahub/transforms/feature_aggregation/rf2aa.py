@@ -385,5 +385,10 @@ class AggregateFeaturesLikeRF2AA(Transform):
             }
         )
 
+        # `nan_to_num` for the xyz_t, xyz_prev, and xyz features
+        data_outputs["xyz_t"] = torch.nan_to_num(data_outputs["xyz_t"])
+        data_outputs["xyz_prev"] = torch.nan_to_num(data_outputs["xyz_prev"])
+        data_outputs["xyz"] = torch.nan_to_num(data_outputs["xyz"])
+
         data["feats"] = data_outputs
         return data

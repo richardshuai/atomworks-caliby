@@ -25,6 +25,7 @@ from datahub.transforms._checks import check_atom_array_annotation, check_contai
 from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
     chain_instance_iter,
+    mask_residues_with_unresolved_backbone_atoms,
 )
 from datahub.transforms.base import Transform
 from datahub.transforms.encoding import atom_array_from_encoding, atom_array_to_encoding
@@ -191,6 +192,9 @@ class RF2AATemplate:
         # ... append custom annotation for alignment confidence
         alignment_confidence = self.f1d[0, template_res_idxs, 2]
         atom_array.set_annotation("alignment_confidence", struc.spread_residue_wise(atom_array, alignment_confidence))
+
+        # ...mask residues with unresolved backbone atoms
+        atom_array = mask_residues_with_unresolved_backbone_atoms(atom_array)
 
         return atom_array
 

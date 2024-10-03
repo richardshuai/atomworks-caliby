@@ -1,4 +1,3 @@
-
 from datahub.transforms._checks import check_contains_keys
 from datahub.transforms.base import Transform
 from datahub.utils.geometry import apply_batched_rigid, get_random_rigid

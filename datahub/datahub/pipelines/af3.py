@@ -15,6 +15,7 @@ from datahub.transforms.atom_array import (
     AddWithinChainInstanceResIdx,
     AddWithinPolyResIdxAnnotation,
     ComputeAtomToTokenMap,
+    MaskResiduesWithUnresolvedBackboneAtoms,
 )
 from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
@@ -29,9 +30,9 @@ from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
 from datahub.transforms.filters import (
     HandleUndesiredResTokens,
     RemoveHydrogens,
+    RemovePolymersWithTooFewResolvedResidues,
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
-    RemovePolymersWithTooFewResolvedResidues,
 )
 from datahub.transforms.msa.msa import (
     EncodeMSA,
@@ -126,6 +127,7 @@ def build_af3_transform_pipeline(
         RemoveTerminalOxygen(),
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
         RemovePolymersWithTooFewResolvedResidues(min_residues=4),  # Remove polymers with too few resolved residues
+        MaskResiduesWithUnresolvedBackboneAtoms(),
         HandleUndesiredResTokens(undesired_res_names),  # e.g., non-standard residues
         FlagAndReassignCovalentModifications(),
         FlagNonPolymersForAtomization(),
