@@ -119,13 +119,19 @@ def get_3_from_1_letter_code(
         return unknown_protein_three_letter
 
 
+PYRAMIDINE_RESIDUES = ["C", "U", "DC", "DT"]
+PURINE_RESIDUES = ["A", "G", "DA", "DG"]
+UNKNOWN_NUCLEOTIDE_RESIDUES = ["X", "DX"]
+PROTEIN_RESIDUES = list(protein_letters_3to1.keys())
+
+
 def is_pyramidine(res_names: list | np.ndarray) -> np.ndarray:
     """
     Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a pyramidine.
     """
 
     def is_pyramidine_residue(res_name: str) -> bool:
-        return res_name in ["C", "U", "DC", "DT"]
+        return res_name in PYRAMIDINE_RESIDUES
 
     apply = np.vectorize(is_pyramidine_residue)
     return apply(np.asarray(res_names))
@@ -137,7 +143,7 @@ def is_purine(res_names: list | np.ndarray) -> np.ndarray:
     """
 
     def is_purine_residue(res_name: str) -> bool:
-        return res_name in ["A", "G", "DA", "DG"]
+        return res_name in PURINE_RESIDUES
 
     apply = np.vectorize(is_purine_residue)
     return apply(np.asarray(res_names))
@@ -149,7 +155,7 @@ def is_unknown_nucleotide(res_names: list | np.ndarray) -> np.ndarray:
     """
 
     def is_unknown_nucleotide_residue(res_name: str) -> bool:
-        return res_name in ["X", "DX"]
+        return res_name in UNKNOWN_NUCLEOTIDE_RESIDUES
 
     apply = np.vectorize(is_unknown_nucleotide_residue)
     return apply(np.asarray(res_names))
@@ -161,7 +167,7 @@ def is_protein(res_names: list | np.ndarray) -> np.ndarray:
     """
 
     def is_protein_residue(res_name: str) -> bool:
-        return res_name in protein_letters_3to1
+        return res_name in PROTEIN_RESIDUES
 
     apply = np.vectorize(is_protein_residue)
     return apply(np.asarray(res_names))
@@ -185,7 +191,7 @@ def is_protein_not_glycine(res_names: list | np.ndarray) -> np.ndarray:
     """
 
     def is_protein_not_glycine_residue(res_name: str) -> bool:
-        return res_name in protein_letters_3to1 and res_name != "GLY"
+        return res_name in PROTEIN_RESIDUES and res_name != "GLY"
 
     apply = np.vectorize(is_protein_not_glycine_residue)
     return apply(np.asarray(res_names))
