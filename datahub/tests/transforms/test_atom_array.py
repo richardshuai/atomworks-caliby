@@ -10,6 +10,7 @@ from datahub.transforms.atom_array import (
     ComputeAtomToTokenMap,
     RenumberNonPolymerResidueIdx,
     chain_instance_iter,
+    mask_residues_with_unresolved_backbone_atoms,
     sort_poly_then_non_poly,
 )
 from datahub.transforms.base import Compose
@@ -233,6 +234,27 @@ def test_compute_atom_to_token_map(pdb_id):
 
     # sequence to token map contains which token every atom came from
     assert n_atoms == result["feats"]["atom_to_token_map"].shape[0]
+
+
+def test_mask_residues_with_unresolved_backbone_atoms():
+    data = cached_parse("6wtf")
+    atom_array = data["atom_array"]
+
+    # ...manually set the occupancy of a CA atom to zero
+    resolved_ca_atoms = (atom_array.atom_name == "CA") & (atom_array.occupancy > 0)
+
+    # ...set the first CA atom to zero occupancy
+    atom_array.occupancy[resolved_ca_atoms] = np.array([0.0] + [1.0] * (np.sum(resolved_ca_atoms) - 1))
+    changed_atom = atom_array[resolved_ca_atoms][0]
+
+    # ...apply the transform
+    atom_array = mask_residues_with_unresolved_backbone_atoms(atom_array)
+
+    # ...assert that the manually set CA atom's residue is masked
+    changed_residue = atom_array[
+        (atom_array.chain_id == changed_atom.chain_id) & (atom_array.res_id == changed_atom.res_id)
+    ]
+    assert np.all(changed_residue.occupancy == 0)
 
 
 if __name__ == "__main__":

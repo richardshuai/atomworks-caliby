@@ -664,3 +664,47 @@ class ComputeAtomToTokenMap(Transform):
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         data["feats"]["atom_to_token_map"] = compute_atom_to_token_map(data["atom_array"])
         return data
+
+
+def mask_residues_with_unresolved_backbone_atoms(atom_array: AtomArray) -> AtomArray:
+    """If a polymer residue has an unresolved backbone atom (occupancy < 1), set the occupancy of the entire residue to zero."""
+    backbone_atom_names = ["N", "CA", "C"]
+
+    # ...subset to backbone atoms within polymers with unresolved coordinates
+    unresolved_polymer_backbone_mask = (
+        atom_array.is_polymer & np.isin(atom_array.atom_name, backbone_atom_names) & (atom_array.occupancy < 1)
+    )
+
+    # ...get the residue-wise mask for unresolved backbone atoms
+    unresolved_backbone_res_mask = apply_and_spread_residue_wise(
+        atom_array, unresolved_polymer_backbone_mask, function=np.any
+    )
+
+    # ...mask the occupancy of the entire residue
+    atom_array.occupancy[unresolved_backbone_res_mask] = 0
+
+    return atom_array
+
+
+class MaskResiduesWithUnresolvedBackboneAtoms(Transform):
+    """
+    For residues with at least one unresolved backbone atom, mask (set to occupancy zero) the entire residue.
+    If we don't have backbone atoms, then:
+        - We cannot build backbone frames.
+        - The local structure quality is likely poor.
+
+    As an example, see PDB ID `6Z3R`, which has unresolved C and CA atoms.
+
+    NOTE: This transform must be applied before other transform that rely on the `occupancy` annotation.
+    """
+
+    incompatible_previous_transforms = ["EncodeAtomArray", "CropContiguousLikeAF3", "CropSpatialLikeAF3"]
+
+    def check_input(self, data: dict[str, Any]) -> None:
+        check_contains_keys(data, ["atom_array"])
+        check_is_instance(data, "atom_array", AtomArray)
+        check_atom_array_annotation(data, ["occupancy"])
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        data["atom_array"] = mask_residues_with_unresolved_backbone_atoms(data["atom_array"])
+        return data
