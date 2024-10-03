@@ -154,6 +154,7 @@ def is_unknown_nucleotide(res_names: list | np.ndarray) -> np.ndarray:
     apply = np.vectorize(is_unknown_nucleotide_residue)
     return apply(np.asarray(res_names))
 
+
 def is_protein(res_names: list | np.ndarray) -> np.ndarray:
     """
     Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a protein residue.
@@ -164,6 +165,7 @@ def is_protein(res_names: list | np.ndarray) -> np.ndarray:
 
     apply = np.vectorize(is_protein_residue)
     return apply(np.asarray(res_names))
+
 
 def is_glycine(res_names: list | np.ndarray) -> np.ndarray:
     """
@@ -176,6 +178,7 @@ def is_glycine(res_names: list | np.ndarray) -> np.ndarray:
     apply = np.vectorize(is_glycine_residue)
     return apply(np.asarray(res_names))
 
+
 def is_protein_not_glycine(res_names: list | np.ndarray) -> np.ndarray:
     """
     Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a protein residue that is not glycine.
@@ -186,6 +189,7 @@ def is_protein_not_glycine(res_names: list | np.ndarray) -> np.ndarray:
 
     apply = np.vectorize(is_protein_not_glycine_residue)
     return apply(np.asarray(res_names))
+
 
 def is_protein_unknown(res_names: list | np.ndarray) -> np.ndarray:
     """
