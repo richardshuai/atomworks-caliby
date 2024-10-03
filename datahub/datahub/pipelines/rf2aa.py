@@ -35,6 +35,7 @@ from datahub.transforms.filters import (
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
     RemoveUnsupportedChainTypes,
+    RemovePolymersWithTooFewResolvedResidues,
 )
 from datahub.transforms.msa.msa import (
     EncodeMSA,
@@ -273,6 +274,7 @@ def build_rf2aa_transform_pipeline(
         RemoveHydrogens(),  # * (already cached from the parser)
         RemoveTerminalOxygen(),  # RF2AA does not encode terminal oxygen for AA residues.
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
+        RemovePolymersWithTooFewResolvedResidues(min_residues=4),  # Remove polymers with too few resolved residues
         # ...remove unsupported chain types
         RemoveUnsupportedChainTypes(),  # e.g., DNA_RNA_HYBRID, POLYPEPTIDE_D, etc.
         # RaiseIfTooManyAtoms(max_atoms=max_allowed_num_atoms),

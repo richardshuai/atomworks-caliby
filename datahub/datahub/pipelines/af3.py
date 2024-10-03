@@ -31,6 +31,7 @@ from datahub.transforms.filters import (
     RemoveHydrogens,
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
+    RemovePolymersWithTooFewResolvedResidues,
 )
 from datahub.transforms.msa.msa import (
     EncodeMSA,
@@ -124,6 +125,7 @@ def build_af3_transform_pipeline(
         RemoveHydrogens(),
         RemoveTerminalOxygen(),
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
+        RemovePolymersWithTooFewResolvedResidues(min_residues=4),  # Remove polymers with too few resolved residues
         HandleUndesiredResTokens(undesired_res_names),  # e.g., non-standard residues
         FlagAndReassignCovalentModifications(),
         FlagNonPolymersForAtomization(),
