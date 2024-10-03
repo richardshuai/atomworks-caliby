@@ -184,6 +184,9 @@ class RF2AATemplate:
         # ... repeat chain id for each atom in the residue
         atom_array.chain_id = np.repeat(np.array(chain_id), n_atom)
 
+        # ... set the `is_polymer` annotation to True (all templates are polymers)
+        atom_array.set_annotation("is_polymer", np.full(n_atom, True))
+
         # ... append custom annotation for which residue in the query protein this template
         #  residue aligns to (indexing starts with 0 at query sequence start)
         aligned_query_res_idx = self.qmap[0, template_res_idxs, 0]
