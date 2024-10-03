@@ -248,14 +248,15 @@ def test_mask_residues_with_unresolved_backbone_atoms():
     changed_atom = atom_array[resolved_ca_atoms][0]
 
     # ...apply the transform
-    atom_array = mask_residues_with_unresolved_backbone_atoms(atom_array)
+    updated_atom_array = mask_residues_with_unresolved_backbone_atoms(atom_array)
 
     # ...assert that the manually set CA atom's residue is masked
-    changed_residue = atom_array[
-        (atom_array.chain_id == changed_atom.chain_id) & (atom_array.res_id == changed_atom.res_id)
-    ]
-    assert np.all(changed_residue.occupancy == 0)
+    changed_residue_mask = (updated_atom_array.chain_id == changed_atom.chain_id) & (updated_atom_array.res_id == changed_atom.res_id)
+    assert np.all(updated_atom_array.occupancy[changed_residue_mask] == 0)
 
+    # ...assert that the rest of the residues are unchanged
+    unchanged_residue_mask = ~changed_residue_mask
+    assert np.all(updated_atom_array.occupancy[unchanged_residue_mask] == atom_array.occupancy[unchanged_residue_mask])
 
 if __name__ == "__main__":
     pytest.main(["-v", "-x", "--log-cli-level=WARNING", __file__])
