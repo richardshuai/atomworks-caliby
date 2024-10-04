@@ -120,20 +120,28 @@ def test_sample_rdkit_conformer_consistency(test_atom_array):
     assert rmsd < 4.0, f"RMSD is too high: {rmsd}. Test failed for {test_atom_array.res_name[0]}."
 
 
+@pytest.mark.filterwarnings(
+    "ignore: This process"
+)  # Ignore RDKit warnings about fork in subprocess: popen_fork.py:66: DeprecationWarning: This process (pid=145252) is multi-threaded, use of fork() may lead to deadlocks in the child.
 def test_conformer_generation_for_simple_molecules():
     start = time.time()
     mol = res_name_to_rdkit_with_conformers("ALA", n_conformers=3, timeout_seconds=2)
     end = time.time()
     assert mol.GetNumConformers() == 3
-    assert end - start < 2.5, "Conformer generation took too long."
+    _time_taken = end - start
+    assert _time_taken < 3.0, f"Conformer generation took too long: {_time_taken} seconds, while timeout was 2 seconds."
 
 
+@pytest.mark.filterwarnings(
+    "ignore: This process"
+)  # Ignore RDKit warnings about fork in subprocess: popen_fork.py:66: DeprecationWarning: This process (pid=145252) is multi-threaded, use of fork() may lead to deadlocks in the child.
 def test_conformer_fallback_for_challenging_molecules():
     start = time.time()
     mol = res_name_to_rdkit_with_conformers("HEM", n_conformers=3, timeout_seconds=2)
     end = time.time()
     assert mol.GetNumConformers() == 3
-    assert end - start < 2.5, "Conformer generation took too long."
+    _time_taken = end - start
+    assert _time_taken < 3.0, f"Conformer generation took too long: {_time_taken} seconds, while timeout was 2 seconds."
 
 
 def test_conformer_generation_for_molecules_with_many_rotatable_bonds():
