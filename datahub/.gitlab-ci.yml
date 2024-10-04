@@ -3,7 +3,7 @@ stages:
   - test_fast
   - test_slow
   - post_merge
-  - build_apptainer
+#  - build_apptainer  # Deactivate until we have a use for it (will require adding access token secrets to the CI)
 
 lint-job:
   stage: lint
@@ -55,16 +55,17 @@ post-merge-job:
     - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
     - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_post_merge_tests.sh || exit 1
 
-build-apptainer-job:
-  stage: build_apptainer
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev"
-      changes:
-        - apptainer.spec
-        - environment.yaml
-      when: manual
-    - when: never
-  script:
-    - echo "Building Apptainer image"
-    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/build_apptainer.sh
-    - echo "Apptainer image is available at /projects/ml/RF2_allatom/spec_files/datahub_$(DATE).sif"
+# Deactivate until we have a use for it (will require adding access token secrets to the CI)
+# build-apptainer-job:
+#   stage: build_apptainer
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev"
+#       changes:
+#         - apptainer.spec
+#         - environment.yaml
+#       when: manual
+#     - when: never
+#   script:
+#     - echo "Building Apptainer image"
+#     - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/build_apptainer.sh
+#     - echo "Apptainer image is available at /projects/ml/RF2_allatom/spec_files/datahub_$(DATE).sif"
