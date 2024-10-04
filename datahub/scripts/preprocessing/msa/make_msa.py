@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from datahub.preprocessing.constants import NA_VALUES
 from datahub.utils.misc import hash_sequence
 
 bfd_db_path = "/local/databases/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"
@@ -338,7 +339,7 @@ def run_msa_pipeline(
     logger.info(f"Launching task {task_id + 1} of {num_tasks}.")
 
     # Load the CSV file into a list
-    df = pd.read_csv(csv_file)
+    df = pd.read_csv(csv_file, keep_default_na=NA_VALUES)
     sequences = df["q_pn_unit_processed_entity_non_canonical_sequence"].tolist()
 
     # Create a dictionary that maps sequence hashes to sequences

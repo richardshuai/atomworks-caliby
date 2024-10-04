@@ -19,6 +19,7 @@ from cifutils.enums import ChainType
 from tqdm import tqdm
 
 from datahub.common import generate_example_id
+from datahub.preprocessing.constants import NA_VALUES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ def read_csv_file(csv_path: PathLike):
     }
 
     # Read the CSV file with the specified data types
-    df = pd.read_csv(csv_path, dtype=dtype_spec)
+    df = pd.read_csv(csv_path, dtype=dtype_spec, keep_default_na=NA_VALUES)
 
     return df
 

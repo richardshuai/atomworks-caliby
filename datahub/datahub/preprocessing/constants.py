@@ -3,6 +3,29 @@ from enum import Enum
 
 from cifutils.enums import ChainType
 
+# Define the "NA" values ("missing" values) that should be treated as NaN (for Pandas)
+# NOTE: By default, "NA" is considered as a missing value by Pandas, which is obviously a problem
+NA_VALUES = [
+    " ",
+    "#N/A",
+    "#N/A N/A",
+    "#NA",
+    "-1.#IND",
+    "-1.#QNAN",
+    "-NaN",
+    "-nan",
+    "1.#IND",
+    "1.#QNAN",
+    "<NA>",
+    "N/A",
+    "NULL",
+    "NaN",
+    "None",
+    "n/a",
+    "nan",
+    "null",
+]
+
 # At the time of writing, the supported chain types are: NON_POLYMER, POLYPEPTIDE_L, DNA, RNA
 SUPPORTED_CHAIN_TYPES = [ChainType.NON_POLYMER, ChainType.POLYPEPTIDE_L, ChainType.DNA, ChainType.RNA]
 SUPPORTED_CHAIN_TYPES_INTS = [type.value for type in SUPPORTED_CHAIN_TYPES]

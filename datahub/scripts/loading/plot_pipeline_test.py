@@ -3,7 +3,6 @@ import pandas as pd
 import seaborn as sns
 
 # Load the data
-# df = pd.read_csv("pipeline_test_af3_2024-09-08.timings.csv")
 df = pd.read_csv("pipeline_test_rf2aa_2024-09-08.timings.csv")
 
 # Convert example_id to string (if not already)

@@ -16,6 +16,7 @@ from torch.utils.data import ConcatDataset, Dataset
 from datahub.common import default, exists
 from datahub.datasets import logger
 from datahub.datasets.dataframe_parsers import MetadataRowParser, load_example_from_metadata_row
+from datahub.preprocessing.constants import NA_VALUES
 from datahub.transforms.base import Compose, Transform, TransformedDict
 from datahub.utils.debug import save_failed_example_to_disk
 from datahub.utils.rng import capture_rng_states
@@ -267,7 +268,7 @@ class PandasDataset(BaseDataset):
     ) -> pd.DataFrame:
         path = Path(path)
         if path.suffix == ".csv":
-            data = pd.read_csv(path, usecols=columns_to_load, **load_kwargs)
+            data = pd.read_csv(path, usecols=columns_to_load, keep_default_na=NA_VALUES, **load_kwargs)
         elif path.suffix == ".parquet":
             data = pd.read_parquet(path, columns=columns_to_load, **load_kwargs)
         else:

@@ -14,6 +14,7 @@ from pathlib import Path
 import fire
 import pandas as pd
 
+from datahub.preprocessing.constants import NA_VALUES
 from scripts.preprocessing.clustering.create_fasta_files_from_df import create_fasta_files
 
 # Configure logging
@@ -99,7 +100,9 @@ def run_mmseqs2_clustering(
         cluster_file = current_dir / "result_cluster.tsv"
 
         # Load the TSV output file into a DataFrame
-        df = pd.read_csv(cluster_file, sep="\t", header=None, names=["cluster_rep_seq_hash", "seq_hash"])
+        df = pd.read_csv(
+            cluster_file, sep="\t", header=None, names=["cluster_rep_seq_hash", "seq_hash"], keep_default_na=NA_VALUES
+        )
 
         logger.info(f"DataFrame created with {len(df)} rows!")
 
