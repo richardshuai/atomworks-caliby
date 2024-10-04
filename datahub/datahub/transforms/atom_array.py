@@ -667,12 +667,13 @@ class ComputeAtomToTokenMap(Transform):
 
 
 def mask_residues_with_unresolved_backbone_atoms(atom_array: AtomArray) -> AtomArray:
-    """If a polymer residue has an unresolved backbone atom (occupancy < 1), set the occupancy of the entire residue to zero."""
+    """If a polymer residue has an unresolved backbone atom (occupancy == 0), set the occupancy of the entire residue to zero."""
     backbone_atom_names = ["N", "CA", "C"]
 
     # ...subset to backbone atoms within polymers with unresolved coordinates
+    # (We treat partially occupied atoms as occupied; e.g., those resolved from "altlocs")
     unresolved_polymer_backbone_mask = (
-        atom_array.is_polymer & np.isin(atom_array.atom_name, backbone_atom_names) & (atom_array.occupancy < 1)
+        atom_array.is_polymer & np.isin(atom_array.atom_name, backbone_atom_names) & (atom_array.occupancy == 0)
     )
 
     # ...get the residue-wise mask for unresolved backbone atoms
