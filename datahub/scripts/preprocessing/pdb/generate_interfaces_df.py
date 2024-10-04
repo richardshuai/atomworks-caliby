@@ -127,7 +127,7 @@ def process_pdb_id_group(group: pd.DataFrame) -> list[dict]:
                 "pn_unit_1_sequence_length": pn_unit_1_data["q_pn_unit_sequence_length"],
                 "pn_unit_2_sequence_length": pn_unit_2_data["q_pn_unit_sequence_length"],
                 "pn_unit_1_num_resolved_residues": pn_unit_1_data["q_pn_unit_num_resolved_residues"],
-                "on_unit_2_num_resolved_residues": pn_unit_2_data["q_pn_unit_num_resolved_residues"],
+                "pn_unit_2_num_resolved_residues": pn_unit_2_data["q_pn_unit_num_resolved_residues"],
 
                 # ...partners
                 # (Must meet minimum number of sub-5A contacts to be considered a partner)
