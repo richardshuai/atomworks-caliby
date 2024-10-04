@@ -13,7 +13,7 @@ from datahub.transforms._checks import (
 from datahub.transforms.atom_array import atom_id_to_atom_idx, atom_id_to_token_idx
 from datahub.transforms.base import Transform
 from datahub.utils.token import (
-    get_af3_token_representative_coords,
+    get_af3_token_center_coords,
     get_token_count,
     get_token_starts,
     spread_token_wise,
@@ -357,7 +357,7 @@ def crop_spatial_like_af3(
         crop_center_atom_idx = atom_id_to_atom_idx(atom_array, crop_center_atom_id)
 
         # ... sample crop
-        token_coords = get_af3_token_representative_coords(atom_array)
+        token_coords = get_af3_token_center_coords(atom_array)
         crop_center_token_idx = atom_id_to_token_idx(atom_array, crop_center_atom_id)
         is_token_in_crop = get_spatial_crop_mask(
             token_coords, crop_center_token_idx, crop_size=crop_size, jitter_scale=jitter_scale

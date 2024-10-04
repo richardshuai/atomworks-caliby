@@ -3,6 +3,14 @@ from typing import Callable, Iterator
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
+from cifutils.utils.sequence_utils import (
+    is_glycine,
+    is_protein_not_glycine,
+    is_protein_unknown,
+    is_purine,
+    is_pyramidine,
+    is_unknown_nucleotide,
+)
 
 
 def get_token_starts(array: AtomArray, add_exclusive_stop: bool = False) -> np.ndarray:
@@ -230,10 +238,31 @@ def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
         >>> get_af3_token_representative_masks(atom_array)
         array([False,  True,  True, False,  True])
     """
+    assert (
+        "atomize" in atom_array.get_annotation_categories()
+    ), "Atomize annotation is missing. Run AtomizeResidues Transform for magical atomization of ligands"
+    pyramidine_representative_atom = is_pyramidine(atom_array.res_name) & (atom_array.atom_name == "C2")
+    purine_representative_atom = is_purine(atom_array.res_name) & (atom_array.atom_name == "C4")
+    unknown_na_representative_atom = is_unknown_nucleotide(atom_array.res_name) & (atom_array.atom_name == "C4")
+
+    glycine_representative_atom = is_glycine(atom_array.res_name) & (atom_array.atom_name == "CA")
+    protein_residue_not_glycine_representative_atom = is_protein_not_glycine(atom_array.res_name) & (
+        atom_array.atom_name == "CB"
+    )
+    unknown_protein_residue_representative_atom = is_protein_unknown(atom_array.res_name) & (
+        atom_array.atom_name == "CA"
+    )
+
+    atoms = atom_array.atomize
+
     return (
-        atom_array.atomize  # the atom itself for un-atomized tokens
-        | (atom_array.atom_name == "CA")  # CA for amino acids
-        | (atom_array.atom_name == "C1'")  # C1' for nucleotides
+        pyramidine_representative_atom
+        | purine_representative_atom
+        | unknown_na_representative_atom
+        | glycine_representative_atom
+        | protein_residue_not_glycine_representative_atom
+        | unknown_protein_residue_representative_atom
+        | atoms
     )
 
 
@@ -296,3 +325,31 @@ def get_af3_token_representative_coords(atom_array: AtomArray) -> np.ndarray:
         array([[0, 0, 0], [3, 0, 0], [4, 0, 0]])
     """
     return atom_array.coord[get_af3_token_representative_masks(atom_array)]
+
+
+def get_af3_token_center_masks(atom_array: AtomArray) -> np.ndarray:
+    """
+    Returns a boolean mask indicating the center atoms of the tokens in the atom array as per the AF3 definition.
+    """
+    assert (
+        "atomize" in atom_array.get_annotation_categories()
+    ), "Atomize annotation is missing. Run AtomizeResidues Transform for magical atomization of ligands"
+    return (
+        atom_array.atomize  # the atom itself for un-atomized tokens
+        | (atom_array.atom_name == "CA")  # CA for amino acids
+        | (atom_array.atom_name == "C1'")  # C1' for nucleotides
+    )
+
+
+def get_af3_token_center_idxs(atom_array: AtomArray) -> np.ndarray:
+    """
+    Returns the indices of the center atoms of the tokens in the atom array as per the AF3 definition.
+    """
+    return np.where(get_af3_token_center_masks(atom_array))[0]
+
+
+def get_af3_token_center_coords(atom_array: AtomArray) -> np.ndarray:
+    """
+    Returns the center coordinates of the tokens in the atom array as per the AF3 definition.
+    """
+    return atom_array.coord[get_af3_token_center_masks(atom_array)]

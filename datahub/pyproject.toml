@@ -63,12 +63,10 @@ exclude = ["*.ipynb", "dev.py"]
 extend-select = ["I"]
 
 
-[tool.pytest]
-testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
-norecursedirs = "docs *.egg-info .git .tox var/large_ml_model/"
-conftest = "tests/conftest.py"
-
 [tool.pytest.ini_options]
+testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
+norecursedirs = "docs *.egg-info .git .tox"
+conftest = "tests/conftest.py"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "very_slow: marks tests as very slow (deselect with '-m \"not very_slow\"')",
