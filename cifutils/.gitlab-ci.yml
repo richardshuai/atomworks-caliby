@@ -1,7 +1,18 @@
 stages:
+  - lint
   - test
   - post-merge
   - release
+
+lint-job:
+  stage: lint
+  rules:
+    - if: $CI_MERGE_REQUEST_TITLE !~ /^(Draft|WIP):/i
+      when: always
+      allow_failure: false
+  script:
+    - echo "Running lint. If this fails, make sure you call `make format` before committing."
+    - srun -p cpu --cpus-per-task=1 --mem=12G bash ./.ci/run_lint.sh || exit 1
 
 unit-test-job:
   coverage: '/TOTAL.*\s+(\d+%)$/'

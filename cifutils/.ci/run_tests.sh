@@ -1,7 +1,7 @@
 set -e  # Exit on error
 
 # Ensure we can collect all tests (i.e. imports succeed)
-PYTHONPATH=$PWD:$PYTHONPATH /projects/ml/RF2_allatom/spec_files/datahub_latest.sif pytest --collect-only tests/
+PYTHONPATH=$PWD:$PYTHONPATH /projects/ml/RF2_allatom/spec_files/cifutils_latest.sif pytest --collect-only tests/
 
 # Run the tests in coverage mode
 PYTHONPATH=$PWD:$PYTHONPATH /projects/ml/RF2_allatom/spec_files/cifutils_latest.sif pytest --cov=cifutils --cov-report=term-missing tests/

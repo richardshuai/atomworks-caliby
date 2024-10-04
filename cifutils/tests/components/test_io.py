@@ -112,33 +112,34 @@ def test_to_cif_string():
         extra_categories=metadata,
     )
 
-    metadata_serealized = (
+    metadata_serialized = (
+        "#\n"
         "_test_category.test_col1   data\n"
         "_test_category.test_col2   data2\n"
         "#\n"
         "loop_\n"
         "_test_category2.test_col1 \n"
         "_test_category2.test_col2 \n"
-        "0 0 \n"
-        "1 1 \n"
-        "2 2 \n"
-        "3 3 \n"
-        "4 4 \n"
-        "5 5 \n"
-        "6 6 \n"
-        "7 7 \n"
-        "8 8 \n"
-        "9 9 \n"
+        "0 0\n"
+        "1 1\n"
+        "2 2\n"
+        "3 3\n"
+        "4 4\n"
+        "5 5\n"
+        "6 6\n"
+        "7 7\n"
+        "8 8\n"
+        "9 9\n"
         "#\n"
         "loop_\n"
         "_test_category3.test_col1 \n"
         "_test_category3.test_col2 \n"
-        "1 2 \n"
-        "3 5 \n"
-        "4 a \n"
+        "1 2\n"
+        "3 5\n"
+        "4 a\n"
         "#\n"
     )
-    assert metadata_serealized in cif_string2
+    assert metadata_serialized in cif_string2, "Metadata not found in serialized CIF string."
 
 
 def test_to_pdb_string():

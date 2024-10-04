@@ -10,25 +10,6 @@ authors = [
     { name = "Pascal Strumfels"},
     { name = "Rohith Krishna"},
 ]
-dependencies = [
-    # NOTE: Dependency versions specify the minimum versions for the packages 
-    #  that were confirmed to work with the codebase. Lower versions might still
-    #  work (at your own risk). 
-    "pandas>=1.4.2,<2",
-    "numpy>=1.25.0,<2",
-    "cytoolz>=0.12.3,<1",
-    "biopython>=1.83,<2",
-    "fire>=0.6.0,<1",
-]
-
-[project.optional-dependencies]
-dev = [
-    "ruff==0.6.2",
-    "pre-commit==3.7.1",
-    "pytest>=8.2.0,<9",
-    "pytest-dotenv>=0.5.2,<1",
-    "pytest-cov>=4.1.0,<5",
-]
 
 [build-system]
 requires = ["hatchling"]
@@ -105,4 +86,6 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 exclude = ["*.ipynb"]
 
 [tool.pytest]
+testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
+norecursedirs = "docs *.egg-info .git .tox var/large_ml_model/"
 conftest = "tests/conftest.py"
