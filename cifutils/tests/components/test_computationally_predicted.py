@@ -1,6 +1,7 @@
 import pytest
 from tests.conftest import CIF_PARSER_BIOTITE
 from pathlib import Path
+import numpy as np
 
 DIR = Path(__file__).parent.parent / "data"
 CIF_PATHS = [DIR / "example_distillation_output.cif"]
@@ -43,6 +44,31 @@ def test_bcif_example():
     )
     # Check if processing runs through
     assert result is not None
+
+
+def test_pdb_with_same_chain_poly_non_poly():
+    result = CIF_PARSER_BIOTITE.parse(
+        filename=DIR / "1qfe.pdb",
+        keep_hydrogens=False,
+    )
+    # Check if processing runs through
+    assert result is not None
+
+    # Check that we don't have any chains with polymeric and non-polymeric residues
+    atom_array = result["assemblies"]["1"][0]
+    polymer_chain_ids = np.unique(atom_array.chain_id[atom_array.is_polymer])
+    non_polymer_chain_ids = np.unique(atom_array.chain_id[~atom_array.is_polymer])
+    assert len(set(polymer_chain_ids).intersection(non_polymer_chain_ids)) == 0
+
+    # Assert thatn "A$" and "B$" are present in the non-polymer chain IDs
+    assert "A$" in non_polymer_chain_ids
+    assert "B$" in non_polymer_chain_ids
+
+    # Assert that all residues have coordinates
+    assert np.all(np.isfinite(atom_array.coord))
+
+    # Assert that all atoms are full occupancy
+    assert np.all(atom_array.occupancy == 1.0)
 
 
 if __name__ == "__main__":

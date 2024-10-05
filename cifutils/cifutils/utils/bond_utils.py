@@ -162,10 +162,14 @@ def add_bonds_from_struct_conn(
                 continue
 
             a_seq_id = (
-                row["ptnr1_label_seq_id"] if chain_info_dict[a_chain_id]["is_polymer"] else row["ptnr1_auth_seq_id"]
+                row["ptnr1_label_seq_id"]
+                if chain_info_dict[a_chain_id]["is_polymer"] or "ptnr1_auth_seq_id" not in row
+                else row["ptnr1_auth_seq_id"]
             )
             b_seq_id = (
-                row["ptnr2_label_seq_id"] if chain_info_dict[b_chain_id]["is_polymer"] else row["ptnr2_auth_seq_id"]
+                row["ptnr2_label_seq_id"]
+                if chain_info_dict[b_chain_id]["is_polymer"] or "ptnr2_auth_seq_id" not in row
+                else row["ptnr2_auth_seq_id"]
             )
 
             # Get the indices of the atoms and append to the list

@@ -530,6 +530,10 @@ class CIFParser:
         """
         Parse a PDB file and return chain information, residue information, atom array, metadata, and legacy data.
 
+        WARNING: We require that a single chain contains either polymer or non-polymer residues, but not both. Thus, if
+        the PDB file contains a chain with both polymer and non-polymer residues, the non-polymer
+        residues will be named with "$" appended to the chain ID (to not conflict with existing chains).
+
         Args:
             filename (str): Path to the PDB file.
             **parse_from_cif_kwargs: Additional keyword arguments to pass to `parse_from_cif`.
@@ -552,6 +556,36 @@ class CIFParser:
             extra_fields=["b_factor", "occupancy", "charge", "atom_id"],
             include_bonds=True,
         )
+
+        # ...if we have polymer and non-polymers on the same chain (as given by the HETATM field), we need to separate them for processing
+        assert "hetero" in atom_array_stack.get_annotation_categories()
+
+        hetero_atom_mask = atom_array_stack.get_annotation("hetero")
+        if np.any(atom_array_stack.get_annotation("hetero")):
+            # ...loop through chains and add a "(L)" to the chain ID for non-polymer residues
+            chain_ids = np.unique(atom_array_stack.chain_id)
+            for chain_id in chain_ids:
+                # ...check if we have blended `hetero` annotations in the chain
+                chain_hetero_annotations = atom_array_stack.hetero[atom_array_stack.chain_id == chain_id]
+                if np.any(chain_hetero_annotations) and np.any(~chain_hetero_annotations):
+                    hetero_chain_id = (
+                        f"{chain_id}$"  # "$" for non-polymers (e.g., ligands) so we don't conflict with existing chains
+                    )
+                    logger.warning(
+                        f"Chain {chain_id} contains both polymer and non-polymer residues; separating them for processing, naming the non-polymer residues as {hetero_chain_id}."
+                    )
+                    atom_array_stack.chain_id[(atom_array_stack.chain_id == chain_id) & hetero_atom_mask] = (
+                        hetero_chain_id
+                    )
+
+                # ...ensure we don't have blended `hetero` annotations
+                updated_chain_hetero_annotations = atom_array_stack.hetero[atom_array_stack.chain_id == chain_id]
+                assert np.all(updated_chain_hetero_annotations) or np.all(~updated_chain_hetero_annotations)
+
+        # ...we also need to add the `auth_seq_id` annotation to the AtomArrayStack, defaulting to `seq_id` if it doesn't exist
+        # if "auth_seq_id" not in atom_array_stack.get_annotation_categories():
+        #     atom_array_stack.set_annotation("auth_seq_id", atom_array_stack.res_id)
+
         cif_buffer = to_cif_buffer(atom_array_stack, id=Path(filename).stem)
 
         if (
