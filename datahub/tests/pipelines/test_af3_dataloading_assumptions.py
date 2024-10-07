@@ -3,16 +3,17 @@ Includes tests to assert that the data loading pipeline outputs examples that sa
 """
 
 import random
+import pytest
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
-from tests.datasets.conftest import AF3_PDB_DATASET, TEST_DIFFUSION_BATCH_SIZE
+from tests.datasets.conftest import AF3_PDB_DATASET, TEST_DIFFUSION_BATCH_SIZE, AF3_AF2FB_DISTILLATION_DATASET
 
-
-def test_satisfies_af3_dataloading_assumptions(pdb_dataset=AF3_PDB_DATASET):
+@pytest.mark.parametrize("pdb_dataset", [AF3_PDB_DATASET, AF3_AF2FB_DISTILLATION_DATASET]) 
+def test_satisfies_af3_dataloading_assumptions(pdb_dataset):
     """
     Tests that the data loading pipeline outputs examples that satisfy the assumptions of the AF3 model.
     """
@@ -83,13 +84,14 @@ def assert_input_feature_dimensions(feats):
     assert f["asym_id"].shape == (n_token,)
     assert f["entity_id"].shape == (n_token,)
     assert f["sym_id"].shape == (n_token,)
+    assert f["restype"].shape == (n_token,32)
     assert f["is_protein"].shape == (n_token,)
     assert f["is_ligand"].shape == (n_token,)
     assert f["is_dna"].shape == (n_token,)
     assert f["is_rna"].shape == (n_token,)
     assert f["ref_pos"].shape == (n_atoms, 3)
     assert f["ref_mask"].shape == (n_atoms,)
-    assert f["ref_element"].shape == (n_atoms,)
+    assert f["ref_element"].shape == (n_atoms,128,)
     assert f["ref_charge"].shape == (n_atoms,)
     assert f["ref_atom_name_chars"].shape == (n_atoms, 4, 64)
     assert f["ref_space_uid"].shape == (n_atoms,)

@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from torch.nn import functional as F
 from assertpy import assert_that
 from biotite.structure import AtomArray
 from cifutils.utils import get_std_alt_atom_id_conversion
@@ -502,6 +503,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
 
         # ... sequence tokens
         restype = self.sequence_encoding.encode(token_level_array.res_name)
+        restype = F.one_hot(torch.tensor(restype), num_classes=self.sequence_encoding.n_tokens).numpy()
 
         # ... molecule type
         _aa_like_res_names = self.sequence_encoding.all_res_names[self.sequence_encoding.is_aa_like]
@@ -528,7 +530,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
             "asym_id": asym_id,  # (N_tokens) (int)
             "entity_id": entity_id,  # (N_tokens) (int)
             "sym_id": sym_id,  # (N_tokens) (int)
-            "restype": restype,  # (N_tokens) (int)
+            "restype": restype,  # (N_tokens, 32) (int)
             "is_protein": is_protein,  # (N_tokens) (bool)
             "is_rna": is_rna,  # (N_tokens) (bool)
             "is_dna": is_dna,  # (N_tokens) (bool)
