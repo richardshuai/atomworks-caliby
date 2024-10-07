@@ -119,7 +119,7 @@ def _get_taxonomy_id_lookup_df(
         # NOTE: We may need to update the columns to keep if the SIFTS project changes their format
         columns_to_keep = ["PDB", "CHAIN", "TAX_ID", "SCIENTIFIC_NAME"]
         taxonomy_id_df = pd.read_csv(
-            taxonomy_id_csv_path, usecols=columns_to_keep, compression="gzip", skiprows=1, keep_default_na=NA_VALUES
+            taxonomy_id_csv_path, usecols=columns_to_keep, compression="gzip", skiprows=1, keep_default_na=False, na_values=NA_VALUES
         )
 
         # Pickle the dataframe for faster loading in the future

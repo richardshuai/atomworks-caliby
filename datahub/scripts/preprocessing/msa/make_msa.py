@@ -339,7 +339,7 @@ def run_msa_pipeline(
     logger.info(f"Launching task {task_id + 1} of {num_tasks}.")
 
     # Load the CSV file into a list
-    df = pd.read_csv(csv_file, keep_default_na=NA_VALUES)
+    df = pd.read_csv(csv_file, keep_default_na=False, na_values=NA_VALUES)
     sequences = df["q_pn_unit_processed_entity_non_canonical_sequence"].tolist()
 
     # Create a dictionary that maps sequence hashes to sequences

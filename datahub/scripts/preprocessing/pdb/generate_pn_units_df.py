@@ -9,7 +9,7 @@ python generate_pn_units_df.py --input_dir /projects/ml/RF2_allatom/datasets/pdb
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
+from multiprocessing import Pool, cpu_count
 from os import PathLike
 from pathlib import Path
 
@@ -19,7 +19,7 @@ from cifutils.enums import ChainType
 from tqdm import tqdm
 
 from datahub.common import generate_example_id
-from datahub.preprocessing.constants import NA_VALUES
+from datahub.preprocessing.constants import NA_VALUES, PEPTIDE_MAX_RESIDUES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,15 +37,21 @@ def read_csv_file(csv_path: PathLike):
         "q_pn_unit_ec_numbers": str,
         "q_pn_unit_processed_entity_canonical_sequence_hash": str,
         "q_pn_unit_processed_entity_non_canonical_sequence_hash": str,
+        "q_pn_unit_id": str,
+        "q_pn_unit_iid": str,
     }
 
     # Read the CSV file with the specified data types
-    df = pd.read_csv(csv_path, dtype=dtype_spec, keep_default_na=NA_VALUES)
+    try:
+        df = pd.read_csv(csv_path, dtype=dtype_spec, keep_default_na=False, na_values=NA_VALUES)
+    except Exception as e:
+        logger.error(f"Error reading {csv_path}: {e}")
+        return None
 
     return df
 
 
-def concatenate_csv_files(input_dir: PathLike, output_path: PathLike = None, max_workers: int = 8, timeout: int = 30):
+def concatenate_csv_files(input_dir: PathLike, output_path: PathLike = None, num_workers: int = 4):
     """
     Concatenate a directory of CSV files into a single DataFrame.
     Each CSV file should be created by the `process_pdbs` pipeline.
@@ -59,22 +65,20 @@ def concatenate_csv_files(input_dir: PathLike, output_path: PathLike = None, max
 
     # List all CSV files in the directory
     csv_files = list(input_dir.glob("*.csv"))
+
     logger.info(f"Found {len(csv_files)} CSV files in {input_dir}. Concatenating...")
 
-    # Read CSV files in parallel using ThreadPoolExecutor
-    dataframes = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(read_csv_file, csv_file): csv_file for csv_file in csv_files}
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Reading CSV files"):
-            try:
-                dataframes.append(future.result(timeout=timeout))
-            except TimeoutError:
-                logger.warning(f"Timeout error: {futures[future]} took longer than {timeout} seconds to read.")
-            except Exception as e:
-                logger.warning(f"Error reading file {futures[future]}: {e}")
+    # Determine the number of workers
+    num_workers = num_workers if num_workers is not None else min(cpu_count(), 8)
 
-    # Remove any None values that may have been appended due to errors or timeouts
+    # Read CSV files in parallel using Pool
+    with Pool(processes=num_workers) as pool:
+        dataframes = list(tqdm(pool.imap(read_csv_file, csv_files, chunksize=100), total=len(csv_files), desc="Reading CSV files"))
+    
+    # Remove any None values that may have been appended due to errors
+    logger.info(f"Read {len(dataframes)} DataFrames from {len(csv_files)} CSV files")
     dataframes = [df for df in dataframes if df is not None]
+    logger.info(f"After removing None values, {len(dataframes)} DataFrames remain.")
 
     # Concatenate all DataFrames
     concatenated_df = pd.concat(dataframes, axis=0)
@@ -87,25 +91,37 @@ def concatenate_csv_files(input_dir: PathLike, output_path: PathLike = None, max
 
 
 def generate_pn_units_df(
-    input_dir: PathLike, output_path: PathLike | None = None, max_workers: int = 8, timeout: int = 30
+    input_dir: PathLike, output_path: PathLike | None = None, num_workers: int = 4
 ):
     # Convert to Path, if given
     output_path = Path(output_path) if output_path is not None else None
 
     # Concatenate the CSV files in the input directory
-    concatenated_df = concatenate_csv_files(input_dir, output_path, max_workers, timeout)
+    concatenated_df = concatenate_csv_files(input_dir, output_path, num_workers)
 
     q_pn_unit_type_col = "q_pn_unit_type"
-    # Initialize columns for n_prot, n_nuc, n_ligand (required for AF-3 data sampling strategy)
+    sequence_length_col = "q_pn_unit_sequence_length"
+
+    # Like AF-3, initialize columns for n_prot, n_nuc, n_ligand
+    # Additionally, we introduce n_peptide, which is a subset of DeepMind's n_prot
     concatenated_df["n_prot"] = (
-        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_protein()).astype(int)
+        (concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_protein()) &
+        (concatenated_df[sequence_length_col] > PEPTIDE_MAX_RESIDUES)).astype(int)
     )
-    concatenated_df["n_nuc"] = (
-        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_nucleic_acid()).astype(int)
+
+    concatenated_df["n_peptide"] = (
+        (concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_protein()) &
+        (concatenated_df[sequence_length_col] <= PEPTIDE_MAX_RESIDUES)).astype(int)
     )
-    concatenated_df["n_ligand"] = (
-        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_non_polymer()).astype(int)
-    )
+
+    concatenated_df["n_nuc"] = concatenated_df[q_pn_unit_type_col].apply(
+        lambda x: ChainType(x).is_nucleic_acid()
+    ).astype(int)
+
+    concatenated_df["n_ligand"] = concatenated_df[q_pn_unit_type_col].apply(
+        lambda x: ChainType(x).is_non_polymer()
+    ).astype(int)
+
 
     # Add the example_id column (required for testing and reproducibility)
     concatenated_df["example_id"] = concatenated_df.apply(

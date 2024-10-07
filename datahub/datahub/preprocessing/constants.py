@@ -3,9 +3,13 @@ from enum import Enum
 
 from cifutils.enums import ChainType
 
+# Cutoff for the number of residues in a peptide
+PEPTIDE_MAX_RESIDUES = 20
+
 # Define the "NA" values ("missing" values) that should be treated as NaN (for Pandas)
 # NOTE: By default, "NA" is considered as a missing value by Pandas, which is obviously a problem
 NA_VALUES = [
+    "",
     " ",
     "#N/A",
     "#N/A N/A",

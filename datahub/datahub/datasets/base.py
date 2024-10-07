@@ -268,7 +268,7 @@ class PandasDataset(BaseDataset):
     ) -> pd.DataFrame:
         path = Path(path)
         if path.suffix == ".csv":
-            data = pd.read_csv(path, usecols=columns_to_load, keep_default_na=NA_VALUES, **load_kwargs)
+            data = pd.read_csv(path, usecols=columns_to_load, keep_default_na=False, na_values=NA_VALUES, **load_kwargs)
         elif path.suffix == ".parquet":
             data = pd.read_parquet(path, columns=columns_to_load, **load_kwargs)
         else:

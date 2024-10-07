@@ -29,19 +29,23 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
         - N_clust is the number of examples in the cluster
         - a_prot, a_nuc, and a_ligand are the interface weight hyperparameters for proteins, nucleic acids, and ligands, respectively
         - n_prot, n_nuc, and n_ligand are the number of proteins, nucleic acids, and ligands in the example
+    
+    Optionally, to better control sampling of peptide clusters, we introduce n_peptide and a_peptide as well. We define peptides 
+    as proteins with fewer than PEPTIDE_MAX_RESIDUES residues. 
 
     Parameters:
         df (pd.DataFrame): DataFrame containing the PN unit or interface data
-        alphas (dict): Dictionary containing the weight hyperparameters for proteins, nucleic acids, and ligands (common across interfaces and chains)
+        alphas (dict): Dictionary containing the weight hyperparameters for proteins, nucleic acids, ligands, and possibly peptides (common across interfaces and chains)
         beta (float): Weighting hyperparameter (distinct for interfaces and chains)
 
     Returns:
         pd.Series: A Series containing the calculated weights for each row in the DataFrame
     """
-    # Extract relevant columns
-    n_prot = df["n_prot"]
-    n_nuc = df["n_nuc"]
-    n_ligand = df["n_ligand"]
+    # Extract relevant columns with default handling 
+    n_prot = df.get("n_prot", 0)
+    n_nuc = df.get("n_nuc", 0)
+    n_ligand = df.get("n_ligand", 0)
+    n_peptide = df.get("n_peptide", 0)
     cluster_size = df["cluster_size"]
 
     # Assert that all cluster sizes are greater than 0
@@ -52,7 +56,10 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
 
     # Vectorized calculation of the weights
     weights = (beta / cluster_size) * (
-        alphas["a_prot"] * n_prot + alphas["a_nuc"] * n_nuc + alphas["a_ligand"] * n_ligand
+        alphas.get("a_prot", 0) * n_prot +
+        alphas.get("a_peptide", 0) * n_peptide +
+        alphas.get("a_nuc", 0) * n_nuc +
+        alphas.get("a_ligand", 0) * n_ligand
     )
 
     return weights

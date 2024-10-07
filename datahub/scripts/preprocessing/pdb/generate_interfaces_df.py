@@ -110,6 +110,7 @@ def process_pdb_id_group(group: pd.DataFrame) -> list[dict]:
                 "n_prot": pn_unit_1_data["n_prot"] + pn_unit_2_data["n_prot"],
                 "n_nuc": pn_unit_1_data["n_nuc"] + pn_unit_2_data["n_nuc"],
                 "n_ligand": pn_unit_1_data["n_ligand"] + pn_unit_2_data["n_ligand"],
+                "n_peptide": pn_unit_1_data["n_peptide"] + pn_unit_2_data["n_peptide"],
 
                 # ...polymer/non-polymer unit information
                 "pn_unit_1_iid": sorted_pair[0],
