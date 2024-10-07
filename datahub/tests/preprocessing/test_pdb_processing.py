@@ -90,7 +90,7 @@ def test_generate_pn_units_and_interfaces_dfs(processed_pdb_files):
     input_dir = Path(temp_dir) / "csv"
 
     # Run the generate_pn_units_df function to concatenate the CSV files in the temp directory
-    pn_units_df = generate_pn_units_df(input_dir, max_workers=4)
+    pn_units_df = generate_pn_units_df(input_dir, num_workers=4)
     # We don't explicitly valide the `pn_units_df`, since the `components` tests cover this aim
 
     for test_case in PDB_PROCESSING_TEST_CASES:

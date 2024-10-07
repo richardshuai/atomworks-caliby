@@ -73,8 +73,10 @@ def concatenate_csv_files(input_dir: PathLike, output_path: PathLike = None, num
 
     # Read CSV files in parallel using Pool
     with Pool(processes=num_workers) as pool:
-        dataframes = list(tqdm(pool.imap(read_csv_file, csv_files, chunksize=100), total=len(csv_files), desc="Reading CSV files"))
-    
+        dataframes = list(
+            tqdm(pool.imap(read_csv_file, csv_files, chunksize=100), total=len(csv_files), desc="Reading CSV files")
+        )
+
     # Remove any None values that may have been appended due to errors
     logger.info(f"Read {len(dataframes)} DataFrames from {len(csv_files)} CSV files")
     dataframes = [df for df in dataframes if df is not None]
@@ -90,9 +92,7 @@ def concatenate_csv_files(input_dir: PathLike, output_path: PathLike = None, num
     return concatenated_df
 
 
-def generate_pn_units_df(
-    input_dir: PathLike, output_path: PathLike | None = None, num_workers: int = 4
-):
+def generate_pn_units_df(input_dir: PathLike, output_path: PathLike | None = None, num_workers: int = 4):
     # Convert to Path, if given
     output_path = Path(output_path) if output_path is not None else None
 
@@ -105,23 +105,22 @@ def generate_pn_units_df(
     # Like AF-3, initialize columns for n_prot, n_nuc, n_ligand
     # Additionally, we introduce n_peptide, which is a subset of DeepMind's n_prot
     concatenated_df["n_prot"] = (
-        (concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_protein()) &
-        (concatenated_df[sequence_length_col] > PEPTIDE_MAX_RESIDUES)).astype(int)
-    )
+        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_protein())
+        & (concatenated_df[sequence_length_col] > PEPTIDE_MAX_RESIDUES)
+    ).astype(int)
 
     concatenated_df["n_peptide"] = (
-        (concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_protein()) &
-        (concatenated_df[sequence_length_col] <= PEPTIDE_MAX_RESIDUES)).astype(int)
+        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_protein())
+        & (concatenated_df[sequence_length_col] <= PEPTIDE_MAX_RESIDUES)
+    ).astype(int)
+
+    concatenated_df["n_nuc"] = (
+        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_nucleic_acid()).astype(int)
     )
 
-    concatenated_df["n_nuc"] = concatenated_df[q_pn_unit_type_col].apply(
-        lambda x: ChainType(x).is_nucleic_acid()
-    ).astype(int)
-
-    concatenated_df["n_ligand"] = concatenated_df[q_pn_unit_type_col].apply(
-        lambda x: ChainType(x).is_non_polymer()
-    ).astype(int)
-
+    concatenated_df["n_ligand"] = (
+        concatenated_df[q_pn_unit_type_col].apply(lambda x: ChainType(x).is_non_polymer()).astype(int)
+    )
 
     # Add the example_id column (required for testing and reproducibility)
     concatenated_df["example_id"] = concatenated_df.apply(

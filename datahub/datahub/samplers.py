@@ -29,9 +29,9 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
         - N_clust is the number of examples in the cluster
         - a_prot, a_nuc, and a_ligand are the interface weight hyperparameters for proteins, nucleic acids, and ligands, respectively
         - n_prot, n_nuc, and n_ligand are the number of proteins, nucleic acids, and ligands in the example
-    
-    Optionally, to better control sampling of peptide clusters, we introduce n_peptide and a_peptide as well. We define peptides 
-    as proteins with fewer than PEPTIDE_MAX_RESIDUES residues. 
+
+    Optionally, to better control sampling of peptide clusters, we introduce n_peptide and a_peptide as well. We define peptides
+    as proteins with fewer than PEPTIDE_MAX_RESIDUES residues.
 
     Parameters:
         df (pd.DataFrame): DataFrame containing the PN unit or interface data
@@ -41,7 +41,7 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
     Returns:
         pd.Series: A Series containing the calculated weights for each row in the DataFrame
     """
-    # Extract relevant columns with default handling 
+    # Extract relevant columns with default handling
     n_prot = df.get("n_prot", 0)
     n_nuc = df.get("n_nuc", 0)
     n_ligand = df.get("n_ligand", 0)
@@ -56,10 +56,10 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
 
     # Vectorized calculation of the weights
     weights = (beta / cluster_size) * (
-        alphas.get("a_prot", 0) * n_prot +
-        alphas.get("a_peptide", 0) * n_peptide +
-        alphas.get("a_nuc", 0) * n_nuc +
-        alphas.get("a_ligand", 0) * n_ligand
+        alphas.get("a_prot", 0) * n_prot
+        + alphas.get("a_peptide", 0) * n_peptide
+        + alphas.get("a_nuc", 0) * n_nuc
+        + alphas.get("a_ligand", 0) * n_ligand
     )
 
     return weights

@@ -101,7 +101,12 @@ def run_mmseqs2_clustering(
 
         # Load the TSV output file into a DataFrame
         df = pd.read_csv(
-            cluster_file, sep="\t", header=None, names=["cluster_rep_seq_hash", "seq_hash"], keep_default_na=False, na_values=NA_VALUES
+            cluster_file,
+            sep="\t",
+            header=None,
+            names=["cluster_rep_seq_hash", "seq_hash"],
+            keep_default_na=False,
+            na_values=NA_VALUES,
         )
 
         logger.info(f"DataFrame created with {len(df)} rows!")

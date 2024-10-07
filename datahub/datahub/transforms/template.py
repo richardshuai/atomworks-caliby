@@ -248,7 +248,9 @@ def blank_rf2aa_template_features(
 
 @cache
 def _lazy_load_template_lookup_dict() -> dict[str, int]:
-    template_msa_lookup_df = pd.read_csv("/projects/ml/TrRosetta/PDB-2021AUG02/list_v02.csv", keep_default_na=False, na_values=NA_VALUES)
+    template_msa_lookup_df = pd.read_csv(
+        "/projects/ml/TrRosetta/PDB-2021AUG02/list_v02.csv", keep_default_na=False, na_values=NA_VALUES
+    )
     template_msa_lookup_df["HASH"] = template_msa_lookup_df["HASH"].apply(lambda x: f"{x:06d}")
     pdb_chain_id_to_hash_dict = dict(
         zip(template_msa_lookup_df["CHAINID"].tolist(), template_msa_lookup_df["HASH"].tolist())
