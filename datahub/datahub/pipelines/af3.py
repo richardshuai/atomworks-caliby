@@ -41,7 +41,7 @@ from datahub.transforms.msa.msa import (
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
 )
-from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeAF3
+from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeAF3, OneHotTemplateRestype
 
 
 def build_af3_transform_pipeline(
@@ -215,6 +215,7 @@ def build_af3_transform_pipeline(
             n_msa=n_msa,
         ),
         AggregateFeaturesLikeAF3(),
+        OneHotTemplateRestype(encoding=af3_sequence_encoding),
         BatchStructures(batch_size=diffusion_batch_size),
         CenterRandomAugmentation(batch_size=diffusion_batch_size),
         SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),

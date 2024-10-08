@@ -896,3 +896,27 @@ class FeaturizeTemplatesLikeAF3(Transform):
         data["feats"].update(template_features)
 
         return data
+
+class OneHotTemplateRestype(Transform):
+
+    def __init__(self, encoding: AF3SequenceEncoding):
+        self.encoding = encoding
+
+    def check_input(self, data: dict[str, Any]) -> None:
+        check_contains_keys(data, ["feats"])
+        check_is_instance(data, "feats", dict)
+
+        check_contains_keys(data["feats"], ["template_restype"])
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        template_restype = data["feats"]["template_restype"]
+
+        # One-hot encode the template restype
+        template_restype_onehot = torch.nn.functional.one_hot(
+            template_restype, num_classes=self.encoding.n_tokens
+        ).float()
+
+        # Add the one-hot encoded template restype to the `feats` dict
+        data["feats"]["template_restype"] = template_restype_onehot
+
+        return data
