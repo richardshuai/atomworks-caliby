@@ -154,10 +154,11 @@ AF3_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=[{"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}],
         rna_msa_dirs=[],
+        diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,
     ),
     save_failed_examples_to_dir=None,
 )
-
+AF3_AF2FB_DISTILLATION_CONCAT_DATASET = ConcatDatasetWithID(datasets=[AF3_AF2FB_DISTILLATION_DATASET])
 RF2AA_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
     dataset=PandasDataset(
         data="/squash/af2_distillation_facebook/af2_distillation_facebook.parquet",

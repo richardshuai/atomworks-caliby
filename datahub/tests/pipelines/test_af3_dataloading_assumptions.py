@@ -10,9 +10,9 @@ import torch
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
-from tests.datasets.conftest import AF3_PDB_DATASET, TEST_DIFFUSION_BATCH_SIZE, AF3_AF2FB_DISTILLATION_DATASET
+from tests.datasets.conftest import AF3_PDB_DATASET, TEST_DIFFUSION_BATCH_SIZE, AF3_AF2FB_DISTILLATION_CONCAT_DATASET
 
-@pytest.mark.parametrize("pdb_dataset", [AF3_PDB_DATASET, AF3_AF2FB_DISTILLATION_DATASET]) 
+@pytest.mark.parametrize("pdb_dataset", [AF3_PDB_DATASET, AF3_AF2FB_DISTILLATION_CONCAT_DATASET]) 
 def test_satisfies_af3_dataloading_assumptions(pdb_dataset):
     """
     Tests that the data loading pipeline outputs examples that satisfy the assumptions of the AF3 model.

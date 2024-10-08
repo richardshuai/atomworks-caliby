@@ -544,6 +544,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
 
         # HACK: MSA transformations rely on the encoded query sequence being stored in "encoded/seq"
         # We could consider finding a consistent place to store the encoded query sequence across RF2AA and AF3 (e.g., "encoded" vs. "feats/restype")
-        data["encoded"] = {"seq": restype}
+        # extremely cursed: remap the one hot encoded back to the integer encoding
+        data["encoded"] = {"seq": restype.argmax(axis=-1)}
 
         return data
