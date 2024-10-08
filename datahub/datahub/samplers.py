@@ -51,8 +51,13 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
     # Assert that all cluster sizes are greater than 0
     assert all(cluster_size > 0), "All cluster sizes must be greater than 0"
 
-    # Assert all cluster sizes are less than the dataframe length
-    assert all(cluster_size < len(df)), "All cluster sizes must be less than the DataFrame length"
+    # Warn if not all cluster sizes are less than the dataframe length
+    if not all(cluster_size < len(df)):
+        logger.warning(
+            "Some cluster sizes are greater than the DataFrame length. "
+            "This is unexpected, unless you are running with a very "
+            "restricted dataframe for debugging. If you aren't, please check!"
+        )
 
     # Vectorized calculation of the weights
     weights = (beta / cluster_size) * (

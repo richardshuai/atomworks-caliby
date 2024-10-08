@@ -195,6 +195,11 @@ class RF2AATemplate:
 
         # ... append custom annotation for alignment confidence
         alignment_confidence = self.f1d[0, template_res_idxs, 2]
+        # NOTE: Some templates have the rare bug that the alignment confidence is `inf`. In this case
+        #  we set it to 0.5 (since this was a presumably a parsing bug of the HHR file) and warn the user
+        if np.isinf(alignment_confidence).any():
+            logger.warning(f"Template {template_id} has `inf` alignment confidence. Setting to 0.5.")
+            alignment_confidence = np.where(np.isinf(alignment_confidence), 0.5, alignment_confidence)
         atom_array.set_annotation("alignment_confidence", struc.spread_residue_wise(atom_array, alignment_confidence))
 
         # ...mask residues with unresolved backbone atoms
