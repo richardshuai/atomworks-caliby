@@ -1,10 +1,10 @@
 import logging
 from typing import Any
 
-import biotite.structure as struc
 import numpy as np
 import toolz
 from biotite.structure import AtomArray
+from cifutils.utils.selection_utils import get_residue_starts
 from rdkit import Chem
 
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
@@ -160,7 +160,9 @@ def get_af3_reference_molecule_features(
     """
     # Generate reference conformers for each residue (if cropped, each residue that has tokens in the crop)
     # ... get residue-level stochiometry
-    _, _res_names = struc.get_residues(atom_array)
+    _res_start_ends = get_residue_starts(atom_array, add_exclusive_stop=True)
+    _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
+    _res_names = atom_array.res_name[_res_starts]
     res_stochiometry = dict(zip(*np.unique(_res_names, return_counts=True)))
 
     # ... get reference molecules with conformers for each residue
@@ -179,10 +181,7 @@ def get_af3_reference_molecule_features(
     ref_automorphs_mask = np.zeros((_max_automorphs, len(atom_array)), dtype=bool)
 
     # Fill `ref_pos` and `ref_mask` arrays
-    # ... helper variables to iterate over residues
-    _res_start_ends = struc.get_residue_starts(atom_array, add_exclusive_stop=True)
-    _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
-    # ... and to keep track of the next conformer to use for each residue type
+    # ... helper variable to keep track of the next conformer to use for each residue type
     _next_conf_idx = {res_name: 0 for res_name in ref_mols}
 
     # ... iterate over all residues in the atom array and fill the `ref_pos` and `ref_mask` arrays
