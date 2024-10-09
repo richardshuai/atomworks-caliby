@@ -60,10 +60,6 @@ def test_pdb_with_same_chain_poly_non_poly():
     non_polymer_chain_ids = np.unique(atom_array.chain_id[~atom_array.is_polymer])
     assert len(set(polymer_chain_ids).intersection(non_polymer_chain_ids)) == 0
 
-    # Assert thatn "A$" and "B$" are present in the non-polymer chain IDs
-    assert "A$" in non_polymer_chain_ids
-    assert "B$" in non_polymer_chain_ids
-
     # Assert that all residues have coordinates
     assert np.all(np.isfinite(atom_array.coord))
 

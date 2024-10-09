@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from biotite.database import rcsb
 from biotite.structure import AtomArray, AtomArrayStack
-from cifutils.utils.io_utils import load_any, get_structure, read_any, to_cif_string, to_pdb_string
+from cifutils.utils.io_utils import load_any, get_structure, read_any, to_cif_string, to_pdb_string, increment_chain_id
 import tempfile
 from contextlib import nullcontext
 import io
@@ -163,6 +163,25 @@ def test_to_pdb_string():
     assert np.all(pdb_structure.res_id == pdb_structure2.res_id)
     assert np.all(pdb_structure.b_factor == pdb_structure2.b_factor)
     assert np.all(pdb_structure.occupancy == pdb_structure2.occupancy)
+
+INCREMENT_CHAIN_ID_TEST_CASES = [
+    {"input": ["A", "B", "C"], "expected": "D"},
+    {"input": ["AA", "AB"], "expected": "AC"},
+    {"input": ["ZY", "ZZ"], "expected": "AAA"},
+    {"input": ["A"], "expected": "B"},  # Single element
+    {"input": ["Z"], "expected": "AA"},  # Single Z element
+    {"input": ["AZ", "BA"], "expected": "BB"},  # Incrementing within same length
+    {"input": ["ZZZ"], "expected": "AAAA"},  # Increment causing a length increase
+    {"input": ["Y", "Z"], "expected": "AA"},  # Edge case from Z to AA
+    {"input": ["A", "AA"], "expected": "AB"},  # Mixed lengths
+    {"input": ["A", "B", "Z"], "expected": "AA"},  # Increment last element
+]
+
+@pytest.mark.parametrize("test_case", INCREMENT_CHAIN_ID_TEST_CASES)
+def test_increment_chain_id(test_case):
+    input_chain_ids = test_case["input"]
+    expected_output = test_case["expected"]
+    assert increment_chain_id(input_chain_ids) == expected_output
 
 
 if __name__ == "__main__":
