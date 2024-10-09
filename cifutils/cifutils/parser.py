@@ -534,6 +534,8 @@ class CIFParser:
         the PDB file contains a chain with both polymer and non-polymer residues, the non-polymer
         residues will be named with "$" appended to the chain ID (to not conflict with existing chains).
 
+        WARNING: We assume that all residues are resolved (e.g., as is the case for computationally predicted structures). If not, use CIF files.
+
         Args:
             filename (str): Path to the PDB file.
             **parse_from_cif_kwargs: Additional keyword arguments to pass to `parse_from_cif`.

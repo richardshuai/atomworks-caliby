@@ -161,6 +161,8 @@ def add_bonds_from_struct_conn(
                 )
                 continue
 
+            # For non-polymers, we use the auth_seq_id, otherwise we use the label_seq_id
+            # NOTE: For non-polymers within PDB files, we may not have the auth_seq_id; we use the label_seq_id in such cases
             a_seq_id = (
                 row["ptnr1_label_seq_id"]
                 if chain_info_dict[a_chain_id]["is_polymer"] or "ptnr1_auth_seq_id" not in row
