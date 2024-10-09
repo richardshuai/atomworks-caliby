@@ -73,7 +73,7 @@ class AggregateFeaturesLikeAF3(Transform):
         # Aggregate MSA features
         msa_feats = data["msa_features"]
         data["feats"] |= {
-            "msa": msa_feats["msa_features_per_recycle_dict"]["msa"],
+            "msa": msa_feats["msa_features_per_recycle_dict"]["msa"].float(),
             "has_deletion": msa_feats["msa_features_per_recycle_dict"]["has_insertion"],
             "deletion_value": msa_feats["msa_features_per_recycle_dict"]["insertion_value"],
             "profile": msa_feats["msa_static_features_dict"]["profile"],
