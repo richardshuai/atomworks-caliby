@@ -566,7 +566,7 @@ class CIFParser:
         if np.any(atom_array_stack.get_annotation("hetero")):
             # ...loop through chains and ensure the chain contains either polymer or non-polymer residues, but not both (as required by CIF files)
             original_chain_ids = np.unique(atom_array_stack.chain_id)
-            chain_ids = list(original_chain_ids) # Creates a copy
+            chain_ids = list(original_chain_ids)  # Creates a copy
             for chain_id in original_chain_ids:
                 # ...check if we have blended `hetero` annotations in the chain
                 chain_hetero_annotations = atom_array_stack.hetero[atom_array_stack.chain_id == chain_id]
@@ -579,7 +579,7 @@ class CIFParser:
                         hetero_chain_id
                     )
 
-                     # Add the newly created chain ID to the list to avoid conflicts in future iterations
+                    # Add the newly created chain ID to the list to avoid conflicts in future iterations
                     chain_ids.append(hetero_chain_id)
 
                 # ...ensure we don't have blended `hetero` annotations

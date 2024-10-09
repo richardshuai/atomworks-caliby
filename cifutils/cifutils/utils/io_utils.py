@@ -363,6 +363,7 @@ def to_pdb_string(
     """
     return to_pdb_buffer(structure).getvalue()
 
+
 def increment_chain_id(chain_ids: list[str]) -> str:
     """Logically increments the last chain ID in a sorted list of chain IDs.
 
@@ -388,7 +389,7 @@ def increment_chain_id(chain_ids: list[str]) -> str:
 
     def increment_string(s: str) -> str:
         last_char = s[-1]
-        if ord('A') <= ord(last_char) <= ord('Y'):
+        if ord("A") <= ord(last_char) <= ord("Y"):
             # ...increment the last character if it's between 'A' and 'Y', inclusive
             return s[:-1] + chr(ord(last_char) + 1)
         else:

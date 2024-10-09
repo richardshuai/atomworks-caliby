@@ -164,6 +164,7 @@ def test_to_pdb_string():
     assert np.all(pdb_structure.b_factor == pdb_structure2.b_factor)
     assert np.all(pdb_structure.occupancy == pdb_structure2.occupancy)
 
+
 INCREMENT_CHAIN_ID_TEST_CASES = [
     {"input": ["A", "B", "C"], "expected": "D"},
     {"input": ["AA", "AB"], "expected": "AC"},
@@ -176,6 +177,7 @@ INCREMENT_CHAIN_ID_TEST_CASES = [
     {"input": ["A", "AA"], "expected": "AB"},  # Mixed lengths
     {"input": ["A", "B", "Z"], "expected": "AA"},  # Increment last element
 ]
+
 
 @pytest.mark.parametrize("test_case", INCREMENT_CHAIN_ID_TEST_CASES)
 def test_increment_chain_id(test_case):
