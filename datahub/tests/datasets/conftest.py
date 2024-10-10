@@ -61,7 +61,7 @@ RF2AA_PN_UNITS_DATASET = StructuralDatasetWrapper(
         filters=SHARED_TEST_FILTERS + TEST_PN_UNITS_FILTERS,
         columns_to_load=None,  # Load all columns
     ),
-    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
+    cif_parser_args={"cache_dir": None},
     save_failed_examples_to_dir=None,
 )
 
@@ -108,7 +108,7 @@ RF2AA_INTERFACES_DATASET = StructuralDatasetWrapper(
         filters=SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
         columns_to_load=None,  # Load all columns
     ),
-    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
+    cif_parser_args={"cache_dir": None},
     save_failed_examples_to_dir=None,
 )
 
@@ -131,7 +131,7 @@ AF3_INTERFACES_DATASET = StructuralDatasetWrapper(
         filters=SHARED_TEST_FILTERS + TEST_INTERFACES_FILTERS,
         columns_to_load=None,  # Load all columns
     ),
-    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
+    cif_parser_args={"cache_dir": None},
     save_failed_examples_to_dir=None,
 )
 
