@@ -39,7 +39,12 @@ def test_filtering_criteria(test_case: dict[str, Any]):
 
     rows = DATA_PREPROCESSOR.get_rows(pdb_id)
     df = pd.DataFrame(rows)
-    pn_unit_iids = set(df["q_pn_unit_iid"].unique().tolist())
+    pn_unit_iids = eval(df.iloc[0]["all_pn_unit_iids_after_processing"])
+
+    assert set(pn_unit_iids) >= set(df["q_pn_unit_iid"].unique().tolist())
+
+    # ...assert that all of the rows have the same PN units
+    assert (df["all_pn_unit_iids_after_processing"] == df["all_pn_unit_iids_after_processing"].iloc[0]).all(), "Not all rows have the same pn_units"
 
     pn_units_to_keep = set(test_case["pn_units_to_keep"])
     pn_units_to_remove = set(test_case["pn_units_to_remove"])
@@ -49,3 +54,6 @@ def test_filtering_criteria(test_case: dict[str, Any]):
 
     # Assert we are removing the correct PN units
     assert not pn_units_to_remove.intersection(pn_unit_iids), f"Removing PN unit that should be kept in {pdb_id}."
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

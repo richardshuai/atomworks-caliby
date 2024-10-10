@@ -30,17 +30,17 @@ logger = logging.getLogger("preprocess")
 
 @dataclass
 class DataPreprocessor:
-    # Cutoff distances
+    # (Cutoff distances)
     close_distance: float = 30.0
     contact_distance: float = 5
     clash_distance: float = 1.0
-    # Paths
+    # (Paths)
     base_cif_dir: PathLike = "/databases/rcsb/cif"
-    # Misc
+    # (Misc)
     ignore_residues: list[str] = field(default_factory=list)
-    # Efficiency
-    polymer_pn_unit_limit: int = 2000
-    # Parser defaults
+    # (Efficiency)
+    polymer_pn_unit_limit: int = 1000
+    # (CIF Parser defaults)
     add_missing_atoms: bool = True
     add_bonds: bool = True
     remove_waters: bool = True
@@ -51,7 +51,7 @@ class DataPreprocessor:
     convert_mse_to_met: bool = True
 
     def __post_init__(self):
-        # Initialize parser
+        # ...initialize parser
         self.parser = CIFParser()
         logger.info(f"Initialized DataPreprocessor with the following parameters: {self.__dict__}")
 
@@ -87,7 +87,7 @@ class DataPreprocessor:
     def _apply_filters(self, atom_array: AtomArray) -> AtomArray:
         """Apply filters to the AtomArray to remove non-biological bonds, ignore residues, and filter out atoms with zero occupancy."""
         # ----- Filter A: Filter out non-polymers with non-biological bonds to polymers ------
-        # Check for non-biological bonds between the current non-polymer PN unit and any polymer (e.g., oxygen-oxygen, etc.)
+        # ...check for non-biological bonds between the current non-polymer PN unit and any polymer (e.g., oxygen-oxygen, etc.)
         inter_pn_unit_bond_mask = dp.get_inter_pn_unit_bond_mask(atom_array)
         filtered_atom_array = atom_array
         if np.sum(inter_pn_unit_bond_mask) > 0:
@@ -95,7 +95,7 @@ class DataPreprocessor:
                 atom_array, inter_pn_unit_bond_mask
             )
             if len(pn_units_with_non_biological_bonds) > 0:
-                # Filter out non-polymer chains with non-biological bonds to polymer chains
+                # ...filter out non-polymer chains with non-biological bonds to polymer chains
                 non_biological_mask = np.isin(atom_array.pn_unit_iid, pn_units_with_non_biological_bonds) & (
                     atom_array.chain_type == ChainType.NON_POLYMER
                 )
@@ -106,7 +106,7 @@ class DataPreprocessor:
         processed_ignore_residues = [c.strip() for c in self.ignore_residues]
         mask = ~np.isin(
             filtered_atom_array.res_name, processed_ignore_residues
-        )  # Applying filter also remove impacted bonds
+        )  # (Applying filter also remove impacted bonds)
         filtered_atom_array = filtered_atom_array[mask]
 
         # ----- Filter C: Filter out atoms with zero occupancy ------
@@ -188,7 +188,7 @@ class DataPreprocessor:
         # ---------- Step 1: Upfront pre-processing ---------- #
 
         # Re-map PN unit IDs to integers, and keep a dictionary that maps back to the verbose PN unit IDs
-        # We will use the integer IDs for memory efficiency downstream
+        # (We will use the integer IDs for memory efficiency downstream)
         ids_to_remap = ["pn_unit_id", "pn_unit_iid"]
         id_map_dict = {}
         for id_to_remap in ids_to_remap:
@@ -313,11 +313,11 @@ class DataPreprocessor:
             if query_pn_unit_type == ChainType.NON_POLYMER:
                 bonded_polymer_pn_units = dp.get_bonded_polymer_pn_units(query_pn_unit_iid, filtered_atom_array)
 
-                # Check is SOI
+                # ...check is SOI
                 residue_names = np.unique(query_pn_unit_atom_array.res_name)
                 is_loi = True if len(loi_ligand_set.intersection(residue_names)) > 0 else False
 
-                # Check if metal
+                # ...check if metal
                 is_metal = (
                     True if len(query_pn_unit_atom_array) == 1 and query_pn_unit_atom_array[0].is_metal else False
                 )
@@ -327,7 +327,7 @@ class DataPreprocessor:
                         set(list(zip(query_pn_unit_atom_array.chain_id, query_pn_unit_atom_array.res_name)))
                     )
 
-                    # Subset to the ids that have validity scores
+                    # ...subset to the ids that have validity scores
                     _ligands_with_scores = [
                         _id for _id in _query_pn_unit_ligand_ids if _id in ligand_validity_scores.index
                     ]
@@ -339,7 +339,7 @@ class DataPreprocessor:
                 # Get the sequence of residues in the non-polymer PN unit
                 non_polymer_res_names = struc.get_residues(query_pn_unit_atom_array)[
                     1
-                ]  # get_residues returns a tuple of (ids, names)
+                ]  # (get_residues returns a tuple of (ids, names))
 
                 # Other options to consider for criteria:
                 # -- Get the diameter of the PN unit
@@ -355,13 +355,13 @@ class DataPreprocessor:
                     "non_polymer_res_names": non_polymer_res_names,
                 }
             elif query_pn_unit_type.is_polymer():
-                chain_id = query_pn_unit_atom_array.chain_id[0]  # Polymers have only one chain
+                chain_id = query_pn_unit_atom_array.chain_id[0]  # (Polymers have only one chain)
                 ec_numbers = chain_info_dict[chain_id]["ec_numbers"]
                 type_specific_criteria = {
                     "ec_numbers": json.dumps(ec_numbers),
                     "sequence_length": len(
                         chain_info_dict[chain_id]["processed_entity_canonical_sequence"]
-                    ),  # We need to use the processed sequence
+                    ),  # (We need to use the processed sequence)
                     "processed_entity_canonical_sequence": chain_info_dict[chain_id][
                         "processed_entity_canonical_sequence"
                     ],
@@ -405,6 +405,7 @@ class DataPreprocessor:
                 "method": result_dict["metadata"]["method"],
                 "num_polymer_pn_units": num_polymer_pn_units,
                 "num_atoms": len(filtered_atom_array),
+                "all_pn_unit_iids_after_processing": json.dumps([id_map_dict["pn_unit_iid"][pn_unit_iid] for pn_unit_iid in np.unique(filtered_atom_array.pn_unit_iid)]), # e.g., what we should load at train-time, after resolving clashes
 
                 # ...add the fundamental PN unit-level data to the record directly from the AtomArray
                 "q_pn_unit_chain_id": query_pn_unit_atom_array.chain_id[0],  # All atoms in a PN unit have the same chain ID
