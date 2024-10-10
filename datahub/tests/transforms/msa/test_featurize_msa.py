@@ -7,8 +7,7 @@ import numpy as np
 import pytest
 import torch
 
-from datahub.datasets.parsers.base import load_example_from_metadata_row
-from datahub.datasets.parsers.default_metadata_row_parsers import PNUnitsDFParser
+from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,

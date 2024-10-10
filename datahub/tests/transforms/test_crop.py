@@ -7,8 +7,7 @@ import pytest
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
 
 from datahub.datasets.datasets import get_row_and_index_by_example_id
-from datahub.datasets.parsers.base import load_example_from_metadata_row
-from datahub.datasets.parsers.default_metadata_row_parsers import InterfacesDFParser, PNUnitsDFParser
+from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,

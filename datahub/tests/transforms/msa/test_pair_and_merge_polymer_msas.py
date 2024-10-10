@@ -3,8 +3,7 @@ import copy
 import numpy as np
 import pytest
 
-from datahub.datasets.parsers.base import load_example_from_metadata_row
-from datahub.datasets.parsers.default_metadata_row_parsers import PNUnitsDFParser
+from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.transforms.base import Compose
 from datahub.transforms.msa._msa_pairing_utils import (
     _get_matched_indices,
