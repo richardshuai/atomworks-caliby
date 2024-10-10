@@ -59,6 +59,19 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
             "restricted dataframe for debugging. If you aren't, please check!"
         )
 
+    # If we're missing any of the alphas, or any of the counts, log a warning
+    missing_alphas = set(alphas.keys()) - set(["a_prot", "a_peptide", "a_nuc", "a_ligand"])
+    missing_counts = set(["n_prot", "n_peptide", "n_nuc", "n_ligand"]) - set(df.columns)
+
+    if missing_alphas:
+        logger.warning(f"Missing alphas from configuration file: {missing_alphas}; defaulting to 0")
+    if missing_counts:
+        logger.warning(f"Missing chain within dataframe counts: {missing_counts}; defaulting to 0")
+        logger.warning(f"Columns in dataframe: {df.columns}")
+
+    if not missing_alphas and not missing_counts:
+        logger.info(f"Calculating weights for AF-3 examples using alphas={alphas}")
+
     # Vectorized calculation of the weights
     weights = (beta / cluster_size) * (
         alphas.get("a_prot", 0) * n_prot
