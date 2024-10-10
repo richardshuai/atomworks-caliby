@@ -45,6 +45,8 @@ PDB_IDS_TO_INCLUDE_IN_TEST_DATASETS = [
     "5S4P", "4GQA", "7AH0", "4U4H", "2PNO", "1PFI", 
     "1S2K", # Polymer with < 4 resolved residues
     "6Z3R", # Causes NaN's to enter the network
+    "2G37", # Leads to "RuntimeWarning: All-NaN slice encountered" from Biotite
+    "5B2T", # INF within the t1d features
 ]
 # fmt: on
 
