@@ -1,15 +1,16 @@
 import logging
 
+import pandas as pd
 import pytest
 from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
-from datahub.datasets.base import (
+from datahub.datasets.datasets import (
     ConcatDatasetWithID,
     PandasDataset,
     StructuralDatasetWrapper,
     get_row_and_index_by_example_id,
 )
-from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
+from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from tests.conftest import (
@@ -20,7 +21,6 @@ from tests.conftest import (
     RNA_MSA_DIRS,
 )
 from tests.datasets.conftest import SUPPORTED_CHAIN_TYPES_INTS
-import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ PN_UNITS_DATASET_AF3 = StructuralDatasetWrapper(
     dataset=PandasDataset(
         name="pn_units",
         id_column="example_id",
-        data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/pn_units_df.parquet"),
+        data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/pn_units_df_train.parquet"),
         filters=TEST_PN_UNITS_FILTERS,
     ),
     cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
@@ -142,7 +142,7 @@ INTERFACES_DATASET_AF3 = StructuralDatasetWrapper(
     dataset=PandasDataset(
         name="interfaces",
         id_column="example_id",
-        data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/interfaces_df.parquet"),
+        data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/interfaces_df_train.parquet"),
         filters=TEST_INTERFACES_FILTERS,
     ),
     cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
@@ -155,7 +155,7 @@ PDB_DATASET_AF3 = ConcatDatasetWithID(datasets=[PN_UNITS_DATASET_AF3, INTERFACES
 
 PRIOR_PIPELINE_BUGS_AF3 = [
     "{['pdb', 'interfaces']}{2g37}{1}{['B_1', 'F_1']}",
-    "{['pdb', 'interfaces']}{4v4s}{1}{['D_1', 'Y_1']}"
+    "{['pdb', 'interfaces']}{4v4s}{1}{['D_1', 'Y_1']}",
 ]
 
 

@@ -10,7 +10,8 @@ import pytest
 from cifutils.enums import ChainType
 from tqdm import tqdm
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata_row
+from datahub.datasets.parsers.base import load_example_from_metadata_row
+from datahub.datasets.parsers.default_metadata_row_parsers import PNUnitsDFParser
 from datahub.transforms.base import Compose
 from datahub.transforms.filters import RemoveHydrogens, RemoveUnsupportedChainTypes
 from datahub.transforms.msa._msa_constants import (

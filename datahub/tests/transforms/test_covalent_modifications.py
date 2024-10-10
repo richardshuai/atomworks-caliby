@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata_row
+from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.transforms.base import Compose
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from tests.conftest import CIF_PARSER, PN_UNITS_DF

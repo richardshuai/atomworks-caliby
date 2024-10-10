@@ -161,6 +161,40 @@ class FilterToProteins(ApplyFunctionToAtomArray):
         super().__init__(func=lambda arr: arr[struc.filter_polymer(arr, pol_type="peptide", min_size=min_size)])
 
 
+def filter_to_specified_pn_units(atom_array: AtomArray, pn_unit_iids: list | set | np.ndarray) -> AtomArray:
+    """
+    Filter atom array to only include specific PN units.
+    """
+    return atom_array[np.isin(atom_array.pn_unit_iid, pn_unit_iids)]
+
+
+class FilterToSpecifiedPNUnits(Transform):
+    """
+    Filter atom array to only include specific PN units, denoted via the row metadata.
+    Such a filter is useful, for example, when during pre-processing we have identified clashing PN Units that we may want to exclude from the AtomArray.
+
+    Args:
+        - key_with_pn_unit_iids_to_keep (str): The key in the data dictionary that contains the PN unit IDs to filter to. If the key does not exist, the AtomArray is not filtered.
+    """
+
+    def __init__(self, key_with_pn_unit_iids_to_keep: str = "all_pn_unit_iids_after_processing"):
+        self.pn_unit_iid_key = key_with_pn_unit_iids_to_keep
+
+    def check_input(self, data: dict):
+        check_contains_keys(data, ["atom_array"])
+        check_is_instance(data, "atom_array", AtomArray)
+        check_atom_array_annotation(data, ["pn_unit_iid"])
+
+    def forward(self, data: dict) -> dict:
+        if self.pn_unit_iid_key not in data:
+            # ...short-circuit if the key does not exist
+            return data
+        else:
+            # ...otherwise, filter the atom array
+            data["atom_array"] = filter_to_specified_pn_units(data["atom_array"], eval(data[self.pn_unit_iid_key]))
+            return data
+
+
 class RemoveUnresolvedLigandAtomsIfTooMany(Transform):
     """
     If the number of unresolved (zero-occupancy) ligand atoms exceeds a specified threshold, remove all masked (zero-occupancy) ligand atoms from the atom array.

@@ -31,6 +31,7 @@ from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAtomArray, atom_array_from_encoding
 from datahub.transforms.feature_aggregation.rf2aa import AggregateFeaturesLikeRF2AA
 from datahub.transforms.filters import (
+    FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
     RemoveHydrogens,
     RemovePolymersWithTooFewResolvedResidues,
@@ -273,6 +274,9 @@ def build_rf2aa_transform_pipeline(
         # ============================================
         # ...remove hydrogens for efficiency
         RemoveHydrogens(),  # * (already cached from the parser)
+        FilterToSpecifiedPNUnits(
+            key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"
+        ),  # Filter to non-clashing PN units
         RemoveTerminalOxygen(),  # RF2AA does not encode terminal oxygen for AA residues.
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
         RemovePolymersWithTooFewResolvedResidues(min_residues=4),  # Remove polymers with too few resolved residues

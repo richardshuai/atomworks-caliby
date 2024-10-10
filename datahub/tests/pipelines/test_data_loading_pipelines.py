@@ -13,7 +13,7 @@ import torch
 from torch.utils.data import DataLoader, Subset
 from tqdm.autonotebook import tqdm
 
-from datahub.datasets.base import ConcatDatasetWithID, get_row_and_index_by_example_id
+from datahub.datasets.datasets import ConcatDatasetWithID, get_row_and_index_by_example_id
 from tests.datasets.conftest import (
     AF3_AF2FB_DISTILLATION_DATASET,
     AF3_PDB_DATASET,

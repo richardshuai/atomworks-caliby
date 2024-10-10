@@ -6,7 +6,7 @@ import pytest
 import torch
 from openbabel import openbabel, pybel
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata_row
+from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
 from datahub.transforms.atomize import AtomizeResidues

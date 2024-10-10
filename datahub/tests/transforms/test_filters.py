@@ -3,10 +3,11 @@ import numpy as np
 import pytest
 from biotite.structure import AtomArray
 
-from datahub.datasets.dataframe_parsers import PNUnitsDFParser, load_example_from_metadata_row
+from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES
 from datahub.transforms.base import Compose
 from datahub.transforms.filters import (
+    FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
     RemoveHydrogens,
     RemovePolymersWithTooFewResolvedResidues,
@@ -234,6 +235,37 @@ def test_handle_undesired_res_single():
 
     res_out = transform({"atom_array": res})["atom_array"]
     assert len(res_out) == 0
+
+
+CLASHING_PN_UNITS_TEST_CASES = [{"pdb_id": "5a21", "assembly_id": "1"}]
+
+
+@pytest.mark.parametrize("test_case", CLASHING_PN_UNITS_TEST_CASES)
+def test_filter_to_specified_pn_units(test_case: str):
+    pdb_id = test_case["pdb_id"]
+    assembly_id = test_case["assembly_id"]
+
+    rows = PN_UNITS_DF[(PN_UNITS_DF["pdb_id"] == pdb_id.lower()) & (PN_UNITS_DF["assembly_id"] == assembly_id)]
+
+    assert not rows.empty
+
+    # ...choose the first row, for speed
+    rows = rows.iloc[:1]
+
+    for _, row in rows.iterrows():
+        data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+
+        # Apply transforms
+        # fmt: off
+        pipeline = Compose([
+            FilterToSpecifiedPNUnits(key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"),
+        ], track_rng_state=False)
+        # fmt: on
+        output = pipeline(data)
+
+        remaining_pn_unit_iids = np.unique(output["atom_array"].pn_unit_iid)
+        expected_pn_unit_iids = set(eval(row["all_pn_unit_iids_after_processing"]))
+        assert set(remaining_pn_unit_iids) == expected_pn_unit_iids
 
 
 if __name__ == "__main__":

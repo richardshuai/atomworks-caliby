@@ -39,8 +39,8 @@ from toolz.curried import assoc, compose, keyfilter, map
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from datahub.datasets.base import StructuralDatasetWrapper
-from datahub.datasets.dataframe_parsers import InterfacesDFParser, PNUnitsDFParser
+from datahub.datasets.datasets import StructuralDatasetWrapper
+from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
 from datahub.utils.rng import (
     capture_rng_states,

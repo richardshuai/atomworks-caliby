@@ -17,9 +17,9 @@ import logging
 
 from tqdm import tqdm
 
-from datahub.datasets.base import get_row_and_index_by_example_id
-from datahub.tests.pipeline.test_data_loading_pipeline import BENCHMARK_EXAMPLE_IDS
+from datahub.datasets.datasets import get_row_and_index_by_example_id
 from tests.conftest import PDB_DATASET
+from tests.pipelines.test_data_loading_pipelines import BENCHMARK_EXAMPLE_IDS
 
 
 def load_examples(indices):

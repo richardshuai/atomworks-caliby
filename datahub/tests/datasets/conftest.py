@@ -1,11 +1,11 @@
 from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
-from datahub.datasets.base import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
-from datahub.datasets.dataframe_parsers import (
+from datahub.datasets.datasets import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
+from datahub.datasets.parsers import (
     AF2FB_DistillationParser,
     InterfacesDFParser,
     PNUnitsDFParser,
-    ValidationDFParser,
+    ValidationDFParserLikeAF3,
 )
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
@@ -179,7 +179,7 @@ RF2AA_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
 
 # ...for RF2AA
 RF2AA_VALIDATION_DATASET = StructuralDatasetWrapper(
-    dataset_parser=ValidationDFParser(),
+    dataset_parser=ValidationDFParserLikeAF3(),
     cif_parser=CIF_PARSER,
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
@@ -202,7 +202,7 @@ RF2AA_VALIDATION_DATASET = StructuralDatasetWrapper(
 
 # ...for AF3
 AF3_VALIDATION_DATASET = StructuralDatasetWrapper(
-    dataset_parser=ValidationDFParser(),
+    dataset_parser=ValidationDFParserLikeAF3(),
     cif_parser=CIF_PARSER,
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,

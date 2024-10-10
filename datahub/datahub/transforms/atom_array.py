@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 # Convenience utils
+# NOTE: We should move to the `utils` folder
 def get_chain_instance_starts(array: AtomArray, add_exclusive_stop: bool = False) -> np.ndarray:
     """
     Get indices for an atom array, each indicating the beginning of a new chain instance (chain_iid).
@@ -86,14 +87,14 @@ def atom_id_to_token_idx(atom_array: AtomArray, atom_id: int) -> int:
 
 
 def apply_and_spread_residue_wise(
-    atom_array: AtomArray, data: np.ndarray, function: Callable[[np.ndarray], np.ScalarType], axis: int | None = None
+    atom_array: AtomArray, data: np.ndarray, function: Callable[[np.ndarray], np.generic], axis: int | None = None
 ) -> np.ndarray:
     """Apply a function residue wise and then spread the result to the atoms."""
     return struc.spread_residue_wise(atom_array, struc.apply_residue_wise(atom_array, data, function, axis))
 
 
 def apply_and_spread_chain_wise(
-    atom_array: AtomArray, data: np.ndarray, function: Callable[[np.ndarray], np.ScalarType], axis: int | None = None
+    atom_array: AtomArray, data: np.ndarray, function: Callable[[np.ndarray], np.generic], axis: int | None = None
 ) -> np.ndarray:
     """Apply a function chain wise and then spread the result to the atoms."""
     return struc.spread_chain_wise(atom_array, struc.apply_chain_wise(atom_array, data, function, axis))

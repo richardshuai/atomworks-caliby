@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 
-from datahub.datasets.base import ConcatDatasetWithID, FallbackDatasetWrapper, PandasDataset
+from datahub.datasets.datasets import ConcatDatasetWithID, FallbackDatasetWrapper, PandasDataset
 from datahub.samplers import DistributedMixedSampler, FallbackSamplerWrapper, MixedSampler
 from tests.datasets.test_datasets import create_dummy_dataset
 

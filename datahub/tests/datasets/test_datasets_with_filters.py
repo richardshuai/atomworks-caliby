@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import pytest
 
-from datahub.datasets.base import PandasDataset
+from datahub.datasets.datasets import PandasDataset
 from tests.conftest import PN_UNITS_DF
 from tests.datasets.conftest import RF2AA_INTERFACES_DATASET, RF2AA_PN_UNITS_DATASET
 

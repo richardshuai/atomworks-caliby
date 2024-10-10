@@ -28,6 +28,7 @@ from datahub.transforms.diffusion.edm import SampleEDMNoise
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
 from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
 from datahub.transforms.filters import (
+    FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
     RemoveHydrogens,
     RemovePolymersWithTooFewResolvedResidues,
@@ -124,6 +125,9 @@ def build_af3_transform_pipeline(
 
     transforms = [
         RemoveHydrogens(),
+        FilterToSpecifiedPNUnits(
+            key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"
+        ),  # Filter to non-clashing PN units
         RemoveTerminalOxygen(),
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
         RemovePolymersWithTooFewResolvedResidues(min_residues=4),  # Remove polymers with too few resolved residues

@@ -4,11 +4,7 @@ import pytest
 import torch
 from torch.utils.data import SequentialSampler, WeightedRandomSampler
 
-from datahub.datasets.base import (
-    ConcatDatasetWithID,
-    PandasDataset,
-    get_row_and_index_by_example_id,
-)
+from datahub.datasets.datasets import ConcatDatasetWithID, PandasDataset, get_row_and_index_by_example_id
 from datahub.samplers import (
     MixedSampler,
     calculate_weights_for_pdb_dataset_df,
