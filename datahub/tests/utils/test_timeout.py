@@ -78,8 +78,7 @@ def test_timeout_on_rdkit():
     with pytest.raises(TimeoutError):
         generate_conformers(mol)
     end_time = time.time()
-    assert end_time - start_time < 1.5 # More tha 0.5 since suprocesses must spawn, run, and communicate back
-
+    assert end_time - start_time < 1.5  # More tha 0.5 since suprocesses must spawn, run, and communicate back
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])

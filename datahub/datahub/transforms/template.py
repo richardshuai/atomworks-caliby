@@ -897,7 +897,13 @@ class FeaturizeTemplatesLikeAF3(Transform):
 
         return data
 
+
 class OneHotTemplateRestype(Transform):
+    """
+    One-hot encode residue types within templates.
+    NOTE: We keep as a separate transform since the AF-3 supplement did not
+    explicitly mention the one-hot encoding of the residue types for templates.
+    """
 
     def __init__(self, encoding: AF3SequenceEncoding):
         self.encoding = encoding

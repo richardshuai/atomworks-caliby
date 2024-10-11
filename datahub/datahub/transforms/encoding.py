@@ -12,10 +12,10 @@ from typing import Any
 
 import numpy as np
 import torch
-from torch.nn import functional as F
 from assertpy import assert_that
 from biotite.structure import AtomArray
 from cifutils.utils import get_std_alt_atom_id_conversion
+from torch.nn import functional as F
 
 from datahub.common import exists
 from datahub.encoding_definitions import AF3SequenceEncoding, TokenEncoding
@@ -503,6 +503,12 @@ class EncodeAF3TokenLevelFeatures(Transform):
 
         # ... sequence tokens
         restype = self.sequence_encoding.encode(token_level_array.res_name)
+
+        # HACK: MSA transformations rely on the encoded query sequence being stored in "encoded/seq"
+        # We could consider finding a consistent place to store the encoded query sequence across RF2AA and AF3 (e.g., "encoded" vs. "feats/restype")
+        data["encoded"] = {"seq": restype}
+
+        # ...one-hot encode the restype (NOTE: We one-hot encode here, since we have access to the sequence encoding object)
         restype = F.one_hot(torch.tensor(restype), num_classes=self.sequence_encoding.n_tokens).numpy()
 
         # ... molecule type
@@ -541,10 +547,5 @@ class EncodeAF3TokenLevelFeatures(Transform):
             "entity_name": entity_name,  # (N_entities)
             "sym_name": sym_name,  # (N_entities)
         }
-
-        # HACK: MSA transformations rely on the encoded query sequence being stored in "encoded/seq"
-        # We could consider finding a consistent place to store the encoded query sequence across RF2AA and AF3 (e.g., "encoded" vs. "feats/restype")
-        # extremely cursed: remap the one hot encoded back to the integer encoding
-        data["encoded"] = {"seq": restype.argmax(axis=-1)}
 
         return data

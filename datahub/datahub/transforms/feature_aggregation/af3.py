@@ -83,7 +83,7 @@ class AggregateFeaturesLikeAF3(Transform):
         # more compact one-hot encoding (as the first 32 Unicode characters will not occur in an atom name)
         data["feats"]["ref_atom_name_chars"] = F.one_hot(data["feats"]["ref_atom_name_chars"].long(), num_classes=64)
 
-        #NOTE: the ref element is one-hot encoded by element number up to 128 (more than the known number of elements)
+        # NOTE: the ref element is one-hot encoded by element number up to 128 (more than the known number of elements)
         data["feats"]["ref_element"] = F.one_hot(data["feats"]["ref_element"].long(), num_classes=128)
 
         # Process ground truth structure
