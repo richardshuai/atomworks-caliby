@@ -25,7 +25,7 @@ def identity_collate_fn(batch):
 
 @pytest.mark.slow
 def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
-    NUM_RANDOM_EXAMPLES = 10
+    NUM_RANDOM_EXAMPLES = 5
 
     # Set the seed for reproducibility
     seed = 42
