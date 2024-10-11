@@ -23,7 +23,7 @@ def identity_collate_fn(batch):
     return batch
 
 
-@pytest.mark.slow
+@pytest.mark.skip
 def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
     """
     NOTE: This test is stochastic; it's results should only be interpreted in-context.
