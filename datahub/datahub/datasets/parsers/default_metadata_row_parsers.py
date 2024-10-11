@@ -1,4 +1,4 @@
-"""MetadataRowParser implementations for the default datasets (supporting AF-3 and RF2AA workflows)."""
+"""MetadataRowParser implementations for the default PDB datasets (supporting AF-3 and RF2AA workflows)."""
 
 from pathlib import Path
 from typing import Any
