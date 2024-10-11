@@ -85,7 +85,7 @@ def _apply_assembly_transformation(
 def _build_bioassembly_from_asym_unit(
     assembly_gen_category: CIFCategory,
     struct_oper_category: CIFCategory,
-    atom_array_stack: AtomArrayStack,
+    asym_unit_atom_array_stack: AtomArrayStack,
     assembly_ids: Literal["all", "first"] | list[str] = "first",
 ) -> AtomArrayStack:
     """
@@ -95,7 +95,7 @@ def _build_bioassembly_from_asym_unit(
 
     Args:
         cif_block (CIFBlock): The CIF block containing the structure data.
-        atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied.
+        asym_unit_atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied (the asymmetric unit).
         assembly_id (int, optional): The ID of the assembly to build. Defaults to None, which means the first assembly will be built.
 
     Returns:
@@ -132,7 +132,7 @@ def _build_bioassembly_from_asym_unit(
             operations = pdbx.convert._parse_operation_expression(op_expr)
             asym_ids = asym_id_expr.split(",")
             # Filter affected asym IDs
-            sub_structure = atom_array_stack[..., np.isin(atom_array_stack.chain_id, asym_ids)]
+            sub_structure = asym_unit_atom_array_stack[..., np.isin(asym_unit_atom_array_stack.chain_id, asym_ids)]
             for operation in operations:
                 sub_assembly = _apply_assembly_transformation(sub_structure, transformations, operation)
                 # Add transformation ID annotation (e.g., 1 for identity operation)
@@ -151,7 +151,7 @@ def _build_bioassembly_from_asym_unit(
 def process_assemblies(
     assembly_gen_category: CIFCategory,
     struct_oper_category: CIFCategory,
-    atom_array_stack: AtomArrayStack,
+    asym_unit_atom_array_stack: AtomArrayStack,
     patch_symmetry_centers: bool,
     build_assembly: Literal["all", "first"] | list[str] = "first",
 ) -> None:
@@ -161,7 +161,7 @@ def process_assemblies(
     Args:
         assembly_gen_category (CIFCategory): The `pdbx_struct_assembly_gen` category from the CIF file.
         struct_oper_category (CIFCategory): The `pdbx_struct_oper_list` category from the CIF file.
-        atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied.
+        asym_unit_atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied (the asymmetric unit).
         patch_symmetry_centers (bool): Flag to indicate if symmetry centers should be patched.
         build_assembly (str, optional): The assembly ID to build. Defaults to "first".
 
@@ -171,7 +171,7 @@ def process_assemblies(
     assemblies = _build_bioassembly_from_asym_unit(
         assembly_gen_category=assembly_gen_category,
         struct_oper_category=struct_oper_category,
-        atom_array_stack=atom_array_stack,
+        asym_unit_atom_array_stack=asym_unit_atom_array_stack,
         assembly_ids=build_assembly,
     )
 

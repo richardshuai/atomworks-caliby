@@ -50,7 +50,7 @@ def test_regression_against_stored_result(pdb_id: str):
         expected_result = pickle.load(f)
 
     # Check the asymmetric unit...
-    assert_same_atom_array(result["atom_array_stack"], expected_result["atom_array_stack"])
+    assert_same_atom_array(result["asym_unit"], expected_result["asym_unit"])
 
     # ...the assemblies
     for assembly_id in result["assemblies"]:

@@ -24,7 +24,7 @@ def test_multiple_models(test_case: dict):
         model=None,  # Builds all models
     )
 
-    atom_array_stack = result["atom_array_stack"]
+    atom_array_stack = result["asym_unit"]
     assert atom_array_stack.stack_depth() == test_case["num_models"]
 
     # Assert all models have different coordiantes

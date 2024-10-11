@@ -7,4 +7,4 @@ def test_arginine_renaming():
     renamed_file = TEST_DATA_DIR / "101m_arginine_nh1nh2_swapped.cif"  # Manually renamed the arginine atoms.
     result1 = CIF_PARSER_BIOTITE.parse(filename=correct_file, build_assembly=None)
     result2 = CIF_PARSER_BIOTITE.parse(filename=renamed_file, build_assembly=None, fix_arginines=True)
-    assert_same_atom_array(result1["atom_array_stack"][0], result2["atom_array_stack"][0])
+    assert_same_atom_array(result1["asym_unit"][0], result2["asym_unit"][0])

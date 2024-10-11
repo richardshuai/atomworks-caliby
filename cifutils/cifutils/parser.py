@@ -173,17 +173,17 @@ class CIFParser:
                     result = pd.read_pickle(cache_file_path)
 
                     # Build assemblies
-                    atom_array_stack = result["atom_array_stack"]
+                    asym_unit_atom_array_stack = result["asym_unit"]
                     if "assembly_gen_category" in result["extra_info"]:
                         assemblies = process_assemblies(
                             assembly_gen_category=result["extra_info"]["assembly_gen_category"],
                             struct_oper_category=result["extra_info"]["struct_oper_category"],
-                            atom_array_stack=atom_array_stack,
+                            asym_unit_atom_array_stack=asym_unit_atom_array_stack,
                             build_assembly=kwargs.get("build_assembly", "all"),
                             patch_symmetry_centers=kwargs.get("patch_symmetry_centers", True),
                         )
                     else:
-                        assemblies = atom_array_stack
+                        assemblies = asym_unit_atom_array_stack
 
                     # Return updated result
                     result["assemblies"] = assemblies
@@ -283,7 +283,7 @@ class CIFParser:
                 'chain_info': A dictionary mapping chain ID to sequence, type, RCSB entity,
                     EC number, and other information.
                 'ligand_info': A dictionary containing ligand of interest information.
-                'atom_array_stack': An AtomArrayStack instance representing the asymmetric unit.
+                'asym_unit': An AtomArrayStack instance representing the asymmetric unit.
                 'assemblies': A dictionary mapping assembly IDs to AtomArrayStack instances.
                 'metadata': A dictionary containing metadata about the structure
                     (e.g., resolution, deposition date, etc.).
@@ -310,7 +310,7 @@ class CIFParser:
             fallback_filename = Path(filename).stem
         data_dict["metadata"] = get_metadata_from_category(data_dict["cif_block"], fallback_id=fallback_filename)
 
-        # ...load structure into the "atom_array_stack" key using the RCSB labels for sequence ids, and later update for non-polymers
+        # ...load structure into the "asym_unit" key using the RCSB labels for sequence ids, and later update for non-polymers
         common_extra_fields = [
             "label_entity_id",
             "auth_seq_id",  # for non-polymer residue indexing
@@ -321,7 +321,7 @@ class CIFParser:
         ]
 
         try:
-            atom_array_stack = get_structure(
+            asym_unit_atom_array_stack = get_structure(
                 cif_file,
                 extra_fields=common_extra_fields,
                 assume_residues_all_resolved=assume_residues_all_resolved,
@@ -330,7 +330,7 @@ class CIFParser:
         except InvalidFileError:
             logger.info("Invalid file error encountered; loading with only one model")
             # Try again, choosing only the first model
-            atom_array_stack = get_structure(
+            asym_unit_atom_array_stack = get_structure(
                 cif_file,
                 extra_fields=common_extra_fields,
                 assume_residues_all_resolved=assume_residues_all_resolved,
@@ -338,24 +338,24 @@ class CIFParser:
             )
 
         # ...ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
-        if not isinstance(atom_array_stack, AtomArrayStack):
-            atom_array_stack = struc.stack([atom_array_stack])
-        data_dict["atom_array_stack"] = atom_array_stack
+        if not isinstance(asym_unit_atom_array_stack, AtomArrayStack):
+            asym_unit_atom_array_stack = struc.stack([asym_unit_atom_array_stack])
+        data_dict["asym_unit_atom_array_stack"] = asym_unit_atom_array_stack
 
         # ...load chain information from the first model (uses atom_array to build chain list)
         if "entity" and "entity_poly" in data_dict["cif_block"].keys():
             # We can get the chain information directly from the CIF file
             data_dict["chain_info_dict"] = get_chain_info_from_category(
-                data_dict["cif_block"], data_dict["atom_array_stack"][0]
+                data_dict["cif_block"], data_dict["asym_unit_atom_array_stack"][0]
             )
         else:
             # We must infer the chain information from the AtomArray residue names (not bulletproof)
-            data_dict["chain_info_dict"] = infer_chain_info_from_atom_array(data_dict["atom_array_stack"][0])
+            data_dict["chain_info_dict"] = infer_chain_info_from_atom_array(data_dict["asym_unit_atom_array_stack"][0])
 
         # ...loop through models
         models = []
-        for model_idx in range(atom_array_stack.stack_depth()):
-            atom_array = data_dict["atom_array_stack"][model_idx]
+        for model_idx in range(asym_unit_atom_array_stack.stack_depth()):
+            atom_array = data_dict["asym_unit_atom_array_stack"][model_idx]
 
             # ...optionally, remove hydrogens (most examples will not have any hydrogens; only NMR studies and small molecules)
             if not keep_hydrogens:
@@ -469,7 +469,7 @@ class CIFParser:
             models.append(atom_array)
 
         # ...create an AtomArrayStack from the list of AtomArrays
-        data_dict["atom_array_stack"] = struc.stack(models)
+        data_dict["asym_unit_atom_array_stack"] = struc.stack(models)
 
         # ...optionally, build assemblies and add assembly-specifc annotation (instance IDs)
         if exists(build_assembly):
@@ -485,7 +485,7 @@ class CIFParser:
             data_dict["assemblies"] = process_assemblies(
                 assembly_gen_category=assembly_gen_category,
                 struct_oper_category=struct_oper_category,
-                atom_array_stack=data_dict["atom_array_stack"],
+                asym_unit_atom_array_stack=data_dict["asym_unit_atom_array_stack"],
                 build_assembly=build_assembly,
                 patch_symmetry_centers=patch_symmetry_centers,
             )
@@ -509,8 +509,8 @@ class CIFParser:
             "index",
         ]
         for annotation in unneeded_annotations:
-            if annotation in data_dict["atom_array_stack"].get_annotation_categories():
-                data_dict["atom_array_stack"].del_annotation(annotation)
+            if annotation in data_dict["asym_unit_atom_array_stack"].get_annotation_categories():
+                data_dict["asym_unit_atom_array_stack"].del_annotation(annotation)
             if "assemblies" in data_dict:
                 for assembly in data_dict["assemblies"].values():
                     if annotation in assembly.get_annotation_categories():
@@ -520,7 +520,7 @@ class CIFParser:
         return {
             "chain_info": data_dict["chain_info_dict"],
             "ligand_info": data_dict["loi_info"],
-            "atom_array_stack": data_dict["atom_array_stack"],
+            "asym_unit": data_dict["asym_unit_atom_array_stack"],
             "assemblies": data_dict["assemblies"],
             "metadata": data_dict["metadata"],
             "extra_info": data_dict["extra_info"],
@@ -545,7 +545,7 @@ class CIFParser:
                 'chain_info': A dictionary mapping chain ID to sequence, type, RCSB entity,
                     EC number, and other information.
                 'ligand_info': A dictionary containing ligand of interest information.
-                'atom_array_stack': An AtomArrayStack instance representing the asymmetric unit.
+                'asym_unit': An AtomArrayStack instance representing the asymmetric unit.
                 'assemblies': A dictionary mapping assembly IDs to AtomArrayStack instances.
                 'metadata': A dictionary containing metadata about the structure
                     (e.g., resolution, deposition date, etc.).
