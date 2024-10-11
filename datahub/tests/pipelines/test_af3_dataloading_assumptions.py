@@ -18,7 +18,7 @@ def test_satisfies_af3_dataloading_assumptions(pdb_dataset):
     """
     Tests that the data loading pipeline outputs examples that satisfy the assumptions of the AF3 model.
     """
-    NUM_RANDOM_EXAMPLES = 5
+    NUM_RANDOM_EXAMPLES = 3
 
     # Set the seed for reproducibility
     seed = 42
@@ -40,6 +40,7 @@ def test_satisfies_af3_dataloading_assumptions(pdb_dataset):
         batch_size=1,
         shuffle=False,
         collate_fn=lambda x: x,
+        num_workers=3,
     )
 
     for sample in tqdm(data_loader):

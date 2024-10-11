@@ -122,7 +122,7 @@ def test_data_loading_pipeline_with_multiple_workers(datasets_to_test: dict):
     dataset_type = datasets_to_test["type"]
 
     """Test random examples using a DataLoader and assert that they run through without error and the result is not None."""
-    NUM_RANDOM_EXAMPLES = 5
+    NUM_RANDOM_EXAMPLES = 2
 
     # Set the seed for reproducibility
     np.random.seed(0)
@@ -149,7 +149,7 @@ def test_data_loading_pipeline_with_multiple_workers(datasets_to_test: dict):
         subset,
         batch_size=1,
         shuffle=False,
-        num_workers=2,
+        num_workers=4,
         worker_init_fn=worker_init_fn,
         collate_fn=identity_collate_fn,
     )

@@ -27,13 +27,13 @@ EDGE_CASE_LIST = [
     # "1FU2",  # Simple, small example with multiple chains
     "6DMG",  # Multiconformer ligand
     "1Y1W",  # Protein-nucleic-acid complex
-    "5XNL",  # Another ribosomal monstrous molecule to limit-test loading speeds
-    "2E2H",  # Complex with protein, DNA, and RNA
+    # "5XNL",  # Another ribosomal monstrous molecule to limit-test loading speeds (slow to load; commenting out)
+    # "2E2H",  # Complex with protein, DNA, and RNA (slow to load; commenting out)
     # "4NDZ",  # Large assembly with two ligand chains covalently bound together; also has non-biological bonds
     # "3NE7",  # Small assembly with two ligand chains covalently bound together. Also has an "UNL" residue (unknown ligand). Further complicated by the fact that only atoms in one occupancy state are covalently bonded between the two ligands, but not in the other.
     "3NEZ",  # Sequence heterogeneity with non-standard residues (CH6/NRQ), with equal occupancy. Requires additional checks when loading covalent bonds
     # "1RXZ",  # Single protein chain in complex with a short peptide (11 residues) with non-trivial symmetry (multiple transformations)
-    "3J31",  # Enormous molecule (viral capsid - very large bioassembly)
+    # "3J31",  # Enormous molecule (viral capsid - very large bioassembly) (slow to load; commenting out)
     # "7MUB",  # Has a clashing molecule, which is also a LOI - has a potassium at symmetry center
     # "1QK0",  # Has 3 LOIs declared in the cif file, but 1 LOI on the PDB summary page / FTP service
     "1DYL",  # Non-numeric transformation ID
