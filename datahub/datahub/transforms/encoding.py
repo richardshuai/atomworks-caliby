@@ -530,7 +530,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
             "asym_id": asym_id,  # (N_tokens) (int)
             "entity_id": entity_id,  # (N_tokens) (int)
             "sym_id": sym_id,  # (N_tokens) (int)
-            "restype": restype,  # (N_tokens, 32) (int)
+            "restype": restype,  # (N_tokens, 32) (float, one-hot)
             "is_protein": is_protein,  # (N_tokens) (bool)
             "is_rna": is_rna,  # (N_tokens) (bool)
             "is_dna": is_dna,  # (N_tokens) (bool)
