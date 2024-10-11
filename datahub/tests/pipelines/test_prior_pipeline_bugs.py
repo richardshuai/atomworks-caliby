@@ -57,7 +57,7 @@ PN_UNITS_DATASET_RF2AA = StructuralDatasetWrapper(
         data=PN_UNITS_DF,
         filters=TEST_PN_UNITS_FILTERS,
     ),
-    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
+    cif_parser_args={"cache_dir": None},
     return_key="feats",
     save_failed_examples_to_dir=None,
 )
@@ -87,8 +87,8 @@ PDB_DATASET_RF2AA = ConcatDatasetWithID(
 )  # NOTE: Order matters!
 
 PRIOR_PIPELINE_BUGS_RF2AA = [
-    # "{['pdb', 'interfaces']}{2g37}{1}{['B_1', 'F_1']}"
-    # "{['pdb', 'interfaces']}{1pfi}{1}{['B_12', 'C_12']}", # Integer overflow for number of isomorphisms
+    "{['pdb', 'interfaces']}{2g37}{1}{['B_1', 'F_1']}"
+    "{['pdb', 'interfaces']}{1pfi}{1}{['B_12', 'C_12']}",  # Integer overflow for number of isomorphisms
     "{['pdb', 'interfaces']}{2pno}{3}{['DB_1', 'G_1']}",
     "{['pdb', 'interfaces']}{7ah0}{1}{['A_1', 'B_1']}",
     "{['pdb', 'interfaces']}{4u4h}{2}{['A_1', 'A_2']}",
