@@ -170,28 +170,30 @@ def filter_to_specified_pn_units(atom_array: AtomArray, pn_unit_iids: list | set
 
 class FilterToSpecifiedPNUnits(Transform):
     """
-    Filter atom array to only include specific PN units, denoted via the row metadata.
+    Filter atom array to only include specific PN units, denoted via the row metadata (held in `extra_info`).
     Such a filter is useful, for example, when during pre-processing we have identified clashing PN Units that we may want to exclude from the AtomArray.
 
     Args:
-        - key_with_pn_unit_iids_to_keep (str): The key in the data dictionary that contains the PN unit IDs to filter to. If the key does not exist, the AtomArray is not filtered.
+        - extra_info_key_with_pn_unit_iids_to_keep (str): The key in the "extra_info" dictionary that contains the PN unit IDs to filter to. If the key does not exist, the AtomArray is not filtered.
     """
 
-    def __init__(self, key_with_pn_unit_iids_to_keep: str = "all_pn_unit_iids_after_processing"):
-        self.pn_unit_iid_key = key_with_pn_unit_iids_to_keep
+    def __init__(self, extra_info_key_with_pn_unit_iids_to_keep: str = "all_pn_unit_iids_after_processing"):
+        self.pn_unit_iid_key = extra_info_key_with_pn_unit_iids_to_keep
 
     def check_input(self, data: dict):
-        check_contains_keys(data, ["atom_array"])
+        check_contains_keys(data, ["atom_array", "extra_info"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["pn_unit_iid"])
 
     def forward(self, data: dict) -> dict:
-        if self.pn_unit_iid_key not in data:
-            # ...short-circuit if the key does not exist
+        if self.pn_unit_iid_key not in data["extra_info"]:
+            # ...short-circuit if the key does not exist in the `extra_info` dictionary
             return data
         else:
             # ...otherwise, filter the atom array
-            data["atom_array"] = filter_to_specified_pn_units(data["atom_array"], eval(data[self.pn_unit_iid_key]))
+            data["atom_array"] = filter_to_specified_pn_units(
+                data["atom_array"], eval(data["extra_info"][self.pn_unit_iid_key])
+            )
             return data
 
 

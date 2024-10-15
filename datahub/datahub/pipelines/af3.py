@@ -131,7 +131,7 @@ def build_af3_transform_pipeline(
     transforms = [
         RemoveHydrogens(),
         FilterToSpecifiedPNUnits(
-            key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"
+            extra_info_key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"
         ),  # Filter to non-clashing PN units
         RemoveTerminalOxygen(),
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)

@@ -11,6 +11,7 @@ import torch
 from tests.datasets.conftest import AF3_AF2FB_DISTILLATION_CONCAT_DATASET, AF3_PDB_DATASET, TEST_DIFFUSION_BATCH_SIZE
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("dataset", [AF3_PDB_DATASET, AF3_AF2FB_DISTILLATION_CONCAT_DATASET])
 def test_satisfies_af3_dataloading_assumptions(dataset):
     """

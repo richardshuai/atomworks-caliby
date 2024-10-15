@@ -258,7 +258,7 @@ def test_filter_to_specified_pn_units(test_case: str):
         # Apply transforms
         # fmt: off
         pipeline = Compose([
-            FilterToSpecifiedPNUnits(key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"),
+            FilterToSpecifiedPNUnits(extra_info_key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"),
         ], track_rng_state=False)
         # fmt: on
         output = pipeline(data)

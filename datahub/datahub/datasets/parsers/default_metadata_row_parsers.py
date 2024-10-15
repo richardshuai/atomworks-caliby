@@ -40,9 +40,6 @@ class PNUnitsDFParser(MetadataRowParser):
             "assembly_id": row["assembly_id"],
             "query_pn_unit_iids": query_pn_unit_iids,  # Where to center the crop; if more than one, center the crop on the interface
             "extra_info": extra_info,
-            "all_pn_unit_iids_after_processing": row[
-                "all_pn_unit_iids_after_processing"
-            ],  # Needed to remove clashing PN units
         }
 
 
@@ -78,7 +75,4 @@ class InterfacesDFParser(MetadataRowParser):
             "assembly_id": row["assembly_id"],
             "query_pn_unit_iids": query_pn_unit_iids,  # Where to center the crop; if more than one, center the crop on the interface
             "extra_info": extra_info,
-            "all_pn_unit_iids_after_processing": row[
-                "all_pn_unit_iids_after_processing"
-            ],  # Needed to remove clashing PN units
         }
