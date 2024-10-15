@@ -26,7 +26,11 @@ from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.diffusion.edm import SampleEDMNoise
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
 from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
-from datahub.transforms.featurize_unresolved_residues import MaskResiduesWithUnresolvedBackboneAtoms
+from datahub.transforms.featurize_unresolved_residues import (
+    MaskResiduesWithUnresolvedBackboneAtoms,
+    PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
+    PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
+)
 from datahub.transforms.filters import (
     FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
@@ -220,6 +224,10 @@ def build_af3_transform_pipeline(
         ),
         AggregateFeaturesLikeAF3(),
         OneHotTemplateRestype(encoding=af3_sequence_encoding),
+        # ...handling of unresolved residues
+        PlaceUnresolvedTokenAtomsOnRepresentativeAtom(),
+        PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(),
+        # ...batching and noise sampling for diffusion
         BatchStructures(batch_size=diffusion_batch_size),
         CenterRandomAugmentation(batch_size=diffusion_batch_size),
         SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),
