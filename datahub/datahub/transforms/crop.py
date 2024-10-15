@@ -257,7 +257,7 @@ class CropContiguousLikeAF3(Transform):
             under the key `"atom_array"`. Defaults to `False`.
     """
 
-    requires_previous_transforms = ["AtomizeResidues"]
+    requires_previous_transforms = ["AtomizeByCCDName"]
     incompatible_previous_transforms = [
         "EncodeAtomArray",
         "CropSpatialLikeAF3",
@@ -411,7 +411,7 @@ class CropSpatialLikeAF3(Transform):
             under the key `"atom_array"`. Defaults to `False`.
     """
 
-    requires_previous_transforms = ["AddGlobalAtomIdAnnotation", "AtomizeResidues"]
+    requires_previous_transforms = ["AddGlobalAtomIdAnnotation", "AtomizeByCCDName"]
     incompatible_previous_transforms = [
         "EncodeAtomArray",
         "CropContiguousLikeAF3",

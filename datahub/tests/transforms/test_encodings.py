@@ -11,7 +11,7 @@ from datahub.encoding_definitions import (
     RF2AA_ATOM36_ENCODING,
     TokenEncoding,
 )
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose, Identity
 from datahub.transforms.encoding import AddTokenAnnotation, EncodeAtomArray, get_token_count
 from datahub.transforms.filters import (
@@ -107,7 +107,7 @@ def test_all_atom_encoding(
         [
             Identity() if encode_hydrogens else RemoveHydrogens(),
             RemoveTerminalOxygen(),  # RF2AA does not encode terminal oxygen for AA residues.
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             AddTokenAnnotation(encoding),
             EncodeAtomArray(encoding),
         ]
@@ -160,7 +160,7 @@ def test_extra_annotations(test_case: dict):
         [
             RemoveHydrogens(),
             RemoveTerminalOxygen(),  # RF2AA does not encode terminal oxygen for AA residues.
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             AddTokenAnnotation(encoding),
             EncodeAtomArray(encoding),
         ]

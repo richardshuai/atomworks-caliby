@@ -5,7 +5,7 @@ import numpy as np
 from datahub.encoding_definitions import (
     RF2AA_ATOM36_ENCODING,
 )
-from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
+from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose
 from datahub.transforms.encoding import AddTokenAnnotation, EncodeAtomArray
 from datahub.transforms.featurize_unresolved_residues import (
@@ -68,7 +68,7 @@ def test_place_unresolved_side_chain_atoms_on_representative_atom():
         [
             MaskResiduesWithUnresolvedBackboneAtoms(),
             FlagNonPolymersForAtomization(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             AddTokenAnnotation(encoding),
             EncodeAtomArray(encoding),
             PlaceUnresolvedTokenAtomsOnRepresentativeAtom(),
@@ -104,7 +104,7 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
         [
             MaskResiduesWithUnresolvedBackboneAtoms(),
             FlagNonPolymersForAtomization(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             AddTokenAnnotation(encoding),
             EncodeAtomArray(encoding),
             PlaceUnresolvedTokenAtomsOnRepresentativeAtom(),

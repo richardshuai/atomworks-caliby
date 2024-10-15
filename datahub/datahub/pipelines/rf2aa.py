@@ -17,7 +17,7 @@ from datahub.transforms.atom_array import (
     SortLikeRF2AA,
 )
 from datahub.transforms.atom_frames import AddAtomFrames
-from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
+from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import ApplyFunction, Compose, ConvertToTorch, RandomRoute, SubsetToKeys
 from datahub.transforms.bonds import (
     AddRF2AABondFeaturesMatrix,
@@ -304,7 +304,7 @@ def build_rf2aa_transform_pipeline(
         # ...flag non-polymers for atomization (in case there are polymer tokens outside of a polymer)
         FlagNonPolymersForAtomization(),
         # ...atomize
-        AtomizeResidues(
+        AtomizeByCCDName(
             atomize_by_default=True,
             res_names_to_atomize=res_names_to_atomize,
             res_names_to_ignore=encoding.tokens,

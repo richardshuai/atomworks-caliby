@@ -16,7 +16,7 @@ from cifutils.parser import CIFParser
 from tqdm import tqdm
 
 from datahub.common import exists
-from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
+from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.filters import (
@@ -54,7 +54,7 @@ def count_af3_style_tokens_from_atom_array(atom_array: AtomArray) -> dict:
         HandleUndesiredResTokens(AF3_EXCLUDED_LIGANDS),  # e.g., non-standard residues
         FlagAndReassignCovalentModifications(),
         FlagNonPolymersForAtomization(),
-        AtomizeResidues(
+        AtomizeByCCDName(
             atomize_by_default=True,
             res_names_to_ignore=STANDARD_AA + STANDARD_RNA + STANDARD_DNA,
             move_atomized_part_to_end=False,

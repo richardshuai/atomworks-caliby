@@ -7,7 +7,7 @@ from cifutils.utils.sequence_utils import PURINE_RESIDUES, PYRAMIDINE_RESIDUES
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, AddGlobalTokenIdAnnotation
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.utils.token import (
     apply_segment_wise_2d,
@@ -38,7 +38,7 @@ def test_tokens_are_residues_without_atomization(pdb_id: str):
 @pytest.mark.parametrize("pdb_id", ["6lyz", "5ocm"])
 def test_tokens_are_atoms_with_full_atomization(pdb_id: str):
     data = cached_parse(pdb_id)
-    data = AtomizeResidues(atomize_by_default=True)(data)
+    data = AtomizeByCCDName(atomize_by_default=True)(data)
     atom_array = data["atom_array"]
     assert get_token_count(atom_array) == len(atom_array)
     assert np.all(get_token_starts(atom_array) == np.arange(len(atom_array)))
@@ -58,7 +58,7 @@ def test_add_global_token_id_annotation_when_fully_atomized(pdb_id):
     pipe = Compose(
         [
             AddGlobalAtomIdAnnotation(),
-            AtomizeResidues(atomize_by_default=True),  # atomize all residues
+            AtomizeByCCDName(atomize_by_default=True),  # atomize all residues
             AddGlobalTokenIdAnnotation(),
         ],
         track_rng_state=False,
@@ -148,7 +148,7 @@ def test_add_global_token_id_annotation_when_partially_atomized(pdb_id):
     pipe = Compose(
         [
             AddGlobalAtomIdAnnotation(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
             AddGlobalTokenIdAnnotation(),
         ],
         track_rng_state=False,
@@ -187,9 +187,9 @@ def test_get_token_center_atoms(pdb_id):
 
     atom_array = data["atom_array"]
     # HACK: refactor to make this not necessary
-    # currently the atomize field is set even for nonprotein residues by the AtomizeResidues transform
-    # so you must call the AtomizeResidues transform to get token atoms or representative atoms
-    tranform = AtomizeResidues(
+    # currently the atomize field is set even for nonprotein residues by the AtomizeByCCDName transform
+    # so you must call the AtomizeByCCDName transform to get token atoms or representative atoms
+    tranform = AtomizeByCCDName(
         atomize_by_default=True,
         res_names_to_ignore=STANDARD_AA + STANDARD_RNA + STANDARD_DNA,
         move_atomized_part_to_end=False,
@@ -218,9 +218,9 @@ def test_get_token_representative_atoms(pdb_id):
     atom_array = data["atom_array"]
 
     # HACK: refactor to make this not necessary
-    # currently the atomize field is set even for nonprotein residues by the AtomizeResidues transform
-    # so you must call the AtomizeResidues transform to get token atoms or representative atoms
-    tranform = AtomizeResidues(
+    # currently the atomize field is set even for nonprotein residues by the AtomizeByCCDName transform
+    # so you must call the AtomizeByCCDName transform to get token atoms or representative atoms
+    tranform = AtomizeByCCDName(
         atomize_by_default=True,
         res_names_to_ignore=STANDARD_AA + STANDARD_RNA + STANDARD_DNA,
         move_atomized_part_to_end=False,

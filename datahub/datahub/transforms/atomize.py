@@ -21,7 +21,7 @@ class FlagNonPolymersForAtomization(Transform):
     outside of a polymer (e.g. an individual SER bonded to a sugar in `6w12`)
     """
 
-    incompatible_previous_transforms = ["AtomizeResidues"]
+    incompatible_previous_transforms = ["AtomizeByCCDName"]
 
     def check_input(self, data: dict[str, Any]):
         check_contains_keys(data, ["atom_array"])
@@ -116,7 +116,7 @@ def atomize_residues(
     return atom_array
 
 
-class AtomizeResidues(Transform):
+class AtomizeByCCDName(Transform):
     """
     Atomize residues by breaking down the CCD res_name field into the actual element names.
 
@@ -143,7 +143,7 @@ class AtomizeResidues(Transform):
         "AddTokenBondAdjacency",  # atomization changes the bond adjacency as some tokens are expaded into atoms
         "AddRF2AAChiralFeatures",  # chiral features depend on the atomized components since we need to calculate chirals for those
         "AddGlobalTokenIdAnnotation",  # atomization changes the token IDs
-        "AtomizeResidues",  # cannot apply this transform twice
+        "AtomizeByCCDName",  # cannot apply this transform twice
         "EncodeAtomArray",  # cannot encode atom array before atomizing as encoding may depend on atomization
     ]
 
@@ -156,7 +156,7 @@ class AtomizeResidues(Transform):
         validate_atomize: bool = False,
     ):
         """
-        Initialize the AtomizeResidues transform.
+        Initialize the AtomizeByCCDName transform.
 
         NOTE:
             - Residues are atomized if they have the `atomize` flag set to True.

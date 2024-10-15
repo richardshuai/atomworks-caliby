@@ -489,7 +489,7 @@ class AddOpenBabelMoleculesForAtomizedMolecules(Transform):
     in this molecule.
 
     Note:
-        This transform requires the `AtomizeResidues` transform to be applied previously.
+        This transform requires the `AtomizeByCCDName` transform to be applied previously.
 
     Args:
         data (dict[str, Any]): A dictionary containing the input data, including the atom array.
@@ -512,7 +512,7 @@ class AddOpenBabelMoleculesForAtomizedMolecules(Transform):
         }
     """
 
-    requires_previous_transforms = ["AtomizeResidues"]
+    requires_previous_transforms = ["AtomizeByCCDName"]
     incompatible_previous_transforms = ["AddRF2AAChiralFeatures", "CropContiguousLikeAF3", "CropSpatialLikeAF3"]
 
     def check_input(self, data: dict[str, Any]):
@@ -596,7 +596,7 @@ class GetChiralCentersFromOpenBabel(Transform):
         # ]
     """
 
-    requires_previous_transforms = ["AddOpenBabelMoleculesForAtomizedMolecules", "AtomizeResidues"]
+    requires_previous_transforms = ["AddOpenBabelMoleculesForAtomizedMolecules", "AtomizeByCCDName"]
     incompatible_previous_transforms = ["AddRF2AAChiralFeatures"]
 
     def check_input(self, data: dict[str, Any]):

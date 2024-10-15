@@ -12,7 +12,7 @@ from datahub.transforms._checks import (
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Transform
 from datahub.transforms.encoding import EncodeAtomArray
 from datahub.utils.token import get_token_starts
@@ -261,7 +261,7 @@ class AddAtomFrames(Transform):
             Defaults to True.
     """
 
-    requires_previous_transforms = [AtomizeResidues, EncodeAtomArray]
+    requires_previous_transforms = [AtomizeByCCDName, EncodeAtomArray]
 
     def __init__(self, order_independent_atom_frame_prioritization: bool = True):
         self.order_independent_atom_frame_prioritization = order_independent_atom_frame_prioritization

@@ -12,7 +12,7 @@ from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
 )
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose, ConvertToTorch
 from datahub.transforms.encoding import EncodeAtomArray
 from datahub.transforms.filters import RemoveHydrogens
@@ -195,7 +195,7 @@ def test_fill_full_msa_from_encoded(pdb_id):
         AddWithinPolyResIdxAnnotation(),
         LoadPolymerMSAs(protein_msa_dirs=PROTEIN_MSA_DIRS, rna_msa_dirs=RNA_MSA_DIRS, max_msa_sequences=100),
         PairAndMergePolymerMSAs(),
-        AtomizeResidues(
+        AtomizeByCCDName(
             atomize_by_default=True, res_names_to_ignore=res_names_to_ignore, move_atomized_part_to_end=False
         ),
         EncodeAtomArray(encoding),
@@ -567,7 +567,7 @@ def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
                 AddWithinPolyResIdxAnnotation(),
                 LoadPolymerMSAs(protein_msa_dirs=PROTEIN_MSA_DIRS, rna_msa_dirs=RNA_MSA_DIRS, max_msa_sequences=1000),
                 PairAndMergePolymerMSAs(),
-                AtomizeResidues(
+                AtomizeByCCDName(
                     atomize_by_default=True, res_names_to_ignore=encoding.tokens, move_atomized_part_to_end=True
                 ),
                 EncodeAtomArray(encoding),
@@ -656,7 +656,7 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
                 AddWithinPolyResIdxAnnotation(),
                 LoadPolymerMSAs(protein_msa_dirs=PROTEIN_MSA_DIRS, rna_msa_dirs=RNA_MSA_DIRS, max_msa_sequences=1000),
                 PairAndMergePolymerMSAs(),
-                AtomizeResidues(
+                AtomizeByCCDName(
                     atomize_by_default=True, res_names_to_ignore=encoding.tokens, move_atomized_part_to_end=True
                 ),
                 EncodeAtomArray(encoding),

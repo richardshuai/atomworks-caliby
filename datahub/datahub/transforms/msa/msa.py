@@ -23,7 +23,7 @@ from datahub.transforms._checks import (
 from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
 )
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import ConvertToTorch, Transform
 from datahub.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
@@ -502,7 +502,7 @@ class FillFullMSAFromEncoded(Transform):
         ```
     """
 
-    requires_previous_transforms = ["EncodeMSA", AtomizeResidues, AddWithinPolyResIdxAnnotation]
+    requires_previous_transforms = ["EncodeMSA", AtomizeByCCDName, AddWithinPolyResIdxAnnotation]
 
     def __init__(self, pad_token: str):
         self.PAD_TOKEN = pad_token

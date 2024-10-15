@@ -9,7 +9,7 @@ from datahub.transforms._checks import (
     check_is_instance,
     check_nonzero_length,
 )
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Transform
 from datahub.utils.token import apply_segment_wise_2d, get_token_starts
 
@@ -110,14 +110,14 @@ class AddTokenBondAdjacency(Transform):
     at least one bond between any atom in token i and any atom in token j, and False otherwise.
 
     Depends on the definition of `tokens` and therefore has to be applied after any transform that alters what is
-    considered a token (e.g. `AtomizeResidues`) or that changes the order or number of tokens. By default, a token
+    considered a token (e.g. `AtomizeByCCDName`) or that changes the order or number of tokens. By default, a token
     is defined as a residue in the input `AtomArray`.
 
     Raises:
         AssertionError: If the input data does not contain the required keys or types.
     """
 
-    requires_previous_transforms = [AtomizeResidues]
+    requires_previous_transforms = [AtomizeByCCDName]
 
     def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
@@ -170,7 +170,7 @@ class AddRF2AABondFeaturesMatrix(Transform):
     - Biotite documentation (https://www.biotite-python.org/apidoc/biotite.structure.BondType.html#biotite.structure.BondType)
     """
 
-    requires_previous_transforms = [AtomizeResidues, AddTokenBondAdjacency]
+    requires_previous_transforms = [AtomizeByCCDName, AddTokenBondAdjacency]
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["token_bond_adjacency", "atom_array"])
@@ -309,7 +309,7 @@ class GetAF3TokenBondFeatures(Transform):
             the computed boolean matrix.
     """
 
-    requires_previous_transforms = ["AtomizeResidues"]
+    requires_previous_transforms = ["AtomizeByCCDName"]
 
     def __init__(self, distance_cutoff: float = 2.4):
         self.distance_cutoff = distance_cutoff

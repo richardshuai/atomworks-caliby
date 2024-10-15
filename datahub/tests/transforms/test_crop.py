@@ -13,7 +13,7 @@ from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     atom_id_to_token_idx,
 )
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import (
@@ -140,7 +140,7 @@ def test_af3_like_spatial_crop_transform(example_id: str, np_seed: int = 1, crop
             RemoveHydrogens(),
             RemoveTerminalOxygen(),
             FlagAndReassignCovalentModifications(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
         ],
         track_rng_state=False,
     )
@@ -233,7 +233,7 @@ def test_af3_like_contiguous_crop_transform(example_id: str, np_seed: int = 1, c
             RemoveHydrogens(),
             RemoveTerminalOxygen(),
             FlagAndReassignCovalentModifications(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
         ],
         track_rng_state=False,
     )
@@ -291,7 +291,7 @@ def regression_test_af3_like_spatial_crop_transform(example: dict, np_seed: int 
             RemoveHydrogens(),
             RemoveTerminalOxygen(),
             FlagAndReassignCovalentModifications(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
         ],
         track_rng_state=False,
     )

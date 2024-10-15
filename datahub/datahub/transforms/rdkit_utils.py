@@ -1066,7 +1066,7 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
     `data` dictionary under the "rdkit" key. Each molecule is identified by its `pn_unit_iid`.
 
     Note:
-        This transform requires the `AtomizeResidues` transform to be applied previously.
+        This transform requires the `AtomizeByCCDName` transform to be applied previously.
 
     Args:
         data (dict[str, Any]): A dictionary containing the input data, including the atom array.
@@ -1089,7 +1089,7 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
         }
     """
 
-    requires_previous_transforms = ["AtomizeResidues"]
+    requires_previous_transforms = ["AtomizeByCCDName"]
     incompatible_previous_transforms = ["CropContiguousLikeAF3", "CropSpatialLikeAF3"]
 
     def __init__(self, infer_hydrogens: bool = True):

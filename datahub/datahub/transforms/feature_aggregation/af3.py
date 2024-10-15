@@ -19,7 +19,7 @@ class AggregateFeaturesLikeAF3(Transform):
     """
 
     requires_previous_transforms = [
-        "AtomizeResidues",
+        "AtomizeByCCDName",
         "FeaturizeMSALikeAF3",
         "EncodeAF3TokenLevelFeatures",
     ]

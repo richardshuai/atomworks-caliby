@@ -9,7 +9,7 @@ from openbabel import openbabel, pybel
 from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.transforms.chirals import AddRF2AAChiralFeatures, get_dih, get_rf2aa_chiral_features
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
@@ -138,7 +138,7 @@ def test_chiral_featurization(test_case: dict):
     pipe = Compose(
         [
             AddGlobalAtomIdAnnotation(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
             AddOpenBabelMoleculesForAtomizedMolecules(),
             GetChiralCentersFromOpenBabel(),
             AddRF2AAChiralFeatures(),
@@ -167,7 +167,7 @@ def test_chiral_featurization_with_atomized_residues(test_case: dict):
     pipe = Compose(
         [
             AddGlobalAtomIdAnnotation(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=res_names_to_ignore),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=res_names_to_ignore),
             AddOpenBabelMoleculesForAtomizedMolecules(),
             GetChiralCentersFromOpenBabel(),
             AddRF2AAChiralFeatures(),
@@ -224,7 +224,7 @@ def test_chiral_featurization_with_covalent_modification(test_case: dict):
             AddGlobalAtomIdAnnotation(),
             RemoveHydrogens(),
             FlagAndReassignCovalentModifications(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
             AddOpenBabelMoleculesForAtomizedMolecules(),
             GetChiralCentersFromOpenBabel(),
             AddRF2AAChiralFeatures(),
@@ -256,7 +256,7 @@ def test_chiral_featurize_after_cropping():
             AddGlobalAtomIdAnnotation(),
             RemoveHydrogens(),
             FlagAndReassignCovalentModifications(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
             AddOpenBabelMoleculesForAtomizedMolecules(),
             CropSpatialLikeAF3(crop_size=128),
             GetChiralCentersFromOpenBabel(),

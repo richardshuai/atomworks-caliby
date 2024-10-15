@@ -16,7 +16,7 @@ from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
     ComputeAtomToTokenMap,
 )
-from datahub.transforms.atomize import AtomizeResidues, FlagNonPolymersForAtomization
+from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
 from datahub.transforms.batch_structures import BatchStructures
 from datahub.transforms.bonds import GetAF3TokenBondFeatures
@@ -140,7 +140,7 @@ def build_af3_transform_pipeline(
         FlagAndReassignCovalentModifications(),
         FlagNonPolymersForAtomization(),
         AddGlobalAtomIdAnnotation(),
-        AtomizeResidues(
+        AtomizeByCCDName(
             atomize_by_default=True,
             res_names_to_ignore=STANDARD_AA + STANDARD_RNA + STANDARD_DNA,
             move_atomized_part_to_end=False,

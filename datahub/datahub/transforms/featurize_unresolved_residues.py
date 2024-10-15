@@ -131,7 +131,7 @@ class PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(Transform):
 
     requires_previous_transforms = [
         "MaskResiduesWithUnresolvedBackboneAtoms",
-        "AtomizeResidues",
+        "AtomizeByCCDName",
         "PlaceUnresolvedTokenAtomsOnRepresentativeAtom",
     ]
 
@@ -192,7 +192,7 @@ class PlaceUnresolvedTokenAtomsOnRepresentativeAtom(Transform):
     Note that this Transform has no impact on non-polymers, as all atoms are considered tokens.
     """
 
-    requires_previous_transformation = ["MaskResiduesWithUnresolvedBackboneAtoms", "AtomizeResidues"]
+    requires_previous_transformation = ["MaskResiduesWithUnresolvedBackboneAtoms", "AtomizeByCCDName"]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])

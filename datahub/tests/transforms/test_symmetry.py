@@ -7,7 +7,7 @@ from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     SortLikeRF2AA,
 )
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.transforms.crop import CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAtomArray
@@ -158,7 +158,7 @@ def test_rf2aa_like_symmetry_encoding(case: dict):
             RemoveHydrogens(),
             AddGlobalAtomIdAnnotation(),
             RemoveTerminalOxygen(),
-            AtomizeResidues(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             SortLikeRF2AA(),
             AddOpenBabelMoleculesForAtomizedMolecules(),
             CropSpatialLikeAF3(crop_size=case["crop_size"], keep_uncropped_atom_array=True),

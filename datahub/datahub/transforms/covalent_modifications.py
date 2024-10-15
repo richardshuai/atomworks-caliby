@@ -11,7 +11,7 @@ from datahub.transforms._checks import (
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Transform
 
 
@@ -28,7 +28,7 @@ class FlagAndReassignCovalentModifications(Transform):
     ------------------------------------------------------------------------------------------------
     """
 
-    incompatible_previous_transforms = [AtomizeResidues, "AddGlobalTokenIdAnnotation"]
+    incompatible_previous_transforms = [AtomizeByCCDName, "AddGlobalTokenIdAnnotation"]
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])

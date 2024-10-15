@@ -570,7 +570,7 @@ class SortLikeRF2AA(Transform):
         - (3) non-poly atoms of a free-floating pn-unit (free-floating ligands)
     """
 
-    requires_previous_transforms = ["AtomizeResidues"]
+    requires_previous_transforms = ["AtomizeByCCDName"]
     incompatible_previous_transforms = ["EncodeAtomArray", "CropSpatialLikeAF3", "CropContiguousLikeAF3"]
 
     def check_input(self, data: dict):

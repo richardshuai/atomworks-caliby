@@ -221,7 +221,7 @@ class AddRF2AAChiralFeatures(Transform):
     Chiral centers are taken from `data["chiral_centers"]`, which is a list of dictionaries, of the form:
         {"chiral_center_atom_id": int, "bonded_explicit_atom_ids": list[int]}
     This metadata can be added by running e.g. the `AddOpenBabelMoleculesForAtomizedMolecules` and
-    `GetChiralCentersFromOpenBabel` transforms.This transform also requires the `AtomizeResidues` transform
+    `GetChiralCentersFromOpenBabel` transforms.This transform also requires the `AtomizeByCCDName` transform
     to be applied previously to ensure the atom array is properly atomized.
 
     Args:
@@ -258,7 +258,7 @@ class AddRF2AAChiralFeatures(Transform):
         #         [10.,  7.,  8.,  9., -0.61546...]])
     """
 
-    requires_previous_transforms = ["AtomizeResidues"]
+    requires_previous_transforms = ["AtomizeByCCDName"]
 
     def check_input(self, data: dict[str, Any]):
         check_contains_keys(data, ["atom_array", "chiral_centers"])

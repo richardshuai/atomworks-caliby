@@ -4,7 +4,7 @@ from rdkit import Chem
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.filters import HandleUndesiredResTokens, RemoveHydrogens
@@ -63,7 +63,7 @@ def test_add_rdkit_molecules_for_atomized_molecules(test_case):
             RemoveHydrogens(),
             FlagAndReassignCovalentModifications(),
             HandleUndesiredResTokens(["UNL"]),
-            AtomizeResidues(
+            AtomizeByCCDName(
                 atomize_by_default=True,
                 res_names_to_ignore=res_names_to_ignore,
                 res_names_to_atomize=res_names_to_atomize,
@@ -120,7 +120,7 @@ def test_generate_rdkit_conformers(test_case):
             RemoveHydrogens(),
             FlagAndReassignCovalentModifications(),
             HandleUndesiredResTokens(["UNL"]),
-            AtomizeResidues(
+            AtomizeByCCDName(
                 atomize_by_default=True,
                 res_names_to_ignore=res_names_to_ignore,
                 res_names_to_atomize=res_names_to_atomize,

@@ -2,20 +2,20 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from tests.conftest import CANONICAL_AMINO_ACIDS, cached_parse
 
 
 def test_fail_on_invalid_init():
     with pytest.raises(ValueError):
-        AtomizeResidues(
+        AtomizeByCCDName(
             atomize_by_default=True, res_names_to_atomize=["ALA", "ILE"], res_names_to_ignore=["MET", "ALA"]
         )
 
 
 def test_fail_on_invalid_atomize_annotation():
     with pytest.raises(ValueError):
-        transform = AtomizeResidues(atomize_by_default=False, validate_atomize=True)
+        transform = AtomizeByCCDName(atomize_by_default=False, validate_atomize=True)
         data = {"atom_array": struc.info.residue("ALA")}
         data["atom_array"].set_annotation("atomize", np.array([False] * len(data["atom_array"])))
 
@@ -26,7 +26,7 @@ def test_fail_on_invalid_atomize_annotation():
 
 
 def test_res_name_to_atomize_overrides_default():
-    transform = AtomizeResidues(atomize_by_default=False, res_names_to_atomize=["MET"])
+    transform = AtomizeByCCDName(atomize_by_default=False, res_names_to_atomize=["MET"])
 
     data = {"atom_array": struc.info.residue("ALA")}
     data = transform(data)
@@ -38,7 +38,7 @@ def test_res_name_to_atomize_overrides_default():
 
 
 def test_res_name_to_ignore_overrides_default():
-    transform = AtomizeResidues(atomize_by_default=True, res_names_to_ignore=["ALA"])
+    transform = AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=["ALA"])
 
     data = {"atom_array": struc.info.residue("ALA")}
     data = transform(data)
@@ -50,7 +50,7 @@ def test_res_name_to_ignore_overrides_default():
 
 
 def test_custom_atomize_annotation_overwrites_default():
-    transform = AtomizeResidues(atomize_by_default=False)
+    transform = AtomizeByCCDName(atomize_by_default=False)
 
     # Check default works as expected
     data = {"atom_array": struc.info.residue("MET")}
@@ -65,7 +65,7 @@ def test_custom_atomize_annotation_overwrites_default():
 
 
 def test_custom_atomize_annotation_overwrites_ignore():
-    transform = AtomizeResidues(atomize_by_default=True, res_names_to_ignore=["ALA"])
+    transform = AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=["ALA"])
 
     # Check default works as expected
     data = {"atom_array": struc.info.residue("MET")}
@@ -88,7 +88,7 @@ def test_custom_atomize_annotation_overwrites_ignore():
 def test_atomizing_non_protein_residues(pdb_id: str):
     data = cached_parse(pdb_id)
 
-    transform = AtomizeResidues(
+    transform = AtomizeByCCDName(
         atomize_by_default=True,
         res_names_to_ignore=CANONICAL_AMINO_ACIDS,
     )

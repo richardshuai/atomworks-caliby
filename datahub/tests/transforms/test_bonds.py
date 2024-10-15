@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from datahub.transforms.atomize import AtomizeResidues
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.transforms.bonds import (
     AddRF2AABondFeaturesMatrix,
@@ -129,7 +129,7 @@ def test_bond_adjaceny_transform_slow(pdb_id):
     data = cached_parse(pdb_id)
     pipe = Compose(
         [
-            AtomizeResidues(
+            AtomizeByCCDName(
                 atomize_by_default=True,
                 res_names_to_ignore=CANONICAL_AMINO_ACIDS,
                 move_atomized_part_to_end=True,
@@ -173,7 +173,7 @@ def test_add_rf2aa_bond_features_matrix(pdb_id):
     data = cached_parse(pdb_id)
     pipe = Compose(
         [
-            AtomizeResidues(
+            AtomizeByCCDName(
                 atomize_by_default=True,
                 res_names_to_ignore=CANONICAL_AMINO_ACIDS,
                 move_atomized_part_to_end=True,
