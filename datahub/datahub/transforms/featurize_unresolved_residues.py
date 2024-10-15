@@ -27,10 +27,9 @@ def mask_residues_with_unresolved_backbone_atoms(atom_array: AtomArray) -> AtomA
 
     # ...subset to backbone atoms within polymers with unresolved coordinates
     # (We treat partially occupied atoms as occupied; e.g., those resolved from "altlocs")
+    protein_mask = np.isin(atom_array.chain_type, PROTEINS) if "chain_type" in atom_array else atom_array.is_polymer
     unresolved_polymer_backbone_mask = (
-        np.isin(atom_array.chain_type, PROTEINS)
-        & np.isin(atom_array.atom_name, backbone_atom_names)
-        & (atom_array.occupancy == 0)
+        protein_mask & np.isin(atom_array.atom_name, backbone_atom_names) & (atom_array.occupancy == 0)
     )
 
     # ...get the residue-wise mask for unresolved backbone atoms
