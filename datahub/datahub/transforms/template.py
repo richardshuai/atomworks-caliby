@@ -26,10 +26,10 @@ from datahub.transforms._checks import check_atom_array_annotation, check_contai
 from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
     chain_instance_iter,
-    mask_residues_with_unresolved_backbone_atoms,
 )
 from datahub.transforms.base import Transform
 from datahub.transforms.encoding import atom_array_from_encoding, atom_array_to_encoding
+from datahub.transforms.featurize_unresolved_residues import mask_residues_with_unresolved_backbone_atoms
 from datahub.utils.geometry import apply_inverse_rigid, rigid_from_3_points
 from datahub.utils.numpy import select_data_by_id
 from datahub.utils.token import get_token_count, get_token_starts

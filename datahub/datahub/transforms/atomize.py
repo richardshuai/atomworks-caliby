@@ -118,7 +118,9 @@ def atomize_residues(
 
 class AtomizeResidues(Transform):
     """
-    Atomize residues by breaking down the res_name field into the actual element names.
+    Atomize residues by breaking down the CCD res_name field into the actual element names.
+
+    NOTE: Both polymers AND non-polymers are considered "residues" by the CCD, and have a corresponding res_name.
 
     This transform allows for the atomization of residues in an AtomArray by breaking down the residue names into their
     constituent atoms. It provides options to atomize residues by default, specify residues to atomize or ignore, and

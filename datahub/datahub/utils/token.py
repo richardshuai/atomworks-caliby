@@ -219,24 +219,18 @@ def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
     """
     Returns a boolean mask indicating the representative atoms of the tokens in the atom array.
 
-    For each token we also designate a token center atom, used in various places below:
-        - CA for standard amino acids
-        - C1' for standard nucleotides
-        - For other cases take the first and only atom as they are tokenized per-atom.
+    From the AF-3 supplement, section 4.4. (Distogram prediction):
+        > ...where the pairwise token distances use the representative atom for each token: Cβ
+        for protein residues (Cα for glycine), C4 for purines and C2 for pyrimidines.
+        All ligands already have a single atom per token.
+
+    NOTE: "Representative" atoms are distinct from "center" atoms, which are used during cropping.
 
     Args:
         atom_array (AtomArray): The atom array to get the representative atoms of.
 
     Returns:
         np.ndarray: A boolean mask indicating the representative atoms of the tokens in the atom array.
-
-    Examples:
-        >>> atom_array = AtomArray(
-        ...     res_name=["ALA", "ALA", "G", "G", "LIG"],
-        ...     atom_name=["N", "CA", "C1'", "C2", "C1"],
-        ... )
-        >>> get_af3_token_representative_masks(atom_array)
-        array([False,  True,  True, False,  True])
     """
     assert (
         "atomize" in atom_array.get_annotation_categories()
@@ -270,59 +264,28 @@ def get_af3_token_representative_idxs(atom_array: AtomArray) -> np.ndarray:
     """
     Returns the indices of the representative atoms of the tokens in the atom array.
 
-    For each token, a representative atom is designated:
-        - CA for standard amino acids
-        - C1' for standard nucleotides
-        - For other cases, the first and only atom as they are tokenized per-atom.
+    See "get_af3_token_representative_masks" for more details on what constitutes a representative atom.
 
     Args:
         atom_array (AtomArray): The atom array to get the representative atom indices from.
 
     Returns:
         np.ndarray: An array of indices corresponding to the representative atoms of the tokens.
-
-    Example:
-        >>> atom_array = AtomArray(
-        ...     res_name=["ALA", "ALA", "G", "G", "LIG"],
-        ...     atom_name=["N", "CA", "C1'", "C2", "C1"],
-        ... )
-        >>> get_af3_token_representative_idxs(atom_array)
-        array([1, 2, 4])
     """
     return np.where(get_af3_token_representative_masks(atom_array))[0]
 
 
 def get_af3_token_representative_coords(atom_array: AtomArray) -> np.ndarray:
-    """Returns the representative coordinates of the tokens in the atom array.
+    """
+    Returns the representative coordinates of the tokens in the atom array.
 
-    For each token we also designate a token center atom, used in various places below:
-        - CA for standard amino acids
-        - C1' for standard nucleotides
-        - For other cases take the first and only atom as they are tokenized per-atom.
-
-    If a token center cannot be assigned (e.g. because the token center atom is unoccupied),
-    the representative coordinate is set to `np.nan`.
+    See "get_af3_token_representative_masks" for more details on what constitutes a representative atom.
 
     Args:
         atom_array (AtomArray): The atom array to get the representative coordinates of.
 
     Returns:
         np.ndarray: The representative coordinates of the tokens in the atom array.
-
-    Reference:
-        - AF3: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
-
-    Example:
-        >>> # Contrived example showing only a few tokens and annotations per residue for illustration
-        >>> array = AtomArray(
-            res_name="ALA", atom_name="CA", coord=np.array([0, 0, 0]),
-            res_name="ALA", atom_name="C", coord=np.array([1, 0, 0]),
-            res_name="ALA", atom_name="O", coord=np.array([2, 0, 0]),
-            res_name="NAP", atom_name="P1", coord=np.array([3, 0, 0]),
-            res_name="U",   atom_name="C1'", coord=np.array([4, 0, 0]),
-        )
-        >>> get_af3_token_representative_coords(array)
-        array([[0, 0, 0], [3, 0, 0], [4, 0, 0]])
     """
     return atom_array.coord[get_af3_token_representative_masks(atom_array)]
 
@@ -330,6 +293,23 @@ def get_af3_token_representative_coords(atom_array: AtomArray) -> np.ndarray:
 def get_af3_token_center_masks(atom_array: AtomArray) -> np.ndarray:
     """
     Returns a boolean mask indicating the center atoms of the tokens in the atom array as per the AF3 definition.
+
+    NOTE: "Center" atoms are distinct from "representative" atoms, which are used during distogram prediction (and more closely represent the center of mass).
+
+    For each token we also designate a token center atom, used in various places below:
+        - CA for standard amino acids
+        - C1' for standard nucleotides
+        - For other cases take the first and only atom as they are tokenized per-atom.
+
+    Args:
+        atom_array (AtomArray): The atom array to get the center atoms of.
+
+    Returns:
+        np.ndarray: A boolean mask indicating the center atoms of the tokens in the atom array.
+
+    Reference:
+        - AF3: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
+
     """
     assert (
         "atomize" in atom_array.get_annotation_categories()
@@ -351,5 +331,34 @@ def get_af3_token_center_idxs(atom_array: AtomArray) -> np.ndarray:
 def get_af3_token_center_coords(atom_array: AtomArray) -> np.ndarray:
     """
     Returns the center coordinates of the tokens in the atom array as per the AF3 definition.
+
+    For each token we also designate a token center atom, used in various places below:
+        - CA for standard amino acids
+        - C1' for standard nucleotides
+        - For other cases take the first and only atom as they are tokenized per-atom.
+
+    If a token center cannot be assigned (e.g. because the token center atom is unoccupied),
+    the center coordinate is set to `np.nan`.
+
+    Args:
+        atom_array (AtomArray): The atom array to get the center coordinates of.
+
+    Returns:
+        np.ndarray: The center coordinates of the tokens in the atom array.
+
+    Reference:
+        - AF3: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
+
+    Example:
+        >>> # Contrived example showing only a few tokens and annotations per residue for illustration
+        >>> array = AtomArray(
+            res_name="ALA", atom_name="CA", coord=np.array([0, 0, 0]),
+            res_name="ALA", atom_name="C", coord=np.array([1, 0, 0]),
+            res_name="ALA", atom_name="O", coord=np.array([2, 0, 0]),
+            res_name="NAP", atom_name="P1", coord=np.array([3, 0, 0]),
+            res_name="U",   atom_name="C1'", coord=np.array([4, 0, 0]),
+        )
+        >>> get_af3_token_center_coords(array)
+        array([[0, 0, 0], [3, 0, 0], [4, 0, 0]])
     """
     return atom_array.coord[get_af3_token_center_masks(atom_array)]

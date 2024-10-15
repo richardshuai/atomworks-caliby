@@ -10,7 +10,6 @@ from datahub.transforms.atom_array import (
     ComputeAtomToTokenMap,
     RenumberNonPolymerResidueIdx,
     chain_instance_iter,
-    mask_residues_with_unresolved_backbone_atoms,
     sort_poly_then_non_poly,
 )
 from datahub.transforms.base import Compose
@@ -234,31 +233,6 @@ def test_compute_atom_to_token_map(pdb_id):
 
     # sequence to token map contains which token every atom came from
     assert n_atoms == result["feats"]["atom_to_token_map"].shape[0]
-
-
-def test_mask_residues_with_unresolved_backbone_atoms():
-    data = cached_parse("6wtf")
-    atom_array = data["atom_array"]
-
-    # ...manually set the occupancy of a CA atom to zero
-    resolved_ca_atoms = (atom_array.atom_name == "CA") & (atom_array.occupancy > 0)
-
-    # ...set the first CA atom to zero occupancy
-    atom_array.occupancy[resolved_ca_atoms] = np.array([0.0] + [1.0] * (np.sum(resolved_ca_atoms) - 1))
-    changed_atom = atom_array[resolved_ca_atoms][0]
-
-    # ...apply the transform
-    updated_atom_array = mask_residues_with_unresolved_backbone_atoms(atom_array)
-
-    # ...assert that the manually set CA atom's residue is masked
-    changed_residue_mask = (updated_atom_array.chain_id == changed_atom.chain_id) & (
-        updated_atom_array.res_id == changed_atom.res_id
-    )
-    assert np.all(updated_atom_array.occupancy[changed_residue_mask] == 0)
-
-    # ...assert that the rest of the residues are unchanged
-    unchanged_residue_mask = ~changed_residue_mask
-    assert np.all(updated_atom_array.occupancy[unchanged_residue_mask] == atom_array.occupancy[unchanged_residue_mask])
 
 
 if __name__ == "__main__":

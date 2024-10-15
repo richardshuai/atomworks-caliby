@@ -141,3 +141,42 @@ def not_isin(element: np.ndarray, test_element: np.ndarray) -> np.ndarray:
         array([ True, False,  True, False,  True])
     """
     return np.isin(element, test_element, invert=True)
+
+
+def get_nearest_true_index_for_each_false(arr: np.ndarray) -> np.ndarray:
+    """
+    Get the index of the nearest True for each False in the array, breaking
+    ties by choosing the nearest True to the left.
+
+    Args:
+        - arr (np.ndarray): A boolean numpy array.
+
+    Returns:
+        - np.ndarray: An array of length `np.sum(~arr)` where each entry is the index of the nearest True.
+
+    Example:
+        >>> arr = np.array([False, True, True, False, False, True, False])
+        >>> get_nearest_true_index_for_each_false(arr)
+        array([1, 2, 5, 5])
+    """
+
+    # ...find the indices where the values are True and False
+    true_indices = np.where(arr)[0]
+    false_indices = np.where(~arr)[0]
+
+    # Short-circuit if there are no True entries or no False entries, as we can't proceed
+    if len(true_indices) == 0 or len(false_indices) == 0:
+        return np.array([])
+
+    # ...for False entries, find the index of the nearest True
+
+    # Calculate distances to the nearest True indices
+    # Using broadcasting to calculate the distance matrix (e.g., outer difference)
+    # i,j entry of the distance matrix is the distance between the i-th False and j-th True
+    distances = np.abs(false_indices[:, np.newaxis] - true_indices)
+
+    # Use argmin to find the index of the minimum distance
+    # np.argmin will automatically break ties by choosing the first occurrence
+    nearest_true_indices = true_indices[np.argmin(distances, axis=1)]
+
+    return nearest_true_indices

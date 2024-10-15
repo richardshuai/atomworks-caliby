@@ -258,7 +258,12 @@ class CropContiguousLikeAF3(Transform):
     """
 
     requires_previous_transforms = ["AtomizeResidues"]
-    incompatible_previous_transforms = ["EncodeAtomArray", "CropSpatialLikeAF3", "CropContiguousLikeAF3"]
+    incompatible_previous_transforms = [
+        "EncodeAtomArray",
+        "CropSpatialLikeAF3",
+        "CropContiguousLikeAF3",
+        "PlaceUnresolvedTokenOnClosestResolvedTokenInSequence",
+    ]
 
     def __init__(self, crop_size: int, keep_uncropped_atom_array: bool = False):
         self.crop_size = crop_size
@@ -407,7 +412,12 @@ class CropSpatialLikeAF3(Transform):
     """
 
     requires_previous_transforms = ["AddGlobalAtomIdAnnotation", "AtomizeResidues"]
-    incompatible_previous_transforms = ["EncodeAtomArray", "CropContiguousLikeAF3", "CropSpatialLikeAF3"]
+    incompatible_previous_transforms = [
+        "EncodeAtomArray",
+        "CropContiguousLikeAF3",
+        "CropSpatialLikeAF3",
+        "PlaceUnresolvedTokenOnClosestResolvedTokenInSequence",
+    ]
 
     def __init__(
         self,

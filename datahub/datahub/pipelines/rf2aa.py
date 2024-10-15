@@ -14,7 +14,6 @@ from datahub.transforms.atom_array import (
     AddGlobalTokenIdAnnotation,
     AddProteinTerminiAnnotation,
     AddWithinPolyResIdxAnnotation,
-    MaskResiduesWithUnresolvedBackboneAtoms,
     SortLikeRF2AA,
 )
 from datahub.transforms.atom_frames import AddAtomFrames
@@ -30,6 +29,7 @@ from datahub.transforms.covalent_modifications import FlagAndReassignCovalentMod
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.encoding import EncodeAtomArray, atom_array_from_encoding
 from datahub.transforms.feature_aggregation.rf2aa import AggregateFeaturesLikeRF2AA
+from datahub.transforms.featurize_unresolved_residues import MaskResiduesWithUnresolvedBackboneAtoms
 from datahub.transforms.filters import (
     FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
