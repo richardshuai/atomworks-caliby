@@ -48,7 +48,7 @@ def test_mask_residues_with_unresolved_backbone_atoms():
     assert np.all(updated_atom_array.occupancy[unchanged_residue_mask] == atom_array.occupancy[unchanged_residue_mask])
 
 
-def test_place_unresolved_side_chain_atoms_on_representative_atom():
+def test_place_unresolved_token_atoms_on_representative_atom():
     pdb_id = "6wtf"
 
     data = cached_parse(pdb_id)
@@ -81,11 +81,19 @@ def test_place_unresolved_side_chain_atoms_on_representative_atom():
     for chain_id in np.unique(unresolved_polymer_atoms.chain_id):
         chain_atom_array = output_atom_array[output_atom_array.chain_id == chain_id]
         for res_id in np.unique(chain_atom_array.res_id):
-            unresolved_token_mask = (chain_atom_array.res_id == res_id) & (chain_atom_array.occupancy == 0)
-            representative_atom_mask = get_af3_token_representative_masks(chain_atom_array[unresolved_token_mask])
+            residue_atom_array = chain_atom_array[chain_atom_array.res_id == res_id]
+            unresolved_atom_mask = residue_atom_array.occupancy == 0
+            representative_atom_mask = get_af3_token_representative_masks(residue_atom_array)
             representative_atom_idx = np.where(representative_atom_mask)[0]
-            assert np.all(
-                chain_atom_array.coord[unresolved_token_mask] == output_atom_array.coord[representative_atom_idx]
+
+            output_atom_array_residue = output_atom_array[
+                (output_atom_array.chain_id == chain_id) & (output_atom_array.res_id == res_id)
+            ]
+            assert np.allclose(
+                residue_atom_array.coord[unresolved_atom_mask],
+                output_atom_array_residue.coord[representative_atom_idx],
+                atol=1e-6,
+                equal_nan=True,
             )
 
     # ...loop through each unresolved non-polymer token, and ensure that nothing changed
@@ -125,7 +133,10 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
         # ...ensure that resolved tokens are unchanged
         input_atom_array_chain = input_atom_array[input_atom_array.chain_id == chain_id]
         assert np.allclose(
-            chain_atom_array.coord[resolved_token_mask], input_atom_array_chain.coord[resolved_token_mask], atol=1e-6
+            chain_atom_array.coord[resolved_token_mask],
+            input_atom_array_chain.coord[resolved_token_mask],
+            atol=1e-6,
+            equal_nan=True,
         )
 
         representative_tokens_coordinates = get_af3_token_representative_coords(input_atom_array_chain)
@@ -156,11 +167,11 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
             # ...calculate the distance in sequence space to both the lower and upper resolved tokens
             if abs(idx - lower_index) <= abs(upper_index - idx):
                 # ...assert that the closest resolved token is the lower one
-                assert np.all(token.coord == representative_tokens_coordinates[lower_index])
+                assert np.allclose(token.coord, representative_tokens_coordinates[lower_index], equal_nan=True)
             else:
                 # ...assert that the closest resolved token is the upper one
-                assert np.all(token.coord == representative_tokens_coordinates[upper_index])
+                assert np.allclose(token.coord, representative_tokens_coordinates[upper_index], equal_nan=True)
 
 
 if __name__ == "__main__":
-    test_place_unresolved_token_on_closest_resolved_token_in_sequence()
+    test_place_unresolved_token_atoms_on_representative_atom()
