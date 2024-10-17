@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 
 from datahub.transforms.base import Compose
-from datahub.transforms.batch_structures import BatchStructures
+from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 from datahub.transforms.diffusion.edm import sample_noise_edm, sample_t_edm
 
 
@@ -68,7 +68,9 @@ def test_sample_edm_noise_transform():
 
     from datahub.transforms.diffusion.edm import SampleEDMNoise
 
-    transform = Compose([BatchStructures(diffusion_batch_size), SampleEDMNoise(sigma_data, diffusion_batch_size)])
+    transform = Compose(
+        [BatchStructuresForDiffusionNoising(diffusion_batch_size), SampleEDMNoise(sigma_data, diffusion_batch_size)]
+    )
     data = {
         "ground_truth": {
             "coord_atom_lvl": torch.randn(num_atoms, 3),

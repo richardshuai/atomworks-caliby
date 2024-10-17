@@ -2,8 +2,8 @@ import pytest
 import torch
 
 from datahub.transforms.base import Compose
-from datahub.transforms.batch_structures import BatchStructures
 from datahub.transforms.center_random_augmentation import CenterRandomAugmentation, center, random_augmentation
+from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 
 
 def test_center():
@@ -37,18 +37,18 @@ def test_center_random_augmentation(batch_size):
     mask_atom_lvl = torch.tensor([0, 1, 1, 1, 1, 1, 1, 1, 1, 1]).bool()
     atom_array = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-    pipe = Compose([BatchStructures(batch_size=batch_size), CenterRandomAugmentation(batch_size)])
+    pipe = Compose([BatchStructuresForDiffusionNoising(batch_size=batch_size), CenterRandomAugmentation(batch_size)])
     data = {
         "ground_truth": {"coord_atom_lvl": coord_atom_lvl, "mask_atom_lvl": mask_atom_lvl},
         "atom_array": atom_array,
     }
 
     data = pipe(data)
-    mask_atom_lvl = data["ground_truth"]["mask_atom_lvl"]
-    assert data["ground_truth"]["coord_atom_lvl"].shape == (batch_size, 10, 3)
+    mask_atom_lvl = data["ground_truth"]["mask_atom_lvl"].expand(data["coord_atom_lvl_to_be_noised"].shape[0], -1)
+    assert data["coord_atom_lvl_to_be_noised"].shape == (batch_size, 10, 3)
     # make sure the structure was translated
     assert not torch.allclose(
-        data["ground_truth"]["coord_atom_lvl"][mask_atom_lvl].mean(0), torch.zeros(3), atol=1e-6, rtol=1e-6
+        data["coord_atom_lvl_to_be_noised"][mask_atom_lvl].mean(0), torch.zeros(3), atol=1e-6, rtol=1e-6
     )
     # make sure the structure was rotated
-    assert not torch.allclose(coord_atom_lvl, data["ground_truth"]["coord_atom_lvl"], atol=1e-6, rtol=1e-6)
+    assert not torch.allclose(coord_atom_lvl, data["coord_atom_lvl_to_be_noised"], atol=1e-6, rtol=1e-6)

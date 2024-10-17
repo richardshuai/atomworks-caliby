@@ -1,5 +1,6 @@
 from datahub.transforms._checks import check_contains_keys
 from datahub.transforms.base import Transform
+from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 from datahub.utils.geometry import apply_batched_rigid, get_random_rigid
 
 
@@ -24,26 +25,28 @@ class CenterRandomAugmentation(Transform):
     Centers coordinates and then randomly rotates and translates the input coordinates.
     """
 
-    requires_previous_transforms = ["BatchStructures"]
+    requires_previous_transforms = [BatchStructuresForDiffusionNoising]
 
     def __init__(self, batch_size, **kwargs):
         super().__init__(**kwargs)
         self.batch_size = batch_size
 
     def check_input(self, data):
-        check_contains_keys(data, ["ground_truth"])
+        check_contains_keys(data, ["coord_atom_lvl_to_be_noised"])
         check_contains_keys(data["ground_truth"], ["coord_atom_lvl", "mask_atom_lvl"])
+
         assert (
-            data["ground_truth"]["coord_atom_lvl"].shape[0] == self.batch_size
-        ), "must batch coordinates before applying this transform"
-        assert (
-            data["ground_truth"]["mask_atom_lvl"].shape[0] == self.batch_size
-        ), "must batch mask before applying this transform"
+            data["coord_atom_lvl_to_be_noised"].shape[0] == self.batch_size
+        ), "Must batch coordinates to be noised before applying this transform"
 
     def forward(self, data):
-        coord_atom_lvl = data["ground_truth"]["coord_atom_lvl"]
-        mask_atom_lvl = data["ground_truth"]["mask_atom_lvl"]
-        coord_atom_lvl = center(coord_atom_lvl, mask_atom_lvl)
-        coord_atom_lvl = random_augmentation(coord_atom_lvl, batch_size=self.batch_size)
-        data["ground_truth"]["coord_atom_lvl"] = coord_atom_lvl
+        centered_coord_atom_lvl_to_be_noised = data["coord_atom_lvl_to_be_noised"]  # (batch_size, n_atoms, 3)
+        mask_atom_lvl_expanded = data["ground_truth"]["mask_atom_lvl"].expand(
+            centered_coord_atom_lvl_to_be_noised.shape[0], -1
+        )
+        centered_coord_atom_lvl_to_be_noised = center(centered_coord_atom_lvl_to_be_noised, mask_atom_lvl_expanded)
+        centered_coord_atom_lvl_to_be_noised = random_augmentation(
+            centered_coord_atom_lvl_to_be_noised, batch_size=self.batch_size
+        )
+        data["coord_atom_lvl_to_be_noised"] = centered_coord_atom_lvl_to_be_noised
         return data

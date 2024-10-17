@@ -18,11 +18,11 @@ from datahub.transforms.atom_array import (
 )
 from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
-from datahub.transforms.batch_structures import BatchStructures
 from datahub.transforms.bonds import GetAF3TokenBondFeatures
 from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
+from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 from datahub.transforms.diffusion.edm import SampleEDMNoise
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
 from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
@@ -224,11 +224,11 @@ def build_af3_transform_pipeline(
         ),
         AggregateFeaturesLikeAF3(),
         OneHotTemplateRestype(encoding=af3_sequence_encoding),
-        # ...handling of unresolved residues
+        # ...handling of unresolved residues (note that these Transforms create the "atom_array_to_noise" dictionary, if not already present)
         PlaceUnresolvedTokenAtomsOnRepresentativeAtom(),
         PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(),
         # ...batching and noise sampling for diffusion
-        BatchStructures(batch_size=diffusion_batch_size),
+        BatchStructuresForDiffusionNoising(batch_size=diffusion_batch_size),
         CenterRandomAugmentation(batch_size=diffusion_batch_size),
         SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),
         # ... remove all non-feature keys (to make compatible wit generic batch_collate, which only allows tensors, numpy arrays, str, etc.)

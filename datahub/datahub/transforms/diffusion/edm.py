@@ -2,6 +2,7 @@ import torch
 
 from datahub.transforms._checks import check_contains_keys
 from datahub.transforms.base import Transform
+from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 
 
 def sample_t_edm(sigma_data, diffusion_batch_size):
@@ -16,7 +17,7 @@ def sample_noise_edm(t, num_atoms):
 
 
 class SampleEDMNoise(Transform):
-    requires_previous_transforms = ["BatchStructures"]
+    requires_previous_transforms = [BatchStructuresForDiffusionNoising]
 
     def __init__(self, sigma_data, diffusion_batch_size, **kwargs):
         super().__init__(**kwargs)
@@ -24,15 +25,14 @@ class SampleEDMNoise(Transform):
         self.diffusion_batch_size = diffusion_batch_size
 
     def check_input(self, data):
-        check_contains_keys(data, ["ground_truth"])
-        check_contains_keys(data["ground_truth"], ["coord_atom_lvl"])
+        check_contains_keys(data, ["coord_atom_lvl_to_be_noised"])
         assert (
-            data["ground_truth"]["coord_atom_lvl"].shape[0] == self.diffusion_batch_size
-        ), "must batch coordinates before applying this transform"
+            data["coord_atom_lvl_to_be_noised"].shape[0] == self.diffusion_batch_size
+        ), "Must batch coordinates to be noised before applying this transform"
 
     def forward(self, data):
         t = sample_t_edm(self.sigma_data, self.diffusion_batch_size)
-        noise = sample_noise_edm(t, data["ground_truth"]["coord_atom_lvl"].shape[1])
+        noise = sample_noise_edm(t, data["coord_atom_lvl_to_be_noised"].shape[1])
         data["t"] = t
         data["noise"] = noise
         return data
