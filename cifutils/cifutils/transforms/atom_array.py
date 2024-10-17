@@ -485,11 +485,15 @@ def add_iid_annotations_to_assemblies(assemblies_dict: dict) -> dict:
         # ...add chain IIDs
         assembly = add_chain_iid_annotation(assembly)
 
-        # ...add PN unit IIDs
-        assembly = add_pn_unit_iid_annotation(assembly)
+        # ...check if we added bonds to the atom array
 
-        # ...add molecule IIDs
-        assembly = add_molecule_iid_annotation(assembly)
+        # ...add PN unit IIDs, if we have the `pn_unit_id` annotation
+        if "pn_unit_id" in assembly.get_annotation_categories():
+            assembly = add_pn_unit_iid_annotation(assembly)
+
+        # ...add molecule IIDs, if we have the `molecule_id` annotation
+        if "molecule_id" in assembly.get_annotation_categories():
+            assembly = add_molecule_iid_annotation(assembly)
 
         # ...update the dictionary
         assemblies_dict[assembly_id] = assembly
@@ -585,6 +589,12 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
     atom_array.bonds = bond_list
 
     # Step 4: Delete leaving atoms and bonds to leaving atoms
-    leaving_atoms = np.unique(np.concatenate(leaving_atom_indices))
-    all_atom_indices = atom_array.index
-    return atom_array[np.setdiff1d(all_atom_indices, leaving_atoms, True)]
+    if len(leaving_atom_indices) > 0:
+        leaving_atoms = np.unique(np.concatenate(leaving_atom_indices))
+        all_atom_indices = atom_array.index
+        return atom_array[np.setdiff1d(all_atom_indices, leaving_atoms, True)]
+    else:
+        logger.info(
+            "No leaving atoms found in the structure - this is expected if using `assume_residues_all_resolved` with a computationally-predicted file."
+        )
+        return atom_array

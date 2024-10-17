@@ -73,11 +73,17 @@ def infer_processed_entity_sequences_from_atom_array(chain_info_dict: dict, atom
 
 def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
     """
-    Infer chain type information from an AtomArray, in the event that the CIF file does not contain the necessary information.
+    Infer chain type information from an AtomArray, in the event that the PDB or CIF file does not contain the necessary information.
     Such situations may arise when the CIF file is not from the RCSB PDB database (e.g., distillation).
 
-    TODO: Tests for this function
-    TODO: Re-write this function to use the ChainType IntEnum
+    WARNING: Use this function as a "last resort" when the chain type information is not explicitly provided in the CIF file;
+    otherwise, use `get_chain_info_from_category`.
+
+    Args:
+        atom_array (AtomArray): The AtomArray object to infer chain information from.
+
+    Returns:
+        dict: A dictionary containing the inferred chain information (chain type and whether the chain is a polymer).
     """
     logger.info(
         "Could not read ChainType from CIF file, inferring from AtomArray (ensure this is the correct behavior)!"
@@ -86,70 +92,91 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
 
     # Loop through chains
     for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
+        chain_atom_array = atom_array[atom_array.chain_id == chain_id]
+
         # ...get a list of the residue names
-        _, res_names = struc.get_residues(atom_array[atom_array.chain_id == chain_id])
+        _, res_names = struc.get_residues(chain_atom_array)
 
         chain_type_counts = {
             key: 0
             for key in [
                 "aa_like",
-                "polypeptide(D)",
-                "polypeptide(L)",
-                "polydeoxyribonucleotide",
-                "polyribonucleotide",
-                "non-polymer",
+                ChainType.POLYPEPTIDE_D,
+                ChainType.POLYPEPTIDE_L,
+                ChainType.DNA,
+                ChainType.RNA,
+                ChainType.NON_POLYMER,
             ]
         }
+
         # ...infer the chain type based on each residue
         for res_name in res_names:
             chem_comp = get_chem_comp_type(res_name)
-            # Increment the count for the chain type
+            # Increment the count for the appropriate chain type category
+
+            # (All amino acid-like chem types are considered "aa_like")
             if chem_comp in AA_LIKE_CHEM_TYPES:
                 chain_type_counts["aa_like"] += 1
-            if chem_comp in POLYPEPTIDE_D_CHEM_TYPES:
-                chain_type_counts["polypeptide(D)"] += 1
-            elif chem_comp in POLYPEPTIDE_L_CHEM_TYPES:
-                chain_type_counts["polypeptide(L)"] += 1
+                # (We further differentiate between L- and D-polypeptides)
+                if chem_comp in POLYPEPTIDE_D_CHEM_TYPES:
+                    chain_type_counts[ChainType.POLYPEPTIDE_D] += 1
+                elif chem_comp in POLYPEPTIDE_L_CHEM_TYPES:
+                    chain_type_counts[ChainType.POLYPEPTIDE_L] += 1
+            # (We differentiate between RNA and DNA)
             elif chem_comp in RNA_LIKE_CHEM_TYPES:
-                chain_type_counts["polyribonucleotide"] += 1
+                chain_type_counts[ChainType.RNA] += 1
             elif chem_comp in DNA_LIKE_CHEM_TYPES:
-                chain_type_counts["polydeoxyribonucleotide"] += 1
+                chain_type_counts[ChainType.DNA] += 1
+            # (All other chem types are considered non-polymer)
             else:
-                chain_type_counts["non-polymer"] += 1
+                chain_type_counts[ChainType.NON_POLYMER] += 1
 
         # Default to polymer
         is_polymer = True
 
+        # WARNING: The following logic is heuristic, and may fail in cases of multiple residues types within a chain.
+
         # ...if we have both RNA and DNA, set the chain type to RNA/DNA hybrid
-        if chain_type_counts["polyribonucleotide"] > 0 and chain_type_counts["polydeoxyribonucleotide"] > 0:
-            chain_type = "polydeoxyribonucleotide/polyribonucleotide hybrid"
-        # ...if we have more L-polypeptides than D-polypeptides, set to L-polypeptide
-        elif chain_type_counts["polypeptide(L)"] > chain_type_counts["polypeptide(D)"]:
-            chain_type = "polypeptide(L)"
-        # ...if we have more D-polypeptides than L-polypeptides, set to D-polypeptide
-        elif chain_type_counts["polypeptide(L)"] > chain_type_counts["polypeptide(D)"]:
-            chain_type = "polypeptide(D)"
+        if chain_type_counts[ChainType.RNA] > 0 and chain_type_counts[ChainType.DNA] > 0:
+            inferred_chain_type_str = str(ChainType.DNA_RNA_HYBRID)
+
+        # ...if we have proteins, set to either L- or D-polypeptide, depending on the counts
+        elif chain_type_counts[ChainType.POLYPEPTIDE_L] > 0 or chain_type_counts[ChainType.POLYPEPTIDE_D] > 0:
+            # ...if we have equal or more L-polypeptides than D-polypeptides in the chain, set to L-polypeptide
+            if chain_type_counts[ChainType.POLYPEPTIDE_L] >= chain_type_counts[ChainType.POLYPEPTIDE_D]:
+                inferred_chain_type_str = str(ChainType.POLYPEPTIDE_L)
+
+            # ...if we have more D-polypeptides than L-polypeptides, set to D-polypeptide
+            elif chain_type_counts[ChainType.POLYPEPTIDE_L] < chain_type_counts[ChainType.POLYPEPTIDE_D]:
+                inferred_chain_type_str = str(ChainType.POLYPEPTIDE_D)
+
         # ...if we only have "aa_like", default to "polypeptide(L)"
         elif (
             chain_type_counts["aa_like"] > 0
-            and chain_type_counts["polypeptide(L)"] == 0
-            and chain_type_counts["polypeptide(D)"] == 0
+            and chain_type_counts[ChainType.POLYPEPTIDE_L] == 0
+            and chain_type_counts[ChainType.POLYPEPTIDE_D] == 0
         ):
-            chain_type = "polypeptide(L)"
+            inferred_chain_type_str = str(ChainType.POLYPEPTIDE_L)
+
         # ...if we have RNA, set to polyribonucleotide
-        elif chain_type_counts["polyribonucleotide"] > 0:
-            chain_type = "polyribonucleotide"
+        elif chain_type_counts[ChainType.RNA] > 0:
+            inferred_chain_type_str = str(ChainType.RNA)
         # ...if we have DNA, set to polydeoxyribonucleotide
-        elif chain_type_counts["polydeoxyribonucleotide"] > 0:
-            chain_type = "polydeoxyribonucleotide"
-        # ...otherwise set to non-polymer
-        elif chain_type_counts["non-polymer"] > 0:
-            chain_type = "non-polymer"
+        elif chain_type_counts[ChainType.DNA] > 0:
+            inferred_chain_type_str = str(ChainType.DNA)
+        # ...otherwise set to non-polymer, if we have non-polymer residues
+        elif chain_type_counts[ChainType.NON_POLYMER] > 0:
+            inferred_chain_type_str = str(ChainType.NON_POLYMER)
             is_polymer = False
         else:
             raise ValueError(f"Could not infer chain type for chain {chain_id}")
 
-        chain_info_dict[chain_id] = {"is_polymer": is_polymer, "type": chain_type}
+        # ...if the all atoms are "hetatm", override the chain type to non-polymer
+        if np.all(chain_atom_array.hetero):
+            inferred_chain_type_str = str(ChainType.NON_POLYMER)
+            is_polymer = False
+
+        chain_info_dict[chain_id] = {"is_polymer": is_polymer, "type": inferred_chain_type_str}
 
     return chain_info_dict
 

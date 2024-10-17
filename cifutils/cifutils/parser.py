@@ -447,10 +447,10 @@ class CIFParser:
                     ignored_res=_ignored_res,  # needed for leaving group resolution
                 )
 
-                # ...annotate PN units
+                # ...annotate PN units (requires bonds)
                 atom_array = add_pn_unit_id_annotation(atom_array)
 
-                # ...annotate molecules
+                # ...annotate molecules (requires bonds)
                 atom_array = add_molecule_id_annotation(atom_array)
 
                 levels = ["chain", "pn_unit", "molecule"]

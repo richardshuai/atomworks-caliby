@@ -59,6 +59,9 @@ class ChainType(IntEnum):
     def __hash__(self):
         return hash(self.value)
 
+    def __str__(self) -> str:
+        return self.to_string()
+
     def is_protein(self) -> bool:
         return self in PROTEINS
 
@@ -109,3 +112,4 @@ CHAIN_TYPE_STRING_TO_ENUM_MAPPING: dict[str, ChainType] = {
 ENUM_TO_CHAIN_TYPE_STRING_MAPPING: dict[ChainType, str] = {
     chain_type: chain_type_str for chain_type_str, chain_type in CHAIN_TYPE_STRING_TO_ENUM_MAPPING.items()
 }
+ENUM_TO_CHAIN_TYPE_STRING_MAPPING[ChainType.NON_POLYMER] = "non-polymer"  # Degenerate case; default to "non-polymer"

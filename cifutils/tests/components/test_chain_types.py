@@ -66,7 +66,14 @@ CHAIN_TYPE_TEST_CASES = [
             "A": ChainType.DNA_RNA_HYBRID,
             "B": ChainType.POLYPEPTIDE_L,
             "C": ChainType.NON_POLYMER,  # Zinc ion
+            "D": ChainType.NON_POLYMER,
+            "E": ChainType.NON_POLYMER,
             "F": ChainType.NON_POLYMER,  # Magnesium ion
+            "G": ChainType.NON_POLYMER,
+            "H": ChainType.NON_POLYMER,  # Solvent
+            "I": ChainType.NON_POLYMER,  # Solvent
+            "J": ChainType.NON_POLYMER,  # Solvent
+            "K": ChainType.NON_POLYMER,  # Solvent
         },
     },
     {
@@ -80,6 +87,12 @@ CHAIN_TYPE_TEST_CASES = [
             "E": ChainType.NON_POLYMER,  # Oligosaccharide
             "F": ChainType.NON_POLYMER,  # Monosaccharide
             "G": ChainType.NON_POLYMER,  # Monosaccharide
+            "H": ChainType.NON_POLYMER,
+            "I": ChainType.NON_POLYMER,
+            "J": ChainType.NON_POLYMER,
+            "K": ChainType.NON_POLYMER,
+            "L": ChainType.NON_POLYMER,
+            "M": ChainType.NON_POLYMER,
         },
     },
     {
@@ -89,6 +102,11 @@ CHAIN_TYPE_TEST_CASES = [
             "A": ChainType.POLYPEPTIDE_L,
             "B": ChainType.NON_POLYMER,  # Nickel
             "C": ChainType.NON_POLYMER,  # CoA
+            "D": ChainType.NON_POLYMER,
+            "E": ChainType.NON_POLYMER,
+            "F": ChainType.NON_POLYMER,
+            "G": ChainType.NON_POLYMER,
+            "H": ChainType.NON_POLYMER,
         },
     },
 ]
