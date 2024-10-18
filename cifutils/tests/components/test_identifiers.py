@@ -89,7 +89,7 @@ def test_identifiers(test_case):
     path = get_digs_path(test_case["pdb_id"])
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
-        build_assembly=test_case["assembly_id"],
+        build_assembly=(test_case["assembly_id"],),
     )
     atom_array = result["assemblies"][test_case["assembly_id"]][0]  # Choose first model
 
