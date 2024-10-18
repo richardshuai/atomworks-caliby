@@ -7,14 +7,12 @@ import random
 import numpy as np
 import pytest
 import torch
-from torch.utils.data import DataLoader, Subset
-from tqdm import tqdm
 
 from tests.datasets.conftest import AF3_AF2FB_DISTILLATION_CONCAT_DATASET, AF3_PDB_DATASET, TEST_DIFFUSION_BATCH_SIZE
 
 
-@pytest.mark.parametrize("pdb_dataset", [AF3_PDB_DATASET, AF3_AF2FB_DISTILLATION_CONCAT_DATASET])
-def test_satisfies_af3_dataloading_assumptions(pdb_dataset):
+@pytest.mark.parametrize("dataset", [AF3_PDB_DATASET, AF3_AF2FB_DISTILLATION_CONCAT_DATASET])
+def test_satisfies_af3_dataloading_assumptions(dataset):
     """
     Tests that the data loading pipeline outputs examples that satisfy the assumptions of the AF3 model.
     """
@@ -28,29 +26,18 @@ def test_satisfies_af3_dataloading_assumptions(pdb_dataset):
     random.seed(seed)
 
     # Select deterministic examples to profile
-    # NOTE: TEST_FILTERS ensures we don't end up with any huge examples that would slow down the test
-    deterministic_indices = np.random.choice(len(pdb_dataset), NUM_RANDOM_EXAMPLES, replace=False)
+    deterministic_indices = np.random.choice(len(dataset), NUM_RANDOM_EXAMPLES, replace=False)
 
-    # Create a Subset of the dataset with the selected indices
-    subset = Subset(pdb_dataset, deterministic_indices)
+    for index in deterministic_indices:
+        sample = dataset[index]
+        example_id = sample["example_id"]
 
-    # Create a DataLoader for the subset
-    data_loader = DataLoader(
-        subset,
-        batch_size=1,
-        shuffle=False,
-        collate_fn=lambda x: x,
-        num_workers=3,
-    )
-
-    for sample in tqdm(data_loader):
-        example_id = sample[0]["example_id"]
         try:
             assert_satisfies_af3_assumptions(sample[0])
         except AssertionError as e:
             # Update message with sample index
-            rng_state_dict = pdb_dataset.get_dataset_by_idx(
-                pdb_dataset.id_to_idx(example_id)
+            rng_state_dict = dataset.get_dataset_by_idx(
+                dataset.id_to_idx(example_id)
             ).transform.latest_rng_state_dict
             raise AssertionError(f"Assertion failed for sample {example_id}." + "\n" + f"{rng_state_dict}") from e
 

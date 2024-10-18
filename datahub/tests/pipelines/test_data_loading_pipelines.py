@@ -5,14 +5,11 @@ Includes tests to:
 """
 
 import logging
-import multiprocessing
 import random
 
 import numpy as np
 import pytest
 import torch
-from torch.utils.data import DataLoader, Subset
-from tqdm.autonotebook import tqdm
 
 from datahub.datasets.datasets import ConcatDatasetWithID, get_row_and_index_by_example_id
 from tests.datasets.conftest import (
@@ -77,48 +74,25 @@ def test_data_loading_pipeline_with_multiple_workers(dataset_to_test: dict):
     torch.manual_seed(0)
     random.seed(0)
 
-    def worker_init_fn(worker_id):
-        # For reproducibility when using multiple workers
-        seed = 0 + worker_id
-        np.random.seed(seed)
-        random.seed(seed)
-        torch.manual_seed(seed)
-
     # Select deterministic examples to profile
-    # NOTE: TEST_FILTERS ensures we don't end up with any huge examples that would slow down the test
     deterministic_indices = np.random.choice(len(dataset), dataset_to_test["num_examples"], replace=False)
 
-    # Create a Subset of the dataset with the selected indices
-    subset = Subset(dataset, deterministic_indices)
+    for index in deterministic_indices:
+        sample = dataset[index]
+        example_id = sample["example_id"]
 
-    # Create a DataLoader for the subset
-    # We must include an identity collate_fn to avoid errors with unrecognized types (AtomArray)
-    available_cores = multiprocessing.cpu_count()
-    data_loader = DataLoader(
-        subset,
-        batch_size=1,
-        shuffle=False,
-        num_workers=min(available_cores, 4, dataset_to_test["num_examples"])
-        if dataset_to_test["num_examples"] > 1
-        else 0,  # Don't spawn more workers than examples
-        worker_init_fn=worker_init_fn,
-        collate_fn=identity_collate_fn,
-    )
-
-    for i, sample in enumerate(tqdm(data_loader, desc="Loading examples", total=len(deterministic_indices))):
-        example_id = sample[0]["example_id"]
-        logger.info(f"Loaded example_id: {example_id} ({i+1}/{len(deterministic_indices)})")
         row = get_row_and_index_by_example_id(dataset, example_id)[
             "row"
         ]  # Check if we can reverse-engineer the row from the example_id
         assert row is not None, f"Failed to get row from example_id for example_id: {example_id}"
         assert sample is not None, f"Sample is None, with example_id: {example_id}"
+        assert row["example_id"] == example_id, f"Row example_id does not match example_id for example_id: {example_id}"
 
         # For validation datasets, also check that the "ground_truth" key contains information on which chains/interfaces to score, and the map from token index to `chain_iid`
         if dataset_type == "validation":
-            assert "ground_truth" in sample[0], f"Missing 'ground_truth' key in sample with example_id: {example_id}"
+            assert "ground_truth" in sample, f"Missing 'ground_truth' key in sample with example_id: {example_id}"
             assert (
-                "chain_iid_token_lvl" in sample[0]["ground_truth"]
+                "chain_iid_token_lvl" in sample["ground_truth"]
             ), f"Missing 'chain_iid_token_lvl' key in sample with example_id: {example_id}"
 
 

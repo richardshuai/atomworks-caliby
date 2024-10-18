@@ -40,19 +40,10 @@ def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
     # NOTE: TEST_FILTERS ensures we don't end up with any huge examples that would slow down the test
     deterministic_indices = np.random.choice(len(pdb_dataset), NUM_RANDOM_EXAMPLES, replace=False)
 
-    # Create a Subset of the dataset with the selected indices
-    subset = Subset(pdb_dataset, deterministic_indices)
+    for index in deterministic_indices:
+        sample = pdb_dataset[index]
+        example_id = sample["example_id"]
 
-    # Create a DataLoader for the subset
-    data_loader = DataLoader(
-        subset,
-        batch_size=1,
-        shuffle=False,
-        collate_fn=identity_collate_fn,
-    )
-
-    for sample in tqdm(data_loader):
-        example_id = sample[0]["example_id"]
         try:
             assert_satisfies_rf2aa_assumptions(sample[0]["feats"])
         except AssertionError as e:
