@@ -121,9 +121,9 @@ def place_unresolved_token_on_closest_resolved_token_in_sequence(
         # ...update the coordinates for the specified annotation (e.g., "coord" or "coord_to_be_noised")
         if annotation_to_update == "coord":
             # (We must handle "coord" explicitly, as it is treated differently than other annotations)
-            chain_atom_array.coord[~is_token_resolved_atom_level] = (
-                representative_atom_coordinates_atom_level[nearest_resolved_token_indices_atom_wise]
-            )
+            chain_atom_array.coord[~is_token_resolved_atom_level] = representative_atom_coordinates_atom_level[
+                nearest_resolved_token_indices_atom_wise
+            ]
             atom_array.coord[chain_mask] = chain_atom_array.coord
         else:
             chain_atom_array.get_annotation(annotation_to_update)[~is_token_resolved_atom_level] = (

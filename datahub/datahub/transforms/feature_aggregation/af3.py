@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from biotite.structure import AtomArray
 
-from datahub.transforms._checks import check_contains_keys, check_is_instance, check_atom_array_annotation
+from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
 from datahub.transforms.base import Transform
 from datahub.utils.token import get_af3_token_representative_idxs, get_token_starts
 

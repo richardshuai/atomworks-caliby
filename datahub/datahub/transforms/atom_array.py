@@ -339,16 +339,15 @@ def copy_annotation(atom_array: AtomArray, annotation_to_copy: str, new_annotati
     """
 
     assert (
-        new_annotation not in atom_array.get_annotation_categories()
-        and new_annotation != "coord"
+        new_annotation not in atom_array.get_annotation_categories() and new_annotation != "coord"
     ), f"Annotation {new_annotation} already exists in the AtomArray."
-    
+
     if annotation_to_copy == "coord":
         # We must handle the special case of copying the coordinates (since "coord" is not technically an annotation)
         atom_array.set_annotation(new_annotation, atom_array.coord.copy())
     else:
         atom_array.set_annotation(new_annotation, atom_array.get_annotation(annotation_to_copy))
-    
+
     return atom_array
 
 
@@ -364,7 +363,8 @@ class CopyAnnotation(Transform):
         check_is_instance(data, "atom_array", AtomArray)
 
         assert (
-            self.annotation_to_copy == "coord" or self.annotation_to_copy in data["atom_array"].get_annotation_categories()
+            self.annotation_to_copy == "coord"
+            or self.annotation_to_copy in data["atom_array"].get_annotation_categories()
         ), f"Annotation {self.annotation_to_copy} does not exist in the AtomArray."
 
         assert (
@@ -372,7 +372,9 @@ class CopyAnnotation(Transform):
         ), f"Annotation {self.new_annotation} already exists in the AtomArray."
 
     def forward(self, data: dict) -> dict:
-        data["atom_array"] = copy_annotation(data["atom_array"], annotation_to_copy=self.annotation_to_copy, new_annotation=self.new_annotation)
+        data["atom_array"] = copy_annotation(
+            data["atom_array"], annotation_to_copy=self.annotation_to_copy, new_annotation=self.new_annotation
+        )
         return data
 
 

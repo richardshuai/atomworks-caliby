@@ -5,6 +5,7 @@ import numpy as np
 from datahub.encoding_definitions import (
     RF2AA_ATOM36_ENCODING,
 )
+from datahub.transforms.atom_array import CopyAnnotation
 from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose
 from datahub.transforms.encoding import AddTokenAnnotation, EncodeAtomArray
@@ -14,7 +15,6 @@ from datahub.transforms.featurize_unresolved_residues import (
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
     mask_residues_with_unresolved_backbone_atoms,
 )
-from datahub.transforms.atom_array import CopyAnnotation
 from datahub.utils.token import (
     apply_and_spread_token_wise,
     get_af3_token_representative_coords,
@@ -103,7 +103,8 @@ def test_place_unresolved_token_atoms_on_representative_atom():
         output_chain_atom_array = output_atom_array[output_atom_array.chain_id == chain_id]
         input_chain_atom_array = atom_array[atom_array.chain_id == chain_id]
         assert_equal_atom_arrays(output_chain_atom_array, input_chain_atom_array)
-    
+
+
 def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
     pdb_id = "6wtf"
     data = cached_parse(pdb_id)

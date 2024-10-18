@@ -5,6 +5,7 @@ Includes tests to:
 """
 
 import logging
+import multiprocessing
 import random
 
 import numpy as np
@@ -12,7 +13,6 @@ import pytest
 import torch
 from torch.utils.data import DataLoader, Subset
 from tqdm.autonotebook import tqdm
-import multiprocessing
 
 from datahub.datasets.datasets import ConcatDatasetWithID, get_row_and_index_by_example_id
 from tests.datasets.conftest import (
@@ -98,7 +98,9 @@ def test_data_loading_pipeline_with_multiple_workers(dataset_to_test: dict):
         subset,
         batch_size=1,
         shuffle=False,
-        num_workers=min(available_cores, 4, dataset_to_test["num_examples"]) if dataset_to_test["num_examples"] > 1 else 0, # Don't spawn more workers than examples
+        num_workers=min(available_cores, 4, dataset_to_test["num_examples"])
+        if dataset_to_test["num_examples"] > 1
+        else 0,  # Don't spawn more workers than examples
         worker_init_fn=worker_init_fn,
         collate_fn=identity_collate_fn,
     )
@@ -119,6 +121,7 @@ def test_data_loading_pipeline_with_multiple_workers(dataset_to_test: dict):
                 "chain_iid_token_lvl" in sample[0]["ground_truth"]
             ), f"Missing 'chain_iid_token_lvl' key in sample with example_id: {example_id}"
 
+
 BENCHMARK_EXAMPLE_IDS = [
     "{['pdb', 'pn_units']}{7d9h}{2}{['B_1']}",
     "{['pdb', 'pn_units']}{5gam}{1}{['C_1']}",  # Large MSA
@@ -129,6 +132,7 @@ BENCHMARK_EXAMPLE_IDS = [
     "{['pdb', 'pn_units']}{6zie}{1}{['E_1']}",
     "{['pdb', 'interfaces']}{7nmj}{1}{['D_1', 'L_1']}",
 ]
+
 
 @pytest.mark.parametrize("dataset", DATASETS_TO_TEST)
 @pytest.mark.benchmark

@@ -147,6 +147,7 @@ def assert_ground_truth_dimensions(ground_truth, n_tokens, n_atoms):
     assert ground_truth["mask_token_lvl"].shape == (n_tokens,)
     assert ground_truth["chain_iid_token_lvl"].shape == (n_tokens,)
 
+
 def assert_coordinates_for_noising_dimensions(coord_atom_lvl_to_be_noised, n_atoms):
     """
     Asserts that the coordinates that will be noised have the correct dimensions for the AF3 model.

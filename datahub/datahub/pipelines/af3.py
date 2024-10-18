@@ -237,7 +237,7 @@ def build_af3_transform_pipeline(
         CenterRandomAugmentation(batch_size=diffusion_batch_size),
         SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),
         # ... remove all non-feature keys (to make compatible wit generic batch_collate, which only allows tensors, numpy arrays, str, etc.)
-        SubsetToKeys(["example_id", "feats", "t", "noise", "ground_truth"]),
+        SubsetToKeys(["example_id", "feats", "t", "noise", "ground_truth", "coord_atom_lvl_to_be_noised"]),
     ]
 
     # ... compose final pipeline
