@@ -41,7 +41,7 @@ integration-test-job:
   script:
     - echo "Running slow tests"
     - set -e  # Exit immediately if a command exits with a non-zero status (so that we fail if the run gets killed)
-    - srun -p cpu --cpus-per-task=4 --mem=32G bash ./.ci/run_slow_tests.sh || exit 1
+    - srun -p cpu --cpus-per-task=1 --mem=32G bash ./.ci/run_slow_tests.sh || exit 1
 
 post-merge-job:
   coverage: '/TOTAL.*\s+(\d+%)$/'
