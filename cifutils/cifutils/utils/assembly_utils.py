@@ -111,6 +111,10 @@ def _build_bioassembly_from_asym_unit(
     elif assembly_ids == "all":
         to_build = available_assembly_ids
     else:
+        # Assert that the given `assembly_ids` are valid
+        assert isinstance(assembly_ids, (list, tuple)) and all(
+            isinstance(_id, str) for _id in assembly_ids
+        ), "Invalid `build_assembly` option. Must be 'first', 'all', or a list/tuple of assembly IDs as strings."
         to_build = assembly_ids
 
     # ensure instructions for each requested assembly id exist
@@ -153,7 +157,7 @@ def process_assemblies(
     struct_oper_category: CIFCategory,
     asym_unit_atom_array_stack: AtomArrayStack,
     patch_symmetry_centers: bool,
-    build_assembly: Literal["all", "first"] | list[str] = "first",
+    build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
 ) -> None:
     """
     Processes the assemblies from the CIF file and updates the data_dict accordingly.
@@ -163,7 +167,8 @@ def process_assemblies(
         struct_oper_category (CIFCategory): The `pdbx_struct_oper_list` category from the CIF file.
         asym_unit_atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied (the asymmetric unit).
         patch_symmetry_centers (bool): Flag to indicate if symmetry centers should be patched.
-        build_assembly (str, optional): The assembly ID to build. Defaults to "first".
+        build_assembly (string, list, or tuple, optional): Specifies which assembly to build, if any. Options are None
+            (e.g., asymmetric unit), "first", "all", or a list or tuple of assembly IDs. Defaults to "all".
 
     Returns:
         assemblies (dict[str, AtomArrayStack]): The dictionary containing the built assemblies.

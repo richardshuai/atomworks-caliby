@@ -235,7 +235,7 @@ class CIFParser:
         remove_waters: bool = True,
         residues_to_remove: list[str] = CRYSTALLIZATION_AIDS,
         patch_symmetry_centers: bool = True,
-        build_assembly: Literal["first", "all"] | list[str] | None = "all",
+        build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
         fix_arginines: bool = True,
         convert_mse_to_met: bool = False,
         keep_hydrogens: bool = True,
@@ -267,8 +267,8 @@ class CIFParser:
                 residues and common multi-chain ligands must be done with care to avoid sequence gaps.
             patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues
                 at symmetry centers that clash with themselves when transformed. Defaults to True.
-            build_assembly (str, optional): Which assembly to build, if any. Options are None
-                (e.g., asymmetric unit), "first", "all", or a list of assembly IDs. Defaults to "all".
+            build_assembly (string, list, or tuple, optional): Specifies which assembly to build, if any. Options are None
+                (e.g., asymmetric unit), "first", "all", or a list or tuple of assembly IDs. Defaults to "all".
             fix_arginines (bool, optional): Whether to fix arginine naming ambiguity, see the
                 AF-3 supplement for details. Defaults to True.
             convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE)
@@ -473,6 +473,11 @@ class CIFParser:
 
         # ...optionally, build assemblies and add assembly-specifc annotation (instance IDs)
         if exists(build_assembly):
+            # ...assert that `build_assembly` is a valid option
+            assert build_assembly in ["first", "all"] or isinstance(
+                build_assembly, (list, tuple)
+            ), "Invalid `build_assembly` option. Must be 'first', 'all', or a list/tuple of assembly IDs as strings."
+
             if "pdbx_struct_assembly" in data_dict["cif_block"].keys():
                 # ...build the assemblies from the CIF file, adding the `iid` annotations as we do so
                 assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
