@@ -6,6 +6,7 @@ from cifutils.utils.io_utils import load_any, get_structure, read_any, to_cif_st
 import tempfile
 from contextlib import nullcontext
 import io
+import biotite.structure as struc
 
 
 @pytest.mark.parametrize(
@@ -80,7 +81,16 @@ def test_get_structure_configurations(extra_fields, assume_residues_all_resolved
 def test_to_cif_string():
     cif_buffer = rcsb.fetch("6lyz", "cif")
     cif_structure = load_any(cif_buffer, file_type="cif", extra_fields=["b_factor", "occupancy", "charge"])
+
+    with pytest.raises(ValueError, match="Ambiguous bond annotations detected"):
+        cif_string = to_cif_string(cif_structure)
+
+    # Make identifiers unique
+    cif_structure.res_id = struc.spread_residue_wise(cif_structure, np.arange(struc.get_residue_count(cif_structure)))
+    # ... drop HOH
+    cif_structure = cif_structure[0, cif_structure.res_name != "HOH"]
     cif_string = to_cif_string(cif_structure)
+
     assert isinstance(cif_string, str)
     assert len(cif_string) > 0
 

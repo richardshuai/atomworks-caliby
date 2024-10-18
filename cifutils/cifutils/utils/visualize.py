@@ -86,7 +86,7 @@ def view(
         structure = structure[structure.occupancy > 0]
 
     # Convert the structure to a temporary CIF string for interacting with py3Dmol
-    _tmp_cif_str = to_cif_string(structure)
+    _tmp_cif_str = to_cif_string(structure, _allow_ambiguous_bond_annotations=True)
     # ... add the structure model to the view in mmCIF format
     view.addModel(_tmp_cif_str, "structure", format="mmcif")
 

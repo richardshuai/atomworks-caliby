@@ -35,6 +35,49 @@ def _get_logged_in_user():
         return "unknown_user"
 
 
+def _has_ambiguous_bond_annotation(atom_array: AtomArray) -> bool:
+    """
+    Detect if there is ambiguous annotation of the structure that would
+    lead to loss of information when writing out the structure.
+
+    This happens because the `struct_conn` category distinguishes bonds
+    between different atoms based on the 5-tuple:
+        (chain_id, res_id, res_name, atom_id, ins_code)
+
+    To properly save bonds with a structure, make sure that all atoms
+    have unique 5-tuples.
+
+    Args:
+        atom_array (AtomArray): The atom array to check for ambiguous annotations.
+
+    Returns:
+        bool: True if ambiguous annotations are detected, False otherwise.
+    """
+    # Create a structured array with the 5-tuple elements
+    identifier_dtypes = [
+        ("chain_id", atom_array.chain_id.dtype if "chain_id" in atom_array.get_annotation_categories() else "U1"),
+        ("res_id", atom_array.res_id.dtype if "res_id" in atom_array.get_annotation_categories() else "U1"),
+        ("res_name", atom_array.res_name.dtype if "res_name" in atom_array.get_annotation_categories() else "U1"),
+        ("atom_name", atom_array.atom_name.dtype if "atom_name" in atom_array.get_annotation_categories() else "U1"),
+        ("ins_code", atom_array.ins_code.dtype if "ins_code" in atom_array.get_annotation_categories() else "U1"),
+    ]
+
+    structured_array = np.empty(atom_array.array_length(), dtype=identifier_dtypes)
+    for category in identifier_dtypes:
+        name, dtype = category
+        structured_array[name] = (
+            atom_array.get_annotation(name)
+            if name in atom_array.get_annotation_categories()
+            else ["."] * atom_array.array_length()
+        )
+
+    # Use numpy's unique function with return_counts=True to find duplicates
+    _, counts = np.unique(structured_array, return_counts=True)
+
+    # If any count is greater than 1, we have ambiguous annotations
+    return np.any(counts > 1)
+
+
 def load_any(
     file_or_buffer: os.PathLike | io.StringIO | io.BytesIO,
     file_type: Literal["cif", "mmcif", "pdbx", "pdb", "pdb1", "bcif"] | None = None,
@@ -189,6 +232,7 @@ def to_cif_buffer(
     date: str | None = None,
     time: str | None = None,
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
+    _allow_ambiguous_bond_annotations: bool = False,
 ) -> io.StringIO:
     """Convert an AtomArray structure to a CIF formatted StringIO buffer.
 
@@ -201,6 +245,8 @@ def to_cif_buffer(
         - extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
+        - _allow_ambiguous_bond_annotations (bool, optional): Private argument, not meant for public use.
+            If True, allows ambiguous bond annotations.
 
     Returns:
         StringIO: A buffer containing the CIF formatted string representation of the structure.
@@ -212,6 +258,16 @@ def to_cif_buffer(
         date = datetime.now().strftime("%Y-%m-%d")
     if not exists(time):
         time = datetime.now().strftime("%H:%M:%S")
+
+    if not _allow_ambiguous_bond_annotations and _has_ambiguous_bond_annotation(structure):
+        raise ValueError(
+            "Ambiguous bond annotations detected. This happens when there are atoms that "
+            "have the same `(chain_id, res_id, res_name, atom_id, ins_code)` identifier. "
+            "This happens for example when you have a bio-assembly with multiple copies "
+            "of a chain that only differ by `transformation_id`.\n"
+            "You can fix this for example by re-naming the chains to be named uniquely."
+            "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
+        )
 
     # If elements are given as atomic numbers, convert them to element symbols
     structure.element = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x))(structure.element)
@@ -260,6 +316,7 @@ def to_cif_string(
     date: str | None = None,
     time: str | None = None,
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
+    _allow_ambiguous_bond_annotations: bool = False,
 ) -> str:
     """Convert an AtomArray structure to a CIF formatted string.
 
@@ -277,7 +334,13 @@ def to_cif_string(
         str: The CIF formatted string representation of the structure.
     """
     return to_cif_buffer(
-        structure, id=id, author=author, date=date, time=time, extra_categories=extra_categories
+        structure,
+        id=id,
+        author=author,
+        date=date,
+        time=time,
+        extra_categories=extra_categories,
+        _allow_ambiguous_bond_annotations=_allow_ambiguous_bond_annotations,
     ).getvalue()
 
 
@@ -336,6 +399,16 @@ def to_pdb_buffer(
     """
     # Create a PDBFile object
     pdb_file = biotite_pdb.PDBFile()
+
+    if _has_ambiguous_bond_annotation(structure):
+        raise ValueError(
+            "Ambiguous bond annotations detected. This happens when there are atoms that "
+            "have the same `(chain_id, res_id, res_name, atom_id, ins_code)` identifier. "
+            "This happens for example when you have a bio-assembly with multiple copies "
+            "of a chain that only differ by `transformation_id`.\n"
+            "You can fix this for example by re-naming the chains to be named uniquely."
+            "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
+        )
 
     # Set the structure and bonds
     pdb_file.set_structure(structure)
