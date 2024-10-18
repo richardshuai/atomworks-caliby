@@ -99,8 +99,9 @@ def place_unresolved_token_on_closest_resolved_token_in_sequence(
         )  # (n_tokens)
         is_token_resolved_atom_level = spread_token_wise(chain_atom_array, is_token_resolved_token_level)  # (n_atoms)
 
-        # (Early exit if all tokens are resolved, or no tokens are resolved)
-        if np.all(is_token_resolved_token_level) or np.all(~is_token_resolved_token_level):
+        # (Early exit if no tokens are resolved, as we can't then place unresolved tokens on closest resolved token)
+        # NOTE: Such cases should not occur if the `RemoveUnresolvedPNUnits` Transform is applied first
+        if np.all(~is_token_resolved_token_level):
             continue
 
         # ...get the nearest resolved token indices for each unresolved token
