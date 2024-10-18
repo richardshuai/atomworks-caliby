@@ -33,7 +33,7 @@ def test_satisfies_af3_dataloading_assumptions(dataset):
         example_id = sample["example_id"]
 
         try:
-            assert_satisfies_af3_assumptions(sample[0])
+            assert_satisfies_af3_assumptions(sample)
         except AssertionError as e:
             # Update message with sample index
             rng_state_dict = dataset.get_dataset_by_idx(
