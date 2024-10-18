@@ -10,8 +10,6 @@ import random
 import numpy as np
 import pytest
 import torch
-from torch.utils.data import DataLoader, Subset
-from tqdm import tqdm
 
 from datahub.transforms.rf2aa_assumptions import assert_satisfies_rf2aa_assumptions
 from tests.datasets.conftest import RF2AA_PDB_DATASET

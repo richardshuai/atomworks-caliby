@@ -37,9 +37,7 @@ def test_satisfies_af3_dataloading_assumptions(dataset):
             assert_satisfies_af3_assumptions(sample)
         except AssertionError as e:
             # Update message with sample index
-            rng_state_dict = dataset.get_dataset_by_idx(
-                dataset.id_to_idx(example_id)
-            ).transform.latest_rng_state_dict
+            rng_state_dict = dataset.get_dataset_by_idx(dataset.id_to_idx(example_id)).transform.latest_rng_state_dict
             raise AssertionError(f"Assertion failed for sample {example_id}." + "\n" + f"{rng_state_dict}") from e
 
 
