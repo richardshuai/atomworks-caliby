@@ -171,7 +171,14 @@ def assert_equal_atom_arrays(
             raise AssertionError(f"Annotation {annotation} not in arr1.")
         if annotation not in arr2.get_annotation_categories():
             raise AssertionError(f"Annotation {annotation} not in arr2.")
-        if not np.array_equal(arr1.get_annotation(annotation), arr2.get_annotation(annotation)):
+
+        # Check if the arrays contain floating-point numbers (in which case, we allow NaN == NaN)
+        if np.issubdtype(arr1.get_annotation(annotation).dtype, np.floating) and np.issubdtype(arr2.get_annotation(annotation).dtype, np.floating):
+            arrays_equal = np.array_equal(arr1.get_annotation(annotation), arr2.get_annotation(annotation), equal_nan=True)
+        else:
+            arrays_equal = np.array_equal(arr1.get_annotation(annotation), arr2.get_annotation(annotation), equal_nan=False)
+
+        if not arrays_equal:
             mismatch_idxs = np.where(arr1.get_annotation(annotation) != arr2.get_annotation(annotation))[0]
             msg = (
                 f"Annotation {annotation} does not match at {len(mismatch_idxs)} indices. First few mismatches:" + "\n"

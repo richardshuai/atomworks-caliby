@@ -14,6 +14,7 @@ from datahub.transforms.featurize_unresolved_residues import (
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
     mask_residues_with_unresolved_backbone_atoms,
 )
+from datahub.transforms.atom_array import CopyAnnotation
 from datahub.utils.token import (
     apply_and_spread_token_wise,
     get_af3_token_representative_coords,
@@ -70,8 +71,9 @@ def test_place_unresolved_token_atoms_on_representative_atom():
             FlagNonPolymersForAtomization(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             AddTokenAnnotation(encoding),
+            CopyAnnotation("coord", "coord_to_be_noised"),
             EncodeAtomArray(encoding),
-            PlaceUnresolvedTokenAtomsOnRepresentativeAtom(),
+            PlaceUnresolvedTokenAtomsOnRepresentativeAtom(annotation_to_update="coord_to_be_noised"),
         ]
     )
     output = pipe(data)
@@ -90,8 +92,8 @@ def test_place_unresolved_token_atoms_on_representative_atom():
                 (output_atom_array.chain_id == chain_id) & (output_atom_array.res_id == res_id)
             ]
             assert np.allclose(
-                residue_atom_array.coord[unresolved_atom_mask],
-                output_atom_array_residue.coord[representative_atom_idx],
+                residue_atom_array.coord_to_be_noised[unresolved_atom_mask],
+                output_atom_array_residue.coord_to_be_noised[representative_atom_idx],
                 atol=1e-6,
                 equal_nan=True,
             )
@@ -101,8 +103,7 @@ def test_place_unresolved_token_atoms_on_representative_atom():
         output_chain_atom_array = output_atom_array[output_atom_array.chain_id == chain_id]
         input_chain_atom_array = atom_array[atom_array.chain_id == chain_id]
         assert_equal_atom_arrays(output_chain_atom_array, input_chain_atom_array)
-
-
+    
 def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
     pdb_id = "6wtf"
     data = cached_parse(pdb_id)
@@ -115,7 +116,7 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             AddTokenAnnotation(encoding),
             EncodeAtomArray(encoding),
-            PlaceUnresolvedTokenAtomsOnRepresentativeAtom(),
+            PlaceUnresolvedTokenAtomsOnRepresentativeAtom(annotation_to_update="coord"),
         ],
         track_rng_state=False,
     )
@@ -123,7 +124,7 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
     input_atom_array = copy.deepcopy(data["atom_array"])
 
     # ...apply the transform
-    output = PlaceUnresolvedTokenOnClosestResolvedTokenInSequence()(output)
+    output = PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(annotation_to_update="coord")(output)
     output_atom_array = output["atom_array"]
 
     for chain_id in np.unique(output_atom_array.chain_id):
@@ -174,4 +175,4 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
 
 
 if __name__ == "__main__":
-    test_place_unresolved_token_atoms_on_representative_atom()
+    test_place_unresolved_token_on_closest_resolved_token_in_sequence()

@@ -60,7 +60,10 @@ def assert_satisfies_af3_assumptions(sample):
     Asserts that the features satisfy the assumptions of the AF3 model.
     """
     n_tokens, n_atoms, n_sequences, n_templates = assert_input_feature_dimensions(sample["feats"])
+
     assert_ground_truth_dimensions(sample["ground_truth"], n_tokens, n_atoms)
+    assert_coordinates_for_noising_dimensions(sample["coord_atom_lvl_to_be_noised"], n_atoms)
+
     assert sample["t"].shape == (TEST_DIFFUSION_BATCH_SIZE,)
     assert sample["noise"].shape == (TEST_DIFFUSION_BATCH_SIZE, n_atoms, 3)
 
@@ -138,11 +141,14 @@ def assert_ground_truth_dimensions(ground_truth, n_tokens, n_atoms):
     """
     Asserts that the ground truth features have the correct dimensions for the AF3 model.
     """
-    assert ground_truth["coord_atom_lvl"].shape == (TEST_DIFFUSION_BATCH_SIZE, n_atoms, 3)
-    assert ground_truth["mask_atom_lvl"].shape == (
-        TEST_DIFFUSION_BATCH_SIZE,
-        n_atoms,
-    )
+    assert ground_truth["coord_atom_lvl"].shape == (n_atoms, 3)
+    assert ground_truth["mask_atom_lvl"].shape == (n_atoms,)
     assert ground_truth["coord_token_lvl"].shape == (n_tokens, 3)
     assert ground_truth["mask_token_lvl"].shape == (n_tokens,)
     assert ground_truth["chain_iid_token_lvl"].shape == (n_tokens,)
+
+def assert_coordinates_for_noising_dimensions(coord_atom_lvl_to_be_noised, n_atoms):
+    """
+    Asserts that the coordinates that will be noised have the correct dimensions for the AF3 model.
+    """
+    assert coord_atom_lvl_to_be_noised.shape == (TEST_DIFFUSION_BATCH_SIZE, n_atoms, 3)
