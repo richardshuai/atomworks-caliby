@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from biotite.structure import AtomArray
 
-from datahub.transforms._checks import check_contains_keys, check_is_instance
+from datahub.transforms._checks import check_contains_keys, check_is_instance, check_atom_array_annotation
 from datahub.transforms.base import Transform
 from datahub.utils.token import get_af3_token_representative_idxs, get_token_starts
 
@@ -51,6 +51,9 @@ class AggregateFeaturesLikeAF3(Transform):
         check_contains_keys(msa_per_recycle, ["msa", "has_insertion", "insertion_value"])
         msa_static = msa_features["msa_static_features_dict"]
         check_contains_keys(msa_static, ["profile", "insertion_mean"])
+
+        # Check atom array annotations
+        check_atom_array_annotation(data, ["coord_to_be_noised", "chain_iid", "occupancy"])
 
     def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -113,5 +116,8 @@ class AggregateFeaturesLikeAF3(Transform):
                 "chain_iid_token_lvl": chain_iid_token_lvl,  # numpy.ndarray of strings with shape (n_tokens,)
             }
         )
+
+        # Add atom-level features for noising
+        data["coord_atom_lvl_to_be_noised"] = torch.tensor(atom_array.coord_to_be_noised)
 
         return data

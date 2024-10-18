@@ -67,7 +67,9 @@ class MaskResiduesWithUnresolvedBackboneAtoms(Transform):
         return data
 
 
-def place_unresolved_token_on_closest_resolved_token_in_sequence(atom_array: AtomArray) -> AtomArray:
+def place_unresolved_token_on_closest_resolved_token_in_sequence(
+    atom_array: AtomArray, annotation_to_update: str = "coord_to_be_noised"
+) -> AtomArray:
     """
     Place all atoms within fully-unresolved residues on the closest resolved neighbor in sequence space.
 
@@ -78,15 +80,17 @@ def place_unresolved_token_on_closest_resolved_token_in_sequence(atom_array: Ato
 
     Args:
         atom_array (AtomArray): The atom array to modify.
+        annotation_to_update (str): The annotation to update with the new coordinates. E.g., "coord" (if we want to modify the ground-truth),
+            or "coord_to_be_noised" (if we want to modify only the coordinates that will be noised).
 
     Returns:
         AtomArray: The modified atom array.
     """
 
     # ...loop through chains with unresolved atoms, such that we don't resolve across chain boundaries
-    # (NOTE: We only iterate through chains containing any unresolved atoms for efficiency)
-    for chain_id in np.unique(atom_array.chain_id[atom_array.occupancy == 0]):
-        chain_mask = atom_array.chain_id == chain_id
+    # (NOTE: We only iterate through chain instances containing any unresolved atoms for efficiency)
+    for chain_iid in np.unique(atom_array.chain_iid[atom_array.occupancy == 0]):
+        chain_mask = atom_array.chain_iid == chain_iid
         chain_atom_array = atom_array[chain_mask]
 
         # ...map each unresolved token to the nearest resolved token
@@ -114,10 +118,20 @@ def place_unresolved_token_on_closest_resolved_token_in_sequence(atom_array: Ato
 
         assert len(representative_atom_coordinates_atom_level) == len(is_token_resolved_token_level)
 
-        chain_atom_array.coord[~is_token_resolved_atom_level] = representative_atom_coordinates_atom_level[
-            nearest_resolved_token_indices_atom_wise
-        ]
-        atom_array.coord[atom_array.chain_id == chain_id] = chain_atom_array.coord
+        # ...update the coordinates for the specified annotation (e.g., "coord" or "coord_to_be_noised")
+        if annotation_to_update == "coord":
+            # (We must handle "coord" explicitly, as it is treated differently than other annotations)
+            chain_atom_array.coord[~is_token_resolved_atom_level] = (
+                representative_atom_coordinates_atom_level[nearest_resolved_token_indices_atom_wise]
+            )
+            atom_array.coord[chain_mask] = chain_atom_array.coord
+        else:
+            chain_atom_array.get_annotation(annotation_to_update)[~is_token_resolved_atom_level] = (
+                representative_atom_coordinates_atom_level[nearest_resolved_token_indices_atom_wise]
+            )
+            atom_array.get_annotation(annotation_to_update)[chain_mask] = chain_atom_array.get_annotation(
+                annotation_to_update
+            )
 
     return atom_array
 
@@ -126,6 +140,11 @@ class PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(Transform):
     """
     Place fully unresolved tokens on their closest resolved neighbor in sequence space, breaking ties by choosing the "leftmost" neighbor.
     This heuristic is helpful to avoid noising unresolved residue coordinates from the origin during diffusion training.
+
+    Args:
+        annotation_to_update (str): The annotation to update with the new coordinates. E.g., "coord" (if we want to modify the ground-truth),
+            or "coord_to_be_noised" (if we want to modify only the coordinates that will be noised).
+            NOTE: Must match the annotation used for `PlaceUnresolvedTokenAtomsOnRepresentativeAtom`.
     """
 
     requires_previous_transforms = [
@@ -134,17 +153,29 @@ class PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(Transform):
         "PlaceUnresolvedTokenAtomsOnRepresentativeAtom",
     ]
 
+    def __init__(self, annotation_to_update: str = "coord_to_be_noised") -> None:
+        self.annotation_to_update = annotation_to_update
+
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
-        check_atom_array_annotation(data, ["occupancy"])
+
+        annotations_to_check = ["occupancy"]
+        if self.annotation_to_update != "coord":
+            # "coord" is a special annotation, and technically not in `atom_array.get_annotation_categories()`
+            annotations_to_check += [self.annotation_to_update]
+        check_atom_array_annotation(data, annotations_to_check)
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        data["atom_array"] = place_unresolved_token_on_closest_resolved_token_in_sequence(data["atom_array"])
+        data["atom_array"] = place_unresolved_token_on_closest_resolved_token_in_sequence(
+            data["atom_array"], annotation_to_update=self.annotation_to_update
+        )
         return data
 
 
-def place_unresolved_token_atoms_on_token_representative_atom(atom_array: AtomArray) -> AtomArray:
+def place_unresolved_token_atoms_on_token_representative_atom(
+    atom_array: AtomArray, annotation_to_update: str = "coord_to_be_noised"
+) -> AtomArray:
     """
     Place unresolved token atoms (e.g., side chain atoms) on the representative atom of the corresponding residue (token).
     Helpful within diffusive models to avoid noising unresolved side-chain atoms from the origin.
@@ -153,6 +184,8 @@ def place_unresolved_token_atoms_on_token_representative_atom(atom_array: AtomAr
 
     Args:
         atom_array (AtomArray): The atom array to modify.
+        annotation_to_update (str): The annotation to update with the new coordinates. E.g., "coord" (if we want to modify the ground-truth),
+            or "coord_to_be_noised" (if we want to modify only the coordinates that will be noised).
 
     Returns:
         AtomArray: The modified atom array.
@@ -160,27 +193,36 @@ def place_unresolved_token_atoms_on_token_representative_atom(atom_array: AtomAr
     # ...get a mask of all unresolved atoms
     unresolved_atom_mask = atom_array.occupancy == 0
 
-    # ...get the unique chain IDs of polymers with unresolved atoms (as this transform only applies to polymers)
-    chain_ids_with_unresolved_atoms = np.unique(atom_array.chain_id[(unresolved_atom_mask) & (atom_array.is_polymer)])
+    # ...get the unique chain IIDs of polymers with unresolved atoms (as this transform only applies to polymers)
+    chain_iids_with_unresolved_atoms = np.unique(atom_array.chain_iid[(unresolved_atom_mask) & (atom_array.is_polymer)])
 
     # ...prepare a mask of representative atoms for each residue
     representative_atom_mask = get_af3_token_representative_masks(atom_array)
 
-    for chain_id in chain_ids_with_unresolved_atoms:
+    for chain_iid in chain_iids_with_unresolved_atoms:
         residues_with_unresolved_atoms = np.unique(
-            atom_array.res_id[(atom_array.chain_id == chain_id) & unresolved_atom_mask]
+            atom_array.res_id[(atom_array.chain_iid == chain_iid) & unresolved_atom_mask]
         )
         for res_id in residues_with_unresolved_atoms:
             # ...create a mask for the unresolved atoms in the residue
-            residue_mask = (atom_array.chain_id == chain_id) & (atom_array.res_id == res_id)
+            residue_mask = (atom_array.chain_iid == chain_iid) & (atom_array.res_id == res_id)
             unresolved_atoms_in_residue_mask = residue_mask & unresolved_atom_mask
 
-            # ...get the index of the representative atom
-            assert np.sum(representative_atom_mask & residue_mask) == 1
-            representative_atom_idx = np.where(representative_atom_mask & residue_mask)[0]
+            # ...get a mask for the representative atom
+            representative_atom_in_residue_mask = representative_atom_mask & residue_mask
+
+            # ...get the index of the representative atom (there should be exactly one instance of the chain)
+            assert np.sum(representative_atom_in_residue_mask) == 1
+            representative_atom_idx = np.where(representative_atom_in_residue_mask)[0]
 
             # ...set the unresolved atom coordinates to the representative atom coordinates
-            atom_array.coord[unresolved_atoms_in_residue_mask] = atom_array.coord[representative_atom_idx]
+            if annotation_to_update == "coord":
+                # (We must handle "coord" explicitly, as it is treated differently than other annotations)
+                atom_array.coord[unresolved_atoms_in_residue_mask] = atom_array.coord[representative_atom_idx]
+            else:
+                atom_array.get_annotation(annotation_to_update)[unresolved_atoms_in_residue_mask] = (
+                    atom_array.get_annotation(annotation_to_update)[representative_atom_idx]
+                )
 
     return atom_array
 
@@ -189,15 +231,29 @@ class PlaceUnresolvedTokenAtomsOnRepresentativeAtom(Transform):
     """
     Place unresolved token atoms (e.g., side chain atoms) on the representative atom of the residue (token).
     Note that this Transform has no impact on non-polymers, as all atoms are considered tokens.
+
+    Args:
+        annotation_to_update (str): The annotation to update with the new coordinates. E.g., "coord" (if we want to modify the ground-truth),
+        or "coord_to_be_noised" (if we want to modify only the coordinates that will be noised).
     """
 
     requires_previous_transformation = ["MaskResiduesWithUnresolvedBackboneAtoms", "AtomizeByCCDName"]
 
+    def __init__(self, annotation_to_update: str = "coord_to_be_noised") -> None:
+        self.annotation_to_update = annotation_to_update
+
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
-        check_atom_array_annotation(data, ["occupancy"])
+
+        annotations_to_check = ["occupancy"]
+        if self.annotation_to_update != "coord":
+            # "coord" is a special annotation, and technically not in `atom_array.get_annotation_categories()`
+            annotations_to_check += [self.annotation_to_update]
+        check_atom_array_annotation(data, annotations_to_check)
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        data["atom_array"] = place_unresolved_token_atoms_on_token_representative_atom(data["atom_array"])
+        data["atom_array"] = place_unresolved_token_atoms_on_token_representative_atom(
+            data["atom_array"], annotation_to_update=self.annotation_to_update
+        )
         return data

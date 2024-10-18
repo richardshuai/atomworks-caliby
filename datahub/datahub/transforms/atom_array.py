@@ -319,6 +319,63 @@ class AddWithinPolyResIdxAnnotation(Transform):
         return data
 
 
+def copy_annotation(atom_array: AtomArray, annotation_to_copy: str, new_annotation: str) -> AtomArray:
+    """
+    Copies an existing annotation from the AtomArray and assigns it a new name.
+
+    Particularly useful for scenarios such as diffusive training, where the new annotation is altered (e.g., adding noise)
+    without affecting the ground truth data.
+
+    Args:
+        atom_array (AtomArray): The AtomArray object containing the annotations.
+        annotation_to_copy (str): The name of the annotation to be copied.
+        new_annotation (str): The name for the new annotation.
+
+    Returns:
+        AtomArray: The AtomArray with the newly added annotation.
+
+    Example:
+        updated_atom_array = copy_annotation(atom_array, "coord", "coord_to_be_noised")
+    """
+
+    assert (
+        new_annotation not in atom_array.get_annotation_categories()
+        and new_annotation != "coord"
+    ), f"Annotation {new_annotation} already exists in the AtomArray."
+    
+    if annotation_to_copy == "coord":
+        # We must handle the special case of copying the coordinates (since "coord" is not technically an annotation)
+        atom_array.set_annotation(new_annotation, atom_array.coord.copy())
+    else:
+        atom_array.set_annotation(new_annotation, atom_array.get_annotation(annotation_to_copy))
+    
+    return atom_array
+
+
+class CopyAnnotation(Transform):
+    """Copies an existing annotation from the AtomArray and assigns it a new name."""
+
+    def __init__(self, annotation_to_copy: str, new_annotation: str):
+        self.annotation_to_copy = annotation_to_copy
+        self.new_annotation = new_annotation
+
+    def check_input(self, data: dict):
+        check_contains_keys(data, ["atom_array"])
+        check_is_instance(data, "atom_array", AtomArray)
+
+        assert (
+            self.annotation_to_copy == "coord" or self.annotation_to_copy in data["atom_array"].get_annotation_categories()
+        ), f"Annotation {self.annotation_to_copy} does not exist in the AtomArray."
+
+        assert (
+            self.new_annotation not in data["atom_array"].get_annotation_categories()
+        ), f"Annotation {self.new_annotation} already exists in the AtomArray."
+
+    def forward(self, data: dict) -> dict:
+        data["atom_array"] = copy_annotation(data["atom_array"], annotation_to_copy=self.annotation_to_copy, new_annotation=self.new_annotation)
+        return data
+
+
 class ApplyFunctionToAtomArray(Transform):
     """
     Apply a function to the atom array.

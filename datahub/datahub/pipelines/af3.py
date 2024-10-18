@@ -15,6 +15,7 @@ from datahub.transforms.atom_array import (
     AddWithinChainInstanceResIdx,
     AddWithinPolyResIdxAnnotation,
     ComputeAtomToTokenMap,
+    CopyAnnotation,
 )
 from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
@@ -222,11 +223,15 @@ def build_af3_transform_pipeline(
             encoding=af3_sequence_encoding,
             n_msa=n_msa,
         ),
+        # Prepare coordinates for noising (without modifying the ground truth)
+        # ...add placeholder coordinates for noising
+        CopyAnnotation(annotation_to_copy="coord", new_annotation="coord_to_be_noised"),
+        # ...handling of unresolved residues (note that these Transforms create the "atom_array_to_noise" dictionary, if not already present)
+        PlaceUnresolvedTokenAtomsOnRepresentativeAtom(annotation_to_update="coord_to_be_noised"),
+        PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(annotation_to_update="coord_to_be_noised"),
+        # Feature aggregation
         AggregateFeaturesLikeAF3(),
         OneHotTemplateRestype(encoding=af3_sequence_encoding),
-        # ...handling of unresolved residues (note that these Transforms create the "atom_array_to_noise" dictionary, if not already present)
-        PlaceUnresolvedTokenAtomsOnRepresentativeAtom(),
-        PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(),
         # ...batching and noise sampling for diffusion
         BatchStructuresForDiffusionNoising(batch_size=diffusion_batch_size),
         CenterRandomAugmentation(batch_size=diffusion_batch_size),
