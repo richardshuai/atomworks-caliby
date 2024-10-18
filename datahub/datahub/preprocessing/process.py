@@ -398,7 +398,7 @@ class DataPreprocessor:
                 # ...add entry-level data  to the record (e.g., resolution, deposition date, etc.)
                 "pdb_id": id,
                 "assembly_id": assembly_id,
-                "clash_severity": clash_severity,
+                "clash_severity": clash_severity.value,
                 "resolution": result_dict["metadata"]["resolution"],
                 "deposition_date": result_dict["metadata"]["deposition_date"],
                 "release_date": result_dict["metadata"]["release_date"],
