@@ -5,5 +5,6 @@ echo "Building apptainer image for $DATE"
 
 make apptainer
 
-# TODO: Currently `bench` does not have permissiosn to write to `/projects/ml/RF2_allatom/spec_files`
+# TODO: Currently `bench` does not have permissions to write to `/projects/ml/RF2_allatom/spec_files`
 mv datahub_$DATE.sif /net/scratch/smathis/workers
+echo "Apptainer image is available at /net/scratch/smathis/workers/datahub_$DATE.sif"

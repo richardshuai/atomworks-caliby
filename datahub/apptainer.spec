@@ -27,7 +27,7 @@ IncludeCmd: yes
    # ... for mounting `/projects` with --bind
    mkdir ${APPTAINER_ROOTFS}/projects
    # ... for mounting `/databases` with --bind
-   mkdir ${APPTAINER_ROOTFS}/databases
+   mkdir ${APPTAINER_ROOTFS}/net
    # ... for mounting `/squash` with --bind
    mkdir ${APPTAINER_ROOTFS}/squash
 
@@ -56,7 +56,7 @@ IncludeCmd: yes
    echo "Verified that /projects directory is accessible."
 
    # Check if /databases is accessible
-   if [ ! -f "/databases/TrRosetta/cif/oc/5ocm.cif.gz" ]; then
+   if [ ! -f "/net/databases/TrRosetta/cif/oc/5ocm.cif.gz" ]; then
       echo "ERROR: /databases directory is not accessible, but needed for tests."
       echo "Make sure you bind the /databases directory when you run the container."
       echo "The easiest way to ensure this is to just use \`make apptainer\`,"
@@ -113,6 +113,7 @@ IncludeCmd: yes
    ln -sf /bin/bash /bin/sh
 
    # Common symlinks (within container)
+   ln -s /net/databases /databases
    ln -s /net/software /software
    ln -s /home /mnt/home
    ln -s /projects /mnt/projects

@@ -101,7 +101,7 @@ apptainer:
 	$(eval IMAGE_NAME := datahub_$(DATE).sif)
 
 	@echo "Building apptainer image $(IMAGE_NAME)"
-	$(APPTAINER_BINARY) build --bind $(PWD):/datahub_host --bind /projects:/projects --bind /net/databases:/databases --bind /squash:/squash datahub_$(DATE).sif apptainer.spec
+	$(APPTAINER_BINARY) build --bind $(PWD):/datahub_host --bind /projects:/projects,/net:/net,/squash:/squash datahub_$(DATE).sif apptainer.spec
 
 ## Run pytest and generate coverage report
 test:
