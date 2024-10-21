@@ -28,3 +28,7 @@ def sum_string_arrays(*objs: np.ndarray | str) -> np.ndarray:
     determining the shortest string length to set as dtype.
     """
     return reduce(np.char.add, objs).astype(object).astype(str)
+
+
+def not_isin(element: np.ndarray, array: np.ndarray, **isin_kwargs) -> np.ndarray:
+    return np.isin(element, array, invert=True, **isin_kwargs)

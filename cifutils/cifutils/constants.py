@@ -393,3 +393,6 @@ STANDARD_RNA = ("A", "C", "G", "U")
 
 STANDARD_DNA = ("DA", "DC", "DG", "DT")
 """The 4 standard DNA nucleotides"""
+
+# Paths specific to digs. TODO: Move to config file / make obsolete before release
+PROCESSED_CCD_PATH = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_library"

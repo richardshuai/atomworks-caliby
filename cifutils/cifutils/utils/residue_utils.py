@@ -3,9 +3,11 @@ Utility functions to handle creation and manipulation of residues.
 """
 
 __all__ = [
-    "cached_residue_utils_factory",
-    "add_missing_atoms_as_unresolved",
+    "get_processed_ccd_residue",
+    "get_processed_ccd_residue_names",
     "get_chem_comp_type",
+    "build_residue_atoms",
+    "add_missing_atoms_as_unresolved",
 ]
 
 import numpy as np
@@ -16,68 +18,139 @@ from cifutils.common import (
     deduplicate_iterator,
     exists,
 )
-from functools import lru_cache
+from pathlib import Path
+import pandas as pd
+import os
+from functools import lru_cache, cache
 from cifutils.utils.atom_matching_utils import standardize_heavy_atom_ids
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
+from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, PROCESSED_CCD_PATH
+from cifutils.common import not_isin
 
 logger = logging.getLogger("cifutils")
 
 
-def cached_residue_utils_factory(known_residues: list[str], data_by_residue: callable) -> tuple[callable, callable]:
+@cache
+def _chem_comp_type_dict() -> dict[str, str]:
     """
-    Factory function to build cached helper functions for building residue atoms.
-    We must invoke closure since dictionaries are not hashable and cannot be used as keys in lru_cache.
+    Get a dictionary of all residue names and their corresponding chemical component types.
+    """
+    ccd = struc.info.ccd.get_ccd()  # NOTE: biotite caches this internally
+    chem_comp_ids = np.char.upper(ccd["chem_comp"]["id"].as_array())
+    chem_comp_types = np.char.upper(ccd["chem_comp"]["type"].as_array())
+    return dict(zip(chem_comp_ids, chem_comp_types))
+
+
+@lru_cache(maxsize=1000)
+def get_processed_ccd_residue(res_name: str, processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH) -> dict:
+    """
+    Loads the data for a given residue from the precompiled library.
 
     Args:
-        known_residues (list): A list of valid residue names.
-        data_by_residue (callable): A function that returns CCD data for a given residue name.
+        res_name (str): The name of the residue to load. For example, "ALA" or "NAG".
+        processed_ccd_path (os.PathLike, optional): Path to the directory containing
+            precompiled residue data as .pkl files. Defaults to PROCESSED_CCD_PATH.
+
+    Returns:
+        dict: A dictionary containing the precompiled data for the specified residue.
+
+    Raises:
+        AssertionError: If the residue is not found in the precompiled library.
     """
-    known_residues_set = set(known_residues)
+    # Find the residue in the precompiled library
+    path = Path(processed_ccd_path) / f"{res_name}.pkl"
+    assert path.exists(), f"Residue {res_name} not found in precompiled library."
 
-    @lru_cache(maxsize=None)
-    def build_residue_atoms(residue_name: str, keep_hydrogens: bool) -> list[Atom]:
-        """
-        Build a list of atoms for a given residue name from CCD data.
+    # Load and return the residue data
+    return pd.read_pickle(path)
 
-        Args:
-            residue_name (str): The name of the residue.
-            keep_hydrogens (bool): Whether to add hydrogens to the residue.
 
-        Returns:
-            list[Atom]: A list of Atom objects initialized with zero coordinates.
-        """
-        if residue_name not in known_residues_set:
-            raise ValueError(f"Residue {residue_name} not found in precompiled CCD data.")
+@cache
+def get_processed_ccd_residue_names(processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH) -> set[str]:
+    """Get a list of all residue names in the precompiled library.
 
-        ccd_atoms = data_by_residue(residue_name)["atoms"]
-        atom_list = [
-            struc.Atom(
-                [np.nan, np.nan, np.nan],
-                res_name=residue_name,
-                atom_name=atom_name,
-                element=str(atom_data["element"]),
-                charge=atom_data["charge"],
-                hyb=atom_data["hyb"],
-                nhyd=atom_data["nhyd"],
-                hvydeg=atom_data["hvydeg"],
-                leaving_atom_flag=atom_data["leaving_atom_flag"],
-                leaving_group=atom_data["leaving_group"],
-                is_metal=atom_data["is_metal"],
-            )
-            for atom_name, atom_data in ccd_atoms.items()
-        ]
+    Args:
+        processed_ccd_path (os.PathLike, optional): Path to the directory containing
+            precompiled residue data as .pkl files. Defaults to PROCESSED_CCD_PATH.
 
-        # Remove hydrogens, if necessary
-        if not keep_hydrogens:
-            atom_list = [atom for atom in atom_list if atom.element not in [1, "1"]]
+    Returns:
+        list[str]: A list of all residue names found in the precompiled library that
+            can be used in `get_processed_ccd_residue()` with this processed_ccd_path.
 
-        return atom_list
+    Example:
+        >>> get_processed_ccd_residue_names()
+        ['ALA', 'ARG', 'ASN', ...]
+    """
+    return set([path.stem.upper() for path in Path(processed_ccd_path).glob("*.pkl")])
 
-    return build_residue_atoms
+
+def get_chem_comp_type(res_name: str) -> str:
+    """
+    Get the chemical component type for a residue name from the Chemical Component Dictionary (CCD).
+    Can be combined with CHEM_TYPES from `cifutils_biotite.constants` to determine if a residue is a
+    protein, nucleic acid, or carbohydrate.
+
+    Args:
+        res_name (str): The residue name.
+
+    Example:
+        >>> get_chem_comp_type("ALA")
+        'L-PEPTIDE LINKING'
+    """
+    chem_comp_type = _chem_comp_type_dict().get(res_name, None)
+
+    # ... handle unknown chemical component types
+    if not exists(chem_comp_type):
+        logger.info(f"Chemical component type for `{res_name}` not found in CCD. Using 'other'.")
+        chem_comp_type = "OTHER"
+
+    return chem_comp_type
+
+
+@cache
+def build_residue_atoms(
+    residue_name: str, keep_hydrogens: bool, processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH
+) -> list[Atom]:
+    """
+    Build a list of atoms for a given residue name from CCD data.
+
+    Args:
+        residue_name (str): The name of the residue.
+        keep_hydrogens (bool): Whether to add hydrogens to the residue.
+
+    Returns:
+        list[Atom]: A list of Atom objects initialized with zero coordinates.
+    """
+
+    ccd_atoms = get_processed_ccd_residue(residue_name, processed_ccd_path)["atoms"]
+    atom_list = [
+        struc.Atom(
+            [np.nan, np.nan, np.nan],
+            res_name=residue_name,
+            atom_name=atom_name,
+            element=str(atom_data["element"]),
+            charge=atom_data["charge"],
+            hyb=atom_data["hyb"],
+            nhyd=atom_data["nhyd"],
+            hvydeg=atom_data["hvydeg"],
+            leaving_atom_flag=atom_data["leaving_atom_flag"],
+            leaving_group=atom_data["leaving_group"],
+            is_metal=atom_data["is_metal"],
+        )
+        for atom_name, atom_data in ccd_atoms.items()
+    ]
+
+    # Remove hydrogens, if necessary
+    if not keep_hydrogens:
+        atom_list = [atom for atom in atom_list if atom.element not in [1, "1"]]
+
+    return atom_list
 
 
 def add_missing_atoms_as_unresolved(
-    atom_array: AtomArray, chain_info_dict: dict, keep_hydrogens: bool, build_residue_atoms: callable
+    atom_array: AtomArray,
+    chain_info_dict: dict,
+    keep_hydrogens: bool,
+    processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH,
 ) -> AtomArray:
     """
     Add missing atoms to a polymer chain based on its sequence.
@@ -107,7 +180,9 @@ def add_missing_atoms_as_unresolved(
             # NOTE: In the future, we may want to allow more flexibility for polymers (e.g., custom NCAA); for now, they will raise an error in `build_residue_atoms`
             # We could achieve this through adding a "NCR"  (non-canonical residue) name, for instance, which would behavior similarly to "UNL"
             for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
-                residue_atom_list = build_residue_atoms(residue_name=residue_name, keep_hydrogens=keep_hydrogens)
+                residue_atom_list = build_residue_atoms(
+                    residue_name=residue_name, keep_hydrogens=keep_hydrogens, processed_ccd_path=processed_ccd_path
+                )
                 # We assign the residue ID as the sequential index for polymers, consistent with the PDB label ids (but not author ids)
                 residue_ids.append(np.full(len(residue_atom_list), residue_index_sequential))
 
@@ -174,7 +249,9 @@ def add_missing_atoms_as_unresolved(
                     # ...decompose into a list of atoms
                     residue_atom_list = [atom for atom in unknown_residue_atom_array]
                 else:
-                    residue_atom_list = build_residue_atoms(residue_name, keep_hydrogens)
+                    residue_atom_list = build_residue_atoms(
+                        residue_name, keep_hydrogens=keep_hydrogens, processed_ccd_path=processed_ccd_path
+                    )
                 # Preserve the residue ID for non-polymer chains (e.g., often starts at 101)
                 residue_ids.append(np.full(len(residue_atom_list), residue_id_original))
 
@@ -246,7 +323,7 @@ def add_missing_atoms_as_unresolved(
     # If any heavy atom in a residue cannot be matched, then mask the whole residue (i.e., set occupancy to 0)
     if len(_failed_to_match) > 0:
         failing_atoms = atom_array[np.array(_failed_to_match)]
-        is_heavy = ~np.isin(failing_atoms.element, ["H", "D", "T"])
+        is_heavy = not_isin(failing_atoms.element, ["H", "D", "T"])
         if len(failing_atoms[is_heavy]) > 0:
             for atom in failing_atoms[is_heavy]:
                 chain_id, res_id, res_name = atom.chain_id, atom.res_id, atom.res_name
@@ -263,27 +340,6 @@ def add_missing_atoms_as_unresolved(
     # ...ensure no hydrogens are present in the full atom array, if we're not keeping hydrogens
     if not keep_hydrogens:
         # It's possible, especially with unknown ligands, that some hydrogens snuck through
-        full_atom_array = full_atom_array[~np.isin(full_atom_array.element, [1, "1"])]
+        full_atom_array = full_atom_array[not_isin(full_atom_array.element, [1, "1"])]
 
     return full_atom_array
-
-
-@lru_cache(maxsize=10000)
-def get_chem_comp_type(res_name: str) -> str:
-    """
-    Get the chemical component type for a residue name from the Chemical Component Dictionary (CCD).
-    Can be combined with CHEM_TYPES from `cifutils_biotite.constants` to determine if a residue is a protein, nucleic acid, or carbohydrate.
-
-    Args:
-        res_name (str): The residue name.
-
-    Example:
-        >>> get_chem_comp_type("ALA")
-        'L-PEPTIDE LINKING'
-    """
-    chemcomp_type = struc.info.ccd.get_from_ccd("chem_comp", res_name, "type")
-    if exists(chemcomp_type):
-        return chemcomp_type[0].upper()
-    else:
-        logger.info(f"Chemical component type for `{res_name}` not found in CCD. Using 'other'.")
-        return "other".upper()

@@ -13,13 +13,12 @@ Written by Nate Corley and Simon Mathis in Summer of 2024.
 
 from __future__ import annotations
 import logging
-from functools import lru_cache
 from typing import Literal
 from cifutils.constants import CRYSTALLIZATION_AIDS
-
+import copy
 import numpy as np
 import pandas as pd
-from os import PathLike
+import os
 from pathlib import Path
 import io
 from cifutils.utils.io_utils import read_any, get_structure, to_cif_buffer, increment_chain_id
@@ -48,13 +47,14 @@ from cifutils.utils.non_rcsb_utils import (
     infer_chain_info_from_atom_array,
     infer_processed_entity_sequences_from_atom_array,
 )
-from cifutils.utils.bond_utils import cached_bond_utils_factory
 from cifutils.utils.assembly_utils import process_assemblies
-from cifutils.utils.residue_utils import cached_residue_utils_factory, add_missing_atoms_as_unresolved
+from cifutils.utils.residue_utils import add_missing_atoms_as_unresolved, get_processed_ccd_residue_names
 from cifutils.utils.non_rcsb_utils import get_identity_assembly_gen_category, get_identity_op_expr_category
 import biotite.structure as struc
 from biotite.structure import AtomArrayStack
 from biotite.file import InvalidFileError
+from cifutils.constants import PROCESSED_CCD_PATH
+from cifutils.common import not_isin
 
 logger = logging.getLogger("cifutils")
 
@@ -64,7 +64,7 @@ __all__ = ["CIFParser"]
 class CIFParser:
     def __init__(
         self,
-        by_residue_ligand_dir: str = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_library",
+        by_residue_ligand_dir: os.PathLike = PROCESSED_CCD_PATH,
     ):
         """
         Initialize a CIFParser object.
@@ -73,6 +73,11 @@ class CIFParser:
             by_residue_ligand_dir (str, optional): Directory path to the pre-compiled residue-level CCD and OB data built from `make_residue_library_from_ccd.py`.
         """
         self.by_residue_ligand_dir = by_residue_ligand_dir
+
+        if not os.path.exists(self.by_residue_ligand_dir):
+            raise FileNotFoundError(
+                f"Precompiled residue library directory does not exist: {self.by_residue_ligand_dir}"
+            )
 
         # For backwards compatability
         self.extra_info = {}
@@ -94,46 +99,13 @@ class CIFParser:
         if save_to_cache and not cache_dir:
             raise ValueError("Must provide a cache directory to save to cache")
 
-    @lru_cache(maxsize=1000)
-    def _data_by_residue(self, residue_name: str) -> dict:
-        """Loads the data for a given residue from the precompiled library."""
-        # Find the residue in the precompiled library
-        path = Path(self.by_residue_ligand_dir) / f"{residue_name}.pkl"
-        assert path.exists(), f"Residue {residue_name} not found in precompiled library."
-
-        # Load and return the residue data
-        return pd.read_pickle(path)
-
-    @lru_cache(maxsize=1000)
-    def _residue_file_exists(self, residue_name: str) -> bool:
-        """Check if a residue file exists in the precompiled library."""
-        path = Path(self.by_residue_ligand_dir) / f"{residue_name}.pkl"
-        return path.exists()
-
-    @lru_cache(maxsize=None)
-    def _all_precompiled_residues(self, residues_to_remove: tuple) -> list[str]:
-        """Return a list of all supported residues in the precompiled library."""
-        # Get all residues in the precompiled library
-        all_residues = [path.stem.upper() for path in Path(self.by_residue_ligand_dir).glob("*.pkl")]
-
-        # Remove unsupported residues
-        supported_residues = [residue for residue in all_residues if residue not in residues_to_remove]
-
-        # Sanity check -- ensure that we removed at least one residue, if we provided a list of residues to remove
-        if len(self._residues_to_remove) > 0:
-            assert len(supported_residues) < len(
-                all_residues
-            ), "No residues were removed from the precompiled library with the provided residues_to_remove list."
-
-        return supported_residues
-
     def parse(
         self,
-        filename: PathLike,
+        filename: os.PathLike,
         *,
         load_from_cache: bool = False,
         save_to_cache: bool = False,
-        cache_dir: PathLike = None,
+        cache_dir: os.PathLike = None,
         **kwargs,
     ):
         """
@@ -226,7 +198,7 @@ class CIFParser:
 
     def parse_from_cif(
         self,
-        filename: PathLike | io.StringIO | io.BytesIO,
+        filename: os.PathLike | io.StringIO | io.BytesIO,
         *,
         save_to_cache: bool = False,
         assume_residues_all_resolved: bool = False,
@@ -291,9 +263,21 @@ class CIFParser:
                     Should typically not be used directly.
         """
         # ...initializations
-        self._residues_to_remove = [residue.upper() for residue in residues_to_remove]
+
         _converted_res = {}
         _ignored_res = []
+
+        # ... remove the residues we don't want to keep
+        residues_to_remove = set([residue.upper() for residue in residues_to_remove])
+        allowed_residues = copy.deepcopy(
+            get_processed_ccd_residue_names()
+        )  # NOTE: get_..._names() is cached. We deepcopy to avoid side-effects.
+        _missing_in_ccd = residues_to_remove - allowed_residues
+        if len(_missing_in_ccd) > 0:
+            logger.warning(
+                f"Some residues that were specified to be removed were not found in the precompiled CCD data: {_missing_in_ccd}"
+            )
+        allowed_residues = allowed_residues - _missing_in_ccd
 
         # ...default running dictionary, which we will populate through a series of Transforms
         data_dict = {}
@@ -359,7 +343,7 @@ class CIFParser:
 
             # ...optionally, remove hydrogens (most examples will not have any hydrogens; only NMR studies and small molecules)
             if not keep_hydrogens:
-                atom_array = atom_array[~np.isin(atom_array.element, ["H", "D"])]
+                atom_array = atom_array[not_isin(atom_array.element, ["H", "D"])]
 
             # ...optionally, remove waters
             if remove_waters:
@@ -371,9 +355,9 @@ class CIFParser:
 
             # ...remove any explicitly excluded residues (e.g., crystallization solvents)
             # NOTE: If the excluded residues are part of a polymer chain, or part of a multi-chain ligand, this may create sequence gaps!
-            if self._residues_to_remove:
-                atom_array = remove_atoms_by_residue_names(atom_array, self._residues_to_remove)
-                _ignored_res.extend(self._residues_to_remove)
+            if residues_to_remove:
+                atom_array = remove_atoms_by_residue_names(atom_array, residues_to_remove)
+                _ignored_res.extend(residues_to_remove)
 
             # ...load monomer sequence information into chain_info_dict
             # NOTE: We MAY NOT delete polymer atoms from the AtomArray after this step, as the sequences won't be updated
@@ -383,7 +367,7 @@ class CIFParser:
                     cif_block=data_dict["cif_block"],
                     chain_info_dict=data_dict["chain_info_dict"],
                     atom_array=atom_array,
-                    known_residues=self._all_precompiled_residues(tuple(self._residues_to_remove)),
+                    known_residues=allowed_residues,
                 )
             else:
                 # Use the AtomArray as ground-truth for all residues (e.g., distillation sets)
@@ -398,14 +382,12 @@ class CIFParser:
             # ...optionally, create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
             # NOTE: If adding bonds, we must add missing atoms to ensure we can later remove leaving atoms
             if add_missing_atoms:
-                # Create cached function to build residues
-                self._build_residue_atoms = cached_residue_utils_factory(
-                    known_residues=self._all_precompiled_residues(tuple(self._residues_to_remove)),
-                    data_by_residue=self._data_by_residue,
-                )
                 # Add missing atoms to the atom array, using the reference residue as a template
                 atom_array = add_missing_atoms_as_unresolved(
-                    atom_array, data_dict["chain_info_dict"], keep_hydrogens, self._build_residue_atoms
+                    atom_array,
+                    data_dict["chain_info_dict"],
+                    keep_hydrogens,
+                    processed_ccd_path=self.by_residue_ligand_dir,
                 )
 
             # ...add the is_polymer annotation to the AtomArray
@@ -430,19 +412,13 @@ class CIFParser:
 
             # ...optionally, generate and add bonds to the atom array bond list
             if add_bonds:
-                # ...create cached function to get intra-residue bonds
-                self._get_intra_residue_bonds = cached_bond_utils_factory(
-                    data_by_residue=self._data_by_residue,
-                )
-
                 # ...update the AtomArray bondlist
                 atom_array = add_bonds_to_bondlist_and_remove_leaving_atoms(
                     cif_block=data_dict["cif_block"],
                     atom_array=atom_array,
                     chain_info_dict=data_dict["chain_info_dict"],
                     keep_hydrogens=keep_hydrogens,  # needed for leaving group resolution
-                    known_residues=self._all_precompiled_residues(tuple(self._residues_to_remove)),
-                    get_intra_residue_bonds=self._get_intra_residue_bonds,
+                    known_residues=allowed_residues,
                     converted_res=_converted_res,  # needed for leaving group resolution
                     ignored_res=_ignored_res,  # needed for leaving group resolution
                 )
@@ -531,7 +507,7 @@ class CIFParser:
             "extra_info": data_dict["extra_info"],
         }
 
-    def parse_from_pdb(self, filename: PathLike, **parse_from_cif_kwargs):
+    def parse_from_pdb(self, filename: os.PathLike, **parse_from_cif_kwargs):
         """
         Parse a PDB file and return chain information, residue information, atom array, metadata, and legacy data.
 

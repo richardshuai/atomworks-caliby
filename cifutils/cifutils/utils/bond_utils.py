@@ -3,7 +3,7 @@ Utility functions for the detection, and creation, of bonds in a structure.
 """
 
 __all__ = [
-    "cached_bond_utils_factory",
+    "get_intra_residue_bonds",
     "add_bonds_from_struct_conn",
     "get_inter_and_intra_residue_bonds",
     "get_coarse_graph_as_nodes_and_edges",
@@ -22,8 +22,11 @@ from cifutils.utils.atom_matching_utils import get_matching_atom
 from cifutils.transforms.categories import category_to_df
 from cifutils.common import to_hashable
 from cifutils.enums import ChainType
-from functools import lru_cache
+from functools import cache
 import networkx as nx
+from cifutils.utils.residue_utils import get_processed_ccd_residue
+from cifutils.constants import PROCESSED_CCD_PATH
+import os
 
 logger = logging.getLogger("cifutils")
 
@@ -50,58 +53,47 @@ def _get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
     )
 
 
-def cached_bond_utils_factory(data_by_residue: callable) -> tuple[callable, callable]:
+@cache
+def get_intra_residue_bonds(
+    residue_name: dict, keep_hydrogens: bool, processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Factory function to build cached helper functions for for constructing bonds.
-    We must invoke closure since functions are not hashable and cannot be used as keys in lru_cache.
+    Retrieve intra-residue bonds for a given residue.
 
     Args:
-        data_by_residue (callable): A function that returns CCD data for a given residue name.
+        residue_data (dict): Dictionary containing keys for the intra-residue bonds and constituent atoms, derived from OpenBabel.
+        keep_hydrogens (bool): Whether or not hydrogens are being added to the structure. Relevant for bond removal.
+
+    Returns:
+        tuple: Three arrays representing the atom indices and bond types within the residue frame.
     """
+    residue_data = get_processed_ccd_residue(residue_name, processed_ccd_path=processed_ccd_path).copy()
 
-    @lru_cache(maxsize=None)
-    def get_intra_residue_bonds(residue_name: dict, keep_hydrogens: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Retrieve intra-residue bonds for a given residue.
+    # If we aren't adding hydrogens, we need to remove any bonds to hydrogen/deuterium, and any hydrogen/deuterium atoms from the atom list
+    if not keep_hydrogens:
+        residue_data["intra_residue_bonds"] = [
+            bond
+            for bond in residue_data["intra_residue_bonds"]
+            if not residue_data["atoms"][bond["atom_a_id"]]["element"] == 1
+            and not residue_data["atoms"][bond["atom_b_id"]]["element"] == 1
+        ]
+        residue_data["atoms"] = {
+            atom_id: atom_data for atom_id, atom_data in residue_data["atoms"].items() if not atom_data["element"] == 1
+        }
 
-        Args:
-            residue_data (dict): Dictionary containing keys for the intra-residue bonds and constituent atoms, derived from OpenBabel.
-            keep_hydrogens (bool): Whether or not hydrogens are being added to the structure. Relevant for bond removal.
-
-        Returns:
-            tuple: Three arrays representing the atom indices and bond types within the residue frame.
-        """
-        residue_data = data_by_residue(residue_name).copy()
-
-        # If we aren't adding hydrogens, we need to remove any bonds to hydrogen/deuterium, and any hydrogen/deuterium atoms from the atom list
-        if not keep_hydrogens:
-            residue_data["intra_residue_bonds"] = [
-                bond
-                for bond in residue_data["intra_residue_bonds"]
-                if not residue_data["atoms"][bond["atom_a_id"]]["element"] == 1
-                and not residue_data["atoms"][bond["atom_b_id"]]["element"] == 1
-            ]
-            residue_data["atoms"] = {
-                atom_id: atom_data
-                for atom_id, atom_data in residue_data["atoms"].items()
-                if not atom_data["element"] == 1
-            }
-
-        # Create a mapping of atom IDs to indices
-        atom_id_to_index = {atom_id: index for index, atom_id in enumerate(residue_data["atoms"].keys())}
-        atom_a_indices = []
-        atom_b_indices = []
-        bond_types = []
-        for bond in residue_data["intra_residue_bonds"]:
-            atom_a_index = atom_id_to_index[bond["atom_a_id"]]
-            atom_b_index = atom_id_to_index[bond["atom_b_id"]]
-            bond_type = _get_bond_type_from_order_and_is_aromatic(bond["order"], bond["is_aromatic"])
-            atom_a_indices.append(atom_a_index)
-            atom_b_indices.append(atom_b_index)
-            bond_types.append(bond_type)
-        return np.array(atom_a_indices), np.array(atom_b_indices), np.array(bond_types)
-
-    return get_intra_residue_bonds
+    # Create a mapping of atom IDs to indices
+    atom_id_to_index = {atom_id: index for index, atom_id in enumerate(residue_data["atoms"].keys())}
+    atom_a_indices = []
+    atom_b_indices = []
+    bond_types = []
+    for bond in residue_data["intra_residue_bonds"]:
+        atom_a_index = atom_id_to_index[bond["atom_a_id"]]
+        atom_b_index = atom_id_to_index[bond["atom_b_id"]]
+        bond_type = _get_bond_type_from_order_and_is_aromatic(bond["order"], bond["is_aromatic"])
+        atom_a_indices.append(atom_a_index)
+        atom_b_indices.append(atom_b_index)
+        bond_types.append(bond_type)
+    return np.array(atom_a_indices), np.array(atom_b_indices), np.array(bond_types)
 
 
 def add_bonds_from_struct_conn(
@@ -237,9 +229,9 @@ def get_inter_and_intra_residue_bonds(
     atom_array: AtomArray,
     chain_id: str,
     chain_type: str,
-    known_residues: list[str],
-    get_intra_residue_bonds: callable,
+    known_residues: list[str] | set[str],
     keep_hydrogens: bool,
+    processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Adds inter-residue and intra_residue bonds to an atom array for a given chain.
@@ -249,8 +241,9 @@ def get_inter_and_intra_residue_bonds(
         chain_id (str): The ID of the chain for which bonds are added.
         chain_type (str): The type of the chain, used to determine the type of bond.
         known_residues (list): A list of valid residue names.
-        get_intra_residue_bonds (str): A function that takes as input a residue name and returns tuples of intra-residue bonds.
-        keep_hydrogens (str): Whether we are adding hydrogens to the residues (relevant for removing leaving groups).
+        keep_hydrogens (bool): Whether we are adding hydrogens to the residues (relevant for removing leaving groups).
+        processed_ccd_path (os.PathLike): The path to the processed CCD data from which
+            reference bond information will be read.
 
     Returns:
         intra_residue_bonds: An np.array of intra-residue bonds to be added to the atom array.
@@ -315,7 +308,7 @@ def get_inter_and_intra_residue_bonds(
         ]  # current_res.res_name is a list of identical values, so we just take the first one
         if residue_name in known_residues:
             atom_a_local_indices, atom_b_local_indices, bond_types = get_intra_residue_bonds(
-                residue_name, keep_hydrogens
+                residue_name, keep_hydrogens, processed_ccd_path=processed_ccd_path
             )
             if atom_a_local_indices.size and atom_b_local_indices.size and bond_types.size:
                 atom_a_intra_residue_indices.append(current_res.index[atom_a_local_indices])

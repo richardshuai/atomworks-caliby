@@ -197,7 +197,7 @@ def get_metadata_from_category(cif_block: CIFBlock, fallback_id: str = None) -> 
 
 
 def load_monomer_sequence_information_from_category(
-    cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray, known_residues: list
+    cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray, known_residues: list[str] | set[str]
 ) -> dict:
     """
     Load monomer sequence information into a chain_info_dict, using:

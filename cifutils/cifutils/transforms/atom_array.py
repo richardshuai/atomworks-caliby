@@ -23,12 +23,14 @@ from cifutils.utils.bond_utils import (
 from cifutils.common import exists, deduplicate_iterator
 from cifutils.enums import ChainType
 from cifutils.utils.selection_utils import annot_start_stop_idxs
-from cifutils.common import sum_string_arrays
+from cifutils.common import sum_string_arrays, not_isin
+from cifutils.constants import PROCESSED_CCD_PATH
+import os
 
 logger = logging.getLogger("cifutils")
 
 
-def remove_atoms_by_residue_names(atom_array: AtomArray, residues_to_remove: list) -> AtomArray:
+def remove_atoms_by_residue_names(atom_array: AtomArray, residues_to_remove: list[str]) -> AtomArray:
     """
     Remove atoms from the AtomArray that have residue names in the residues_to_remove list.
 
@@ -39,7 +41,8 @@ def remove_atoms_by_residue_names(atom_array: AtomArray, residues_to_remove: lis
     Returns:
         AtomArray: The filtered atom array.
     """
-    return atom_array[~np.isin(atom_array.res_name, residues_to_remove)]
+    residues_to_remove = list(residues_to_remove)
+    return atom_array[not_isin(atom_array.res_name, residues_to_remove)]
 
 
 def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
@@ -226,7 +229,7 @@ def maybe_patch_non_polymer_at_symmetry_center(
                 ]
 
         # Filter and return
-        keep_mask = ~np.isin(atom_array.chain_iid, np.array(chain_iids_to_remove, dtype=atom_array.chain_iid.dtype))
+        keep_mask = not_isin(atom_array.chain_iid, np.array(chain_iids_to_remove, dtype=atom_array.chain_iid.dtype))
         atom_array_stack = atom_array_stack[:, keep_mask]
         return atom_array_stack
 
@@ -529,10 +532,10 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
     atom_array: AtomArray,
     chain_info_dict: dict,
     keep_hydrogens: bool,
-    known_residues: list[str],
-    get_intra_residue_bonds: callable,
+    known_residues: list[str] | set[str],
     converted_res: dict = {},
     ignored_res: list = [],
+    processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH,
 ) -> AtomArray:
     """
     Add bonds to the atom array using precomputed CCD data and the mmCIF `struct_conn` field.
@@ -544,10 +547,10 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
         chain_info_dict (dict): A dictionary containing information about the chains in the structure.
         keep_hydrogens (bool): Whether to add hydrogens to the atom array.
         known_residues (list): A list of known residues.
-        get_intra_residue_bonds (callable): A function that returns the intra-residue bonds for a given residue.
         converted_res (dict): A dictionary containing the residue conversions.
         ignored_res (list): A list of residues to ignore when adding bonds.
-
+        processed_ccd_path (os.PathLike): The path to the processed CCD data from which
+            reference bond information will be read.
     Returns:
         AtomArray: The updated atom array with bonds added.
     """
@@ -571,8 +574,8 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
             chain_id=chain_id,
             chain_type=chain_info_dict[chain_id]["type"],
             known_residues=known_residues,
-            get_intra_residue_bonds=get_intra_residue_bonds,
             keep_hydrogens=keep_hydrogens,
+            processed_ccd_path=processed_ccd_path,
         )
         if exists(chain_bonds):
             inter_and_intra_residue_bonds.append(chain_bonds)

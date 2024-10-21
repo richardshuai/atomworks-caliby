@@ -11,6 +11,7 @@ from cifutils.common import exists
 import biotite.structure as struc
 from functools import cache
 from biotite.structure import Atom
+from cifutils.common import not_isin
 
 
 def get_matching_atom(res: AtomArray, atom_name: str, try_alt_atom_id: bool = True) -> Atom:
@@ -90,7 +91,7 @@ def standardize_heavy_atom_ids(atom_array: AtomArray) -> np.ndarray:
         #  covalent bonds in the struct_conn category later and so
         #  we will never have to match up H's.
         is_heavy = res.element != 1  # 1 is hydrogen, deuterium, tritium here
-        is_heavy &= ~np.isin(res.element, ["H", "D", "H2", "T", "1"])
+        is_heavy &= not_isin(res.element, ["H", "D", "H2", "T", "1"])
 
         atom_name = res.atom_name
 
