@@ -1,6 +1,7 @@
 """Enums used in the `cifutils` package."""
 
 from enum import IntEnum
+from typing import Union
 
 
 class ChainType(IntEnum):
@@ -20,28 +21,35 @@ class ChainType(IntEnum):
 
     @classmethod
     def from_string(cls, str_value: str) -> "ChainType":
+        """Convert a string to a ChainType enum."""
         try:
             return CHAIN_TYPE_STRING_TO_ENUM_MAPPING[str_value.lower()]
         except KeyError:
+            # TODO: Change this to raise a KeyError as well.
             raise ValueError(f"Invalid chain type: {str_value.lower()}")
 
     @staticmethod
     def get_chain_type_strings() -> list[str]:
+        """Get a list of all chain type strings."""
         return list(CHAIN_TYPE_STRING_TO_ENUM_MAPPING.keys())
 
     @staticmethod
     def get_polymers() -> list["ChainType"]:
+        """Get a list of all polymer chain types."""
         return POLYMERS
 
     @staticmethod
     def get_proteins() -> list["ChainType"]:
+        """Get a list of all protein chain types."""
         return PROTEINS
 
     @staticmethod
     def get_nucleic_acids() -> list["ChainType"]:
+        """Get a list of all nucleic acid chain types."""
         return NUCLEIC_ACIDS
 
     def __eq__(self, other) -> bool:
+        """Check if two ChainType enums are equal."""
         if isinstance(other, ChainType):
             return self.value == other.value
         elif isinstance(other, int):
@@ -57,26 +65,48 @@ class ChainType(IntEnum):
         return NotImplemented
 
     def __hash__(self):
+        """Hash a ChainType enum."""
         return hash(self.value)
 
     def __str__(self) -> str:
+        """Convert a ChainType enum to a string."""
         return self.to_string()
 
     def is_protein(self) -> bool:
+        """Check if a ChainType is a protein."""
         return self in PROTEINS
 
     def is_nucleic_acid(self) -> bool:
+        """Check if a ChainType is a nucleic acid."""
         return self in NUCLEIC_ACIDS
 
     def is_polymer(self) -> bool:
+        """Check if a ChainType is a polymer."""
         return self in POLYMERS
 
     def is_non_polymer(self) -> bool:
+        """Check if a ChainType is a non-polymer."""
         return self == ChainType.NON_POLYMER
 
     def to_string(self) -> str:
-        # NOTE: Returns LOWERCASE string (e.g., "polypeptide(d)" instead of "polypeptide(D)")
+        """
+        Convert a ChainType enum to a string.
+
+        NOTE: Returns LOWERCASE string (e.g., "polypeptide(d)" instead of "polypeptide(D)")
+        """
         return ENUM_TO_CHAIN_TYPE_STRING_MAPPING[self]
+
+    @staticmethod
+    def as_enum(value: Union[str, int, "ChainType"]) -> "ChainType":
+        """Convert a string, int, or ChainType to a ChainType enum."""
+        if isinstance(value, ChainType):
+            return value
+        elif isinstance(value, str):
+            return ChainType.from_string(value)
+        elif isinstance(value, int):
+            return ChainType(value)
+        else:
+            raise ValueError(f"Invalid value: {value}")
 
 
 POLYMERS = [

@@ -252,6 +252,7 @@ def get_inter_and_intra_residue_bonds(
     known_residues = set(known_residues)
 
     # Possible types given at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity_poly.type.html
+    # TODO: This should really be a property of the residues, to deal with peptide-nucleic acid hybrids
     atom_pairs = {
         ChainType.DNA: ("O3'", "P"),  # phosphodiester bond
         ChainType.DNA_RNA_HYBRID: ("O3'", "P"),  # phosphodiester bond
@@ -267,7 +268,8 @@ def get_inter_and_intra_residue_bonds(
     intra_residue_bond_types = []
     leaving_atom_indices = []
 
-    bond_atoms = atom_pairs.get(ChainType.from_string(chain_type), None)
+    chain_type = ChainType.as_enum(chain_type)
+    bond_atoms = atom_pairs.get(chain_type, None)
     atom_chain_array = atom_array[atom_array.chain_id == chain_id]
 
     # Create iterators for the current and next residues
