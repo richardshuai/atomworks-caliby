@@ -24,6 +24,12 @@ IncludeCmd: yes
 
    # Create a directory in the container to bind the host's current working directory
    mkdir ${APPTAINER_ROOTFS}/datahub_host
+   # ... for mounting `/projects` with --bind
+   mkdir ${APPTAINER_ROOTFS}/projects
+   # ... for mounting `/databases` with --bind
+   mkdir ${APPTAINER_ROOTFS}/databases
+   # ... for mounting `/squash` with --bind
+   mkdir ${APPTAINER_ROOTFS}/squash
 
 %files
    # Copy over files from the host to the container
@@ -38,6 +44,34 @@ IncludeCmd: yes
 
 %post
    # Perform the bulk of the build steps within the container
+
+   # Check if /projects is accessible
+   if [ ! -d "/projects" ]; then
+      echo "ERROR: /projects directory is not accessible, but needed for tests."
+      echo "Make sure you bind the /projects directory when you run the container."
+      echo "The easiest way to ensure this is to just use \`make apptainer\`,"
+      echo "which has the correct flags set up for you."
+      exit 1
+   fi
+   echo "Verified that /projects directory is accessible."
+
+   # Check if /databases is accessible
+   if [ ! -f "/databases/TrRosetta/cif/oc/5ocm.cif.gz" ]; then
+      echo "ERROR: /databases directory is not accessible, but needed for tests."
+      echo "Make sure you bind the /databases directory when you run the container."
+      echo "The easiest way to ensure this is to just use \`make apptainer\`,"
+      echo "which has the correct flags set up for you."
+      exit 1
+   fi
+   echo "Verified that /databases directory is accessible."
+
+   # Check if /squash is accessible
+   if [ ! -d "/squash/af2_distillation_facebook" ]; then
+      echo "ERROR: /squash directory is not accessible, but needed for tests."
+      echo "Make sure you bind the /squash directory when you run the container."
+      exit 1
+   fi
+   echo "Verified that /squash directory is accessible."
 
    # get os name
    echo "Running on OS name $(lsb_release -i | awk '{ print $3 }')"
@@ -78,8 +112,7 @@ IncludeCmd: yes
    # Switch shell to bash
    ln -sf /bin/bash /bin/sh
 
-   # Common symlinks
-   ln -s /net/databases /databases
+   # Common symlinks (within container)
    ln -s /net/software /software
    ln -s /home /mnt/home
    ln -s /projects /mnt/projects
@@ -166,6 +199,14 @@ IncludeCmd: yes
    # ... check that pytest runs for datahub tests
    echo "Basic build succeeded. For a proper test, run: apptainer run --bind $PWD:/datahub_host datahub_apptainer.sif"
 
+   # Run make test
+   # ... add the `datahub` path to the PYTHONPATH environment variable
+   export PYTHONPATH=/datahub_host:$PYTHONPATH
+   echo "Running make test"
+   cd /datahub_host && make test
+
+   echo "All tests completed."
+
 %environment
    source /usr/etc/profile.d/conda.sh
    conda activate datahub-apptainer
@@ -193,5 +234,5 @@ IncludeCmd: yes
 
 %labels
     Author simon.mathis@gmail.com, ncorley@uw.edu
-    Version v0.0.1
+    Version v0.0.2
     ApptainerVersion 1.1.6+2-g6808b5172-ipd

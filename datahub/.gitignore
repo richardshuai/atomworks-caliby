@@ -192,3 +192,14 @@ dev.py
 *.gif
 *.bmp
 *.tiff
+
+# Various
+*.sif
+*.csv
+*.cif
+*.xyz
+*.sbatch
+*.pkl
+.testmondata
+.testmondata-shm
+.testmondata-wal
