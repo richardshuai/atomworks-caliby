@@ -221,6 +221,7 @@ def build_af3_transform_pipeline(
         ),
         FeaturizeMSALikeAF3(
             encoding=af3_sequence_encoding,
+            n_recycles=n_recycles,
             n_msa=n_msa,
         ),
         # Prepare coordinates for noising (without modifying the ground truth)

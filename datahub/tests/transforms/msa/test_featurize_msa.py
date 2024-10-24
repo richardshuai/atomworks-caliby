@@ -1,3 +1,4 @@
+import gzip
 import json
 import pickle
 from itertools import combinations
@@ -619,15 +620,15 @@ def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
 
         # Save in the test directory
         SAVED_RESULT_PATH = (
-            Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_rf2aa_regression_test.pkl"
+            Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_rf2aa_regression_test.pkl.gz"
         )
 
-        # Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
-        # with open(SAVED_RESULT_PATH, "wb") as f:
-        #     pickle.dump(output["features_per_recycle_dict"], f)
+        # Uncomment to save output['features_per_recycle_dict'] for regression tests, as a compressed pickle
+        # with gzip.open(SAVED_RESULT_PATH, "wb") as f:
+        #     pickle.dump(output["features_per_recycle_dict"], f, protocol=pickle.HIGHEST_PROTOCOL)
 
         # Check that the new_encoded_msa matches the saved results
-        with open(SAVED_RESULT_PATH, "rb") as f:
+        with gzip.open(SAVED_RESULT_PATH, "rb") as f:
             old_results = pickle.load(f)
 
         # For each key in the dictionary, check that the values match
@@ -646,6 +647,7 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
     """
     # Hyperparameters (to be defined in Hydra)
     encoding = RF2AA_ATOM36_ENCODING
+    n_recycles = 5  # We choose 5 recycles to ensure we would find any drift across recycles
     PAD_TOKEN = encoding.token_to_idx["UNK"]
 
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
@@ -666,6 +668,7 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
                 ConvertToTorch(keys=["polymer_msas_by_chain_id", "encoded", "full_msa_details"]),
                 FeaturizeMSALikeAF3(
                     encoding=encoding,
+                    n_recycles=n_recycles,
                     n_msa=100,
                 ),
             ],
@@ -678,26 +681,54 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
         msa_features_per_recycle_dict = output["msa_features"]["msa_features_per_recycle_dict"]
         msa_static_features_dict = output["msa_features"]["msa_static_features_dict"]
 
+        # List of keys to check for being different and having similar sums
+        keys_to_check_across_recycles = [
+            "msa",
+            "has_insertion",
+            "insertion_value",
+        ]
+
+        for key in keys_to_check_across_recycles:
+            tensor_list = msa_features_per_recycle_dict[key]
+            assert all_different(tensor_list), f"{key} elements are not all different"
+            assert similar_stats(tensor_list), f"{key} elements do not have similar means and standard deviations"
+
+        # Assert that insertion_values are between 0 and 1 (for the first recycle)
+        assert torch.all(
+            (msa_features_per_recycle_dict["insertion_value"][0] >= 0)
+            & (msa_features_per_recycle_dict["insertion_value"][0] <= 1)
+        )
+
+        # Assert that has_insertion is a boolean tensor...
+        assert (
+            msa_features_per_recycle_dict["has_insertion"][0].dtype == torch.bool
+        ), "has_insertion must be of boolean dtype"
+
+        # ...and that there's at least one
+        assert torch.any(
+            msa_features_per_recycle_dict["has_insertion"][0]
+        ), "There must be at least one insertion, if we're using examples with MSA's"
+
         ############## Regression test ##############
 
         # Save in the test directory
         SAVED_RESULT_PATH = (
-            Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_af3_regression_test.pkl"
+            Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_af3_regression_test.pkl.gz"
         )
 
-        # Uncomment to save output['features_per_recycle_dict] for regression tests, as a pickle (JSON is too slow)
-        #        with open(SAVED_RESULT_PATH, "wb") as f:
-        # pickle.dump(output["msa_features"], f)
+        # Uncomment to save output['msa_features'] for regression tests, as a compressed pickle
+        # with gzip.open(SAVED_RESULT_PATH, "wb") as f:
+        #     pickle.dump(output["msa_features"], f, protocol=pickle.HIGHEST_PROTOCOL)
 
         # Check that the new_encoded_msa matches the saved results
-        with open(SAVED_RESULT_PATH, "rb") as f:
+        with gzip.open(SAVED_RESULT_PATH, "rb") as f:
             old_results = pickle.load(f)
 
         # For each key in the features that change across recycles, check that the values match...
         for key, old_values in old_results["msa_features_per_recycle_dict"].items():
             new_values = msa_features_per_recycle_dict[key]
             assert torch.allclose(
-                new_values, old_values, atol=1e-4, rtol=1e-4
+                torch.stack(new_values), torch.stack(old_values), atol=1e-4, rtol=1e-4
             ), f"Failed at key: {key}. Difference: {set(new_values) - set(old_values)}"
         # ... and for the static features as well
         for key, old_value in old_results["msa_static_features_dict"].items():
@@ -750,3 +781,7 @@ def test_get_full_msa_profile_and_insertion_mean(test_case):
 
     assert torch.allclose(profile, test_case["expected_profile"], atol=1e-6)
     assert torch.allclose(ins_mean, test_case["expected_ins_mean"], atol=1e-6)
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-x", "--log-cli-level=INFO", "-m not very_slow", __file__])

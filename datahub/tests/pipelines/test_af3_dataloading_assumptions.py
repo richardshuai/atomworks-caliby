@@ -45,7 +45,7 @@ def assert_satisfies_af3_assumptions(sample):
     """
     Asserts that the features satisfy the assumptions of the AF3 model.
     """
-    n_tokens, n_atoms, n_sequences, n_templates = assert_input_feature_dimensions(sample["feats"])
+    n_tokens, n_atoms, n_sequences, n_templates, n_recycles = assert_input_feature_dimensions(sample["feats"])
 
     assert_ground_truth_dimensions(sample["ground_truth"], n_tokens, n_atoms)
     assert_coordinates_for_noising_dimensions(sample["coord_atom_lvl_to_be_noised"], n_atoms)
@@ -68,9 +68,10 @@ def assert_input_feature_dimensions(feats):
     n_token = f["restype"].shape[0]
     n_types_of_tokens = f["restype"].shape[1]
     n_atoms = f["atom_to_token_map"].shape[0]
-
     n_templates = f["template_restype"].shape[0]
-    n_sequences = f["msa"].shape[0]
+    n_sequences = f["msa"].shape[1]
+    n_recycles = f["msa"].shape[0]
+
     assert f["residue_index"].shape == (n_token,)
     assert f["token_index"].shape == (n_token,)
     assert f["asym_id"].shape == (n_token,)
@@ -115,12 +116,10 @@ def assert_input_feature_dimensions(feats):
     assert f["token_bonds"].shape == (n_token, n_token)
 
     # msa
-    assert f["msa"].shape == (n_sequences, n_token, 32)
-    assert f["has_deletion"].shape == (n_sequences, n_token)
-    assert f["deletion_value"].shape == (n_sequences, n_token)
+    assert f["msa"].shape == (n_recycles, n_sequences, n_token, 32 + 2)
     assert f["profile"].shape == (n_token, 32)
     assert f["deletion_mean"].shape == (n_token,)
-    return n_token, n_atoms, n_templates, n_sequences
+    return n_token, n_atoms, n_templates, n_sequences, n_recycles
 
 
 def assert_ground_truth_dimensions(ground_truth, n_tokens, n_atoms):

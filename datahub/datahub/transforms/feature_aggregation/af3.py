@@ -3,6 +3,7 @@ from typing import Any, Dict
 import torch
 import torch.nn.functional as F
 from biotite.structure import AtomArray
+from einops import rearrange
 
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
 from datahub.transforms.base import Transform
@@ -73,15 +74,33 @@ class AggregateFeaturesLikeAF3(Transform):
         if "feats" not in data:
             data["feats"] = {}
 
-        # Aggregate MSA features
+        # Aggregate and stack MSA features
         msa_feats = data["msa_features"]
+
+        msa_stacked_by_recycle = torch.stack(
+            msa_feats["msa_features_per_recycle_dict"]["msa"]
+        ).float()  # [n_recycles, n_sequences, n_tokens_across_chains, n_types_of_tokens]
+        has_deletion_stacked_by_recycle = torch.stack(
+            msa_feats["msa_features_per_recycle_dict"]["has_insertion"]
+        )  # [n_recycles, n_sequences, n_tokens_across_chains]
+        deltion_value_stacked_by_recycle = torch.stack(
+            msa_feats["msa_features_per_recycle_dict"]["insertion_value"]
+        )  # [n_recycles, n_sequences, n_tokens_across_chains]
+
+        data["feats"]["msa"] = torch.concatenate(
+            [
+                msa_stacked_by_recycle,
+                rearrange(has_deletion_stacked_by_recycle, "... -> ... 1"),
+                rearrange(deltion_value_stacked_by_recycle, "... -> ... 1"),
+            ],
+            dim=-1,
+        )  # [n_recycles, n_msa_cluster_representatives, n_tokens_across_chains, n_types_of_tokens + 2] (float)
+
         data["feats"] |= {
-            "msa": msa_feats["msa_features_per_recycle_dict"]["msa"].float(),
-            "has_deletion": msa_feats["msa_features_per_recycle_dict"]["has_insertion"],
-            "deletion_value": msa_feats["msa_features_per_recycle_dict"]["insertion_value"],
             "profile": msa_feats["msa_static_features_dict"]["profile"],
             "deletion_mean": msa_feats["msa_static_features_dict"]["insertion_mean"],
         }
+
         # NOTE: Each atom name is encoded as `ord(c) - 32`, which shifts the character values to create a
         # more compact one-hot encoding (as the first 32 Unicode characters will not occur in an atom name)
         data["feats"]["ref_atom_name_chars"] = F.one_hot(data["feats"]["ref_atom_name_chars"].long(), num_classes=64)

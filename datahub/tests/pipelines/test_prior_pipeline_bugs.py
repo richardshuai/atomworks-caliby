@@ -96,7 +96,7 @@ PRIOR_PIPELINE_BUGS_RF2AA = [
 
 
 @pytest.mark.parametrize("example_id", PRIOR_PIPELINE_BUGS_RF2AA)
-@pytest.mark.slow
+@pytest.mark.very_slow
 def test_specific_examples_rf2aa(example_id: str):
     """Run a single example through the pipeline. Useful for debugging specific examples."""
     try:
@@ -160,7 +160,7 @@ PRIOR_PIPELINE_BUGS_AF3 = [
 
 
 @pytest.mark.parametrize("example_id", PRIOR_PIPELINE_BUGS_RF2AA)
-@pytest.mark.slow
+@pytest.mark.very_slow
 def test_specific_examples_af3(example_id: str):
     """Run a single example through the pipeline. Useful for debugging specific examples."""
     try:
