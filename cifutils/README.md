@@ -1,6 +1,5 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![pipeline status](https://git.ipd.uw.edu/ai/cifutils/badges/main/pipeline.svg)](https://git.ipd.uw.edu/ai/cifutils/-/commits/main)
-[![coverage report](https://git.ipd.uw.edu/ai/cifutils/badges/main/coverage.svg)](https://git.ipd.uw.edu/ai/cifutils/-/commits/main)
+[![pipeline status](https://github.com/baker-laboratory/cifutils/actions/workflows/lint_and_test.yaml/badge.svg)](https://github.com/baker-laboratory/cifutils/actions/workflows/lint_and_test.yaml)
 
 
 # Table of Contents
