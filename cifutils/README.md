@@ -15,9 +15,9 @@
 - [Contributing Guidelines](#contributing-guidelines)
 
 # CIFUtils
-CIFUtils is a toolkit for parsing and cleaning up `cif` files, written by [Nate Corley](mailto:ncorley@uw.edu) and [Simon Mathis](mailto:simon.mathis@gmail.com) that leverages the open-source [`biotite` library](https://www.biotite-python.org/). Under the hood, CIFUtils Biotite uses `np arrays` to represent atoms and bonds rather than a hierarchical list of tuples and classes. As a result, `CIFUtils Biotite` is ~3-5x faster than the legacy implementation used previously by the lab `CIFUtils Legacy`. `CIFUtils` is primarily written with a focus on dealing with `cif` files that come from the PDB, but it can also be used to process `cif` files from computational models.
+We introduce `CIFUtils` — a full-featured toolkit for converting arbitrary biological inputs (e.g., `mmCIF`, `SMILES`, `MOL`, `FASTA`, etc.) into Biotite's common `AtomArray` API, performing structural and chemical operations, and ultimately passing over the `AtomArray` to a deep-learning model (see: [`datahub`](https://github.com/baker-laboratory/datahub), or saving back out to arbitrary formats.
 
-The output of the parser is a dictionary with several keys, many of which include Biotite's `AtomArray`; see the [tutorial](https://www.biotite-python.org/latest/tutorial/structure/index.html) for details on how to use the `AtomArray`. Of note, `biotite`'s `AtomArray` supports KD-Tree lookups for distance computations, and out-of-the-box `NetworkX` representations of bond graphs, among other optimizations.
+We leverage the open-source [`biotite` library](https://www.biotite-python.org/) for our core parsing operations due to the library's speed and flexibility. 
 
 ## CIFUtils vs. Datahub
 The two Baker Lab data loading and featurization codebases — `cifutils` and `datahub` — are symbiotic, with catering to distinct use cases and user bases. The separation of concerns between the two repositories is as follows:
