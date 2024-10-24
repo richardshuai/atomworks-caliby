@@ -75,6 +75,7 @@ class ChainType(IntEnum):
         return self == ChainType.NON_POLYMER
 
     def to_string(self) -> str:
+        # NOTE: Returns LOWERCASE string (e.g., "polypeptide(d)" instead of "polypeptide(D)")
         return ENUM_TO_CHAIN_TYPE_STRING_MAPPING[self]
 
 

@@ -88,7 +88,9 @@ def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> 
 
         chain_info_dict[chain_id] = {
             "rcsb_entity": rscb_entity,
-            "type": polymer_info.get("polymer_type", chain_info.get("entity_type", "")),
+            "type": polymer_info.get(
+                "polymer_type", chain_info.get("entity_type", "")
+            ).lower(),  # Convert to lowercase to match ChainType enum
             "unprocessed_entity_canonical_sequence": polymer_info.get("canonical_sequence", "").replace("\n", ""),
             "unprocessed_entity_non_canonical_sequence": polymer_info.get("non_canonical_sequence", "").replace(
                 "\n", ""

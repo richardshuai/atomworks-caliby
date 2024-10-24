@@ -21,6 +21,7 @@ import logging
 from cifutils.utils.atom_matching_utils import get_matching_atom
 from cifutils.transforms.categories import category_to_df
 from cifutils.common import to_hashable
+from cifutils.enums import ChainType
 from functools import lru_cache
 import networkx as nx
 
@@ -259,11 +260,11 @@ def get_inter_and_intra_residue_bonds(
 
     # Possible types given at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity_poly.type.html
     atom_pairs = {
-        "polydeoxyribonucleotide": ("O3'", "P"),  # phosphodiester bond
-        "polydeoxyribonucleotide/polyribonucleotide hybrid": ("O3'", "P"),  # phosphodiester bond
-        "polypeptide(D)": ("C", "N"),  # peptide bond
-        "polypeptide(L)": ("C", "N"),  # peptide bond
-        "polyribonucleotide": ("O3'", "P"),  # phosphodiester bond
+        ChainType.DNA: ("O3'", "P"),  # phosphodiester bond
+        ChainType.DNA_RNA_HYBRID: ("O3'", "P"),  # phosphodiester bond
+        ChainType.RNA: ("O3'", "P"),  # phosphodiester bond
+        ChainType.POLYPEPTIDE_L: ("C", "N"),  # peptide bond
+        ChainType.POLYPEPTIDE_D: ("C", "N"),  # peptide bond
     }
 
     # Append as we go along and then concatenate at the end
@@ -273,7 +274,7 @@ def get_inter_and_intra_residue_bonds(
     intra_residue_bond_types = []
     leaving_atom_indices = []
 
-    bond_atoms = atom_pairs.get(chain_type, None)
+    bond_atoms = atom_pairs.get(ChainType.from_string(chain_type), None)
     atom_chain_array = atom_array[atom_array.chain_id == chain_id]
 
     # Create iterators for the current and next residues
