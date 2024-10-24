@@ -182,6 +182,7 @@ Within RF2-AA and RF-3, we use the following default arguments for parsing CIF f
 -  **`add_bonds`:** `True` - Required for structure prediction
 -  **`add_missing_atoms`:** `True` - Required for structure prediction
 -  **`remove_waters`:** `True` - Removes all water molecules (including biologically-relevant waters)
+-  **`residues_to_remove`:: `CRYSTALLIZATION_AIDS`, imported from `cifutils/constants.py` _(be cautious removing residues at parsing time; look at `Datahub` for more thorough treatment of removing "non-biological" ligands)_ 
 -  **`patch_symmetry_centers`:** `True` - Resolve clashes at symmetry centers to avoid clashing training data.
 -  **`convert_mse_to_met`:** `True` - Converts MSE residues to MET, since MSE is a crystallographic artifact and usually non-biological.
 -  **`fix_arginines`:** `True` - Resolves naming ambiguities for arginine residues, since the PDB does not enforce a uniform standard.
