@@ -32,7 +32,7 @@ Common use cases include:
 
 <br/>
 
-<img src="assets/cifutils_overview.png" width="70%" />
+<img src="assets/cifutils_overview.png" width="100%" />
 
 ### Datahub
 Take an `AtomArray` (and possibly some metadata) and featurize for model training pipelines, including full datasets, sampling, etc. User Base: Model developers preparing data pipelines for deep-learning tasks.
