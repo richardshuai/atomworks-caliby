@@ -17,6 +17,8 @@ jobs:
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Install semantic-release and plugins
         run: npm install --no-save semantic-release @semantic-release/github @semantic-release/commit-analyzer @semantic-release/release-notes-generator
