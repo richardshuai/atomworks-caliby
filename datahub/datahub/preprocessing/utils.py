@@ -10,6 +10,7 @@ import networkx as nx
 import numpy as np
 import requests
 from biotite.structure import AtomArray, CellList
+from cifutils.common import not_isin
 from cifutils.enums import ChainType
 from scipy.spatial.distance import cdist
 
@@ -140,7 +141,7 @@ def get_pn_units_clashing_with_pn_unit(
 
     # Filter out query PN unit atoms
     query_pn_unit_iids = np.unique(query_pn_unit.pn_unit_iid)
-    clashing_atoms = clashing_atoms[~np.isin(clashing_atoms.pn_unit_iid, query_pn_unit_iids)]
+    clashing_atoms = clashing_atoms[not_isin(clashing_atoms.pn_unit_iid, query_pn_unit_iids)]
     return set(np.unique(clashing_atoms.pn_unit_iid))
 
 
@@ -210,7 +211,7 @@ def handle_clashing_pn_units(
     )
 
     # Remove clashing PN units
-    atom_array = atom_array[~np.isin(atom_array.pn_unit_iid, list(pn_units_to_remove))]
+    atom_array = atom_array[not_isin(atom_array.pn_unit_iid, list(pn_units_to_remove))]
     return atom_array, clash_severity
 
 
@@ -255,7 +256,7 @@ def get_contacting_pn_units(
         mask & collapsed_contacting_atom_mask if mask is not None else collapsed_contacting_atom_mask
     )
     # Create a mask for atoms that are not part of the query PN unit
-    non_query_atoms_mask = ~np.isin(filtered_atom_array.pn_unit_iid, np.unique(query_pn_unit.pn_unit_iid))
+    non_query_atoms_mask = not_isin(filtered_atom_array.pn_unit_iid, np.unique(query_pn_unit.pn_unit_iid))
     contacting_atoms_mask = contacting_atoms_mask & non_query_atoms_mask
     # Using the final mask to get contacting atoms
     contacting_atoms = filtered_atom_array[contacting_atoms_mask]

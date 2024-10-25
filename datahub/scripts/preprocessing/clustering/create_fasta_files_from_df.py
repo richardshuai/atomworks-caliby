@@ -21,7 +21,7 @@ from pathlib import Path
 
 import fire
 import pandas as pd
-from cifutils.enums import NUCLEIC_ACIDS, PROTEINS
+from cifutils.enums import ChainTypeInfo
 
 from datahub.utils.misc import hash_sequence
 
@@ -63,10 +63,10 @@ def create_fasta_files(pn_units_df: PathLike | str | pd.DataFrame, output_dir: P
     df = df[df["q_pn_unit_processed_entity_canonical_sequence"].apply(lambda x: not all(char == "X" for char in x))]
 
     # Build protein DataFrame
-    proteins_df = df[df["q_pn_unit_type"].isin([chain_type.value for chain_type in PROTEINS])]
+    proteins_df = df[df["q_pn_unit_type"].isin([chain_type.value for chain_type in ChainTypeInfo.PROTEINS])]
 
     # Build nucleic acid DataFrame
-    nucleic_acids_df = df[df["q_pn_unit_type"].isin([chain_type.value for chain_type in NUCLEIC_ACIDS])]
+    nucleic_acids_df = df[df["q_pn_unit_type"].isin([chain_type.value for chain_type in ChainTypeInfo.NUCLEIC_ACIDS])]
     assert len(proteins_df) + len(nucleic_acids_df) == len(df)
 
     # Create output directory if it does not exist

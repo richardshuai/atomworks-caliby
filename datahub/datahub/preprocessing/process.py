@@ -17,6 +17,7 @@ import biotite.structure as struc
 import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
+from cifutils.common import not_isin
 from cifutils.constants import CRYSTALLIZATION_AIDS
 from cifutils.parser import CIFParser
 
@@ -104,7 +105,7 @@ class DataPreprocessor:
 
         # ----- Filter B: Apply ignore residue list ------
         processed_ignore_residues = [c.strip() for c in self.ignore_residues]
-        mask = ~np.isin(
+        mask = not_isin(
             filtered_atom_array.res_name, processed_ignore_residues
         )  # (Applying filter also remove impacted bonds)
         filtered_atom_array = filtered_atom_array[mask]

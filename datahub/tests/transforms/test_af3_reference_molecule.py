@@ -113,7 +113,7 @@ def test_get_af3_reference_molecule_features_res(res_name):
     atom_array = atom_array[atom_array.element != "H"]
     atom_array = add_global_token_id_annotation(atom_array)
     # ... turn element into atomic number
-    atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.capitalize()] for el in atom_array.element])
+    atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.upper()] for el in atom_array.element])
     n_atom = len(atom_array)
     features = get_af3_reference_molecule_features(atom_array)
     assert "ref_pos" in features
@@ -155,7 +155,7 @@ def test_get_af3_reference_molecule_features_chain():
     atom_array = add_global_token_id_annotation(atom_array)
 
     # ... turn element into atomic number
-    atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.capitalize()] for el in atom_array.element])
+    atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.upper()] for el in atom_array.element])
     n_atoms = len(atom_array)
 
     features = get_af3_reference_molecule_features(atom_array)

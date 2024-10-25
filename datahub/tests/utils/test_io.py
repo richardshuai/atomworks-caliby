@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from assertpy import assert_that
 from biotite.structure import AtomArray
-from cifutils.constants import ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT
+from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
 
 from datahub.utils.io import convert_af3_model_output_to_atom_array
 
@@ -40,7 +40,7 @@ def test_convert_af3_model_output_to_atom_array(file_path):
 
     # Assert that the AtomArray has the correct elements
     uppercase_elements = np.array(
-        [ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT[atomic_number] for atomic_number in model_outputs["elements"]]
+        [ATOMIC_NUMBER_TO_ELEMENT[atomic_number] for atomic_number in model_outputs["elements"]]
     )
     assert_that(np.array_equal(atom_array.element, uppercase_elements)).is_true()
 

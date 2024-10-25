@@ -1,9 +1,10 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
+from cifutils.constants import STANDARD_AA
 
 from datahub.transforms.atomize import AtomizeByCCDName
-from tests.conftest import CANONICAL_AMINO_ACIDS, cached_parse
+from tests.conftest import cached_parse
 
 
 def test_fail_on_invalid_init():
@@ -90,7 +91,7 @@ def test_atomizing_non_protein_residues(pdb_id: str):
 
     transform = AtomizeByCCDName(
         atomize_by_default=True,
-        res_names_to_ignore=CANONICAL_AMINO_ACIDS,
+        res_names_to_ignore=STANDARD_AA,
     )
     data = transform(data)
 

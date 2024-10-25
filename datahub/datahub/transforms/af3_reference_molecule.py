@@ -11,8 +11,8 @@ from datahub.transforms._checks import check_atom_array_annotation, check_contai
 from datahub.transforms.base import Transform
 from datahub.transforms.rdkit_utils import (
     atom_array_from_rdkit,
+    ccd_code_to_rdkit_with_conformers,
     find_automorphisms_with_rdkit,
-    res_name_to_rdkit_with_conformers,
 )
 
 logger = logging.getLogger("datahub")
@@ -44,8 +44,8 @@ def _get_rdkit_mols_with_conformers(
     """
     ref_mols = {}
     for res_name, count in res_stochiometry.items():
-        mol = res_name_to_rdkit_with_conformers(
-            res_name=res_name, n_conformers=count, timeout_seconds=timeout_seconds, **generate_conformers_kwargs
+        mol = ccd_code_to_rdkit_with_conformers(
+            ccd_code=res_name, n_conformers=count, timeout_seconds=timeout_seconds, **generate_conformers_kwargs
         )
         ref_mols[res_name] = mol
 

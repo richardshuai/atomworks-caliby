@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 from biotite.structure import AtomArray
-from cifutils.enums import PROTEINS
+from cifutils.enums import ChainTypeInfo
 
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
 from datahub.transforms.atom_array import apply_and_spread_residue_wise
@@ -27,7 +27,9 @@ def mask_residues_with_unresolved_backbone_atoms(atom_array: AtomArray) -> AtomA
 
     # ...subset to backbone atoms within polymers with unresolved coordinates
     # (We treat partially occupied atoms as occupied; e.g., those resolved from "altlocs")
-    protein_mask = np.isin(atom_array.chain_type, PROTEINS) if "chain_type" in atom_array else atom_array.is_polymer
+    protein_mask = (
+        np.isin(atom_array.chain_type, ChainTypeInfo.PROTEINS) if "chain_type" in atom_array else atom_array.is_polymer
+    )
     unresolved_polymer_backbone_mask = (
         protein_mask & np.isin(atom_array.atom_name, backbone_atom_names) & (atom_array.occupancy == 0)
     )

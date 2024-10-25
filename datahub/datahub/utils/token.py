@@ -5,10 +5,10 @@ import numpy as np
 from biotite.structure import AtomArray
 from cifutils.utils.sequence_utils import (
     is_glycine,
-    is_protein_not_glycine,
     is_protein_unknown,
     is_purine,
     is_pyramidine,
+    is_standard_aa_not_glycine,
     is_unknown_nucleotide,
 )
 
@@ -240,7 +240,7 @@ def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
     unknown_na_representative_atom = is_unknown_nucleotide(atom_array.res_name) & (atom_array.atom_name == "C4")
 
     glycine_representative_atom = is_glycine(atom_array.res_name) & (atom_array.atom_name == "CA")
-    protein_residue_not_glycine_representative_atom = is_protein_not_glycine(atom_array.res_name) & (
+    protein_residue_not_glycine_representative_atom = is_standard_aa_not_glycine(atom_array.res_name) & (
         atom_array.atom_name == "CB"
     )
     unknown_protein_residue_representative_atom = is_protein_unknown(atom_array.res_name) & (

@@ -7,7 +7,7 @@ import fire
 import pandas as pd
 from tqdm import tqdm
 
-from datahub.transforms.rdkit_utils import get_morgan_fingerprint_from_rdkit_mol, res_name_to_rdkit
+from datahub.transforms.rdkit_utils import ccd_code_to_rdkit, get_morgan_fingerprint_from_rdkit_mol
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ def build_residue_to_rdkit_molecule_and_morgan_fingerprint_map(
     logger.info("Building residue name to RD Kit molecule map...")
     for res_name in tqdm(q_pn_unit_non_polymer_res_names_split_unique, desc="Processing residues"):
         try:
-            rdkit_molecule = res_name_to_rdkit(res_name, sanitize=True, attempt_fixing_corrupted_molecules=True)
+            rdkit_molecule = ccd_code_to_rdkit(res_name, sanitize=True, attempt_fixing_corrupted_molecules=True)
             morgan_fingerprint = get_morgan_fingerprint_from_rdkit_mol(rdkit_molecule)
             residue_name_to_rdkit_molecule[res_name] = {
                 "mol": rdkit_molecule,

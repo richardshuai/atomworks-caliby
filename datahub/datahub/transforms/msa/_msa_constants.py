@@ -134,9 +134,9 @@ def create_msa_integer_to_three_letter() -> dict[int, str]:
             chain_type=ChainType.POLYPEPTIDE_L,  # Any protein chain type will do
             gap_one_letter=GAP_ONE_LETTER,
             gap_three_letter=GAP_THREE_LETTER,
-            unknown_protein_three_letter=UNKNOWN_PROTEIN_THREE_LETTER,
-            unknown_rna_three_letter=UNKNOWN_RNA_THREE_LETTER,
-            unknown_dna_three_letter=UNKNOWN_DNA_THREE_LETTER,
+            unknown_aa=UNKNOWN_PROTEIN_THREE_LETTER,
+            unknown_rna=UNKNOWN_RNA_THREE_LETTER,
+            unknown_dna=UNKNOWN_DNA_THREE_LETTER,
         )
         msa_integer_to_three_letter[integer] = three_letter
 
@@ -149,9 +149,9 @@ def create_msa_integer_to_three_letter() -> dict[int, str]:
             chain_type=ChainType.RNA,
             gap_one_letter=GAP_ONE_LETTER,
             gap_three_letter=GAP_THREE_LETTER,
-            unknown_protein_three_letter=UNKNOWN_PROTEIN_THREE_LETTER,
-            unknown_rna_three_letter=UNKNOWN_RNA_THREE_LETTER,
-            unknown_dna_three_letter=UNKNOWN_DNA_THREE_LETTER,
+            unknown_aa=UNKNOWN_PROTEIN_THREE_LETTER,
+            unknown_rna=UNKNOWN_RNA_THREE_LETTER,
+            unknown_dna=UNKNOWN_DNA_THREE_LETTER,
         )
         msa_integer_to_three_letter[integer] = three_letter
 

@@ -10,11 +10,12 @@ import biotite.structure as struc
 import numpy as np
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
-    ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT,
+    ATOMIC_NUMBER_TO_ELEMENT,
     DNA_LIKE_CHEM_TYPES,
     POLYPEPTIDE_D_CHEM_TYPES,
     POLYPEPTIDE_L_CHEM_TYPES,
     RNA_LIKE_CHEM_TYPES,
+    UNKNOWN_LIGAND,
 )
 from cifutils.utils.residue_utils import get_chem_comp_type
 
@@ -210,7 +211,7 @@ def convert_af3_model_output_to_atom_array(
 
     # If elements are integers, convert them to strings (since that's what we get from the CCD, and it better matches what CIF files expect)
     if np.issubdtype(type(elements[0]), np.integer):
-        elements = np.array([ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT[element] for element in elements])
+        elements = np.array([ATOMIC_NUMBER_TO_ELEMENT[element] for element in elements])
 
     for global_res_idx, res_name in enumerate(decoded_restypes):
         # Get atoms corresponding to the residue
@@ -256,7 +257,7 @@ def convert_af3_model_output_to_atom_array(
                     if not atom_name_exists(f"{element}{atom_count}")
                 )
 
-            atom = struc.Atom(coord, res_name="UNL", element=element, atom_name=atom_name)
+            atom = struc.Atom(coord, res_name=UNKNOWN_LIGAND, element=element, atom_name=atom_name)
             residue_atom_array = struc.array([atom])
         else:
             chem_type = get_chem_comp_type(res_name)

@@ -1,13 +1,15 @@
 import biotite.structure as struc
 import pytest
 import torch
+from cifutils.tools.rdkit import (
+    atom_array_to_rdkit,
+    smiles_to_rdkit,
+)
 from openbabel import openbabel
 
 import datahub.transforms.openbabel_utils as obutils
 from datahub.transforms.rdkit_utils import (
-    atom_array_to_rdkit,
     find_automorphisms_with_rdkit,
-    smiles_to_rdkit,
 )
 from datahub.transforms.symmetry import apply_automorphs
 

@@ -39,30 +39,6 @@ RNA_MSA_DIRS = [
 ]
 
 CIF_PARSER = CIFParser()
-CANONICAL_AMINO_ACIDS = [
-    "ALA",
-    "ARG",
-    "ASN",
-    "ASP",
-    "CYS",
-    "GLN",
-    "GLU",
-    "GLY",
-    "HIS",
-    "ILE",
-    "LEU",
-    "LYS",
-    "MET",
-    "PHE",
-    "PRO",
-    "SER",
-    "THR",
-    "TRP",
-    "TYR",
-    "VAL",
-]
-RNA_RESIDUES = ["A", "C", "G", "U"]
-DNA_RESIDUES = ["DA", "DC", "DG", "DT"]
 
 
 def get_digs_path(pdbid: str, base: Literal["trrosetta", "mirror"] = "mirror") -> str:

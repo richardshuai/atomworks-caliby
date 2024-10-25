@@ -1,10 +1,9 @@
-<!--
-This is a template for pull requests to that will be shown as a checklist to the user.
--->
-
 ## 📋 PR Checklist
 
-- [ ] I have ensured that all my commits follow angular commit message conventions.
+- [ ] This PR is tagged as a draft if it is still under development and not ready for review. 
+    > This avoids auto-triggering the slower tests in the CI and needlessly wasting resources.
+
+- [ ] I have ensured that all my commits follow [angular commit message conventions](https://www.conventionalcommits.org/en/v1.0.0-beta.4/).
     > Format: `<type>[optional scope]: <subject>`  
     > Example: `fix(af3): add missing crop transform to the af3 pipeline`
     >
@@ -29,12 +28,11 @@ This is a template for pull requests to that will be shown as a checklist to the
 
 ### What changes were made and why?
 <!-- Describe the key changes and the reasoning behind them -->
-`... your description here ...`
+
 
 ### How were the changes tested?
 <!-- Describe how you ensured the changes behaved as expected -->
-`... your description here ...`
+
 
 ### Additional Notes
 <!-- Any other relevant information -->
-`... your description here ...`

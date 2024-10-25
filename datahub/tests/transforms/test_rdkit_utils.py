@@ -3,19 +3,14 @@ import time
 import biotite.structure as struc
 import numpy as np
 import pytest
-from assertpy import assert_that
 from biotite.structure import AtomArray
+from cifutils.tools.rdkit import atom_array_from_rdkit, smiles_to_rdkit
 from rdkit import Chem
 
 from datahub.transforms.rdkit_utils import (
-    atom_array_from_rdkit,
-    atom_array_to_rdkit,
+    ccd_code_to_rdkit_with_conformers,
     generate_conformers,
-    get_morgan_fingerprint_from_rdkit_mol,
-    res_name_to_rdkit,
-    res_name_to_rdkit_with_conformers,
     sample_rdkit_conformer_for_atom_array,
-    smiles_to_rdkit,
 )
 
 try:
@@ -40,7 +35,7 @@ TEST_ATOM_ARRAYS = [struc.info.residue("ALA"), struc.info.residue("NAD")]
 
 
 @pytest.mark.parametrize("smiles", TEST_SMILES)
-def test_smiles_to_rdkit_to_atom_array(smiles):
+def test_smiles_to_rdkit_with_conformer_to_atom_array(smiles):
     mol = smiles_to_rdkit(smiles)
     mol = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize=True)
 
@@ -58,27 +53,6 @@ def test_smiles_to_rdkit_to_atom_array(smiles):
 
     assert isinstance(atom_array, AtomArray)
     assert atom_array.array_length() == mol.GetNumAtoms()
-
-
-@pytest.mark.parametrize("test_atom_array", TEST_ATOM_ARRAYS)
-def test_atom_array_rdkit_interconversion(test_atom_array):
-    test_atom_array.chain_id = ["A"] * test_atom_array.array_length()
-
-    # Convert AtomArray to RDKit Mol
-    mol = atom_array_to_rdkit(test_atom_array, set_coord=True, infer_hydrogens=False)
-
-    # Convert back to AtomArray
-    new_atom_array = atom_array_from_rdkit(
-        mol, set_coord_if_available=True, elements_as_int=False, remove_hydrogens=False
-    )
-
-    # Check if the number of atoms is preserved
-    assert new_atom_array.array_length() == test_atom_array.array_length()
-
-    # Check if annotations are preserved
-    for annotation in ["chain_id", "res_id", "res_name", "atom_name"]:
-        assert np.array_equal(new_atom_array.get_annotation(annotation), test_atom_array.get_annotation(annotation))
-    assert np.allclose(new_atom_array.coord, test_atom_array.coord)
 
 
 @pytest.mark.parametrize("smiles", TEST_SMILES)
@@ -125,7 +99,7 @@ def test_sample_rdkit_conformer_consistency(test_atom_array):
 )  # Ignore RDKit warnings about fork in subprocess: popen_fork.py:66: DeprecationWarning: This process (pid=145252) is multi-threaded, use of fork() may lead to deadlocks in the child.
 def test_conformer_generation_for_simple_molecules():
     start = time.time()
-    mol = res_name_to_rdkit_with_conformers("ALA", n_conformers=3, timeout_seconds=2)
+    mol = ccd_code_to_rdkit_with_conformers("ALA", n_conformers=3, timeout_seconds=2)
     end = time.time()
     assert mol.GetNumConformers() == 3
     _time_taken = end - start
@@ -137,7 +111,7 @@ def test_conformer_generation_for_simple_molecules():
 )  # Ignore RDKit warnings about fork in subprocess: popen_fork.py:66: DeprecationWarning: This process (pid=145252) is multi-threaded, use of fork() may lead to deadlocks in the child.
 def test_conformer_fallback_for_challenging_molecules():
     start = time.time()
-    mol = res_name_to_rdkit_with_conformers("HEM", n_conformers=3, timeout_seconds=2)
+    mol = ccd_code_to_rdkit_with_conformers("HEM", n_conformers=3, timeout_seconds=2)
     end = time.time()
     assert mol.GetNumConformers() == 3
     _time_taken = end - start
@@ -149,71 +123,6 @@ def test_conformer_generation_for_molecules_with_many_rotatable_bonds():
     mol = Chem.MolFromSmiles("CCCCCCCC[N+](CCCCCCCC)(CCCCCCCC)CCCCCCCC")
     mol_with_conf = generate_conformers(mol, seed=42, n_conformers=10, infer_hydrogens=True, optimize=True)
     assert mol_with_conf.GetNumConformers() == 10
-
-
-def test_fixing_molecules():
-    smi = "c1cc(c[n](c1)[C@H]2[C@@H]([C@@H]([C@H](O2)CO[P@@](=O)([O-])O[P@](=O)(O)OC[C@@H]3[C@H]([C@H]([C@H](O3)n4cnc5c4ncnc5N)OP(=O)(O)O)O)O)O)C(=O)N"
-    smi_correct = "c1cc(c[n+](c1)[C@H]2[C@@H]([C@@H]([C@H](O2)CO[P@@](=O)([O-])O[P@](=O)(O)OC[C@@H]3[C@H]([C@H]([C@H](O3)n4cnc5c4ncnc5N)OP(=O)(O)O)O)O)O)C(=O)N"
-
-    # Check that loading and sanitizing `smi` fails
-    with pytest.raises(Chem.MolSanitizeException):
-        smiles_to_rdkit(smi)
-
-    mol = smiles_to_rdkit(smi, sanitize=False)  # noqa: F841
-    mol_correct = smiles_to_rdkit(smi_correct)  # noqa: F841
-
-    # TODO: Currently this cannot be fixed by our `fix_mol` function. Revisit this test once we implemented the remaining `TODO`s in `fix_mol`.
-    # mol = fix_mol(
-    #     mol,
-    #     attempt_fix_by_normalizing_like_chembl=True,
-    #     attempt_fix_by_normalizing_like_rdkit=True,
-    #     attempt_fix_valence_by_changing_formal_charge=True,
-    #     in_place=True,
-    # )
-    # assert Chem.MolToInchi(mol) == Chem.MolToInchi(mol_correct)
-
-
-@pytest.fixture(scope="module")
-def molecules():
-    # Create RDKit molecules for some amino acids and small molecules
-    mols = {
-        "Leucine": res_name_to_rdkit("LEU"),
-        "Isoleucine": res_name_to_rdkit("ILE"),
-        "Glycine": res_name_to_rdkit("GLY"),
-        "HEM": res_name_to_rdkit("HEM"),
-        "NAG": res_name_to_rdkit("NAG"),
-        "BMA": res_name_to_rdkit("BMA"),
-    }
-    return mols
-
-
-def test_fingerprints(molecules):
-    # Generate fingerprints for each molecule
-    fingerprints = {name: get_morgan_fingerprint_from_rdkit_mol(mol) for name, mol in molecules.items()}
-
-    # Calculate similarities and check if similar molecules have higher similarity scores
-    sim_leu_ile = Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["Isoleucine"])
-    sim_leu_gly = Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["Glycine"])
-    sim_nag_bma = Chem.DataStructs.TanimotoSimilarity(fingerprints["NAG"], fingerprints["BMA"])
-    sim_nag_hem = Chem.DataStructs.TanimotoSimilarity(fingerprints["NAG"], fingerprints["HEM"])
-
-    # Assert that leucine is more similar to isoleucine than to glycine
-    assert_that(sim_leu_ile).is_greater_than(sim_leu_gly).described_as(
-        "Leucine should be more similar to Isoleucine than to Glycine"
-    )
-
-    # Asser that sugars (NAG and BMA) are more similar to each other than to HEM by at least a factor of 5
-    assert_that(sim_nag_bma).is_greater_than(5 * sim_nag_hem).described_as(
-        "Sugars should be more similar to each other than to HEM"
-    )
-
-    # Residues should have a similarity of 1.0 with themselves
-    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["Leucine"])).is_equal_to(1.0)
-
-    # Lycine and [NAG, BMA, HEM] should be less similar than 0.3 (very different)
-    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["NAG"])).is_less_than(0.3)
-    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["BMA"])).is_less_than(0.3)
-    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["HEM"])).is_less_than(0.3)
 
 
 if __name__ == "__main__":

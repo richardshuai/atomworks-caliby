@@ -8,6 +8,8 @@ from typing import Any, Sequence
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
+from cifutils.common import not_isin
+from cifutils.constants import HYDROGEN_LIKE_SYMBOLS
 from cifutils.enums import ChainType
 from cifutils.utils import get_1_from_3_letter_code, get_3_from_1_letter_code
 
@@ -20,7 +22,6 @@ from datahub.transforms._checks import (
 )
 from datahub.transforms.atom_array import ApplyFunctionToAtomArray, logger
 from datahub.transforms.base import Transform
-from datahub.utils.numpy import not_isin
 from datahub.utils.token import get_token_starts
 
 
@@ -330,7 +331,7 @@ class HandleUndesiredResTokens(Transform):
 
             # Remove hydrogens if non-canonical residue doesn't have hydrogens
             if not has_hydrogens:
-                canonical_res = canonical_res[~np.isin(canonical_res.element, ["H", "1", 1])]
+                canonical_res = canonical_res[not_isin(canonical_res.element, HYDROGEN_LIKE_SYMBOLS)]
 
             # If canonical residue is a strict subset of the original residue,
             #  keep all matching atom names and delete the rest

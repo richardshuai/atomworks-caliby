@@ -347,9 +347,9 @@ try:
     }
     # ELEMENT_NAME modifications to the original
     RF2AA_TOKEN_TO_STANDARD_TOKEN |= {
-        key: ELEMENT_NAME_TO_ATOMIC_NUMBER[key.capitalize()]
+        key: ELEMENT_NAME_TO_ATOMIC_NUMBER[key.upper()]
         for key in RF2AA_TOKEN_TO_STANDARD_TOKEN
-        if key.capitalize() in ELEMENT_NAME_TO_ATOMIC_NUMBER
+        if key.upper() in ELEMENT_NAME_TO_ATOMIC_NUMBER
     }
     RF2AA_STANDARDIZED_TOKENS = list(RF2AA_TOKEN_TO_STANDARD_TOKEN.values())
 

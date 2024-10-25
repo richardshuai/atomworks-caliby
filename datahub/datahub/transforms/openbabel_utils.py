@@ -11,12 +11,14 @@ References:
 """
 
 import logging
+from collections import Counter
 from functools import cache
 from typing import Any
 
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
+from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, UNKNOWN_LIGAND
 from openbabel import openbabel, pybel
 
 from datahub.transforms._checks import (
@@ -253,13 +255,19 @@ def atom_array_from_openbabel(obmol: openbabel.OBMol) -> AtomArray:
     """
     # Set atoms
     atoms = []
+    element_counter = Counter()
     for obatom in openbabel.OBMolAtomIter(obmol):
+        element_occurence = element_counter[obatom.GetAtomicNum()]
+        element_counter[obatom.GetAtomicNum()] += 1
         atoms.append(
             struc.Atom(
                 element=str(obatom.GetAtomicNum()),
                 coord=np.array([obatom.GetX(), obatom.GetY(), obatom.GetZ()])
                 if obatom.GetVector() is not None
                 else np.full(3, np.nan),
+                res_name=UNKNOWN_LIGAND,  # default to UNL (unknown ligand) residue, unless overridden by custom annotation later
+                hetero=True,  # default to hetero atom, unless overridden by custom annotation later
+                atom_name=f"{ATOMIC_NUMBER_TO_ELEMENT[obatom.GetAtomicNum()].upper()}{element_occurence}",
                 charge=obatom.GetFormalCharge(),  # formal charge
                 hyb=obatom.GetHyb(),  # hybridization state
                 is_metal=obatom.IsMetal(),  # whether the atom is a metal

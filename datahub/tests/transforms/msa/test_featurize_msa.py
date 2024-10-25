@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA, UNKNOWN_AA, UNKNOWN_DNA, UNKNOWN_RNA
 
 from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
@@ -37,13 +38,10 @@ from datahub.transforms.msa.msa import (
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.token import token_iter
 from tests.conftest import (
-    CANONICAL_AMINO_ACIDS,
     CIF_PARSER,
-    DNA_RESIDUES,
     PN_UNITS_DF,
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,
-    RNA_RESIDUES,
 )
 
 
@@ -69,9 +67,9 @@ def generate_synthetic_msa(
     def generate_msa_segment(token_range: tuple[int, int], shape: tuple[int, int]) -> torch.Tensor:
         return torch.randint(token_range[0], token_range[1], shape)
 
-    amino_acid_tokens = [encoding.token_to_idx[res] for res in CANONICAL_AMINO_ACIDS + ["UNK"]]
-    rna_tokens = [encoding.token_to_idx[res] for res in RNA_RESIDUES + ["X"]]
-    dna_tokens = [encoding.token_to_idx[res] for res in DNA_RESIDUES + ["DX"]]
+    amino_acid_tokens = [encoding.token_to_idx[res] for res in STANDARD_AA + (UNKNOWN_AA,)]
+    rna_tokens = [encoding.token_to_idx[res] for res in STANDARD_RNA + (UNKNOWN_RNA,)]
+    dna_tokens = [encoding.token_to_idx[res] for res in STANDARD_DNA + (UNKNOWN_DNA,)]
     atom_tokens = [encoding.token_to_idx[res] for res in [13, 33, 79, 5, 4, 35, 6, 20, 17, 27, 24, 29, 9, 26, 80, 53]]
     mask_token = encoding.token_to_idx["<M>"]
 

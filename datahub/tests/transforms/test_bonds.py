@@ -3,6 +3,7 @@ import networkx as nx
 import numpy as np
 import pytest
 import torch
+from cifutils.constants import STANDARD_AA
 
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
@@ -15,7 +16,7 @@ from datahub.transforms.bonds import (
     get_token_bond_adjacency,
 )
 from datahub.utils.token import get_token_starts
-from tests.conftest import CANONICAL_AMINO_ACIDS, cached_parse
+from tests.conftest import cached_parse
 
 
 # NOTE: This is a helper function to visualize the adjacency matrix and reduction
@@ -131,7 +132,7 @@ def test_bond_adjaceny_transform_slow(pdb_id):
         [
             AtomizeByCCDName(
                 atomize_by_default=True,
-                res_names_to_ignore=CANONICAL_AMINO_ACIDS,
+                res_names_to_ignore=STANDARD_AA,
                 move_atomized_part_to_end=True,
             ),
             AddTokenBondAdjacency(),
@@ -175,7 +176,7 @@ def test_add_rf2aa_bond_features_matrix(pdb_id):
         [
             AtomizeByCCDName(
                 atomize_by_default=True,
-                res_names_to_ignore=CANONICAL_AMINO_ACIDS,
+                res_names_to_ignore=STANDARD_AA,
                 move_atomized_part_to_end=True,
             ),
             AddTokenBondAdjacency(),
