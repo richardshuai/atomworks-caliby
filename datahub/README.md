@@ -1,6 +1,5 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![pipeline status](https://git.ipd.uw.edu/ai/datahub/badges/main/pipeline.svg)](https://git.ipd.uw.edu/ai/datahub/-/commits/main)
-[![coverage report](https://git.ipd.uw.edu/ai/datahub/badges/main/coverage.svg)](https://git.ipd.uw.edu/ai/datahub/-/commits/main)
+[![pipeline status](https://github.com/baker-laboratory/datahub/actions/workflows/lint_and_test.yaml/badge.svg)](https://github.com/baker-laboratory/datahub/actions/workflows/lint_and_test.yaml)
 
 # DataHub
 DataHub enables you to go from `clean` structural data (e.g. the output of [cifutils](https://git.ipd.uw.edu/ai/cifutils) or an appropriately predicted computational structure)
