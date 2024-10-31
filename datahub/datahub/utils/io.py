@@ -6,6 +6,18 @@ from os import PathLike
 from pathlib import Path
 from typing import Any, Callable, TextIO
 
+import biotite.structure as struc
+import numpy as np
+from cifutils.constants import (
+    AA_LIKE_CHEM_TYPES,
+    ATOMIC_NUMBER_TO_ELEMENT,
+    DNA_LIKE_CHEM_TYPES,
+    POLYPEPTIDE_D_CHEM_TYPES,
+    POLYPEPTIDE_L_CHEM_TYPES,
+    RNA_LIKE_CHEM_TYPES,
+)
+from cifutils.utils.residue_utils import get_chem_comp_type
+
 from datahub.utils.misc import logger
 
 
@@ -167,3 +179,132 @@ def get_sharded_file_path(base_dir: Path, file_hash: str, extension: str, depth:
     for i in range(depth):
         nested_path /= Path(file_hash[2 * i : 2 * (i + 1)])
     return (nested_path / file_hash).with_suffix(extension)
+
+
+def convert_af3_model_output_to_atom_array(
+    atom_to_token_map: np.ndarray[int],
+    chain_iids: np.ndarray[str],
+    decoded_restypes: np.ndarray[str],
+    xyz: np.ndarray,
+    elements: np.ndarray[int | str],
+    token_is_atomized: np.ndarray[bool] = None,
+) -> struc.AtomArray:
+    """
+    Create an AtomArray from AlphaFold-3-type model outputs.
+    Specific to AF-3; may not work with other formats.
+
+    Parameters:
+        - atom_to_token_map (np.ndarray): Mapping from atoms to tokens [n_atom]
+        - chain_iids (np.ndarray): Chain instance ID's for each token, shape [n_token]
+        - decoded_restype (np.ndarray): Decoded residue types for each token [n_token]
+        - xyz (np.ndarray): Coordinates of atoms [n_atom, 3]
+        - elements (np.ndarray): Element types for each atom [n_atom]
+        - token_is_atomized (np.ndarray, optional): Flags indicating if tokens are atomized [n_token]. If not provided
+            or None, residues with a single atom are considered atomized.
+
+    Returns:
+        - AtomArray: Constructed AtomArray.
+    """
+    atom_array = None
+    chain_iid_residue_counts = {}
+
+    for res_idx, res_name in enumerate(decoded_restypes):
+        # Get atoms corresponding to the residue
+        atom_indices_in_residue = np.where(atom_to_token_map == res_idx)[0]
+
+        # ...check if we're dealing with an atomized token
+        if token_is_atomized is not None:
+            is_atom = token_is_atomized[res_idx]
+        else:
+            is_atom = len(atom_indices_in_residue) == 1
+
+        if is_atom:
+            # UNL is "Unknown Ligand" in the CCD
+            coord = xyz[atom_indices_in_residue][0]
+
+            # Get the element as a string (since that's what we get from the CCD)
+            element = elements[res_idx]
+            if np.issubdtype(type(element[0]), np.integer):
+                element = ATOMIC_NUMBER_TO_ELEMENT[element]
+
+            # Create the atom
+            atom = struc.Atom(coord, res_name="UNL", element=element)
+            residue_atom_array = struc.AtomArray([atom])
+        else:
+            chem_type = get_chem_comp_type(res_name)
+
+            # Get the atom array of the residue from the CCD
+            residue_atom_array = struc.info.residue(res_name)
+
+            # Remove hydrogens and deuteriums
+            residue_atom_array = residue_atom_array[
+                (residue_atom_array.element != "H") & (residue_atom_array.element != "D")
+            ]
+
+            # Remove type-specific atoms (e.g., OXT in polypeptides, O3' in RNA or DNA)
+            residue_atom_array = filter_residue_atoms(residue_atom_array, chem_type)
+
+            # Empty coordinates to avoid unexpected behavior
+            residue_atom_array.coord = np.full((residue_atom_array.array_length(), 3), np.nan)
+
+        # Set the coordinates
+        residue_atom_array.coord = xyz[atom_indices_in_residue]
+
+        # Get the chain_iid, chain_id, and transformation_id
+        chain_iid = chain_iids[res_idx]
+        chain_id, transformation_id = chain_iid.split("_")
+
+        # Set the annotations
+        residue_atom_array.set_annotation("chain_id", np.full(residue_atom_array.array_length(), chain_id))
+        residue_atom_array.set_annotation("chain_iid", np.full(residue_atom_array.array_length(), chain_iid))
+        residue_atom_array.set_annotation(
+            "transformation_id", np.full(residue_atom_array.array_length(), transformation_id)
+        )
+
+        # Set the residue ID
+        if chain_iid not in chain_iid_residue_counts:
+            chain_iid_residue_counts[chain_iid] = 1
+        elif not is_atom:
+            # Only increment the residue count if we're not dealing with an atomized token (we put all atomized tokens in the same residue, like the PDB)
+            chain_iid_residue_counts[chain_iid] += 1
+
+        residue_atom_array.set_annotation(
+            "res_id", np.full(residue_atom_array.array_length(), chain_iid_residue_counts[chain_iid])
+        )
+
+        if atom_array is None:
+            atom_array = residue_atom_array
+        else:
+            atom_array += residue_atom_array
+
+    return atom_array
+
+
+def filter_residue_atoms(residue_atom_array: struc.AtomArray, chem_type: str) -> struc.AtomArray:
+    """
+    Filter out unwanted atoms from a residue (e.g.., hydrogens, leaving groups)
+
+    Parameters:
+        - residue_atom_array (struc.AtomArray): The AtomArray to filter.
+        - chem_type (str): Type of the chemical chain.
+
+    Returns:
+        - struc.AtomArray: Filtered AtomArray.
+    """
+    # ...capitalize the chemical type
+    chem_type = chem_type.upper()
+
+    # ...remove hydrogens and deuteriums
+    residue_atom_array = residue_atom_array[(residue_atom_array.element != "H") & (residue_atom_array.element != "D")]
+
+    # ...remove type-specific atoms (e.g., OXT in polypeptides, O3' in RNA or DNA), which leave during inter-residue bond formation
+    if (
+        chem_type in AA_LIKE_CHEM_TYPES
+        or chem_type in POLYPEPTIDE_L_CHEM_TYPES
+        or chem_type in POLYPEPTIDE_D_CHEM_TYPES
+    ):
+        residue_atom_array = residue_atom_array[residue_atom_array.atom_name != "OXT"]
+    elif chem_type in RNA_LIKE_CHEM_TYPES or chem_type in DNA_LIKE_CHEM_TYPES:
+        residue_atom_array = residue_atom_array[residue_atom_array.atom_name != "O3'"]
+
+    return residue_atom_array
