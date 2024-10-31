@@ -63,7 +63,7 @@ RNA_RESIDUES = ["A", "C", "G", "U"]
 DNA_RESIDUES = ["DA", "DC", "DG", "DT"]
 
 
-def get_digs_path(pdbid: str, base: Literal["trrosetta", "mirror"] = "trrosetta") -> str:
+def get_digs_path(pdbid: str, base: Literal["trrosetta", "mirror"] = "mirror") -> str:
     if base == "trrosetta":
         base_dir = Path("/databases/TrRosetta/cif")
     elif base == "mirror":

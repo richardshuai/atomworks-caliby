@@ -1,6 +1,7 @@
 import copy
 
 import numpy as np
+import pytest
 
 from datahub.encoding_definitions import (
     RF2AA_ATOM36_ENCODING,
@@ -10,7 +11,6 @@ from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomi
 from datahub.transforms.base import Compose
 from datahub.transforms.encoding import AddTokenAnnotation, EncodeAtomArray
 from datahub.transforms.featurize_unresolved_residues import (
-    MaskResiduesWithUnresolvedBackboneAtoms,
     PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
     mask_residues_with_unresolved_backbone_atoms,
@@ -23,9 +23,12 @@ from datahub.utils.token import (
 )
 from tests.conftest import assert_equal_atom_arrays, cached_parse
 
+FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES = ["6wtf", "7rcu"]
 
-def test_mask_residues_with_unresolved_backbone_atoms():
-    data = cached_parse("6wtf")
+
+@pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
+def test_mask_residues_with_unresolved_backbone_atoms(pdb_id):
+    data = cached_parse(pdb_id, base="mirror")
     atom_array = data["atom_array"]
 
     # ...manually set the occupancy of a CA atom to zero
@@ -49,10 +52,9 @@ def test_mask_residues_with_unresolved_backbone_atoms():
     assert np.all(updated_atom_array.occupancy[unchanged_residue_mask] == atom_array.occupancy[unchanged_residue_mask])
 
 
-def test_place_unresolved_token_atoms_on_representative_atom():
-    pdb_id = "6wtf"
-
-    data = cached_parse(pdb_id)
+@pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
+def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
+    data = cached_parse(pdb_id, base="mirror")
     atom_array = data["atom_array"]
 
     # ...check for unresolved polymer atoms (there will be lots of unresolved hydrogens, so we leave them in  as a test case)
@@ -67,7 +69,6 @@ def test_place_unresolved_token_atoms_on_representative_atom():
     encoding = RF2AA_ATOM36_ENCODING
     pipe = Compose(
         [
-            MaskResiduesWithUnresolvedBackboneAtoms(),
             FlagNonPolymersForAtomization(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             AddTokenAnnotation(encoding),
@@ -79,9 +80,17 @@ def test_place_unresolved_token_atoms_on_representative_atom():
     output = pipe(data)
     output_atom_array = output["atom_array"]
 
+    # ...get the unresolved polymer atoms again, but applying atomization mask as well
+    unresolved_polymer_atoms = output_atom_array[
+        (output_atom_array.is_polymer) & (output_atom_array.occupancy == 0) & (~output_atom_array.atomize)
+    ]
+    unresolved_non_polymer_atoms = output_atom_array[
+        (~output_atom_array.is_polymer) & (output_atom_array.occupancy == 0) & (output_atom_array.atomize)
+    ]
+
     # ...loop through each unresolved polymer token, and ensure that the unresolved atoms have the same coordinates as the representative atom
     for chain_id in np.unique(unresolved_polymer_atoms.chain_id):
-        chain_atom_array = output_atom_array[output_atom_array.chain_id == chain_id]
+        chain_atom_array = output_atom_array[(output_atom_array.chain_id == chain_id) & (~output_atom_array.atomize)]
         for res_id in np.unique(chain_atom_array.res_id):
             residue_atom_array = chain_atom_array[chain_atom_array.res_id == res_id]
             unresolved_atom_mask = residue_atom_array.occupancy == 0
@@ -105,14 +114,13 @@ def test_place_unresolved_token_atoms_on_representative_atom():
         assert_equal_atom_arrays(output_chain_atom_array, input_chain_atom_array)
 
 
-def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
-    pdb_id = "6wtf"
-    data = cached_parse(pdb_id)
+@pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
+def test_place_unresolved_token_on_closest_resolved_token_in_sequence(pdb_id):
+    data = cached_parse(pdb_id, base="mirror")
 
     encoding = RF2AA_ATOM36_ENCODING
     pipe = Compose(
         [
-            MaskResiduesWithUnresolvedBackboneAtoms(),
             FlagNonPolymersForAtomization(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             AddTokenAnnotation(encoding),
@@ -176,4 +184,5 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence():
 
 
 if __name__ == "__main__":
-    test_place_unresolved_token_on_closest_resolved_token_in_sequence()
+    # pytest.main(["-v", "-x", __file__])
+    test_place_unresolved_token_atoms_on_representative_atom("7rcu")

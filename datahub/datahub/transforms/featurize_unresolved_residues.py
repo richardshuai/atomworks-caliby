@@ -149,7 +149,6 @@ class PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(Transform):
     """
 
     requires_previous_transforms = [
-        "MaskResiduesWithUnresolvedBackboneAtoms",
         "AtomizeByCCDName",
         "PlaceUnresolvedTokenAtomsOnRepresentativeAtom",
     ]
@@ -181,7 +180,7 @@ def place_unresolved_token_atoms_on_token_representative_atom(
     Place unresolved token atoms (e.g., side chain atoms) on the representative atom of the corresponding residue (token).
     Helpful within diffusive models to avoid noising unresolved side-chain atoms from the origin.
 
-    NOTE: For non-polymers, all atoms are considered tokens; in such cases this Transform will have no effect.
+    NOTE: For non-polymers, all atoms are considered tokens (and are atomized); in such cases this Transform will have no effect.
 
     Args:
         atom_array (AtomArray): The atom array to modify.
@@ -194,15 +193,16 @@ def place_unresolved_token_atoms_on_token_representative_atom(
     # ...get a mask of all unresolved atoms
     unresolved_atom_mask = atom_array.occupancy == 0
 
-    # ...get the unique chain IIDs of polymers with unresolved atoms (as this transform only applies to polymers)
-    chain_iids_with_unresolved_atoms = np.unique(atom_array.chain_iid[(unresolved_atom_mask) & (atom_array.is_polymer)])
+    # ...get the unique chain IIDs of polymers with unresolved atoms (as this transform only applies to polymers; e.g., chains without full atomization)
+    chain_iids_with_unresolved_atoms = np.unique(atom_array.chain_iid[(unresolved_atom_mask) & (~atom_array.atomize)])
 
     # ...prepare a mask of representative atoms for each residue
     representative_atom_mask = get_af3_token_representative_masks(atom_array)
 
     for chain_iid in chain_iids_with_unresolved_atoms:
+        # NOTE: We cannot rely on the `is_polymer` annotation, as in some instances (like acyl groups) we may have non-polymer tokens within a polymer chain (see: 7RCU)
         residues_with_unresolved_atoms = np.unique(
-            atom_array.res_id[(atom_array.chain_iid == chain_iid) & unresolved_atom_mask]
+            atom_array.res_id[(atom_array.chain_iid == chain_iid) & unresolved_atom_mask & (~atom_array.atomize)]
         )
         for res_id in residues_with_unresolved_atoms:
             # ...create a mask for the unresolved atoms in the residue

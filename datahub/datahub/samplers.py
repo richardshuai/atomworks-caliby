@@ -128,6 +128,32 @@ def calculate_weights_for_pdb_dataset_df(
     return torch.tensor(weights)
 
 
+def calculate_weights_by_inverse_cluster_size(
+    dataset_df: pd.DataFrame, cluster_column_name: str = "cluster"
+) -> torch.Tensor:
+    """
+    Calculate weights for each row in the DataFrame as the inverse of its cluster size.
+
+    Parameters:
+        dataset_df (pd.DataFrame): DataFrame containing the PN unit or interface data
+        cluster_column_name (str): Column name in `dataset_df` corresponding to the cluster info. Default is "cluster".
+
+    Returns:
+        torch.Tensor: A tensor containing the calculated weights for each row in the DataFrame
+    """
+    # Generate the cluster sizes...
+    cluster_id_to_size_map = get_cluster_sizes(dataset_df, cluster_column=cluster_column_name)
+
+    # ...map the cluster sizes to the DataFrame
+    dataset_df["cluster_size"] = dataset_df[cluster_column_name].map(cluster_id_to_size_map)
+
+    # ...calculate weights as the inverse of the cluster size
+    weights = 1 / dataset_df["cluster_size"].values
+
+    # ...and return the weights as a tensor
+    return torch.tensor(weights)
+
+
 def set_sampler_epoch(sampler: Sampler, epoch: int, add_random_offset: bool = False) -> None:
     """
     Control the random seed for a sampler.
