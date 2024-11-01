@@ -23,7 +23,7 @@ from datahub.transforms.crop import (
 from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.token import apply_and_spread_token_wise, get_token_count, get_token_starts
-from tests.conftest import CIF_PARSER
+from tests.conftest import CIF_PARSER, cached_parse
 from tests.datasets.conftest import RF2AA_PDB_DATASET
 
 # fmt: off
@@ -322,6 +322,48 @@ def regression_test_af3_like_spatial_crop_transform(example: dict, np_seed: int 
     assert get_token_count(post_crop_atom_array) == example["expected_spatial_crop_size"]
     assert len(post_crop_atom_array) == len(example["expected_spatial_atom_ids"])
     assert post_crop_atom_array.atom_id.tolist() == example["expected_spatial_atom_ids"]
+
+
+@pytest.mark.parametrize("pdb_id", ["6by7"])
+def test_resize_crops_with_too_many_atoms(pdb_id, np_seed=1):
+    """
+    tests using the parameter that resizes large crops
+    this is necessary for cases with many nucleic acids where small crops (in token space) result in large crops (in atom space)
+    """
+    crop_size = 256
+    # Load the example
+    prep_pipe = Compose(
+        [
+            AddGlobalAtomIdAnnotation(),
+            RemoveHydrogens(),
+            RemoveTerminalOxygen(),
+            FlagAndReassignCovalentModifications(),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+        ],
+        track_rng_state=False,
+    )
+
+    # Test spatial crop
+    spatial_crop_pipe = CropSpatialLikeAF3(crop_size=crop_size, max_atoms_in_crop=3000)
+    with rng_state(create_rng_state_from_seeds(np_seed=np_seed)):
+        data = cached_parse(pdb_id)
+        data = prep_pipe(data)
+        data = spatial_crop_pipe(data)
+        post_crop_atom_array = data["atom_array"]
+        assert (
+            len(post_crop_atom_array) < 3000
+        ), f"Expected spatial crop to be resized to less than 3000 atoms, got {len(post_crop_atom_array)} atoms."
+
+    # Test contiguous crop
+    contiguous_crop_pipe = CropContiguousLikeAF3(crop_size=crop_size, max_atoms_in_crop=3000)
+    with rng_state(create_rng_state_from_seeds(np_seed=np_seed)):
+        data = cached_parse(pdb_id)
+        data = prep_pipe(data)
+        data = contiguous_crop_pipe(data)
+        post_crop_atom_array = data["atom_array"]
+        assert (
+            len(post_crop_atom_array) < 3000
+        ), f"Expected contiguous crop to be resized to less than 3000 atoms, got {len(post_crop_atom_array)} atoms."
 
 
 if __name__ == "__main__":

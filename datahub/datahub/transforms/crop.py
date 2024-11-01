@@ -5,6 +5,7 @@ from assertpy import assert_that
 from biotite.structure import AtomArray
 from scipy.spatial import KDTree
 
+from datahub.common import exists
 from datahub.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -13,6 +14,7 @@ from datahub.transforms._checks import (
 from datahub.transforms.atom_array import atom_id_to_atom_idx, atom_id_to_token_idx
 from datahub.transforms.base import Transform
 from datahub.utils.token import (
+    apply_token_wise,
     get_af3_token_center_coords,
     get_token_count,
     get_token_starts,
@@ -265,9 +267,10 @@ class CropContiguousLikeAF3(Transform):
         "PlaceUnresolvedTokenOnClosestResolvedTokenInSequence",
     ]
 
-    def __init__(self, crop_size: int, keep_uncropped_atom_array: bool = False):
+    def __init__(self, crop_size: int, keep_uncropped_atom_array: bool = False, max_atoms_in_crop=None):
         self.crop_size = crop_size
         self.keep_uncropped_atom_array = keep_uncropped_atom_array
+        self.max_atoms_in_crop = max_atoms_in_crop
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
@@ -300,16 +303,24 @@ class CropContiguousLikeAF3(Transform):
             is_atom_in_crop = np.ones(len(atom_array), dtype=bool)
             is_token_in_crop = np.ones(get_token_count(atom_array), dtype=bool)
 
-        # Update data
-        data["crop_info"] = {
+        crop_info = {
             "type": self.__class__.__name__,
             "requires_crop": requires_crop,
             "crop_token_idxs": np.where(is_token_in_crop)[0],
             "crop_atom_idxs": np.where(is_atom_in_crop)[0],
         }
+
+        crop_info = resize_crop_info_if_too_many_atoms(
+            crop_info=crop_info,
+            atom_array=atom_array,
+            max_atoms=self.max_atoms_in_crop,
+        )
+
+        # Update data
+        data["crop_info"] = crop_info
         if self.keep_uncropped_atom_array:
             data["crop_info"]["atom_array"] = atom_array
-        data["atom_array"] = atom_array[is_atom_in_crop]
+        data["atom_array"] = atom_array[crop_info["crop_atom_idxs"]]
 
         return data
 
@@ -352,7 +363,8 @@ def crop_spatial_like_af3(
         - AF3 https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
         - AF2 Multimer https://www.biorxiv.org/content/10.1101/2021.10.04.463034v2.full.pdf
     """
-    requires_crop = get_token_count(atom_array) > crop_size
+    n_tokens = get_token_count(atom_array)
+    requires_crop = n_tokens > crop_size
     if force_crop or requires_crop:
         # Get possible crop centers
         can_be_crop_center = get_spatial_crop_center(atom_array, query_pn_unit_iids, crop_center_cutoff_distance)
@@ -375,16 +387,91 @@ def crop_spatial_like_af3(
         crop_center_atom_idx = np.nan
         crop_center_token_idx = np.nan
         is_atom_in_crop = np.ones(len(atom_array), dtype=bool)
-        is_token_in_crop = np.ones(get_token_count(atom_array), dtype=bool)
+        is_token_in_crop = np.ones(n_tokens, dtype=bool)
 
     return {
-        "requires_crop": requires_crop,
-        "crop_center_atom_id": crop_center_atom_id,
-        "crop_center_atom_idx": crop_center_atom_idx,
-        "crop_center_token_idx": crop_center_token_idx,
-        "crop_token_idxs": np.where(is_token_in_crop)[0],
-        "crop_atom_idxs": np.where(is_atom_in_crop)[0],
+        "requires_crop": requires_crop,  # whether cropping was necessary
+        "crop_center_atom_id": crop_center_atom_id,  # atom_id of crop center
+        "crop_center_atom_idx": crop_center_atom_idx,  # atom_idx of crop center
+        "crop_center_token_idx": crop_center_token_idx,  # token_idx of crop center
+        "crop_token_idxs": np.where(is_token_in_crop)[0],  # token_idxs in crop
+        "crop_atom_idxs": np.where(is_atom_in_crop)[0],  # atom_idxs in crop
     }
+
+
+def resize_crop_info_if_too_many_atoms(
+    crop_info: dict,
+    atom_array: AtomArray,
+    max_atoms: int,
+) -> dict:
+    """
+    Resizes crops that exceed the maximum allowed number of atoms by removing tokens based on the distance to the crop center.
+    If no crop center is provided, the center of mass of the tokens in the crop is used as center.
+
+    NOTE: This is mostly needed for AF3 when crops on nucleic acids have too many atoms to work with the current atom
+    local attention when training on GPUs with less memory.
+
+    Args:
+        - crop_info (dict): Dictionary containing crop information. Must include:
+            - crop_atom_idxs: Array of atom indices in the crop
+            - crop_token_idxs: Array of token indices in the crop
+        - atom_array (AtomArray): The atom array containing the full structure
+        - max_atoms(int): Maximum number of atoms allowed in a crop. If None, no resizing is performed.
+
+    Returns:
+        dict: Updated crop_info dictionary with resized crop indices if necessary
+    """
+    assert "crop_atom_idxs" in crop_info, "crop_atom_idxs not found in crop"
+    assert "crop_token_idxs" in crop_info, "crop_token_idxs not found in crop"
+    crop_atom_idxs = crop_info["crop_atom_idxs"]
+    crop_token_idxs = crop_info["crop_token_idxs"]
+    crop_atom_array = atom_array[crop_atom_idxs]
+
+    # Check if resizing is needed
+    if not exists(max_atoms) or len(crop_atom_idxs) <= max_atoms:
+        # ... no resizing needed
+        return crop_info
+
+    # Calculate distances to center token
+    # ... get token center coordinates
+    token_coords = get_af3_token_center_coords(crop_atom_array)  # [n_token, 3]
+    if "crop_center_atom_idx" in crop_info:
+        crop_center_coords = atom_array.coord[crop_info["crop_center_atom_idx"]]
+    else:
+        # ... use center of mass of tokens in crop as center coordinate
+        crop_center_coords = np.mean(token_coords, axis=0)
+    # ... calculate distances to center token
+    dist_to_center = np.linalg.norm(token_coords - crop_center_coords, axis=1)
+    sort_by_distance = np.argsort(dist_to_center)  # ascending
+
+    # Calculate cumulative atoms find cut-off index at which we are within budget
+    # ... get number of atoms per token
+    n_atoms_per_token = apply_token_wise(
+        array=crop_atom_array,
+        data=np.ones(len(crop_atom_idxs), dtype=int),
+        function=np.sum,
+    )
+    within_budget = np.cumsum(n_atoms_per_token[sort_by_distance]) <= max_atoms
+
+    # Subset to tokens within budget
+    # ...find the largest index that is within budget
+    cutoff = np.max(np.where(within_budget)) + 1  # +1 because we want to include the cutoff index
+    # ... get token indices within budget
+    is_in_budget = sort_by_distance[:cutoff]
+    token_idxs_in_budget = crop_token_idxs[is_in_budget]
+
+    # Update atom idxs accordingly
+    # ... create updated masks for chosen tokens
+    is_chosen_token = np.zeros(atom_array.array_length(), dtype=bool)
+    is_chosen_token[token_idxs_in_budget] = True
+    # ... get the atom indices that are within budget
+    atom_idxs_in_budget = np.where(spread_token_wise(atom_array, is_chosen_token))[0]
+
+    # Update crop info
+    crop_info["crop_atom_idxs"] = atom_idxs_in_budget
+    crop_info["crop_token_idxs"] = token_idxs_in_budget
+
+    return crop_info
 
 
 class CropSpatialLikeAF3(Transform):
@@ -425,6 +512,8 @@ class CropSpatialLikeAF3(Transform):
         jitter_scale: float = 1e-3,
         crop_center_cutoff_distance: float = 15.0,
         keep_uncropped_atom_array: bool = False,
+        force_crop: bool = False,
+        max_atoms_in_crop: int | None = None,
     ):
         """
         Initialize the CropSpatialLikeAF3 transform.
@@ -438,11 +527,17 @@ class CropSpatialLikeAF3(Transform):
             keep_uncropped_atom_array (bool, optional): Whether to keep the uncropped atom array in the data.
                 If `True`, the uncropped atom array will be stored in the `crop_info` dictionary
                 under the key `"atom_array"`. Defaults to `False`.
+            force_crop (bool, optional): Whether to force crop even if the atom array is already small enough.
+                Defaults to `False`.
+            max_atoms_in_crop (int, optional): Maximum number of atoms allowed in a crop. If None, no resizing is performed.
+                Defaults to None.
         """
         self.crop_size = crop_size
         self.jitter_scale = jitter_scale
         self.crop_center_cutoff_distance = crop_center_cutoff_distance
         self.keep_uncropped_atom_array = keep_uncropped_atom_array
+        self.force_crop = force_crop
+        self.max_atoms_in_crop = max_atoms_in_crop
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
@@ -458,11 +553,17 @@ class CropSpatialLikeAF3(Transform):
             query_pn_units = np.unique(atom_array.pn_unit_iid)
 
         crop_info = crop_spatial_like_af3(
-            atom_array,
-            query_pn_units,
+            atom_array=atom_array,
+            query_pn_unit_iids=query_pn_units,
             crop_size=self.crop_size,
             jitter_scale=self.jitter_scale,
             crop_center_cutoff_distance=self.crop_center_cutoff_distance,
+            force_crop=self.force_crop,
+        )
+        crop_info = resize_crop_info_if_too_many_atoms(
+            crop_info=crop_info,
+            atom_array=atom_array,
+            max_atoms=self.max_atoms_in_crop,
         )
 
         data["crop_info"] = {"type": self.__class__.__name__} | crop_info
@@ -471,7 +572,6 @@ class CropSpatialLikeAF3(Transform):
             data["crop_info"]["atom_array"] = atom_array
 
         # Update data with cropped atom array
-        is_atom_in_crop = crop_info["crop_atom_idxs"]
-        data["atom_array"] = atom_array[is_atom_in_crop]  # note: this is a copy
+        data["atom_array"] = atom_array[crop_info["crop_atom_idxs"]]
 
         return data

@@ -61,6 +61,7 @@ def build_af3_transform_pipeline(
     crop_center_cutoff_distance: float = 15.0,
     crop_contiguous_probability: float = 0.5,
     crop_spatial_probability: float = 0.5,
+    max_atoms_in_crop: int | None = None,
     # Undesired res names
     undesired_res_names: list[str] = AF3_EXCLUDED_LIGANDS,
     # Conformer generation params
@@ -151,9 +152,16 @@ def build_af3_transform_pipeline(
 
     # Crop
     if crop_contiguous_probability > 0 or crop_spatial_probability > 0:
-        contiguous_crop_transform = CropContiguousLikeAF3(crop_size=crop_size, keep_uncropped_atom_array=True)
+        contiguous_crop_transform = CropContiguousLikeAF3(
+            crop_size=crop_size,
+            keep_uncropped_atom_array=True,
+            max_atoms_in_crop=max_atoms_in_crop,
+        )
         spatial_crop_transform = CropSpatialLikeAF3(
-            crop_size=crop_size, crop_center_cutoff_distance=crop_center_cutoff_distance, keep_uncropped_atom_array=True
+            crop_size=crop_size,
+            crop_center_cutoff_distance=crop_center_cutoff_distance,
+            keep_uncropped_atom_array=True,
+            max_atoms_in_crop=max_atoms_in_crop,
         )
 
         if crop_contiguous_probability > 0 and crop_spatial_probability > 0:
