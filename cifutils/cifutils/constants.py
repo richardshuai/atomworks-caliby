@@ -17,9 +17,16 @@ ELEMENT_NAME_TO_ATOMIC_NUMBER = {
 }
 """Map canonical 2 letter element names to their atomic numbers."""
 
+UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER = {key.upper(): value for key, value in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()}
+
 ATOMIC_NUMBER_TO_ELEMENT = (
     {v: k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()} | 
     {str(v): k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()}
+)
+
+ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT = (
+    {v: k for k, v in UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER.items()} | 
+    {str(v): k for k, v in UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER.items()}
 )
 """Map atomic numbers (int/str) to their canonical 2 letter element names."""
 
@@ -30,7 +37,10 @@ METAL_ELEMENTS = {
     "La", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
     "Al", "Ga", "In", "Sn", "Tl", "Pb", "Bi",
 }
+
+UPPERCASE_METAL_ELEMENTS = {element.upper() for element in METAL_ELEMENTS}
 """A set of all metal elements."""
+
 # fmt: on
 
 CHEM_COMP_TYPES = tuple(

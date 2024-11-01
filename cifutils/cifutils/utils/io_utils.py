@@ -19,7 +19,7 @@ from cifutils.common import default
 from datetime import datetime
 from cifutils.common import exists
 
-from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
+from cifutils.constants import ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT
 
 
 logger = logging.getLogger("cifutils")
@@ -269,8 +269,8 @@ def to_cif_buffer(
             "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
         )
 
-    # If elements are given as atomic numbers, convert them to element symbols
-    structure.element = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x))(structure.element)
+    # If elements are given as atomic numbers, convert them to (uppercase) element symbols
+    structure.element = np.vectorize(lambda x: ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT.get(x, x))(structure.element)
 
     # If altloc information is present but no altloc id is given, set all to "."
     if "altloc_id" in structure.get_annotation_categories() and structure.altloc_id[0].strip() == "":

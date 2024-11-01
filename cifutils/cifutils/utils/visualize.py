@@ -9,8 +9,7 @@ import biotite.structure as struc
 import numpy as np
 import py3Dmol
 from biotite.structure import AtomArray
-from cifutils.constants import METAL_ELEMENTS
-from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
+from cifutils.constants import UPPERCASE_METAL_ELEMENTS, ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT
 from cifutils.utils.io_utils import to_cif_string
 
 logger = logging.getLogger("cifutils")
@@ -36,7 +35,9 @@ IPD_PYMOL_COLORS = [
     "#222222",  # pymol_black
 ]
 
-_is_metal = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x.capitalize()) in METAL_ELEMENTS)
+_is_metal = np.vectorize(
+    lambda x: ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT.get(x, x.capitalize()) in UPPERCASE_METAL_ELEMENTS
+)
 
 
 def view(

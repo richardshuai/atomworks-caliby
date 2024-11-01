@@ -23,7 +23,7 @@ import pandas as pd
 import os
 from functools import lru_cache, cache
 from cifutils.utils.atom_matching_utils import standardize_heavy_atom_ids
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, PROCESSED_CCD_PATH
+from cifutils.constants import UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER, PROCESSED_CCD_PATH
 from cifutils.common import not_isin
 
 logger = logging.getLogger("cifutils")
@@ -243,7 +243,10 @@ def add_missing_atoms_as_unresolved(
 
                     # ...convert element to numbers to match the outputs from build_residue_atoms (but keep as strings for compatibility)
                     unknown_residue_atom_array.element = np.array(
-                        [ELEMENT_NAME_TO_ATOMIC_NUMBER[el] for el in unknown_residue_atom_array.element]
+                        [
+                            UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER[el.upper()]
+                            for el in unknown_residue_atom_array.element
+                        ]
                     ).astype(str)
 
                     # ...decompose into a list of atoms
