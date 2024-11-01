@@ -170,15 +170,15 @@ def convert_pn_unit_iids_to_pn_unit_ids(pn_unit_iids: list[str]) -> list[str]:
     return pn_unit_ids
 
 
-def extract_transformation_id_from_pn_unit_iid(pn_unit_id: str) -> str:
+def extract_transformation_id_from_pn_unit_iid(pn_unit_iid: str) -> str:
     """
     Extracts the transformation ID from a pn_unit_iid string.
 
     Example:
-        >>> extract_transformation_id_from_pn_unit_id("A_1,B_1")
+        >>> extract_transformation_id_from_pn_unit_iid("A_1,B_1")
         '1'
     """
-    segments = pn_unit_id.split(",")
+    segments = pn_unit_iid.split(",")
     transformation_ids = {segment.split("_")[1] for segment in segments}
 
     if len(transformation_ids) > 1:

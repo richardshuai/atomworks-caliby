@@ -284,7 +284,7 @@ def convert_af3_model_output_to_atom_array(
 
         # Get the chain_iid, chain_id, and transformation_id
         pn_unit_id = convert_pn_unit_iids_to_pn_unit_ids([pn_unit_iid])[0]
-        transformation_id = extract_transformation_id_from_pn_unit_iid(pn_unit_id)[1]
+        transformation_id = extract_transformation_id_from_pn_unit_iid(pn_unit_iid)
 
         # Set the annotations (for our purposes, chains and pn_units are the same)
         residue_atom_array.set_annotation("chain_id", np.full(residue_atom_array.array_length(), pn_unit_id))

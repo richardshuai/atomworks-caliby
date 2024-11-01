@@ -1,11 +1,13 @@
 import pickle
 from pathlib import Path
 
+import numpy as np
 import pytest
 from assertpy import assert_that
 from biotite.structure import AtomArray
 
 from datahub.utils.io import convert_af3_model_output_to_atom_array
+from cifutils.constants import ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT
 
 # NOTE: Not the "true" model outputs; slightly pre-processed for storage efficiency
 TEST_PICKLED_AF3_MODEL_OUTPUTS = ["af3_model_outs_protein_dna.pkl", "af3_model_outs_protein_ligand.pkl"]
@@ -35,6 +37,13 @@ def test_convert_af3_model_output_to_atom_array(file_path):
     # Smoke tests: Check if the AtomArray has the correct shape
     assert_that(atom_array).is_instance_of(AtomArray)
     assert_that(atom_array).is_length(len(model_outputs["xyz"]))
+
+    # Assert that the AtomArray has the correct elements
+    uppercase_elements = np.array([ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT[atomic_number] for atomic_number in model_outputs["elements"]])
+    assert_that(np.array_equal(atom_array.element, uppercase_elements)).is_true()
+
+    # Assert that the AtomArray has the correct coordinates
+    assert_that(np.array_equal(atom_array.coord, model_outputs["xyz"])).is_true()
 
 
 if __name__ == "__main__":
