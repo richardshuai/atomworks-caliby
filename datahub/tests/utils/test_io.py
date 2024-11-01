@@ -38,5 +38,4 @@ def test_convert_af3_model_output_to_atom_array(file_path):
 
 
 if __name__ == "__main__":
-    # pytest.main(["-s", "-v", "-m not very_slow", __file__])
-    test_convert_af3_model_output_to_atom_array(TEST_PICKLED_AF3_MODEL_OUTPUTS[1])
+    pytest.main(["-s", "-v", "-m not very_slow", __file__])
