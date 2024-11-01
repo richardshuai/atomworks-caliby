@@ -8,7 +8,7 @@ from biotite.structure import AtomArray
 from datahub.utils.io import convert_af3_model_output_to_atom_array
 
 # NOTE: Not the "true" model outputs; slightly pre-processed for storage efficiency
-TEST_PICKLED_AF3_MODEL_OUTPUTS = ["af3_model_outs_protein_only.pkl"]
+TEST_PICKLED_AF3_MODEL_OUTPUTS = ["af3_model_outs_protein_dna.pkl", "af3_model_outs_protein_ligand.pkl"]
 
 TEST_DATA_PATH = Path(__file__).resolve().parents[1] / "data"
 
@@ -24,12 +24,12 @@ def test_convert_af3_model_output_to_atom_array(file_path):
 
     # Convert the model outputs to an AtomArray
     atom_array = convert_af3_model_output_to_atom_array(
-        model_outputs["atom_to_token_map"],
-        model_outputs["chain_iids"],
-        model_outputs["decoded_restypes"],
-        model_outputs["xyz"],
-        model_outputs["elements"],
-        model_outputs["token_is_atomized"],
+        atom_to_token_map=model_outputs["atom_to_token_map"],
+        chain_iids=model_outputs["chain_iids"],
+        decoded_restypes=model_outputs["decoded_restypes"],
+        xyz=model_outputs["xyz"],
+        elements=model_outputs["elements"],
+        token_is_atomized=model_outputs["token_is_atomized"],
     )
 
     # Smoke tests: Check if the AtomArray has the correct shape
@@ -38,4 +38,5 @@ def test_convert_af3_model_output_to_atom_array(file_path):
 
 
 if __name__ == "__main__":
-    pytest.main(["-s", "-v", "-m not very_slow", __file__])
+    # pytest.main(["-s", "-v", "-m not very_slow", __file__])
+    test_convert_af3_model_output_to_atom_array(TEST_PICKLED_AF3_MODEL_OUTPUTS[1])

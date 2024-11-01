@@ -10,7 +10,7 @@ import biotite.structure as struc
 import numpy as np
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
-    ATOMIC_NUMBER_TO_ELEMENT,
+    ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT,
     DNA_LIKE_CHEM_TYPES,
     POLYPEPTIDE_D_CHEM_TYPES,
     POLYPEPTIDE_L_CHEM_TYPES,
@@ -208,50 +208,81 @@ def convert_af3_model_output_to_atom_array(
     atom_array = None
     chain_iid_residue_counts = {}
 
-    for res_idx, res_name in enumerate(decoded_restypes):
+    # If elements are integers, convert them to strings (since that's what we get from the CCD, and it better matches what CIF files expect)
+    if np.issubdtype(type(elements[0]), np.integer):
+        elements = np.array([ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT[element] for element in elements])
+
+    for global_res_idx, res_name in enumerate(decoded_restypes):
         # Get atoms corresponding to the residue
-        atom_indices_in_residue = np.where(atom_to_token_map == res_idx)[0]
+        atom_indices_in_residue = np.where(atom_to_token_map == global_res_idx)[0]
 
         # ...check if we're dealing with an atomized token
         if token_is_atomized is not None:
-            is_atom = token_is_atomized[res_idx]
+            is_atom = token_is_atomized[global_res_idx]
         else:
             is_atom = len(atom_indices_in_residue) == 1
 
+        #  ...compute the residue ID
+        chain_iid = chain_iids[global_res_idx]
+        if chain_iid not in chain_iid_residue_counts:
+            chain_iid_residue_counts[chain_iid] = 1
+        elif not is_atom:
+            # Only increment the residue count if we're not dealing with an atomized token (we put all atomized tokens in the same residue, like the PDB)
+            chain_iid_residue_counts[chain_iid] += 1
+        res_id = chain_iid_residue_counts[chain_iid]
+
         if is_atom:
+            coord = xyz[atom_indices_in_residue.item()]
+
             # UNL is "Unknown Ligand" in the CCD
-            coord = xyz[atom_indices_in_residue][0]
+            element = elements[atom_indices_in_residue].item()
 
-            # Get the element as a string (since that's what we get from the CCD)
-            element = elements[res_idx]
-            if np.issubdtype(type(element[0]), np.integer):
-                element = ATOMIC_NUMBER_TO_ELEMENT[element]
+            def atom_name_exists(atom_name: str) -> bool:
+                return (
+                    atom_array[
+                        (atom_array.chain_iid == chain_iid)
+                        & (atom_array.res_id == res_id)
+                        & (atom_array.atom_name == atom_name)
+                    ].array_length()
+                    > 0
+                )
 
-            # Create the atom
-            atom = struc.Atom(coord, res_name="UNL", element=element)
-            residue_atom_array = struc.AtomArray([atom])
+            # Create the atom name and ensure it's unique within the residue (so that we can give all the atoms the same ID)
+            atom_name = element
+            if atom_name_exists(atom_name):
+                atom_name = next(
+                    f"{element}{atom_count}"
+                    for atom_count in range(2, len(atom_array) + 1)
+                    if not atom_name_exists(f"{element}{atom_count}")
+                )
+
+            atom = struc.Atom(coord, res_name="UNL", element=element, atom_name=atom_name)
+            residue_atom_array = struc.array([atom])
         else:
             chem_type = get_chem_comp_type(res_name)
 
             # Get the atom array of the residue from the CCD
             residue_atom_array = struc.info.residue(res_name)
 
-            # Remove hydrogens and deuteriums
-            residue_atom_array = residue_atom_array[
-                (residue_atom_array.element != "H") & (residue_atom_array.element != "D")
-            ]
+            # Set the elements to uppercase for consistency
+            residue_atom_array.element = np.array([x.upper() for x in residue_atom_array.element])
 
-            # Remove type-specific atoms (e.g., OXT in polypeptides, O3' in RNA or DNA)
-            residue_atom_array = filter_residue_atoms(residue_atom_array, chem_type)
+            # If needed, remove type-specific atoms (e.g., OXT in polypeptides, O3' in RNA or DNA) for residues participating in inter-residue bonds
+            # If we are at a terminal residue, we don't want to remove these leaving groups
+            residue_atom_array = filter_residue_atoms(
+                residue_atom_array=residue_atom_array, chem_type=chem_type, elements=elements[atom_indices_in_residue]
+            )
 
             # Empty coordinates to avoid unexpected behavior
             residue_atom_array.coord = np.full((residue_atom_array.array_length(), 3), np.nan)
+
+            # Wipe the bond information (we are better off letting PyMOL infer the bonds)
+            residue_atom_array.bonds = None
 
         # Set the coordinates
         residue_atom_array.coord = xyz[atom_indices_in_residue]
 
         # Get the chain_iid, chain_id, and transformation_id
-        chain_iid = chain_iids[res_idx]
         chain_id, transformation_id = chain_iid.split("_")
 
         # Set the annotations
@@ -261,16 +292,11 @@ def convert_af3_model_output_to_atom_array(
             "transformation_id", np.full(residue_atom_array.array_length(), transformation_id)
         )
 
-        # Set the residue ID
-        if chain_iid not in chain_iid_residue_counts:
-            chain_iid_residue_counts[chain_iid] = 1
-        elif not is_atom:
-            # Only increment the residue count if we're not dealing with an atomized token (we put all atomized tokens in the same residue, like the PDB)
-            chain_iid_residue_counts[chain_iid] += 1
+        # Everything is full occupancy
+        residue_atom_array.set_annotation("occupancy", np.full(residue_atom_array.array_length(), 1.0))
 
-        residue_atom_array.set_annotation(
-            "res_id", np.full(residue_atom_array.array_length(), chain_iid_residue_counts[chain_iid])
-        )
+        # Set the residue ID
+        residue_atom_array.set_annotation("res_id", np.full(residue_atom_array.array_length(), res_id))
 
         if atom_array is None:
             atom_array = residue_atom_array
@@ -280,13 +306,16 @@ def convert_af3_model_output_to_atom_array(
     return atom_array
 
 
-def filter_residue_atoms(residue_atom_array: struc.AtomArray, chem_type: str) -> struc.AtomArray:
+def filter_residue_atoms(
+    residue_atom_array: struc.AtomArray, chem_type: str, elements: np.ndarray[str]
+) -> struc.AtomArray:
     """
     Filter out unwanted atoms from a residue (e.g.., hydrogens, leaving groups)
 
     Parameters:
         - residue_atom_array (struc.AtomArray): The AtomArray to filter.
         - chem_type (str): Type of the chemical chain.
+        - elements (np.array): Element types (as strings, e.g., "C") for each atom in the residue.
 
     Returns:
         - struc.AtomArray: Filtered AtomArray.
@@ -297,14 +326,33 @@ def filter_residue_atoms(residue_atom_array: struc.AtomArray, chem_type: str) ->
     # ...remove hydrogens and deuteriums
     residue_atom_array = residue_atom_array[(residue_atom_array.element != "H") & (residue_atom_array.element != "D")]
 
-    # ...remove type-specific atoms (e.g., OXT in polypeptides, O3' in RNA or DNA), which leave during inter-residue bond formation
+    # If the arrays match, we return the residue as-is
+    if len(residue_atom_array) == len(elements) and all(elements == residue_atom_array.element):
+        return residue_atom_array
+
+    # ...otherwise, we will try to remove specific atoms until the arrays match
     if (
         chem_type in AA_LIKE_CHEM_TYPES
         or chem_type in POLYPEPTIDE_L_CHEM_TYPES
         or chem_type in POLYPEPTIDE_D_CHEM_TYPES
     ):
-        residue_atom_array = residue_atom_array[residue_atom_array.atom_name != "OXT"]
-    elif chem_type in RNA_LIKE_CHEM_TYPES or chem_type in DNA_LIKE_CHEM_TYPES:
-        residue_atom_array = residue_atom_array[residue_atom_array.atom_name != "O3'"]
+        # ...try removing OXT in non-terminal polypeptides
+        candidate_residue_atom_array = residue_atom_array[residue_atom_array.atom_name != "OXT"]
+        if len(candidate_residue_atom_array) == len(elements) and all(elements == candidate_residue_atom_array.element):
+            return candidate_residue_atom_array
 
-    return residue_atom_array
+    elif chem_type in RNA_LIKE_CHEM_TYPES or chem_type in DNA_LIKE_CHEM_TYPES:
+        # ...try removing OP3 in RNA or DNA
+        candidate_residue_atom_array = residue_atom_array[residue_atom_array.atom_name != "OP3"]
+        if len(candidate_residue_atom_array) == len(elements) and all(elements == candidate_residue_atom_array.element):
+            return candidate_residue_atom_array
+
+    # ...as a last resort, try and match the elements by sliding a window over the residue
+    for start in range(len(residue_atom_array) - len(elements) + 1):
+        current_slice = residue_atom_array[start : start + len(elements)]
+        if all(elements == current_slice.element):
+            return current_slice
+
+    raise ValueError(
+        f"Could not find a matching AtomArray for residue {residue_atom_array.res_name[0]} with elements {elements}"
+    )
