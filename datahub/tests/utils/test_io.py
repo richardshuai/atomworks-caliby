@@ -25,7 +25,7 @@ def test_convert_af3_model_output_to_atom_array(file_path):
     # Convert the model outputs to an AtomArray
     atom_array = convert_af3_model_output_to_atom_array(
         atom_to_token_map=model_outputs["atom_to_token_map"],
-        chain_iids=model_outputs["chain_iids"],
+        pn_unit_iids=model_outputs["chain_iids"],
         decoded_restypes=model_outputs["decoded_restypes"],
         xyz=model_outputs["xyz"],
         elements=model_outputs["elements"],

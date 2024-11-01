@@ -170,6 +170,25 @@ def convert_pn_unit_iids_to_pn_unit_ids(pn_unit_iids: list[str]) -> list[str]:
     return pn_unit_ids
 
 
+def extract_transformation_id_from_pn_unit_iid(pn_unit_id: str) -> str:
+    """
+    Extracts the transformation ID from a pn_unit_iid string.
+
+    Example:
+        >>> extract_transformation_id_from_pn_unit_id("A_1,B_1")
+        '1'
+    """
+    segments = pn_unit_id.split(",")
+    transformation_ids = {segment.split("_")[1] for segment in segments}
+
+    if len(transformation_ids) > 1:
+        raise ValueError(
+            f"Transformation IDs are different; must be the same for all chains within a pn_unit. IDs: {transformation_ids}"
+        )
+
+    return transformation_ids.pop()
+
+
 def masked_mean(
     *,
     mask: torch.Tensor,

@@ -444,7 +444,9 @@ class EncodeAF3TokenLevelFeatures(Transform):
         - `residue_index`: Residue number in the token's original input chain (pre-crop)
         - `token_index`: Token number. Increases monotonically; does not restart at 1 for new
             chains. (Runs from 0 to N_tokens)
-        - `asym_id`: Unique integer for each distinct chain (chain_iid)
+        - `asym_id`: Unique integer for each distinct chain (pn_unit_iid)
+            NOTE: We use `pn_unit_iid` rather than `chain_iid` to be more consistent
+            with handling of multi-residue/multi-chain ligands (especially sugars)
         - `entity_id`: Unique integer for each distinct sequence (chain_entity)
         - `sym_id`: Unique integer within chains of this sequence. E.g. if chains A, B and C
             share a sequence but D does not, their `sym_id`s would be [0, 1, 2, 0].
@@ -476,7 +478,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
             data,
             [
                 "atomize",
-                "chain_iid",
+                "pn_unit_iid",
                 "chain_entity",
                 "res_name",
                 "within_chain_res_idx",
@@ -495,7 +497,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
         # ... (token)
         token_index = np.arange(len(token_starts))
         # ... (chain instance)
-        asym_name, asym_id = np.unique(token_level_array.chain_iid, return_inverse=True)
+        asym_name, asym_id = np.unique(token_level_array.pn_unit_iid, return_inverse=True)
         # ... (chain entity)
         entity_name, entity_id = np.unique(token_level_array.chain_entity, return_inverse=True)
         # ... (within chain entity)

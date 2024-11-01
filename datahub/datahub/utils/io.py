@@ -18,7 +18,7 @@ from cifutils.constants import (
 )
 from cifutils.utils.residue_utils import get_chem_comp_type
 
-from datahub.utils.misc import logger
+from datahub.utils.misc import convert_pn_unit_iids_to_pn_unit_ids, extract_transformation_id_from_pn_unit_iid, logger
 
 
 def open_file(filename: PathLike) -> TextIO:
@@ -183,7 +183,7 @@ def get_sharded_file_path(base_dir: Path, file_hash: str, extension: str, depth:
 
 def convert_af3_model_output_to_atom_array(
     atom_to_token_map: np.ndarray[int],
-    chain_iids: np.ndarray[str],
+    pn_unit_iids: np.ndarray[str],
     decoded_restypes: np.ndarray[str],
     xyz: np.ndarray,
     elements: np.ndarray[int | str],
@@ -195,7 +195,7 @@ def convert_af3_model_output_to_atom_array(
 
     Parameters:
         - atom_to_token_map (np.ndarray): Mapping from atoms to tokens [n_atom]
-        - chain_iids (np.ndarray): Chain instance ID's for each token, shape [n_token]
+        - pn_unit_iids (np.ndarray): PN unit IID's for each token [n_token]
         - decoded_restype (np.ndarray): Decoded residue types for each token [n_token]
         - xyz (np.ndarray): Coordinates of atoms [n_atom, 3]
         - elements (np.ndarray): Element types for each atom [n_atom]
@@ -223,13 +223,13 @@ def convert_af3_model_output_to_atom_array(
             is_atom = len(atom_indices_in_residue) == 1
 
         #  ...compute the residue ID
-        chain_iid = chain_iids[global_res_idx]
-        if chain_iid not in chain_iid_residue_counts:
-            chain_iid_residue_counts[chain_iid] = 1
+        pn_unit_iid = pn_unit_iids[global_res_idx]
+        if pn_unit_iid not in chain_iid_residue_counts:
+            chain_iid_residue_counts[pn_unit_iid] = 1
         elif not is_atom:
             # Only increment the residue count if we're not dealing with an atomized token (we put all atomized tokens in the same residue, like the PDB)
-            chain_iid_residue_counts[chain_iid] += 1
-        res_id = chain_iid_residue_counts[chain_iid]
+            chain_iid_residue_counts[pn_unit_iid] += 1
+        res_id = chain_iid_residue_counts[pn_unit_iid]
 
         if is_atom:
             coord = xyz[atom_indices_in_residue.item()]
@@ -240,7 +240,7 @@ def convert_af3_model_output_to_atom_array(
             def atom_name_exists(atom_name: str) -> bool:
                 return (
                     atom_array[
-                        (atom_array.chain_iid == chain_iid)
+                        (atom_array.pn_unit_iid == pn_unit_iid)
                         & (atom_array.res_id == res_id)
                         & (atom_array.atom_name == atom_name)
                     ].array_length()
@@ -283,11 +283,14 @@ def convert_af3_model_output_to_atom_array(
         residue_atom_array.coord = xyz[atom_indices_in_residue]
 
         # Get the chain_iid, chain_id, and transformation_id
-        chain_id, transformation_id = chain_iid.split("_")
+        pn_unit_id = convert_pn_unit_iids_to_pn_unit_ids([pn_unit_iid])[0]
+        transformation_id = extract_transformation_id_from_pn_unit_iid(pn_unit_id)[1]
 
-        # Set the annotations
-        residue_atom_array.set_annotation("chain_id", np.full(residue_atom_array.array_length(), chain_id))
-        residue_atom_array.set_annotation("chain_iid", np.full(residue_atom_array.array_length(), chain_iid))
+        # Set the annotations (for our purposes, chains and pn_units are the same)
+        residue_atom_array.set_annotation("chain_id", np.full(residue_atom_array.array_length(), pn_unit_id))
+        residue_atom_array.set_annotation("pn_unit_id", np.full(residue_atom_array.array_length(), pn_unit_id))
+        residue_atom_array.set_annotation("chain_iid", np.full(residue_atom_array.array_length(), pn_unit_iid))
+        residue_atom_array.set_annotation("pn_unit_iid", np.full(residue_atom_array.array_length(), pn_unit_iid))
         residue_atom_array.set_annotation(
             "transformation_id", np.full(residue_atom_array.array_length(), transformation_id)
         )
