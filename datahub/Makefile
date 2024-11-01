@@ -26,7 +26,7 @@ format:
 	ruff format .
 	ruff check --fix .
 
-_token_access_error:
+_gitlab_token_error:
 	@echo "==============================================================================="; \
 	echo "Error: Environment variables GITLAB_USER and GITLAB_TOKEN must be set."; \
 	echo ""; \
@@ -37,6 +37,24 @@ _token_access_error:
 	echo "To expose these variables, you can use:"; \
 	echo "export GITLAB_USER=<gitlab-username>"; \
 	echo "export GITLAB_TOKEN=<gitlab-token>"; \
+	echo ""; \
+	echo "It is recommended that you set these tokens in your .bashrc or .zshrc file for future use."; \
+	echo "===============================================================================";
+	exit 1;
+
+_github_token_error:
+	@echo "==============================================================================="; \
+	echo "Error: Environment variables GITHUB_USER and GITHUB_TOKEN must be set."; \
+	echo ""; \
+	echo "You need to set the environment variables GITHUB_USER and GITHUB_TOKEN."; \
+	echo "You can create a personal access token on GitHub at:"; \
+	echo "   https://github.com/settings/tokens"; \
+	echo ""; \
+	echo "For more info see: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic"; \
+	echo ""; \
+	echo "To expose these variables, you can use:"; \
+	echo "export GITHUB_USER=<github-username>"; \
+	echo "export GITHUB_TOKEN=<github-token>"; \
 	echo ""; \
 	echo "It is recommended that you set these tokens in your .bashrc or .zshrc file for future use."; \
 	echo "===============================================================================";
@@ -53,9 +71,15 @@ _check_conda:
 _check_tokens:
 	@echo "... checking if GITLAB_USER and GITLAB_TOKEN are set"
 	@if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
-		$(MAKE) _token_access_error; \
+		$(MAKE) _gitlab_token_error; \
 	fi
 	@echo "... found GITLAB_USER ($(GITLAB_USER)) and GITLAB_TOKEN."
+
+	@echo "... checking if GITHUB_USER and GITHUB_TOKEN are set"
+	@if [ -z "$(GITHUB_USER)" ] || [ -z "$(GITHUB_TOKEN)" ]; then \
+		$(MAKE) _github_token_error; \
+	fi
+	@echo "... found GITHUB_USER ($(GITHUB_USER)) and GITHUB_TOKEN."
 
 _check_apptainer:
 	@echo "... checking if apptainer is installed"

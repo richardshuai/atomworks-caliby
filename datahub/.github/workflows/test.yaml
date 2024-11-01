@@ -1,0 +1,31 @@
+name: test
+
+on:
+  workflow_run:
+    workflows: [lint]
+    types: [completed]
+
+jobs:
+  test:
+    name: pytest (run tests)
+    runs-on: [digs]
+    # ... only run on non-draft PRs to `main` to avoid unnecessary CI runs
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      !github.event.workflow_run.pull_requests[0].draft &&
+      github.event.workflow_run.pull_requests[0].base.ref == 'main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run unit tests (fast tests)
+        timeout-minutes: 30
+        run: |
+          srun -p cpu --cpus-per-task=1 --mem=32G bash ./.github/ci/run_fast_tests.sh
+      - name: Run integration tests (slow tests)
+        timeout-minutes: 60
+        run: |
+          srun -p cpu --cpus-per-task=1 --mem=32G bash ./.github/ci/run_slow_tests.sh
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml

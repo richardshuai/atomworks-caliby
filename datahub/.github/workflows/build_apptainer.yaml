@@ -1,0 +1,28 @@
+name: build-apptainer
+
+on:
+  workflow_dispatch:  # enable manual triggering
+  pull_request:
+    branches: [main]
+    types: [ready_for_review, synchronize]
+    paths:
+      - 'environment.yaml'
+      - 'apptainer.spec'
+
+jobs:
+  build-apptainer:
+    runs-on: [digs]
+    timeout-minutes: 60
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Apptainer image
+        env:
+          GITLAB_USER: ${{ secrets.GITLAB_AI_GROUP_USER_FOR_GITHUB }}
+          GITLAB_TOKEN: ${{ secrets.GITLAB_AI_GROUP_INSTALL_TOKEN_FOR_GITHUB }}
+          GITHUB_USER: ${{ secrets.IPD_BOT_USER }}
+          GITHUB_TOKEN: ${{ secrets.IPD_BOT_ACCESS_TOKEN }}
+        run: |
+          srun -p cpu --cpus-per-task=1 --mem=32G \
+            --export=ALL,GITLAB_USER="${GITLAB_USER}",GITLAB_TOKEN="${GITLAB_TOKEN}",GITHUB_USER="${GITHUB_USER}",GITHUB_TOKEN="${GITHUB_TOKEN}" \
+            bash ./.github/ci/build_apptainer.sh

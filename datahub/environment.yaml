@@ -1,4 +1,3 @@
-# TODO: Update to include torch, etc.
 name: datahub-dev  # development environment for datahub
 channels:
   - nvidia
@@ -36,7 +35,7 @@ dependencies:
 
     # Local packages
     - git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git@v1.0.1
-    - git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/cifutils.git@v1.0.7
+    - git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/baker-laboratory/cifutils.git@v1.0.1
 
     # Formatting & linting
     - ruff==0.6.2  # python linter & formatter
