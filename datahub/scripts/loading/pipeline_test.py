@@ -137,6 +137,7 @@ def _get_af3_dataset_from_path(dataset_path: Path) -> StructuralDatasetWrapper:
         transform=build_af3_transform_pipeline(
             protein_msa_dirs=PROTEIN_MSA_DIRS,
             rna_msa_dirs=RNA_MSA_DIRS,
+            is_inference=False,
         ),
         save_failed_examples_to_dir=f"/net/scratch/{_USER}/failures/pipeline_test/af3",
     )

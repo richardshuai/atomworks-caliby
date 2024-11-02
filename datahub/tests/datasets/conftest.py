@@ -11,12 +11,12 @@ from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
 from tests.conftest import (
+    AF3_VALIDATION_DF,
     CIF_PARSER,
     INTERFACES_DF,
     PN_UNITS_DF,
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,
-    VALIDATION_DF,
 )
 
 SHARED_TEST_FILTERS = [
@@ -72,6 +72,7 @@ AF3_PN_UNITS_DATASET = StructuralDatasetWrapper(
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
+        is_inference=False,
         n_recycles=5,
         crop_size=256,
         crop_contiguous_probability=1 / 3,
@@ -118,6 +119,7 @@ AF3_INTERFACES_DATASET = StructuralDatasetWrapper(
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
+        is_inference=False,
         n_recycles=5,
         crop_size=256,
         crop_spatial_probability=1.0,
@@ -155,6 +157,7 @@ AF3_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
         protein_msa_dirs=[{"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}],
         rna_msa_dirs=[],
         diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,
+        is_inference=False,
     ),
     save_failed_examples_to_dir=None,
 )
@@ -193,7 +196,7 @@ RF2AA_VALIDATION_DATASET = StructuralDatasetWrapper(
     ),
     dataset=PandasDataset(
         name="validation",
-        data=VALIDATION_DF,
+        data=AF3_VALIDATION_DF,
         id_column="example_id",
         columns_to_load=None,  # Load all columns
     ),
@@ -207,6 +210,7 @@ AF3_VALIDATION_DATASET = StructuralDatasetWrapper(
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
+        is_inference=True,
         n_recycles=5,
         crop_size=256,
         crop_spatial_probability=0.0,  # NOTE: Zero probability for cropping; we don't crop during validation
@@ -215,7 +219,7 @@ AF3_VALIDATION_DATASET = StructuralDatasetWrapper(
     dataset=PandasDataset(
         name="validation",
         id_column="example_id",
-        data=VALIDATION_DF,
+        data=AF3_VALIDATION_DF,
         columns_to_load=None,  # Load all columns
     ),
     save_failed_examples_to_dir=None,

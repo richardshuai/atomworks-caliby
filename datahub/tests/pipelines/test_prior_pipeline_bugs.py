@@ -120,6 +120,7 @@ PN_UNITS_DATASET_AF3 = StructuralDatasetWrapper(
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
+        is_inference=False,
     ),
     dataset=PandasDataset(
         name="pn_units",
@@ -138,6 +139,7 @@ INTERFACES_DATASET_AF3 = StructuralDatasetWrapper(
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
+        is_inference=False,
     ),
     dataset=PandasDataset(
         name="interfaces",

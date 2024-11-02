@@ -17,7 +17,9 @@ PN_UNITS_DF = pd.read_parquet(f"{TEST_DATA_DIR}/pn_units_df.parquet")
 INTERFACES_DF = pd.read_parquet(f"{TEST_DATA_DIR}/interfaces_df.parquet")
 
 # The validation dataset is small, so we don't need to use a subset
-VALIDATION_DF = pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/entry_level_val_df.parquet")
+AF3_VALIDATION_DF = pd.read_parquet(
+    "/projects/ml/RF2_allatom/datasets/af3_splits/2024_10_18/entry_level_val_df.parquet"
+)
 
 PROTEIN_MSA_DIRS = [
     {

@@ -654,7 +654,6 @@ class RandomRoute(Transform):
         """
         assert_that(len(transforms)).is_equal_to(len(probs))
         assert_that(np.isclose(np.sum(probs), 1)).is_true()
-        assert_that(np.all(np.array(probs) >= 0)).is_true()
         assert_that(all(isinstance(t, Transform) for t in transforms)).is_true()
 
         self.transforms = transforms
@@ -669,6 +668,55 @@ class RandomRoute(Transform):
 
         # Apply the transform
         return self.transforms[idx](data)
+
+
+class ConditionalRoute(Transform):
+    """
+    Route conditionally between various transforms.
+
+    This Transform is useful for routing between different transforms based on a condition, e.g. skipping transforms during inference.
+    """
+
+    def __init__(self, condition_func: Callable[[dict[str, Any]], Any], transform_map: dict[Any, Transform]):
+        """
+        Initialize the ConditionalRoute transformation.
+
+        Args:
+            condition_func (Callable[[dict[str, Any]], Any]): A function that takes the data dictionary and returns a condition value.
+            transform_map (dict[Any, Transform]): A dictionary mapping condition values to their corresponding transforms.
+
+        Example:
+            ```python
+            ConditionalRoute(
+                condition_func=lambda data: data.get("mode", 0),
+                transform_map={
+                    "train": TrainingTransform(),
+                    "inference": Identity(),
+                    # Defaults to Identity if no match; "inference" included for clarity
+                },
+            )
+            ```
+        """
+        self.condition_func = condition_func
+        self.transform_map = transform_map
+
+    def check_input(self, data: dict[str, Any]) -> None:
+        # No specific input validation required for routing
+        pass
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Apply the appropriate transformation based on the condition value.
+
+        Args:
+            data (dict[str, Any]): The input data dictionary.
+
+        Returns:
+            dict[str, Any]: The transformed data dictionary.
+        """
+        condition_value = self.condition_func(data)
+        transform = self.transform_map.get(condition_value, Identity())
+        return transform(data)
 
 
 class ConvertToTorch(Transform):

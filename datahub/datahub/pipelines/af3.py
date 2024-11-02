@@ -18,7 +18,7 @@ from datahub.transforms.atom_array import (
     CopyAnnotation,
 )
 from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
-from datahub.transforms.base import Compose, ConvertToTorch, RandomRoute, SubsetToKeys
+from datahub.transforms.base import AddData, Compose, ConditionalRoute, ConvertToTorch, RandomRoute, SubsetToKeys
 from datahub.transforms.bonds import GetAF3TokenBondFeatures
 from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
@@ -51,6 +51,8 @@ from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeAF
 
 def build_af3_transform_pipeline(
     *,
+    # Training or inference (required)
+    is_inference: bool,  # If True, we skip cropping, etc.
     # MSA dirs
     protein_msa_dirs: list[dict],
     rna_msa_dirs: list[dict],
@@ -129,6 +131,7 @@ def build_af3_transform_pipeline(
     af3_sequence_encoding = AF3SequenceEncoding()
 
     transforms = [
+        AddData(is_inference=is_inference),
         RemoveHydrogens(),
         FilterToSpecifiedPNUnits(
             extra_info_key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"
@@ -151,34 +154,34 @@ def build_af3_transform_pipeline(
     ]
 
     # Crop
-    if crop_contiguous_probability > 0 or crop_spatial_probability > 0:
-        contiguous_crop_transform = CropContiguousLikeAF3(
-            crop_size=crop_size,
-            keep_uncropped_atom_array=True,
-            max_atoms_in_crop=max_atoms_in_crop,
-        )
-        spatial_crop_transform = CropSpatialLikeAF3(
-            crop_size=crop_size,
-            crop_center_cutoff_distance=crop_center_cutoff_distance,
-            keep_uncropped_atom_array=True,
-            max_atoms_in_crop=max_atoms_in_crop,
-        )
 
-        if crop_contiguous_probability > 0 and crop_spatial_probability > 0:
-            transforms += [
-                # ...crop around our query pn_unit(s) early, since we don't need the full structure moving forward
-                RandomRoute(
-                    transforms=[
-                        contiguous_crop_transform,
-                        spatial_crop_transform,
-                    ],
-                    probs=[crop_contiguous_probability, crop_spatial_probability],
-                ),
-            ]
-        elif crop_contiguous_probability > 0:
-            transforms.append(contiguous_crop_transform)
-        elif crop_spatial_probability > 0:
-            transforms.append(spatial_crop_transform)
+    # ...crop around our query pn_unit(s) early, since we don't need the full structure moving forward
+    cropping_transform = RandomRoute(
+        transforms=[
+            CropContiguousLikeAF3(
+                crop_size=crop_size,
+                keep_uncropped_atom_array=True,
+                max_atoms_in_crop=max_atoms_in_crop,
+            ),
+            CropSpatialLikeAF3(
+                crop_size=crop_size,
+                crop_center_cutoff_distance=crop_center_cutoff_distance,
+                keep_uncropped_atom_array=True,
+                max_atoms_in_crop=max_atoms_in_crop,
+            ),
+        ],
+        probs=[crop_contiguous_probability, crop_spatial_probability],
+    )
+
+    transforms.append(
+        ConditionalRoute(
+            condition_func=lambda data: data["is_inference"],
+            transform_map={
+                True: cropping_transform,
+                # Default to Identity if False
+            },
+        )
+    )
 
     transforms += [
         AddGlobalTokenIdAnnotation(),  # required for reference molecule features and TokenToAtomMap
