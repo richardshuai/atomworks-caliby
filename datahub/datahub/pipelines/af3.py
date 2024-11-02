@@ -131,7 +131,7 @@ def build_af3_transform_pipeline(
     af3_sequence_encoding = AF3SequenceEncoding()
 
     transforms = [
-        AddData(is_inference=is_inference),
+        AddData({"is_inference": is_inference}),
         RemoveHydrogens(),
         FilterToSpecifiedPNUnits(
             extra_info_key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"
