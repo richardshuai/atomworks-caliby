@@ -653,7 +653,7 @@ class RandomRoute(Transform):
             AssertionError: If inputs are invalid (e.g. probabilities don't add up, are negative, etc.)
         """
         assert_that(len(transforms)).is_equal_to(len(probs))
-        assert_that(np.isclose(np.sum(probs), 1)).is_true()
+        assert_that(np.isclose(np.sum(probs), 1) or np.isclose(np.sum(probs), 0)).is_true()
         assert_that(all(isinstance(t, Transform) for t in transforms)).is_true()
 
         self.transforms = transforms
