@@ -931,6 +931,32 @@ def generate_automorphisms_from_atom_array_with_networkx(
 
 
 def find_automorphisms_with_networkx(atom_array: AtomArray, max_automorphs: int = 1000) -> np.ndarray:
+    """
+    Finds automorphisms in an AtomArray using NetworkX, returning indices of atoms that can be permuted.
+
+    Args:
+        atom_array (AtomArray): The input AtomArray object. Must have the following annotations:
+            `pn_unit_iid`, `is_polymer`, `res_id`, `res_name`, `atom_name`, and `element`.
+        max_automorphs (int, optional): The maximum number of automorphisms to generate. Default is 1000.
+
+    Returns:
+        np.ndarray: A Python list of arrays, each containing indices of atoms that can be permuted within the global
+                    frame of the input `atom_array`.
+
+    Example:
+        >>> automorphisms = find_automorphisms_with_networkx(atom_array)
+        # Output:
+        # [
+        #     array([  # E.g., corresponding to the first residue
+        #         [0, 1, 2, 3, 4, 5],  # The first row is the identity permutation
+        #         [0, 1, 2, 3, 5, 4]   # Atoms with global indices 4 and 5 are swappable
+        #     ]),
+        #     array([  # E.g., corresponding to the second residue
+        #         [6, 7, 8, 9, 10, 11],  # The first row is the identity permutation. Indices are global (within the AtomArray).
+        #     ])
+        # ]
+        # Each sub-array represents indices of atoms that can be permuted within the global frame.
+    """
     all_automorphs = []
 
     # ...iterate through pn_unit_iids
@@ -996,10 +1022,12 @@ class FindAutomorphismsWithNetworkX(Transform):
     def check_input(self, data: dict[str, Any]):
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
-        check_atom_array_annotation(data, required=["molecule_iid", "atomize"])
+        check_atom_array_annotation(
+            data, required=["pn_unit_iid", "atomize", "is_polymer", "res_id", "res_name", "atom_name", "element"]
+        )
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array = data["atom_array"]
-        automorphs = find_automorphisms_with_networkx(atom_array, max_automorphs=1000)
-        data["automorphs"] = automorphs
+        automorphisms = find_automorphisms_with_networkx(atom_array=atom_array, max_automorphs=1000)
+        data["automorphisms"] = automorphisms
         return data

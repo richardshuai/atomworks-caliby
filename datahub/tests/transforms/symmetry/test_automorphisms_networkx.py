@@ -5,6 +5,7 @@ import pytest
 from datahub.encoding_definitions import AF3_TOKENS
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.symmetry import (
+    FindAutomorphismsWithNetworkX,
     find_automorphisms_with_networkx,
     generate_automorphisms_from_atom_array_with_networkx,
 )
@@ -88,7 +89,8 @@ def test_find_automorphisms_within_entire_structure():
     )
     output = atomize_transform(inputs)
 
-    automorphisms = find_automorphisms_with_networkx(output["atom_array"])
+    find_automorphisms_transform = FindAutomorphismsWithNetworkX()
+    automorphisms = find_automorphisms_transform(output)["automorphisms"]
 
     atom_array = output["atom_array"]
     for automorphism in automorphisms:
