@@ -862,7 +862,7 @@ def generate_automorphisms_from_atom_array_with_networkx(
     max_automorphs: int = 1000,
     node_features: str | list = "element",
     ignore_bond_type: bool = True,
-    hash_key: Hashable = None,
+    hash_key: Hashable = None,  # noqa
 ) -> np.ndarray:
     """Generate automorphisms of a molecular graph using NetworkX.
 
@@ -916,6 +916,10 @@ def generate_automorphisms_from_atom_array_with_networkx(
     # List to store permutations; the first row is the identity permutation
     identity_permutation = list(range(len(atom_array)))
     permutations = [identity_permutation]
+
+    if len(atom_array) == 1:
+        # If there is only one atom, the identity permutation is the only automorphism (e.g., for metal ions)
+        return np.array(permutations)
 
     for i, mapping in enumerate(automorphism_generator):
         # Early stopping if the number of automorphisms exceeds the maximum
@@ -1027,7 +1031,6 @@ class FindAutomorphismsWithNetworkX(Transform):
         )
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        atom_array = data["atom_array"]
-        automorphisms = find_automorphisms_with_networkx(atom_array=atom_array, max_automorphs=1000)
+        automorphisms = find_automorphisms_with_networkx(atom_array=data["atom_array"], max_automorphs=1000)
         data["automorphisms"] = automorphisms
         return data

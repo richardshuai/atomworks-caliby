@@ -76,12 +76,16 @@ def array_in_list(array: np.ndarray, list_of_arrays: list[np.ndarray] | np.ndarr
     return any(np.array_equal(array, item) for item in list_of_arrays)
 
 
-def test_find_automorphisms_within_entire_structure():
+TEST_PDB_IDS = ["4js1", "6gej", "6wtf"]
+
+
+@pytest.mark.parametrize("pdb_id", TEST_PDB_IDS)
+def test_find_automorphisms_within_entire_structure(pdb_id: str):
     """
     Test the find_automorphisms_with_networkx function on an entire structure.
     Important to ensure that atoms are indexed correctly.
     """
-    inputs = cached_parse("4js1", keep_hydrogens=False)  # Example with covalent modifications, small molecules
+    inputs = cached_parse(pdb_id, keep_hydrogens=False)  # Example with covalent modifications, small molecules
     atomize_transform = AtomizeByCCDName(
         atomize_by_default=True,
         res_names_to_ignore=AF3_TOKENS,
@@ -132,4 +136,5 @@ def benchmark_find_automorphisms_with_networkx(benchmark):
 
 
 if __name__ == "__main__":
-    pytest.main(["-v", "-x", __file__])
+    # pytest.main(["-v", "-x", __file__])
+    test_find_automorphisms_within_entire_structure("6gej")

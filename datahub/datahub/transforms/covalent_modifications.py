@@ -71,7 +71,7 @@ def flag_and_reassign_covalent_modifications(atom_array: AtomArray) -> AtomArray
         # Mark the non-polymer residue for atomization (now includes all atoms in the bonded polymer residue)
         atom_array.atomize[(atom_array.pn_unit_iid == non_polymer_atom.pn_unit_iid)] = True
 
-        return atom_array
+    return atom_array
 
 
 class FlagAndReassignCovalentModifications(Transform):

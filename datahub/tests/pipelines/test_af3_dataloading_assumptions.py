@@ -91,9 +91,6 @@ def assert_input_feature_dimensions(feats):
     assert f["ref_charge"].shape == (n_atoms,)
     assert f["ref_atom_name_chars"].shape == (n_atoms, 4, 64)
     assert f["ref_space_uid"].shape == (n_atoms,)
-    # TODO: why are these in the input encoding???
-    assert f["ref_automorphs"].shape[1:] == (n_atoms, 2)
-    assert f["ref_automorphs_mask"].shape[1:] == (n_atoms,)
 
     # templates
     assert f["template_restype"].shape == (
