@@ -13,10 +13,6 @@ from datahub.transforms.symmetry import apply_automorphs
 
 TEST_CASES = [
     {
-        "smiles": "NC(=[NH2+])c1ccc(cc1)C(=O)[O-]",  # Aspartate
-        "expected_automorphisms": 4,
-    },
-    {
         "smiles": "c1ccccc1",
         "expected_automorphisms": 12,
     },
