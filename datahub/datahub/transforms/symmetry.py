@@ -898,6 +898,12 @@ def generate_automorphisms_from_atom_array_with_networkx(
         # ...set all bond types to None (but preserve the edge existence)
         nx.set_edge_attributes(G, None, "bond_type")
 
+    # ...check if we're missing any atoms (e.g., disconnected ions within Heme groups)
+    if len(G.nodes) != len(atom_array):
+        for idx in range(len(atom_array)):
+            if idx not in G.nodes:
+                G.add_node(idx)
+
     # node_features must be a list; convert to list if it is a string
     if isinstance(node_features, str):
         node_features = [node_features]
@@ -917,10 +923,6 @@ def generate_automorphisms_from_atom_array_with_networkx(
     identity_permutation = list(range(len(atom_array)))
     permutations = [identity_permutation]
 
-    if len(atom_array) == 1:
-        # If there is only one atom, the identity permutation is the only automorphism (e.g., for metal ions)
-        return np.array(permutations)
-
     for i, mapping in enumerate(automorphism_generator):
         # Early stopping if the number of automorphisms exceeds the maximum
         if i >= max_automorphs:
@@ -928,6 +930,7 @@ def generate_automorphisms_from_atom_array_with_networkx(
 
         # ...convert the mapping dictionary to a permutation list
         permutation = [mapping[i] for i in identity_permutation]
+
         if permutation != identity_permutation:  # Skip the identity permutation
             permutations.append(permutation)
 

@@ -136,5 +136,4 @@ def benchmark_find_automorphisms_with_networkx(benchmark):
 
 
 if __name__ == "__main__":
-    # pytest.main(["-v", "-x", __file__])
-    test_find_automorphisms_within_entire_structure("6gej")
+    pytest.main(["-v", "-x", __file__])
