@@ -46,6 +46,7 @@ from datahub.transforms.msa.msa import (
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
 )
+from datahub.transforms.symmetry import FindAutomorphismsWithNetworkX
 from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeAF3, OneHotTemplateRestype
 
 
@@ -189,6 +190,7 @@ def build_af3_transform_pipeline(
         GetAF3ReferenceMoleculeFeatures(
             conformer_generation_timeout=conformer_generation_timeout,
         ),
+        FindAutomorphismsWithNetworkX(),  # Adds the  "automorphisms" key to the data dictionary
         ComputeAtomToTokenMap(),
         AddRFTemplates(
             max_n_template=n_template,
@@ -247,7 +249,9 @@ def build_af3_transform_pipeline(
         CenterRandomAugmentation(batch_size=diffusion_batch_size),
         SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),
         # ... remove all non-feature keys (to make compatible wit generic batch_collate, which only allows tensors, numpy arrays, str, etc.)
-        SubsetToKeys(["example_id", "feats", "t", "noise", "ground_truth", "coord_atom_lvl_to_be_noised"]),
+        SubsetToKeys(
+            ["example_id", "feats", "t", "noise", "ground_truth", "coord_atom_lvl_to_be_noised", "automorphisms"]
+        ),
     ]
 
     # ... compose final pipeline
