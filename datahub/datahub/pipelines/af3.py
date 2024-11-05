@@ -69,7 +69,7 @@ def build_af3_transform_pipeline(
     # Conformer generation params
     conformer_generation_timeout: float = 2.0,  # seconds
     # Template params
-    n_template: int = 5,
+    n_template: int = 4,
     pick_top_templates: bool = False,
     template_max_seq_similarity: float = 60.0,
     template_min_seq_similarity: float = 10.0,
@@ -177,7 +177,7 @@ def build_af3_transform_pipeline(
         ConditionalRoute(
             condition_func=lambda data: data["is_inference"],
             transform_map={
-                True: cropping_transform,
+                False: cropping_transform,
                 # Default to Identity if False
             },
         )
