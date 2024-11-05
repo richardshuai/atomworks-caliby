@@ -165,9 +165,3 @@ def test_vs_openbabel_from_ccd(res_name):
             assert rdauto in obautos, f"RDKit automorphism {rdauto} not found in OpenBabel automorphisms."
         for obauto in obautos:
             assert obauto in rdautos, f"OpenBabel automorphism {obauto} not found in RDKit automorphisms."
-
-
-# Run the tests with pytest
-if __name__ == "__main__":
-    # pytest.main()
-    test_find_automorphisms(TEST_CASES[0])

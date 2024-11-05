@@ -169,8 +169,3 @@ def test_vs_legacy_code_from_ccd(res_name):
             assert torch.allclose(mask_sm_legacy, mask_sm_new)
             assert torch.allclose(xyz_sm_new[0], xyz_sm), "First automorph is not the identity"
             assert torch.allclose(mask_sm_new[0], mask_sm), "First automorph is not the identity"
-
-
-# Run the tests with pytest
-if __name__ == "__main__":
-    pytest.main()
