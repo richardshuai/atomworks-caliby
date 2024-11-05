@@ -17,8 +17,8 @@ from datahub.transforms.base import Transform
 
 def flag_and_reassign_covalent_modifications(atom_array: AtomArray) -> AtomArray:
     """
-    Mark covalent modifications for atomization and reassign the corresponding 
-    PN unit annotations. 
+    Mark covalent modifications for atomization and reassign the corresponding
+    PN unit annotations.
 
     Args:
         atom_array (AtomArray): Current `AtomArray` within the Transform pipeline

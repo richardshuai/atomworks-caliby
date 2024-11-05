@@ -552,7 +552,9 @@ def get_chiral_centers(mol: Mol) -> list[int]:
     return tetrahedral_chiral_centers
 
 
-def find_automorphisms(mol: Chem.Mol, max_automorphs: int = 1000, timeout: float | None = None) -> np.ndarray:
+def find_automorphisms_with_rdkit(
+    mol: Chem.Mol, max_automorphs: int = 1000, timeout: float | None = None
+) -> np.ndarray:
     """
     Find automorphisms of a given RDKit molecule.
 

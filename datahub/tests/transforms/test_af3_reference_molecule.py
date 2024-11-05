@@ -10,11 +10,11 @@ from datahub.transforms.af3_reference_molecule import (
     get_af3_reference_molecule_features,
 )
 from datahub.transforms.atom_array import add_global_token_id_annotation
-from datahub.transforms.rdkit_utils import atom_array_to_rdkit, find_automorphisms
+from datahub.transforms.rdkit_utils import atom_array_to_rdkit, find_automorphisms_with_rdkit
 from datahub.transforms.symmetry import apply_automorphs
 
 
-def test_contrieved_tyr():
+def test_contrived_tyr():
     # Create general residue
     orig = struc.info.residue("TYR")
     orig = orig[orig.atom_name != "OXT"]
@@ -23,7 +23,7 @@ def test_contrieved_tyr():
     orig = add_global_token_id_annotation(orig)
     # Create reference molecule
     conformer = struc.info.residue("TYR")
-    automorphs = find_automorphisms(atom_array_to_rdkit(conformer, infer_hydrogens=False))
+    automorphs = find_automorphisms_with_rdkit(atom_array_to_rdkit(conformer, infer_hydrogens=False))
 
     # Map reference molecule to residue
     ref_pos, ref_mask, ref_automorphs = _map_reference_conformer_to_residue(
@@ -136,6 +136,16 @@ def test_get_af3_reference_molecule_features_res(res_name):
             len(features["ref_automorphs"]) == 1
         ), f"Expected 1 conformer for {res_name}, but got {len(features['ref_automorphs'])}"
     assert features["ref_pos"].shape == (n_atom, 3)
+
+    # Check if we can compute features WITHOUT generating RDKit automorphisms (smoke test)
+    features_no_automorphs = get_af3_reference_molecule_features(
+        atom_array, should_generate_automorphisms_with_rdkit=False
+    )
+    assert "ref_pos" in features_no_automorphs
+    assert "ref_mask" in features_no_automorphs
+    assert "ref_element" in features_no_automorphs
+    assert "ref_charge" in features_no_automorphs
+    assert "ref_atom_name_chars" in features_no_automorphs
 
 
 def test_get_af3_reference_molecule_features_chain():

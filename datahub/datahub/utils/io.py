@@ -20,6 +20,65 @@ def open_file(filename: PathLike) -> TextIO:
     return filename.open("r")
 
 
+def cache_based_on_subset_of_args(*cache_keys, maxsize=None):
+    """
+    Decorator to cache function results based on a subset of its arguments.
+    Most helpful when some arguments may be unhashable types (e.g., dictionaries, AtomArray)
+
+    If the value of any of the cache keys is None, the function is executed and the result is not cached.
+
+    Args:
+        *cache_keys: The names of the arguments to use as the cache key.
+        maxsize (int, optional): The maximum number of entries to store in the cache.
+            If None, the cache size is unlimited.
+
+    Returns:
+        The cached result of the function if available, otherwise computes the result,
+        caches it, and returns it.
+
+    Example:
+        @cache_based_on_subset_of_args('arg1', maxsize=2)
+        def function(arg1, arg2):
+            return arg1 + arg2
+
+        result1 = function(1, 2)  # Caches with key 1
+        result2 = function(1, 3)  # Retrieves from cache
+
+    """
+
+    def decorator(func):
+        cache_based_on_subset_of_args.cache_ = {}
+        cache_order = []  # To track the order of keys for eviction
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # Extract the cache key values from args and kwargs
+            key_values = tuple(kwargs[key] if key in kwargs else args[cache_keys.index(key)] for key in cache_keys)
+
+            # Check if any of the key values are None
+            if None in key_values:
+                # Bypass caching if any key value is None
+                return func(*args, **kwargs)
+
+            # Use the key values to form a unique cache key
+            cache_key = tuple(key_values)
+
+            if cache_key not in cache_based_on_subset_of_args.cache_:
+                # Evict the oldest entry if the cache is full
+                if maxsize is not None and len(cache_based_on_subset_of_args.cache_) >= maxsize:
+                    oldest_key = cache_order.pop(0)
+                    del cache_based_on_subset_of_args.cache_[oldest_key]
+
+                # Cache the result
+                cache_based_on_subset_of_args.cache_[cache_key] = func(*args, **kwargs)
+                cache_order.append(cache_key)
+            return cache_based_on_subset_of_args.cache_[cache_key]
+
+        return wrapper
+
+    return decorator
+
+
 def cache_to_disk_as_pickle(cache_dir: PathLike | None = None, use_gzip: bool = True, directory_depth: int = 2):
     """
     A decorator to cache the results of a function to disk as a pickle file.

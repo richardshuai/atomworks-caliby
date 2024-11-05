@@ -6,12 +6,16 @@ from openbabel import openbabel
 import datahub.transforms.openbabel_utils as obutils
 from datahub.transforms.rdkit_utils import (
     atom_array_to_rdkit,
-    find_automorphisms,
+    find_automorphisms_with_rdkit,
     smiles_to_rdkit,
 )
 from datahub.transforms.symmetry import apply_automorphs
 
 TEST_CASES = [
+    {
+        "smiles": "NC(=[NH2+])c1ccc(cc1)C(=O)[O-]",  # Aspartate
+        "expected_automorphisms": 4,
+    },
     {
         "smiles": "c1ccccc1",
         "expected_automorphisms": 12,
@@ -37,7 +41,7 @@ def test_find_automorphisms(case):
     smiles = case["smiles"]
     expected = case["expected_automorphisms"]
     mol = smiles_to_rdkit(smiles)
-    automorphisms = find_automorphisms(mol)
+    automorphisms = find_automorphisms_with_rdkit(mol)
     assert len(automorphisms) == expected, f"Failed for SMILES: {smiles}"
 
 
@@ -45,7 +49,7 @@ def test_find_automorphisms(case):
 def test_create_automorph_permutations(case):
     smiles = case["smiles"]
     mol = smiles_to_rdkit(smiles)
-    automorphisms = torch.as_tensor(find_automorphisms(mol))
+    automorphisms = torch.as_tensor(find_automorphisms_with_rdkit(mol))
     assert automorphisms.shape == (len(automorphisms), mol.GetNumAtoms(), 2)
 
     # Coord-like data (1 extra dim)
@@ -70,7 +74,7 @@ def test_create_automorph_permutations(case):
 @pytest.mark.parametrize("case", TEST_CASES)
 def manual_test_create_automorph(case):
     mol = smiles_to_rdkit("c1c(O)cccc1(O)")
-    automorphisms = torch.as_tensor(find_automorphisms(mol))
+    automorphisms = torch.as_tensor(find_automorphisms_with_rdkit(mol))
 
     assert torch.equal(
         automorphisms,
@@ -133,7 +137,7 @@ def test_vs_openbabel(case):
     mol = smiles_to_rdkit(smiles)
     obmol = obutils.smiles_to_openbabel(smiles)
 
-    rdautos = find_automorphisms(mol)
+    rdautos = find_automorphisms_with_rdkit(mol)
     obautos = obutils.find_automorphisms(obmol)
 
     for rdauto in rdautos:
@@ -154,7 +158,7 @@ def test_vs_openbabel_from_ccd(res_name):
         )  # infer hydrogens removes explicit hydrogens
         mol = atom_array_to_rdkit(atom_array, infer_hydrogens=True)
 
-        rdautos = find_automorphisms(mol)
+        rdautos = find_automorphisms_with_rdkit(mol)
         obautos = obutils.find_automorphisms(obmol)
 
         for rdauto in rdautos:
@@ -165,4 +169,5 @@ def test_vs_openbabel_from_ccd(res_name):
 
 # Run the tests with pytest
 if __name__ == "__main__":
-    pytest.main()
+    # pytest.main()
+    test_find_automorphisms(TEST_CASES[0])
