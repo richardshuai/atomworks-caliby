@@ -856,7 +856,7 @@ class CreateSymmetryCopyAxisLikeRF2AA(Transform):
         return data
 
 
-@cache_based_on_subset_of_args("hash_key")
+@cache_based_on_subset_of_args(cache_keys=["hash_key"])
 def generate_automorphisms_from_atom_array_with_networkx(
     atom_array: AtomArray,
     max_automorphs: int = 1000,

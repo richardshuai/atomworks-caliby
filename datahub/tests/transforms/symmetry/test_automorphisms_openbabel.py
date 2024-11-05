@@ -68,7 +68,7 @@ def test_create_automorph_permutations(case):
 
 
 @pytest.mark.parametrize("case", TEST_CASES)
-def manual_test_create_automorph(case):
+def test_manual_create_automorph(case):
     mol = smiles_to_openbabel("c1c(O)cccc1(O)")
     automorphisms = torch.as_tensor(find_automorphisms(mol))
 
