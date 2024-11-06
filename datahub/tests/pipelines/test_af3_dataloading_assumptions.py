@@ -69,8 +69,8 @@ def assert_input_feature_dimensions(feats):
     n_types_of_tokens = f["restype"].shape[1]
     n_atoms = f["atom_to_token_map"].shape[0]
     n_templates = f["template_restype"].shape[0]
-    n_sequences = f["msa"].shape[1]
-    n_recycles = f["msa"].shape[0]
+    n_sequences = f["msa_stack"].shape[1]
+    n_recycles = f["msa_stack"].shape[0]
 
     assert f["residue_index"].shape == (n_token,)
     assert f["token_index"].shape == (n_token,)
@@ -112,8 +112,8 @@ def assert_input_feature_dimensions(feats):
     # bond feats
     assert f["token_bonds"].shape == (n_token, n_token)
 
-    # msa
-    assert f["msa"].shape == (n_recycles, n_sequences, n_token, 32 + 2)
+    # msa stack
+    assert f["msa_stack"].shape == (n_recycles, n_sequences, n_token, 32 + 2)
     assert f["profile"].shape == (n_token, 32)
     assert f["deletion_mean"].shape == (n_token,)
     return n_token, n_atoms, n_templates, n_sequences, n_recycles
