@@ -7,14 +7,17 @@ on:
 
 jobs:
   test:
-    name: pytest (run tests)
     runs-on: [digs]
     # ... only run on non-draft PRs to `main` to avoid unnecessary CI runs
     if: |
       github.event.workflow_run.conclusion == 'success' &&
-      !github.event.workflow_run.pull_requests[0].draft &&
-      github.event.workflow_run.pull_requests[0].base.ref == 'main'
+      !github.event.workflow_run.event.pull_request.draft &&
+      github.event.workflow_run.head_branch == 'main'
     steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
       - uses: actions/checkout@v4
       - name: Run unit tests (fast tests)
         timeout-minutes: 30
@@ -29,3 +32,11 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+      - name: Report Status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            exit 0
+          else
+            exit 1
+          fi
