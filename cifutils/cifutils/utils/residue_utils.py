@@ -171,90 +171,107 @@ def add_missing_atoms_as_unresolved(
     full_atom_list = []
     residue_ids = []
     chain_ids = []
+
+    def _build_and_append_residue_atoms(residue_name: str, residue_id: int, chain_id: str):
+        """
+        Internal util that builds residue atoms and appends the resulting atom list, residue id and chain id to the respective lists for atoms, residue ids and chain ids.
+
+        Args:
+            residue_name (str): The name of the residue.
+            residue_id (int): The residue ID to assign to the atoms.
+            chain_id (str): The ID of the chain.
+        """
+        residue_atom_list = build_residue_atoms(
+            residue_name=residue_name, keep_hydrogens=keep_hydrogens, processed_ccd_path=processed_ccd_path
+        )
+        residue_ids.append(np.full(len(residue_atom_list), residue_id))
+        chain_ids.append(np.full(len(residue_atom_list), chain_id))
+        full_atom_list.append(residue_atom_list)
+
+    def _convert_unknown_ligand_to_atom_list(unknown_residue_atom_array: AtomArray) -> list[Atom]:
+        """
+        Converts an unknown ligand from an AtomArray to a list of Atom objects.
+        Such an operation is necessary in order to process the unknown ligand in the same way as known residues,
+        which we populate with pre-defined annoations from the CCD.
+
+        Args:
+            unknown_residue_atom_array (AtomArray): The atom array for the unknown ligand.
+
+        Returns:
+            list: A list of processed Biotite Atom objects representing the unknown ligand.
+        """
+        # ...limit the annotations to only those in the new AtomArray
+        new_annotations = [
+            "chain_id",
+            "res_id",
+            "ins_code",
+            "res_name",
+            "hetero",
+            "atom_name",
+            "element",
+            "charge",
+            "nhyd",
+            "hyb",
+            "hvydeg",
+            "leaving_atom_flag",
+            "leaving_group",
+            "is_metal",
+        ]
+        for annotation in unknown_residue_atom_array.get_annotation_categories():
+            if annotation not in new_annotations:
+                unknown_residue_atom_array.del_annotation(annotation)
+
+        # ...add the necessary annotations that are not present in the AtomArray, and default them
+        empty_lists_array = np.empty(len(unknown_residue_atom_array), dtype=object)
+        empty_lists_array.fill(
+            []
+        )  # See: https://stackoverflow.com/questions/43483663/how-do-i-make-a-grid-of-empty-lists-in-numpy-that-accepts-appending
+        unknown_residue_atom_array.set_annotation("leaving_group", empty_lists_array)
+        unknown_residue_atom_array.add_annotation("leaving_atom_flag", dtype=bool)
+        unknown_residue_atom_array.add_annotation("is_metal", dtype=bool)
+        unknown_residue_atom_array.add_annotation("charge", dtype=int)  # NOTE: Will be removed in the future
+        unknown_residue_atom_array.add_annotation("hvydeg", dtype=int)  # NOTE: Will be removed in the future
+        unknown_residue_atom_array.add_annotation("hyb", dtype=int)  # NOTE: Will be removed in the future
+        unknown_residue_atom_array.add_annotation("nhyd", dtype=int)  # NOTE: Will be removed in the future
+
+        # ...convert element to numbers to match the outputs from build_residue_atoms (but keep as strings for compatibility)
+        unknown_residue_atom_array.element = np.array(
+            [UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER[el.upper()] for el in unknown_residue_atom_array.element]
+        ).astype(str)
+
+        # ...decompose into a list of atoms
+        return [atom for atom in unknown_residue_atom_array]
+
     # NOTE: We need deduplicate_iterator() since biotite considers a decrease in sequence_id as a new chain (see `5xnl`)
     for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
         # Iterate through the sequence and create all atoms with zero coordinates
         residue_name_list = chain_info_dict[chain_id]["residue_name_list"]
-        if chain_info_dict[chain_id]["is_polymer"]:
-            # For polymer chains, we can just assign the residue ID based on the sequential index, and don't need to worry about UNL (unknown ligands)
-            # NOTE: In the future, we may want to allow more flexibility for polymers (e.g., custom NCAA); for now, they will raise an error in `build_residue_atoms`
-            # We could achieve this through adding a "NCR"  (non-canonical residue) name, for instance, which would behavior similarly to "UNL"
-            for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
-                residue_atom_list = build_residue_atoms(
-                    residue_name=residue_name, keep_hydrogens=keep_hydrogens, processed_ccd_path=processed_ccd_path
-                )
-                # We assign the residue ID as the sequential index for polymers, consistent with the PDB label ids (but not author ids)
-                residue_ids.append(np.full(len(residue_atom_list), residue_index_sequential))
 
-                chain_ids.append(np.full(len(residue_atom_list), chain_id))
-                full_atom_list.append(residue_atom_list)
-        else:
-            # For non-polymer chains, we need to assign the residue ID based on the residue ID list, and handle UNL (unknown ligands)
-            for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
-                residue_id_original = chain_info_dict[chain_id]["residue_id_list"][
-                    residue_index_sequential - 1
-                ]  # Recall that residue_index_sequential is 1-indexed
+        for residue_index_sequential, residue_name in enumerate(residue_name_list, start=1):
+            # ...get the original residue ID
+            residue_id_original = int(
+                chain_info_dict[chain_id]["residue_id_list"][residue_index_sequential - 1]
+            )  # Recall that residue_index_sequential is 1-indexed
+
+            if chain_info_dict[chain_id]["is_polymer"]:
+                # NOTE: In the future, we may want to allow more flexibility for polymers (e.g., custom NCAA); for now, they will raise an error in `build_residue_atoms`
+                # We could achieve this through adding a "NCR"  (non-canonical residue) namje, for instance, which would behavior similarly to "UNL"
+                _build_and_append_residue_atoms(residue_name, residue_id_original, chain_id)
+            else:
                 if residue_name == "UNL":
-                    # Directly add the atoms for the unknown ligand to the full_atom_list:
+                    # Directly add the atoms for the unknown ligand to the full_atom_list
                     # ...get the unknown ligand atoms from the AtomArray
                     unknown_residue_atom_array = atom_array[
                         (atom_array.chain_id == chain_id)
                         & (atom_array.res_name == residue_name)
                         & (atom_array.res_id == residue_id_original)
                     ]
-
-                    # ...limit the annotations to only those in the new AtomArray
-                    new_annotations = [
-                        "chain_id",
-                        "res_id",
-                        "ins_code",
-                        "res_name",
-                        "hetero",
-                        "atom_name",
-                        "element",
-                        "charge",
-                        "nhyd",
-                        "hyb",
-                        "hvydeg",
-                        "leaving_atom_flag",
-                        "leaving_group",
-                        "is_metal",
-                    ]
-                    for annotation in unknown_residue_atom_array.get_annotation_categories():
-                        if annotation not in new_annotations:
-                            unknown_residue_atom_array.del_annotation(annotation)
-
-                    # ...add the necessary annotations that are not present in the AtomArray, and default them
-                    empty_lists_array = np.empty(len(unknown_residue_atom_array), dtype=object)
-                    empty_lists_array.fill(
-                        []
-                    )  # See: https://stackoverflow.com/questions/43483663/how-do-i-make-a-grid-of-empty-lists-in-numpy-that-accepts-appending
-                    unknown_residue_atom_array.set_annotation("leaving_group", empty_lists_array)
-                    unknown_residue_atom_array.add_annotation("leaving_atom_flag", dtype=bool)
-                    unknown_residue_atom_array.add_annotation("is_metal", dtype=bool)
-                    unknown_residue_atom_array.add_annotation(
-                        "charge", dtype=int
-                    )  # NOTE: Will be removed in the future
-                    unknown_residue_atom_array.add_annotation(
-                        "hvydeg", dtype=int
-                    )  # NOTE: Will be removed in the future
-                    unknown_residue_atom_array.add_annotation("hyb", dtype=int)  # NOTE: Will be removed in the future
-                    unknown_residue_atom_array.add_annotation("nhyd", dtype=int)  # NOTE: Will be removed in the future
-
-                    # ...convert element to numbers to match the outputs from build_residue_atoms (but keep as strings for compatibility)
-                    unknown_residue_atom_array.element = np.array(
-                        [
-                            UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER[el.upper()]
-                            for el in unknown_residue_atom_array.element
-                        ]
-                    ).astype(str)
-
-                    # ...decompose into a list of atoms
-                    residue_atom_list = [atom for atom in unknown_residue_atom_array]
+                    residue_atom_list = _convert_unknown_ligand_to_atom_list(unknown_residue_atom_array)
                 else:
                     residue_atom_list = build_residue_atoms(
                         residue_name, keep_hydrogens=keep_hydrogens, processed_ccd_path=processed_ccd_path
                     )
+
                 # Preserve the residue ID for non-polymer chains (e.g., often starts at 101)
                 residue_ids.append(np.full(len(residue_atom_list), residue_id_original))
 

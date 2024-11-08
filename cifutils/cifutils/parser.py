@@ -164,8 +164,8 @@ class CIFParser:
                 # Log an error, and continue to parse from CIF
                 logger.error(f"Error loading from cache: {e}")
 
-        # Parse from CIF
         filename = Path(filename)
+        # Parse from PDB
         if str(filename).endswith((".pdb", ".pdb.gz")):
             result = self.parse_from_pdb(
                 filename=filename,
@@ -174,6 +174,7 @@ class CIFParser:
                 load_from_cache=load_from_cache,
                 **kwargs,
             )
+        # Parse from CIF
         elif str(filename).endswith((".cif", ".cif.gz", ".bcif", ".bcif.gz")):
             result = self.parse_from_cif(
                 filename=filename,
