@@ -356,7 +356,7 @@ def build_rf2aa_transform_pipeline(
             transform_map={
                 True: Identity(),
                 False: cropping_transform,
-                # Default to Identity if False
+                # Default to Identity during inference (`is_inference == True`)
             },
         )
     )
