@@ -6,6 +6,7 @@ from cifutils.tools.inference import chain_info_from_atom_array, components_to_a
 from conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, TEST_DATA_DIR
 
 from datahub.pipelines.af3 import build_af3_transform_pipeline
+from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 
 
 def test_af3_pipeline_from_chai_fasta():
@@ -44,6 +45,33 @@ def test_af3_pipeline_from_chai_fasta():
         assert (
             feat.isfinite().all() if isinstance(feat, torch.Tensor) else True
         ), f"Found NaN in feats: {feat_name=}, {feat=}"
+
+
+def test_rf2aa_pipeline_from_chai_fasta():
+    """Test the RF2AA transformation pipeline with different configurations."""
+    # Load chai fasta
+    fasta_path = TEST_DATA_DIR / "inference_like_chai_fasta.fasta"
+    inference_input_components = read_chai_fasta(fasta_path)
+    atom_array = components_to_atom_array(inference_input_components)
+    chain_info = chain_info_from_atom_array(atom_array)
+
+    # Build and run rf2aa inference pipeline
+    pipeline = build_rf2aa_transform_pipeline(
+        is_inference=True,
+        protein_msa_dirs=PROTEIN_MSA_DIRS,
+        rna_msa_dirs=RNA_MSA_DIRS,
+    )
+
+    transformed_data = pipeline(
+        data={
+            "example_id": str(fasta_path),
+            "atom_array": atom_array,
+            "chain_info": chain_info,
+        }
+    )
+
+    # Basic validation checks
+    assert "feats" in transformed_data, "Missing feats in pipeline output."
 
 
 if __name__ == "__main__":

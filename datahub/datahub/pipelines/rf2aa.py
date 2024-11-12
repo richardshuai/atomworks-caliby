@@ -18,7 +18,16 @@ from datahub.transforms.atom_array import (
 )
 from datahub.transforms.atom_frames import AddAtomFrames
 from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
-from datahub.transforms.base import ApplyFunction, Compose, ConvertToTorch, RandomRoute, SubsetToKeys
+from datahub.transforms.base import (
+    AddData,
+    ApplyFunction,
+    Compose,
+    ConditionalRoute,
+    ConvertToTorch,
+    Identity,
+    RandomRoute,
+    SubsetToKeys,
+)
 from datahub.transforms.bonds import (
     AddRF2AABondFeaturesMatrix,
     AddRF2AATraversalDistanceMatrix,
@@ -189,6 +198,8 @@ def build_rf2aa_transform_pipeline(
     msa_cache_dir: PathLike | str | None = None,
     assert_rf2aa_assumptions: bool = True,
     convert_feats_to_rf2aa_input_tuple: bool = True,
+    # Inference parameters
+    is_inference: bool = False,
 ) -> Compose:
     """
     Creates a transformation pipeline for the RF2AA model, applying a series of transformations to the input data.
@@ -272,6 +283,7 @@ def build_rf2aa_transform_pipeline(
         # ============================================
         # 1. Prepare the structure
         # ============================================
+        AddData({"is_inference": is_inference}),
         # ...remove hydrogens for efficiency
         RemoveHydrogens(),  # * (already cached from the parser)
         FilterToSpecifiedPNUnits(
@@ -322,26 +334,32 @@ def build_rf2aa_transform_pipeline(
         GetChiralCentersFromOpenBabel(),
     ]
 
-    if crop_contiguous_probability > 0 or crop_spatial_probability > 0:
-        contiguous_crop_transform = CropContiguousLikeAF3(crop_size=crop_size, keep_uncropped_atom_array=True)
-        spatial_crop_transform = CropSpatialLikeAF3(
-            crop_size=crop_size, crop_center_cutoff_distance=crop_center_cutoff_distance, keep_uncropped_atom_array=True
+    # Crop
+    # ...crop around our query pn_unit(s) early, since we don't need the full structure moving forward
+    cropping_transform = RandomRoute(
+        transforms=[
+            CropContiguousLikeAF3(
+                crop_size=crop_size,
+                keep_uncropped_atom_array=True,
+            ),
+            CropSpatialLikeAF3(
+                crop_size=crop_size,
+                crop_center_cutoff_distance=crop_center_cutoff_distance,
+                keep_uncropped_atom_array=True,
+            ),
+        ],
+        probs=[crop_contiguous_probability, crop_spatial_probability],
+    )
+    transforms.append(
+        ConditionalRoute(
+            condition_func=lambda data: data.get("is_inference", False),
+            transform_map={
+                True: Identity(),
+                False: cropping_transform,
+                # Default to Identity if False
+            },
         )
-        if crop_contiguous_probability > 0 and crop_spatial_probability > 0:
-            transforms += [
-                # ...crop around our query pn_unit(s) early, since we don't need the full structure moving forward
-                RandomRoute(
-                    transforms=[
-                        contiguous_crop_transform,
-                        spatial_crop_transform,
-                    ],
-                    probs=[crop_contiguous_probability, crop_spatial_probability],
-                ),
-            ]
-        elif crop_contiguous_probability > 0:
-            transforms.append(contiguous_crop_transform)
-        elif crop_spatial_probability > 0:
-            transforms.append(spatial_crop_transform)
+    )
 
     transforms += [
         AddPostCropMoleculeEntityToFreeFloatingLigands(),
@@ -411,14 +429,24 @@ def build_rf2aa_transform_pipeline(
             encoding=encoding,
             init_coords=RF2AATemplate.RF2AA_INIT_TEMPLATE_COORDINATES,
         ),
+    ]
+
+    transforms += [
         # ============================================
         # 8. Create symmetry copies (isomorphic chain swaps for polys, automorphisms for small molecules)
         # ============================================
-        CreateSymmetryCopyAxisLikeRF2AA(
-            encoding=encoding,
-            max_automorphs=max_automorphs,
-            max_isomorphisms=max_isomorphs,
-        ),
+        ConditionalRoute(
+            condition_func=lambda data: not data.get("is_inference", False),
+            transform_map={
+                True: CreateSymmetryCopyAxisLikeRF2AA(encoding=encoding, max_automorphs=1, max_isomorphisms=1),
+                False: CreateSymmetryCopyAxisLikeRF2AA(
+                    encoding=encoding, max_automorphs=max_automorphs, max_isomorphisms=max_isomorphs
+                ),
+            },
+        )
+    ]
+
+    transforms += [
         # ============================================
         # 9. Aggregate features into final format for RF2AA and remove unused features
         # ============================================
