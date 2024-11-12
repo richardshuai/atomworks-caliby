@@ -20,6 +20,7 @@ import biotite.structure as struc
 from biotite.structure.io.pdbx import CIFBlock
 from biotite.structure import AtomArray
 import toolz
+from cifutils.constants import UNKNOWN_LIGAND
 
 logger = logging.getLogger("cifutils")
 
@@ -280,7 +281,9 @@ def load_monomer_sequence_information_from_category(
             residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
 
             # Map any non-polymer residues not in the precompiled CCD data to "UNL" (unknown ligand)
-            residue_name_list = [residue if residue in known_residues else "UNL" for residue in residue_name_list]
+            residue_name_list = [
+                residue if residue in known_residues else UNKNOWN_LIGAND for residue in residue_name_list
+            ]
 
             chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
             chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)

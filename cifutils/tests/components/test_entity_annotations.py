@@ -1,6 +1,7 @@
 from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 from cifutils.constants import CRYSTALLIZATION_AIDS
 from cifutils.transforms.atom_array import annotate_entities
+from cifutils.common import not_isin
 from biotite.structure import AtomArray
 
 import numpy as np
@@ -194,7 +195,7 @@ def test_regenerate_and_add_chain_entity_annotation(test_case):
         assert len(chain_entity) == 1, f"Chains {equivalent_chains} do not have the same chain_entity"
 
         # ...that no other chains have the same chain_entity
-        other_chain_atom_array = atom_array[~np.isin(atom_array.chain_id, equivalent_chains)]
+        other_chain_atom_array = atom_array[not_isin(atom_array.chain_id, equivalent_chains)]
         assert not np.any(
             other_chain_atom_array.chain_entity == chain_entity
         ), f"Chains {equivalent_chains} share chain_entity with other chains"

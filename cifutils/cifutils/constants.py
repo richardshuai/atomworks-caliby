@@ -1,7 +1,16 @@
 """Constants used in the `cifutils` package."""
 
+from typing import Final
+from toolz import keymap
+
+UNKNOWN_ELEMENT: Final[str] = "X"
+"""The element name for an unknown element."""
+
+UNKNOWN_ATOMIC_NUMBER: Final[int] = 0
+"""The atomic number for an unknown element."""
+
 # fmt: off
-ELEMENT_NAME_TO_ATOMIC_NUMBER = {
+ELEMENT_NAME_TO_ATOMIC_NUMBER: Final[dict[str, int]] = keymap(str.upper, {
     "H": 1,    "He": 2,   "Li": 3,   "Be": 4,   "B": 5,   "C": 6,   "N": 7,    "O": 8,    "F": 9,   "Ne": 10,  
     "Na": 11,  "Mg": 12,  "Al": 13,  "Si": 14,  "P": 15,  "S": 16,  "Cl": 17,  "Ar": 18,  "K": 19,  "Ca": 20,  
     "Sc": 21,  "Ti": 22,  "V": 23,   "Cr": 24,  "Mn": 25, "Fe": 26, "Co": 27,  "Ni": 28,  "Cu": 29, "Zn": 30,  
@@ -13,37 +22,28 @@ ELEMENT_NAME_TO_ATOMIC_NUMBER = {
     "Tl": 81,  "Pb": 82,  "Bi": 83,  "Po": 84,  "At": 85, "Rn": 86, "Fr": 87,  "Ra": 88,  "Ac": 89, "Th": 90,  
     "Pa": 91,  "U": 92,   "Np": 93,  "Pu": 94,  "Am": 95, "Cm": 96, "Bk": 97,  "Cf": 98,  "Es": 99, "Fm": 100, 
     "Md": 101, "No": 102, "Lr": 103, "Rf": 104, "Db": 105,"Sg": 106, "Bh": 107,"Hs": 108, "Mt": 109,"Ds": 110, 
-    "Rg": 111, "Cn": 112, "Nh": 113, "Fl": 114, "Mc": 115, "Lv": 116, "Ts": 117, "Og": 118
-}
-"""Map canonical 2 letter element names to their atomic numbers."""
+    "Rg": 111, "Cn": 112, "Nh": 113, "Fl": 114, "Mc": 115, "Lv": 116, "Ts": 117, "Og": 118,
+    UNKNOWN_ELEMENT: UNKNOWN_ATOMIC_NUMBER
+})
+"""Map canonical *UPPERCASE* 2 letter element names to their atomic numbers. WARNING: Case-sensitive."""
 
-UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER = {key.upper(): value for key, value in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()}
-
-ATOMIC_NUMBER_TO_ELEMENT = (
+ATOMIC_NUMBER_TO_ELEMENT: Final[dict[int | str, str]] = (
     {v: k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()} | 
     {str(v): k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()}
 )
+"""Map atomic numbers (int/str) to their canonical *UPPERCASE* 2 letter element names. WARNING: Case-sensitive."""
 
-ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT = (
-    {v: k for k, v in UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER.items()} | 
-    {str(v): k for k, v in UPPERCASE_ELEMENT_NAME_TO_ATOMIC_NUMBER.items()}
-)
-"""Map atomic numbers (int/str) to their canonical 2 letter element names."""
-
-METAL_ELEMENTS = {
+METAL_ELEMENTS: Final[frozenset[str]] = frozenset(map(str.upper, [
     "Li", "Na", "K", "Rb", "Cs", "Be", "Mg", "Ca", "Sr", "Ba",
     "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
     "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
     "La", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
     "Al", "Ga", "In", "Sn", "Tl", "Pb", "Bi",
-}
-
-UPPERCASE_METAL_ELEMENTS = {element.upper() for element in METAL_ELEMENTS}
-"""A set of all metal elements."""
-
+]))
+"""A set of all metal elements, all *UPPERCASE*. WARNING: Case-sensitive."""
 # fmt: on
 
-CHEM_COMP_TYPES = tuple(
+CHEM_COMP_TYPES: Final[tuple[str, ...]] = tuple(
     [
         chemtype.upper()
         for chemtype in (
@@ -80,12 +80,13 @@ CHEM_COMP_TYPES = tuple(
     ]
 )
 """Allowed Chemical Component Types for residues in the PDB + `mask`.
+All uppercase.
 
 Reference:
     - http://mmcif.rcsb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_chem_comp.type.html
 """
 
-AA_LIKE_CHEM_TYPES = set(
+AA_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset(
     [
         chemtype.upper()
         for chemtype in (
@@ -104,8 +105,9 @@ AA_LIKE_CHEM_TYPES = set(
         )
     ]
 )
+"""Set of amino acid-like chemical component types. All uppercase."""
 
-POLYPEPTIDE_L_CHEM_TYPES = set(
+POLYPEPTIDE_L_CHEM_TYPES: Final[frozenset[str]] = frozenset(
     [
         chemtype.upper()
         for chemtype in (
@@ -117,8 +119,9 @@ POLYPEPTIDE_L_CHEM_TYPES = set(
         )
     ]
 )
+"""Set of polypeptide-L (left-handed amino acids) chemical component types. All uppercase."""
 
-POLYPEPTIDE_D_CHEM_TYPES = set(
+POLYPEPTIDE_D_CHEM_TYPES: Final[frozenset[str]] = frozenset(
     [
         chemtype.upper()
         for chemtype in (
@@ -130,8 +133,9 @@ POLYPEPTIDE_D_CHEM_TYPES = set(
         )
     ]
 )
+"""Set of polypeptide-D (right-handed amino acids) chemical component types. All uppercase."""
 
-RNA_LIKE_CHEM_TYPES = set(
+RNA_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset(
     [
         chemtype.upper()
         for chemtype in (
@@ -142,8 +146,9 @@ RNA_LIKE_CHEM_TYPES = set(
         )
     ]
 )
+"""Set of RNA-like chemical component types. All uppercase."""
 
-DNA_LIKE_CHEM_TYPES = set(
+DNA_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset(
     [
         chemtype.upper()
         for chemtype in (
@@ -154,8 +159,9 @@ DNA_LIKE_CHEM_TYPES = set(
         )
     ]
 )
+"""Set of DNA-like chemical component types. All uppercase."""
 
-CARBOHYDRATE_LIKE_CHEM_TYPES = set(
+CARBOHYDRATE_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset(
     [
         chemtype.upper()
         for chemtype in (
@@ -169,46 +175,15 @@ CARBOHYDRATE_LIKE_CHEM_TYPES = set(
         )
     ]
 )
+"""Set of carbohydrate-like chemical component types. All uppercase."""
 
-LIGAND_LIKE_CHEM_TYPES = set([chemtype.upper() for chemtype in ("non-polymer", "other")])
+LIGAND_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset([chemtype.upper() for chemtype in ("non-polymer", "other")])
+"""Set of ligand-like chemical component types. All uppercase."""
 
-MASK_LIKE_CHEM_TYPES = set([chemtype.upper() for chemtype in ("mask",)])
+MASK_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset([chemtype.upper() for chemtype in ("mask",)])
+"""Set of mask-like chemical component types. All uppercase."""
 
-# NOTE: Not currently used; only if we want to incorporate GLX and ASX
-DICT_THREE_TO_ONE = {
-    "ALA": "A",
-    "CYS": "C",
-    "ASP": "D",
-    "GLU": "E",
-    "PHE": "F",
-    "GLY": "G",
-    "HIS": "H",
-    "ILE": "I",
-    "LYS": "K",
-    "LEU": "L",
-    "MET": "M",
-    "ASN": "N",
-    "PRO": "P",
-    "GLN": "Q",
-    "ARG": "R",
-    "SER": "S",
-    "THR": "T",
-    "VAL": "V",
-    "TRP": "W",
-    "TYR": "Y",
-    "ASX": "B",
-    "GLX": "Z",
-    "UNK": "X",
-    "*": " * ",
-}
-"""A dictionary that maps three-letter amino acid codes to one-letter codes.
-
-Reference:
-    - Biotite: https://github.com/biotite-dev/biotite/blob/v0.41.0/src/biotite/sequence/seqtypes.py#L348-L556
-"""
-
-
-CRYSTALLIZATION_AIDS = [
+CRYSTALLIZATION_AIDS: Final[list[str]] = [
     "SO4",
     "GOL",
     "EDO",
@@ -232,7 +207,7 @@ Reference:
     - AF3 (Supp. Table 9) https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
 """
 
-AF3_EXCLUDED_LIGANDS = [
+AF3_EXCLUDED_LIGANDS: Final[list[str]] = [
     "144",
     "15P",
     "1PE",
@@ -371,38 +346,129 @@ Reference:
     - AF3 (Supp. Table 10) https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
 """
 
-AF3_EXCLUDED_LIGANDS_REGEX = "(?:^|,)\s*(?:" + "|".join(AF3_EXCLUDED_LIGANDS) + ")\s*(?:,|$)"
+AF3_EXCLUDED_LIGANDS_REGEX: Final[str] = "(?:^|,)\s*(?:" + "|".join(AF3_EXCLUDED_LIGANDS) + ")\s*(?:,|$)"
 """A regex pattern that matches any of the ligands in `AF3_EXCLUDED_LIGANDS`. Used for filtering out ligands from the assembled dataframes."""
 
-STANDARD_AA = (
-    "ALA",
-    "ARG",
-    "ASN",
-    "ASP",
-    "CYS",
-    "GLN",
-    "GLU",
-    "GLY",
-    "HIS",
-    "ILE",
-    "LEU",
-    "LYS",
-    "MET",
-    "PHE",
-    "PRO",
-    "SER",
-    "THR",
-    "TRP",
-    "TYR",
-    "VAL",
+# TODO: Replace this by general mapping of CCD codes to one-letter codes.
+DICT_THREE_TO_ONE: Final[dict[str, str]] = {
+    "ALA": "A",
+    "CYS": "C",
+    "ASP": "D",
+    "GLU": "E",
+    "PHE": "F",
+    "GLY": "G",
+    "HIS": "H",
+    "ILE": "I",
+    "LYS": "K",
+    "LEU": "L",
+    "MET": "M",
+    "ASN": "N",
+    "PRO": "P",
+    "GLN": "Q",
+    "ARG": "R",
+    "SER": "S",
+    "THR": "T",
+    "VAL": "V",
+    "TRP": "W",
+    "TYR": "Y",
+    "ASX": "B",
+    "GLX": "Z",
+    "UNK": "X",
+    "*": " * ",
+}
+"""A dictionary that maps three-letter amino acid codes to one-letter codes.
+
+Reference:
+    - Biotite: https://github.com/biotite-dev/biotite/blob/v0.41.0/src/biotite/sequence/seqtypes.py#L348-L556
+"""
+
+UNKNOWN_LIGAND: Final[str] = "UNL"
+"""The CCD code for unknown ligands."""
+
+UNKNOWN_AA: Final[str] = "UNK"
+"""The CCD code for unknown amino acids."""
+
+# TODO: Change these to something unique.
+UNKNOWN_RNA: Final[str] = "X"
+"""The (non-standard) CCD code for unknown RNA nucleotides."""
+
+UNKNOWN_DNA: Final[str] = "DX"
+"""The (non-standard) CCD code for unknown DNA nucleotides."""
+
+GAP: Final[str] = "<G>"
+"""The (non-standard) code for a gap token."""
+
+
+STANDARD_AA: Final[tuple[str, ...]] = tuple(
+    sorted(
+        [
+            "ALA",
+            "ARG",
+            "ASN",
+            "ASP",
+            "CYS",
+            "GLN",
+            "GLU",
+            "GLY",
+            "HIS",
+            "ILE",
+            "LEU",
+            "LYS",
+            "MET",
+            "PHE",
+            "PRO",
+            "SER",
+            "THR",
+            "TRP",
+            "TYR",
+            "VAL",
+        ]
+    )
 )
-"""The 20 standard amino acids"""
+"""Tuple of the CCD codes for the standard 20 amino acids, alphabetically sorted by their three-letter CCD codes."""
 
-STANDARD_RNA = ("A", "C", "G", "U")
-"""The 4 standard RNA nucleotides"""
+STANDARD_AA_ONE_LETTER: Final[tuple[str, ...]] = tuple(map(DICT_THREE_TO_ONE.get, STANDARD_AA))
+"""Tuple of the one-letter symbols for the standard 20 amino acids, alphabetically sorted by their three-letter CCD codes."""
 
-STANDARD_DNA = ("DA", "DC", "DG", "DT")
-"""The 4 standard DNA nucleotides"""
+STANDARD_RNA: Final[tuple[str, ...]] = tuple(sorted(["A", "C", "G", "U"]))
+"""Tuple of the CCD codes for the standard 4 RNA nucleotides. These happen to be the same as the one-letter symbols."""
+
+STANDARD_DNA: Final[tuple[str, ...]] = tuple(sorted(["DA", "DC", "DG", "DT"]))
+"""Tuple of the CCD codes for the standard 4 DNA nucleotides."""
+
+STANDARD_DNA_ONE_LETTER: Final[tuple[str, ...]] = tuple(sorted(["A", "C", "G", "T"]))
+"""Tuple of the one-letter symbols for the standard 4 DNA nucleotides."""
+
+BIOTITE_DEFAULT_ANNOTATIONS: Final[tuple[str, ...]] = (
+    "chain_id",
+    "res_id",
+    "res_name",
+    "atom_name",
+    "hetero",
+    "element",
+)
+"""The default mandatory annotations for Biotite AtomArrays."""
+
+STANDARD_PYRAMIDINE_RESIDUES: Final[tuple[str, ...]] = ("C", "U", "DC", "DT")
+"""Tuple of the CCD codes for the 4 standard pyramidine nucleotides."""
+
+STANDARD_PURINE_RESIDUES: Final[tuple[str, ...]] = ("A", "G", "DA", "DG")
+"""Tuple of the CCD codes for the 4 standard purine nucleotides."""
+
+HYDROGEN_LIKE_SYMBOLS: Final[tuple[str, ...]] = ("H", "H2", "D", "T", "1", 1)
+"""
+A tuple of symbols for (isotopes of) hydrogen.
+
+WARNING: It is important that this remains a tuple, as it is used by `np.isin`
+ downstream, which does not play well with sets.
+"""
+
+PEPTIDE_MAX_RESIDUES: Final[int] = 20
+"""The maximum number of residues until which we consider a protein-like sequence to be a peptide."""
 
 # Paths specific to digs. TODO: Move to config file / make obsolete before release
-PROCESSED_CCD_PATH = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_library"
+CCD_MIRROR_PATH: Final[str] = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_ligands_2024_05_31/ccd"
+"""A path to a carbon-copy mirror of the CCD ligands in the RCSB CCD."""
+
+CCD_PICKLED_PATH: Final[str] = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_library"
+"""A path to a processed version of the CCD ligands in the RCSB CCD as '.pkl' files."""

@@ -24,7 +24,7 @@ from cifutils.common import exists, deduplicate_iterator
 from cifutils.enums import ChainType
 from cifutils.utils.selection_utils import annot_start_stop_idxs
 from cifutils.common import sum_string_arrays, not_isin
-from cifutils.constants import PROCESSED_CCD_PATH
+from cifutils.constants import CCD_PICKLED_PATH
 import os
 
 logger = logging.getLogger("cifutils")
@@ -275,34 +275,34 @@ def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> Atom
     return atom_array
 
 
-def add_pn_unit_id_annotation(full_atom_array: AtomArray) -> AtomArray:
+def add_pn_unit_id_annotation(atom_array: AtomArray) -> AtomArray:
     """
     Adds the polymer/non-polymer unit ID (pn_unit_id) annotation to the AtomArray.
     Two covalently bonded ligands are considered one PN unit, but a ligand bonded to a protein is considered two PN units.
     See the README glossary for more details on how we define `chains`, `pn_units`, and `molecules` within this codebase.
 
     Args:
-        full_atom_array (AtomArray): The AtomArray to process.
+        atom_array (AtomArray): The AtomArray to process.
 
     Returns:
-        full_atom_array (AtomArray): The AtomArray including the `pn_unit_id` annotation.
+        atom_array (AtomArray): The AtomArray including the `pn_unit_id` annotation.
     """
     # ...initialize the pn_unit_id to chain_id (we will later update for multi-chain non-polymer PN units)
-    pn_unit_id_annotation = full_atom_array.chain_id.astype(object)
+    pn_unit_id_annotation = atom_array.chain_id.astype(object)
 
     # ...make the NetworkX graph for non-polymer chains
-    non_polymer_atom_array = full_atom_array[~full_atom_array.is_polymer]
+    non_polymer_atom_array = atom_array[~atom_array.is_polymer]
     connected_chains = get_connected_nodes(*get_coarse_graph_as_nodes_and_edges(non_polymer_atom_array, "chain_id"))
 
     for connected_chain in connected_chains:
         # ...set the same the pn_unit_id for each chain in the connected chain
         pn_unit_id = ",".join(sorted(connected_chain))
         for chain_id in connected_chain:
-            pn_unit_id_annotation[full_atom_array.chain_id == chain_id] = pn_unit_id
+            pn_unit_id_annotation[atom_array.chain_id == chain_id] = pn_unit_id
 
-    full_atom_array.set_annotation("pn_unit_id", pn_unit_id_annotation.astype(str))
+    atom_array.set_annotation("pn_unit_id", pn_unit_id_annotation.astype(str))
 
-    return full_atom_array
+    return atom_array
 
 
 def add_molecule_id_annotation(atom_array: AtomArray) -> AtomArray:
@@ -535,7 +535,7 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
     known_residues: list[str] | set[str],
     converted_res: dict = {},
     ignored_res: list = [],
-    processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH,
+    processed_ccd_path: os.PathLike = CCD_PICKLED_PATH,
 ) -> AtomArray:
     """
     Add bonds to the atom array using precomputed CCD data and the mmCIF `struct_conn` field.

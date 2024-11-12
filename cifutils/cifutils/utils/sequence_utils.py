@@ -6,7 +6,6 @@ __all__ = [
 ]
 
 import numpy as np
-
 from cifutils.utils.io_utils import logger
 from cifutils.enums import ChainType
 from Bio.Data.PDBData import (
@@ -15,6 +14,15 @@ from Bio.Data.PDBData import (
     protein_letters_1to3,
     protein_letters_3to1,
     protein_letters_3to1_extended,
+)  # TODO: Deprecate these in favour of the direct mappings from the CCD
+from cifutils.constants import (
+    STANDARD_AA,
+    STANDARD_PYRAMIDINE_RESIDUES,
+    STANDARD_PURINE_RESIDUES,
+    UNKNOWN_AA,
+    UNKNOWN_RNA,
+    UNKNOWN_DNA,
+    GAP,
 )
 
 
@@ -22,7 +30,7 @@ def get_1_from_3_letter_code(
     res_name: str,
     chain_type: ChainType,
     use_closest_canonical: bool = False,
-    gap_three_letter: str = "<G>",
+    gap_three_letter: str = GAP,
     gap_one_letter: str = "-",
 ) -> str:
     """
@@ -80,10 +88,10 @@ def get_3_from_1_letter_code(
     letter: str,
     chain_type: ChainType,
     gap_one_letter: str = "-",
-    gap_three_letter: str = "<G>",
-    unknown_protein_three_letter: str = "UNK",
-    unknown_rna_three_letter: str = "X",
-    unknown_dna_three_letter: str = "DX",
+    gap_three_letter: str = GAP,
+    unknown_aa: str = UNKNOWN_AA,
+    unknown_rna: str = UNKNOWN_RNA,
+    unknown_dna: str = UNKNOWN_DNA,
 ) -> str:
     """
     Converts a 1-letter residue name to its 3-letter code based on the chain type.
@@ -94,116 +102,58 @@ def get_3_from_1_letter_code(
         chain_type (str): The type of chain, using the ChainType enum.
         gap_one_letter (str): The one-letter code for a gap. Defaults to "-" (as is standard within MSAs).
         gap_three_letter (str): The three-letter code for a gap. Defaults to "<G>".
-        unknown_protein_three_letter (str): The three-letter code for an unknown protein residue. Defaults to "UNK_PROT".
-        unknown_rna_three_letter (str): The three-letter code for an unknown RNA residue. Defaults to "X" (which is standard)
-        unknown_dna_three_letter (str): The three-letter code for an unknown DNA residue. Defaults to "DX" (which is standard)
+        unknown_aa (str): The three-letter code for an unknown protein residue. Defaults to "UNK_PROT".
+        unknown_rna (str): The three-letter code for an unknown RNA residue. Defaults to "X" (which is standard)
+        unknown_dna (str): The three-letter code for an unknown DNA residue. Defaults to "DX" (which is standard)
 
     Returns:
         str: The corresponding 3-letter code.
     """
+    assert len(letter) == 1, "The 1-letter code must be a single character."
+
     # Convert gaps (-) to "<G>", or whatever is specified
     if letter == gap_one_letter:
         return gap_three_letter
 
     if chain_type.is_protein():
         # Proteins
-        return protein_letters_1to3.get(letter, unknown_protein_three_letter)
+        return protein_letters_1to3.get(letter, unknown_aa)
     elif chain_type == ChainType.DNA:
         # DNA
-        return dna_letters_1to3.get(letter, unknown_dna_three_letter)
+        return dna_letters_1to3.get(letter, unknown_dna)
     elif chain_type == ChainType.RNA:
         # RNA
-        return rna_letters_1to3.get(letter, unknown_rna_three_letter)
+        return rna_letters_1to3.get(letter, unknown_rna)
     else:
-        logger.error(f"Unsupported chain type: {chain_type}, returning unknown protein residue (i.e., UNK).")
-        return unknown_protein_three_letter
+        logger.error(f"Unsupported {chain_type=}, returning unknown protein residue {unknown_aa=}.")
+        return unknown_aa
 
 
-PYRAMIDINE_RESIDUES = ["C", "U", "DC", "DT"]
-PURINE_RESIDUES = ["A", "G", "DA", "DG"]
-UNKNOWN_NUCLEOTIDE_RESIDUES = ["X", "DX"]
-PROTEIN_RESIDUES = list(protein_letters_3to1.keys())
+def is_pyramidine(ccd_code_array: np.ndarray) -> np.ndarray:
+    return np.isin(ccd_code_array, STANDARD_PYRAMIDINE_RESIDUES)
 
 
-def is_pyramidine(res_names: list | np.ndarray) -> np.ndarray:
-    """
-    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a pyramidine.
-    """
-
-    def is_pyramidine_residue(res_name: str) -> bool:
-        return res_name in PYRAMIDINE_RESIDUES
-
-    apply = np.vectorize(is_pyramidine_residue)
-    return apply(np.asarray(res_names))
+def is_purine(ccd_code_array: np.ndarray) -> np.ndarray:
+    return np.isin(ccd_code_array, STANDARD_PURINE_RESIDUES)
 
 
-def is_purine(res_names: list | np.ndarray) -> np.ndarray:
-    """
-    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a purine.
-    """
-
-    def is_purine_residue(res_name: str) -> bool:
-        return res_name in PURINE_RESIDUES
-
-    apply = np.vectorize(is_purine_residue)
-    return apply(np.asarray(res_names))
+def is_unknown_nucleotide(ccd_code_array: np.ndarray) -> np.ndarray:
+    ccd_code_array = np.asarray(ccd_code_array)
+    return (ccd_code_array == UNKNOWN_DNA) | (ccd_code_array == UNKNOWN_RNA)
 
 
-def is_unknown_nucleotide(res_names: list | np.ndarray) -> np.ndarray:
-    """
-    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is an unknown nucleotide.
-    """
-
-    def is_unknown_nucleotide_residue(res_name: str) -> bool:
-        return res_name in UNKNOWN_NUCLEOTIDE_RESIDUES
-
-    apply = np.vectorize(is_unknown_nucleotide_residue)
-    return apply(np.asarray(res_names))
+def is_standard_aa(ccd_code_array: np.ndarray) -> np.ndarray:
+    return np.isin(ccd_code_array, STANDARD_AA)
 
 
-def is_protein(res_names: list | np.ndarray) -> np.ndarray:
-    """
-    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a protein residue.
-    """
-
-    def is_protein_residue(res_name: str) -> bool:
-        return res_name in PROTEIN_RESIDUES
-
-    apply = np.vectorize(is_protein_residue)
-    return apply(np.asarray(res_names))
+def is_glycine(ccd_code_array: np.ndarray) -> np.ndarray:
+    return np.asarray(ccd_code_array) == "GLY"
 
 
-def is_glycine(res_names: list | np.ndarray) -> np.ndarray:
-    """
-    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a glycine residue.
-    """
-
-    def is_glycine_residue(res_name: str) -> bool:
-        return res_name == "GLY"
-
-    apply = np.vectorize(is_glycine_residue)
-    return apply(np.asarray(res_names))
+def is_standard_aa_not_glycine(ccd_code_array: np.ndarray) -> np.ndarray:
+    _PROTEIN_NOT_GLYCINE_RESIDUES = [res for res in STANDARD_AA if res != "GLY"]
+    return np.isin(ccd_code_array, _PROTEIN_NOT_GLYCINE_RESIDUES)
 
 
-def is_protein_not_glycine(res_names: list | np.ndarray) -> np.ndarray:
-    """
-    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is a protein residue that is not glycine.
-    """
-
-    def is_protein_not_glycine_residue(res_name: str) -> bool:
-        return res_name in PROTEIN_RESIDUES and res_name != "GLY"
-
-    apply = np.vectorize(is_protein_not_glycine_residue)
-    return apply(np.asarray(res_names))
-
-
-def is_protein_unknown(res_names: list | np.ndarray) -> np.ndarray:
-    """
-    Given a list of 3-letter residue names, returns a boolean array indicating whether each residue is an unknown protein residue.
-    """
-
-    def is_protein_unknown_residue(res_name: str) -> bool:
-        return res_name == "UNK"
-
-    apply = np.vectorize(is_protein_unknown_residue)
-    return apply(np.asarray(res_names))
+def is_protein_unknown(ccd_code_array: np.ndarray) -> np.ndarray:
+    return np.asarray(ccd_code_array) == UNKNOWN_AA

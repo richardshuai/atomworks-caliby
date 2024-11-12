@@ -21,7 +21,8 @@ import pandas as pd
 import os
 from pathlib import Path
 import io
-from cifutils.utils.io_utils import read_any, get_structure, to_cif_buffer, increment_chain_id
+from cifutils.utils.io_utils import read_any, get_structure, to_cif_buffer
+from cifutils.utils.chain_utils import create_chain_id_generator
 from cifutils.common import exists
 from cifutils.transforms.categories import (
     get_chain_info_from_category,
@@ -48,12 +49,12 @@ from cifutils.utils.non_rcsb_utils import (
     infer_processed_entity_sequences_from_atom_array,
 )
 from cifutils.utils.assembly_utils import process_assemblies
-from cifutils.utils.residue_utils import add_missing_atoms_as_unresolved, get_processed_ccd_residue_names
+from cifutils.utils.residue_utils import add_missing_atoms_as_unresolved, get_processed_ccd_codes
 from cifutils.utils.non_rcsb_utils import get_identity_assembly_gen_category, get_identity_op_expr_category
 import biotite.structure as struc
 from biotite.structure import AtomArrayStack
 from biotite.file import InvalidFileError
-from cifutils.constants import PROCESSED_CCD_PATH
+from cifutils.constants import CCD_PICKLED_PATH, HYDROGEN_LIKE_SYMBOLS
 from cifutils.common import not_isin
 
 logger = logging.getLogger("cifutils")
@@ -64,7 +65,7 @@ __all__ = ["CIFParser"]
 class CIFParser:
     def __init__(
         self,
-        by_residue_ligand_dir: os.PathLike = PROCESSED_CCD_PATH,
+        by_residue_ligand_dir: os.PathLike = CCD_PICKLED_PATH,
     ):
         """
         Initialize a CIFParser object.
@@ -271,7 +272,7 @@ class CIFParser:
         # ... remove the residues we don't want to keep
         residues_to_remove = set([residue.upper() for residue in residues_to_remove])
         allowed_residues = copy.deepcopy(
-            get_processed_ccd_residue_names()
+            get_processed_ccd_codes()
         )  # NOTE: get_..._names() is cached. We deepcopy to avoid side-effects.
         _missing_in_ccd = residues_to_remove - allowed_residues
         if len(_missing_in_ccd) > 0:
@@ -344,7 +345,7 @@ class CIFParser:
 
             # ...optionally, remove hydrogens (most examples will not have any hydrogens; only NMR studies and small molecules)
             if not keep_hydrogens:
-                atom_array = atom_array[not_isin(atom_array.element, ["H", "D"])]
+                atom_array = atom_array[not_isin(atom_array.element, HYDROGEN_LIKE_SYMBOLS)]
 
             # ...optionally, remove waters
             if remove_waters:
@@ -548,12 +549,13 @@ class CIFParser:
         if np.any(atom_array_stack.get_annotation("hetero")):
             # ...loop through chains and ensure the chain contains either polymer or non-polymer residues, but not both (as required by CIF files)
             original_chain_ids = np.unique(atom_array_stack.chain_id)
+            chain_id_generator = create_chain_id_generator(unavailable_chain_ids=original_chain_ids)
             chain_ids = list(original_chain_ids)  # Creates a copy
             for chain_id in original_chain_ids:
                 # ...check if we have blended `hetero` annotations in the chain
                 chain_hetero_annotations = atom_array_stack.hetero[atom_array_stack.chain_id == chain_id]
                 if np.any(chain_hetero_annotations) and np.any(~chain_hetero_annotations):
-                    hetero_chain_id = increment_chain_id(chain_ids)
+                    hetero_chain_id = next(chain_id_generator)
                     logger.warning(
                         f"Chain {chain_id} contains both polymer and non-polymer residues; separating them for processing, naming the non-polymer residues as {hetero_chain_id}."
                     )

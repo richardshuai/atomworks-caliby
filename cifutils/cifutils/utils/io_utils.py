@@ -19,7 +19,7 @@ from cifutils.common import default
 from datetime import datetime
 from cifutils.common import exists
 
-from cifutils.constants import ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT
+from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
 
 
 logger = logging.getLogger("cifutils")
@@ -163,7 +163,7 @@ def get_structure(
 def read_any(
     path_or_buffer: os.PathLike | io.StringIO | io.BytesIO,
     file_type: Literal["cif", "mmcif", "pdbx", "pdb", "pdb1", "bcif"] | None = None,
-) -> AtomArray:
+) -> pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile:
     """
     Reads any of the allowed file types into the appropriate Biotite file object.
 
@@ -175,7 +175,7 @@ def read_any(
         **load_kwargs: Additional keyword arguments to pass to the Biotite loading function.
 
     Returns:
-        AtomArray: The loaded structure.
+        pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile: The loaded file object.
 
     Raises:
         ValueError: If the file type is unsupported or cannot be determined.
@@ -270,7 +270,7 @@ def to_cif_buffer(
         )
 
     # If elements are given as atomic numbers, convert them to (uppercase) element symbols
-    structure.element = np.vectorize(lambda x: ATOMIC_NUMBER_TO_UPPERCASE_ELEMENT.get(x, x))(structure.element)
+    structure.element = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x))(structure.element)
 
     # If altloc information is present but no altloc id is given, set all to "."
     if "altloc_id" in structure.get_annotation_categories() and structure.altloc_id[0].strip() == "":
@@ -435,48 +435,6 @@ def to_pdb_string(
         str: The PDB formatted string representation of the structure.
     """
     return to_pdb_buffer(structure).getvalue()
-
-
-def increment_chain_id(chain_ids: list[str]) -> str:
-    """Logically increments the last chain ID in a sorted list of chain IDs.
-
-    Args:
-        chain_ids (list[str]): A list of chain ID strings.
-
-    Returns:
-        str: The next chain ID in sequence.
-
-    Example:
-        >>> increment_chain_id(["A", "B", "C"])
-        'D'
-        >>> increment_chain_id(["AA", "AB"])
-        'AC'
-        >>> increment_chain_id(["ZY", "ZZ"])
-        'AAA'
-    """
-    # ...ensure all chain IDs are uppercase
-    chain_ids = [cid.upper() for cid in chain_ids]
-
-    # ...sort, first by length, then lexicographically
-    chain_ids.sort(key=lambda x: (len(x), x))
-
-    def increment_string(s: str) -> str:
-        last_char = s[-1]
-        if ord("A") <= ord(last_char) <= ord("Y"):
-            # ...increment the last character if it's between 'A' and 'Y', inclusive
-            return s[:-1] + chr(ord(last_char) + 1)
-        else:
-            # ...if the last character is 'Z' (or something else), wrap around to all 'A's
-            # (NOTE: Increases the length of the string by one)
-            s = "A" * (len(s) + 1)
-            return s
-
-    # ...get the last chain ID and increment it
-    last_chain_id = chain_ids[-1].upper()
-    next_chain_id = increment_string(last_chain_id)
-    assert next_chain_id not in chain_ids, f"Chain ID {next_chain_id} already exists in the list of chain IDs."
-
-    return next_chain_id
 
 
 def _filter_extra_fields(extra_fields: list[str], atom_site: pdbx.CIFCategory) -> list[str]:

@@ -4,9 +4,9 @@ from cifutils.utils.sequence_utils import (
     is_pyramidine,
     is_purine,
     is_unknown_nucleotide,
-    is_protein,
+    is_standard_aa,
     is_glycine,
-    is_protein_not_glycine,
+    is_standard_aa_not_glycine,
     is_protein_unknown,
 )
 
@@ -174,7 +174,7 @@ def test_is_protein():
         False,
     ]
 
-    assert (is_protein(sequence) == np.array(expected)).all()
+    assert (is_standard_aa(sequence) == np.array(expected)).all()
 
 
 def test_is_glycine():
@@ -258,7 +258,7 @@ def test_is_protein_not_glycine():
         False,
     ]
 
-    assert (is_protein_not_glycine(sequence) == np.array(expected)).all()
+    assert (is_standard_aa_not_glycine(sequence) == np.array(expected)).all()
 
 
 def test_is_protein_unknown():

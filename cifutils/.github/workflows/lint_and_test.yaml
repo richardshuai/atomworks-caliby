@@ -40,16 +40,8 @@ jobs:
     # ... only run on non-draft PRs to `main` to avoid unnecessary CI runs
     # ... and only run on changed files in the `cifutils`, `tests`, or `scripts` directories
     if: |
-      (github.event_name == 'pull_request' && !github.event.pull_request.draft && (
-        contains(github.event.pull_request.changed_files, 'cifutils/') ||
-        contains(github.event.pull_request.changed_files, 'tests/') ||
-        contains(github.event.pull_request.changed_files, 'scripts/')
-      )) ||
-      (github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review' && (
-        contains(github.event.pull_request.changed_files, 'cifutils/') ||
-        contains(github.event.pull_request.changed_files, 'tests/') ||
-        contains(github.event.pull_request.changed_files, 'scripts/')
-      ))
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      (github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review')
     steps:
     - uses: actions/checkout@v4
     - name: Run tests

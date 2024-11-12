@@ -25,7 +25,7 @@ from cifutils.enums import ChainType
 from functools import cache
 import networkx as nx
 from cifutils.utils.residue_utils import get_processed_ccd_residue
-from cifutils.constants import PROCESSED_CCD_PATH
+from cifutils.constants import CCD_PICKLED_PATH
 import os
 
 logger = logging.getLogger("cifutils")
@@ -55,7 +55,7 @@ def _get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
 
 @cache
 def get_intra_residue_bonds(
-    residue_name: dict, keep_hydrogens: bool, processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH
+    residue_name: dict, keep_hydrogens: bool, processed_ccd_path: os.PathLike = CCD_PICKLED_PATH
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Retrieve intra-residue bonds for a given residue.
@@ -231,7 +231,7 @@ def get_inter_and_intra_residue_bonds(
     chain_type: str,
     known_residues: list[str] | set[str],
     keep_hydrogens: bool,
-    processed_ccd_path: os.PathLike = PROCESSED_CCD_PATH,
+    processed_ccd_path: os.PathLike = CCD_PICKLED_PATH,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Adds inter-residue and intra_residue bonds to an atom array for a given chain.
@@ -256,9 +256,10 @@ def get_inter_and_intra_residue_bonds(
     atom_pairs = {
         ChainType.DNA: ("O3'", "P"),  # phosphodiester bond
         ChainType.DNA_RNA_HYBRID: ("O3'", "P"),  # phosphodiester bond
-        ChainType.RNA: ("O3'", "P"),  # phosphodiester bond
-        ChainType.POLYPEPTIDE_L: ("C", "N"),  # peptide bond
         ChainType.POLYPEPTIDE_D: ("C", "N"),  # peptide bond
+        ChainType.POLYPEPTIDE_L: ("C", "N"),  # peptide bond
+        ChainType.CYCLIC_PSEUDO_PEPTIDE: ("C", "N"),  # peptide bond
+        ChainType.RNA: ("O3'", "P"),  # phosphodiester bond
     }
 
     # Append as we go along and then concatenate at the end

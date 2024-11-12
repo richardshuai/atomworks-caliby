@@ -31,13 +31,13 @@ def test_chain_type_from_string():
 
 
 def test_chain_type_get_chain_type_strings():
-    assert "polydeoxyribonucleotide" in ChainType.get_chain_type_strings()
+    assert "POLYDEOXYRIBONUCLEOTIDE" in ChainType.get_chain_type_strings()
 
 
 def test_chain_type_equality():
     assert ChainType.DNA == ChainType(3)
     assert ChainType.DNA == 3
-    assert ChainType.DNA == "polydeoxyribonucleotide"
+    assert ChainType.DNA == "POLYDEOXYRIBONUCLEOTIDE"
 
 
 CHAIN_TYPE_TEST_CASES = [
