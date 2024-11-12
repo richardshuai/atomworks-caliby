@@ -182,12 +182,12 @@ class FilterToSpecifiedPNUnits(Transform):
         self.pn_unit_iid_key = extra_info_key_with_pn_unit_iids_to_keep
 
     def check_input(self, data: dict):
-        check_contains_keys(data, ["atom_array", "extra_info"])
+        check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["pn_unit_iid"])
 
     def forward(self, data: dict) -> dict:
-        if self.pn_unit_iid_key not in data["extra_info"]:
+        if ("extra_info" not in data) or (self.pn_unit_iid_key not in data["extra_info"]):
             # ...short-circuit if the key does not exist in the `extra_info` dictionary
             return data
         else:

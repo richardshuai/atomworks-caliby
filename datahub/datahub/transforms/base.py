@@ -688,7 +688,7 @@ class ConditionalRoute(Transform):
         Example:
             ```python
             ConditionalRoute(
-                condition_func=lambda data: data.get("mode", 0),
+                condition_func=lambda data: data.get("mode", "inference"),
                 transform_map={
                     "train": TrainingTransform(),
                     "inference": Identity(),

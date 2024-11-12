@@ -376,7 +376,7 @@ class AddRFTemplates(Transform):
         for chain_id in chain_info:
             # get chain_type and convert to Enum
             chain_type = chain_info[chain_id]["type"]
-            chain_type = ChainType.from_string(chain_type)
+            chain_type = ChainType.as_enum(chain_type)
             rf_template_id = _get_rf_template_id(pdb_id, chain_id, chain_type)
             rf_template = _load_rf_template(rf_template_id)
 

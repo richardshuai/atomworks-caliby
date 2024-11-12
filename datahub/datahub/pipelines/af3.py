@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from cifutils.constants import AF3_EXCLUDED_LIGANDS, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from cifutils.constants import AF3_EXCLUDED_LIGANDS, GAP, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from cifutils.enums import ChainType
 
 from datahub.common import exists
@@ -18,7 +18,15 @@ from datahub.transforms.atom_array import (
     CopyAnnotation,
 )
 from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
-from datahub.transforms.base import AddData, Compose, ConditionalRoute, ConvertToTorch, RandomRoute, SubsetToKeys
+from datahub.transforms.base import (
+    AddData,
+    Compose,
+    ConditionalRoute,
+    ConvertToTorch,
+    Identity,
+    RandomRoute,
+    SubsetToKeys,
+)
 from datahub.transforms.bonds import GetAF3TokenBondFeatures
 from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
@@ -77,7 +85,7 @@ def build_af3_transform_pipeline(
     template_min_length: int = 10,
     template_allowed_chain_types: list[ChainType] = [ChainType.POLYPEPTIDE_L, ChainType.RNA],
     template_distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),
-    template_default_token: str = "<G>",
+    template_default_token: str = GAP,
     # MSA parameters
     max_msa_sequences: int = 10_000,  # Paper: 16,000, but we only have 10K stored on disk
     n_msa: int = 10_000,  # Paper: ?? I think ~12K?
@@ -176,8 +184,9 @@ def build_af3_transform_pipeline(
 
     transforms.append(
         ConditionalRoute(
-            condition_func=lambda data: data["is_inference"],
+            condition_func=lambda data: data.get("is_inference", False),
             transform_map={
+                True: Identity(),
                 False: cropping_transform,
                 # Default to Identity if False
             },
