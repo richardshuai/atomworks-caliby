@@ -10,7 +10,6 @@ from cifutils.constants import (
     POLYPEPTIDE_D_CHEM_TYPES,
     POLYPEPTIDE_L_CHEM_TYPES,
 )
-from dataclasses import dataclass
 from toolz import keymap
 import numpy as np
 
