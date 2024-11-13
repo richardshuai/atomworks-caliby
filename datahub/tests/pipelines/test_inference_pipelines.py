@@ -3,10 +3,10 @@
 import pytest
 import torch
 from cifutils.tools.inference import chain_info_from_atom_array, components_to_atom_array, read_chai_fasta
-from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, TEST_DATA_DIR
 
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
+from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, TEST_DATA_DIR
 
 
 def test_af3_pipeline_from_chai_fasta():

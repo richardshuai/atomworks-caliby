@@ -664,6 +664,12 @@ class RandomRoute(Transform):
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         # Choose a transform probabilistically
+
+        # EDGE CASE: If the probabilities sum to 0, skip the transform
+        if np.isclose(np.sum(self.probs), 0):
+            # skip
+            return data
+
         idx = np.random.choice(len(self.transforms), p=self.probs)
 
         # Apply the transform
