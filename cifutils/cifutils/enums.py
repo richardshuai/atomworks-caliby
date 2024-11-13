@@ -127,7 +127,6 @@ class ChainType(IntEnum):
             raise ValueError(f"Invalid value: {value}")
 
 
-@dataclass(frozen=True)
 class ChainTypeInfo:
     """
     Companion class containing metadata and helper methods for ChainType enum.
