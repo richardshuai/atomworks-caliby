@@ -15,6 +15,7 @@ from cifutils import CIFParser
 TEST_DATA_DIR = Path(__file__).resolve().parent / "data"
 PN_UNITS_DF = pd.read_parquet(f"{TEST_DATA_DIR}/pn_units_df.parquet")
 INTERFACES_DF = pd.read_parquet(f"{TEST_DATA_DIR}/interfaces_df.parquet")
+AF2_DISTILLATION_FACEBOOK_DF = pd.read_parquet(f"{TEST_DATA_DIR}/test_af2_distillation_facebook.parquet")
 
 # The validation dataset is small, so we don't need to use a subset
 AF3_VALIDATION_DF = pd.read_parquet(

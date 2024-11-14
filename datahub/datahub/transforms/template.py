@@ -649,13 +649,14 @@ def featurize_templates_like_af3(
     atom_array: AtomArray,
     templates_by_chain: dict[str, list[dict[str, Any]]],
     sequence_encoding: AF3SequenceEncoding,
-    n_templates: int,
     gap_token: str = "<G>",
     allowed_chain_type: list[ChainType] = [ChainType.POLYPEPTIDE_L, ChainType.RNA],
     distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),  # in Angstrom
 ) -> dict[str, torch.Tensor]:
     """
     Generate AF3 template features for a given (cropped) atom array and the corresponding templates.
+
+    NOTE: Number of templates (n_template) is determined by the number of templates in the templates_by_chain dict.
 
     This function adds the following features to the returned dictionary:
         - template_restype: [N_templ, N_token] One-hot encoding of the template sequence.
@@ -673,7 +674,6 @@ def featurize_templates_like_af3(
         - atom_array (AtomArray): The input atom array.
         - templates_by_chain (dict): Dictionary of templates for each chain.
         - sequence_encoding (AF3SequenceEncoding): Encoding for the sequence.
-        - n_templates (int): Number of templates to use.
         - gap_token (str): Token used for gaps in the sequence and as default to pad empty template tokens.
             NOTE: For templates a token is always a residue
         - allowed_chain_type (list): List of allowed chain types.
@@ -690,6 +690,11 @@ def featurize_templates_like_af3(
 
     NOTE: For templates a token is always a residue since we never align ligands, non-canonicals, PTMs, etc.
     """
+
+    # Get the maximum number of templates for any chain, which will be the number of templates to fill
+    n_templates = (
+        max(len(templates_by_chain.get(chain_id, [])) for chain_id in templates_by_chain) if templates_by_chain else 0
+    )
 
     # Get full atom array token starts (useful for going from atom-level > token-level annotations)
     _a_token_starts = get_token_starts(atom_array)  # [n_token] (int)
@@ -861,13 +866,11 @@ class FeaturizeTemplatesLikeAF3(Transform):
 
     def __init__(
         self,
-        n_templates: int,
         sequence_encoding: AF3SequenceEncoding,
         gap_token: str = "<G>",
         allowed_chain_type: list[ChainType] = [ChainType.POLYPEPTIDE_L, ChainType.RNA],
         distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),
     ):
-        self.n_templates = n_templates
         self.gap_token = gap_token
         self.allowed_chain_type = allowed_chain_type
         self.distogram_bins = distogram_bins
@@ -886,7 +889,6 @@ class FeaturizeTemplatesLikeAF3(Transform):
             atom_array=atom_array,
             templates_by_chain=templates_by_chain,
             sequence_encoding=self.sequence_encoding,
-            n_templates=self.n_templates,
             gap_token=self.gap_token,
             allowed_chain_type=self.allowed_chain_type,
             distogram_bins=self.distogram_bins,
@@ -896,6 +898,54 @@ class FeaturizeTemplatesLikeAF3(Transform):
         if "feats" not in data:
             data["feats"] = {}
         data["feats"].update(template_features)
+
+        return data
+
+
+def random_subsample_templates(
+    template_dictionary: dict[str, list[dict[str, Any]]], n_template: int = 4
+) -> dict[str, list[dict[str, Any]]]:
+    """
+    Subsample the templates for each chain in the template dictionary. We support the "training" implementation with this function;
+    for inference, do not use this function (and instead e.g. set `max_n_template=4` to directly take the first 4 templates).
+
+    From the AF-3 supplement:
+        > "Templates are sorted by e-value. At most 20 templates can be returned by our search, and the model uses up to 4
+            (Ntempl ≤ 4). At inference time we take the first 4. At training time we choose k random templates out of the available
+            n, where k ∼ min(Uniform[0, n], 4). This reduces the efficacy of simply copying the template.
+    """
+    for chain_id, templates in template_dictionary.items():
+        # ...at training time we choose k random templates out of the available n, where k ∼ min(Uniform[0, n], 4)
+        n_available_templates = len(templates)
+        n_templates_to_sample = min(np.random.randint(0, n_available_templates + 1), n_template)
+
+        # ...choose k random templates, if k < n
+        if n_templates_to_sample < n_available_templates:
+            sampled_templates = np.random.choice(templates, n_templates_to_sample, replace=False).tolist()
+            template_dictionary[chain_id] = sampled_templates
+
+    return template_dictionary
+
+
+class RandomSubsampleTemplates(Transform):
+    """
+    Subsample the templates for each chain in the template dictionary.
+
+    Args:
+        n_template (int): The maximum possible number of templates to use. Default is 4.
+    """
+
+    incompatible_previous_transforms = [FeaturizeTemplatesLikeAF3, FeaturizeTemplatesLikeRF2AA, "OneHotTemplateRestype"]
+
+    def __init__(self, n_template: int = 4):
+        self.n_template = n_template
+
+    def check_input(self, data: dict[str, Any]) -> None:
+        check_contains_keys(data, ["template"])
+        check_is_instance(data, "template", dict)
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        data["template"] = random_subsample_templates(template_dictionary=data["template"], n_template=self.n_template)
 
         return data
 

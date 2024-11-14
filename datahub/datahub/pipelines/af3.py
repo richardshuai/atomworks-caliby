@@ -55,7 +55,12 @@ from datahub.transforms.msa.msa import (
     PairAndMergePolymerMSAs,
 )
 from datahub.transforms.symmetry import FindAutomorphismsWithNetworkX
-from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeAF3, OneHotTemplateRestype
+from datahub.transforms.template import (
+    AddRFTemplates,
+    FeaturizeTemplatesLikeAF3,
+    OneHotTemplateRestype,
+    RandomSubsampleTemplates,
+)
 
 
 def build_af3_transform_pipeline(
@@ -78,8 +83,8 @@ def build_af3_transform_pipeline(
     # Conformer generation params
     conformer_generation_timeout: float = 2.0,  # seconds
     # Template params
+    max_n_template: int = 20,  # Maximum number of templates to return from our template search (distinct from n_template)
     n_template: int = 4,
-    pick_top_templates: bool = False,
     template_max_seq_similarity: float = 60.0,
     template_min_seq_similarity: float = 10.0,
     template_min_length: int = 10,
@@ -193,6 +198,27 @@ def build_af3_transform_pipeline(
         )
     )
 
+    training_template_loading_transforms = Compose(
+        [
+            AddRFTemplates(
+                max_n_template=max_n_template,  # return at most max_n_template (e.g., 20 in AF-3) from our template search (we will then subsample)
+                pick_top=False,
+                max_seq_similarity=template_max_seq_similarity,
+                min_seq_similarity=template_min_seq_similarity,
+                min_template_length=template_min_length,
+            ),
+            # Subsample templates to n_template (from 20)
+            RandomSubsampleTemplates(n_template=n_template),
+        ]
+    )
+    inference_template_loading_transforms = AddRFTemplates(
+        max_n_template=n_template,  # return at most n_template (e.g., 4 in AF-3) from our template search (no subsampling)
+        pick_top=True,
+        max_seq_similarity=template_max_seq_similarity,
+        min_seq_similarity=template_min_seq_similarity,
+        min_template_length=template_min_length,
+    )
+
     transforms += [
         AddGlobalTokenIdAnnotation(),  # required for reference molecule features and TokenToAtomMap
         EncodeAF3TokenLevelFeatures(sequence_encoding=af3_sequence_encoding),
@@ -202,15 +228,14 @@ def build_af3_transform_pipeline(
         ),
         FindAutomorphismsWithNetworkX(),  # Adds the  "automorphisms" key to the data dictionary
         ComputeAtomToTokenMap(),
-        AddRFTemplates(
-            max_n_template=n_template,
-            pick_top=pick_top_templates,
-            max_seq_similarity=template_max_seq_similarity,
-            min_seq_similarity=template_min_seq_similarity,
-            min_template_length=template_min_length,
+        ConditionalRoute(
+            condition_func=lambda data: data["is_inference"],
+            transform_map={
+                False: training_template_loading_transforms,
+                True: inference_template_loading_transforms,
+            },
         ),
         FeaturizeTemplatesLikeAF3(
-            n_templates=n_template,
             sequence_encoding=af3_sequence_encoding,
             gap_token=template_default_token,
             allowed_chain_type=template_allowed_chain_types,

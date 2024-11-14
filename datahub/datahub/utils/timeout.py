@@ -17,7 +17,7 @@ from multiprocessing import Process, Queue
 from typing import Any, Callable, Literal
 
 
-def timeout(default_timeout: float | int | None = None, strategy: Literal["signal", "subprocess"] = "signal"):
+def timeout(default_timeout: float | int | None = None, strategy: Literal["signal", "subprocess"] = "subprocess"):
     """
     Decorator to apply a timeout to a function.
 
@@ -31,7 +31,7 @@ def timeout(default_timeout: float | int | None = None, strategy: Literal["signa
     match strategy:
         case "signal":
             # timeout based on signal module
-            return _build_timeout_using_singal_decorator(default_timeout)
+            return _build_timeout_using_signal_decorator(default_timeout)
         case "subprocess":
             # timeout based on subprocess module
             return _build_timeout_using_subprocess_decorator(default_timeout)
@@ -39,7 +39,7 @@ def timeout(default_timeout: float | int | None = None, strategy: Literal["signa
             raise ValueError(f"Invalid strategy: {strategy}. Must be 'signal' or 'subprocess'.")
 
 
-def _build_timeout_using_singal_decorator(default_timeout: float | int | None) -> Callable:
+def _build_timeout_using_signal_decorator(default_timeout: float | int | None) -> Callable:
     """
     Build a decorator that applies a timeout to a function using the signal module.
 
@@ -87,6 +87,18 @@ def _build_timeout_using_singal_decorator(default_timeout: float | int | None) -
     return decorate
 
 
+def _timeout_handler(queue: Queue, func: Callable, args: Any, kwargs: Any) -> None:
+    """
+    Util function to be used only in `_build_timeout_using_subprocess_decorator`.
+    This util function is in the outer scope to allow pickling during ddp multiprocessing.
+    """
+    try:
+        result = func(*args, **kwargs)
+        queue.put((_TimeoutHandlerStatus.SUCCESS, result))
+    except Exception as e:
+        queue.put((_TimeoutHandlerStatus.EXCEPTION, e))
+
+
 def _build_timeout_using_subprocess_decorator(default_timeout: float | int | None) -> Callable:
     """Force function to timeout after specified time.
 
@@ -103,13 +115,6 @@ def _build_timeout_using_subprocess_decorator(default_timeout: float | int | Non
         TimeoutError: If the function does not return before the timeout.
         ChildProcessException: If the child process dies unexpectedly.
     """
-
-    def _timeout_handler(queue: Queue, func: Callable, args: Any, kwargs: Any) -> None:
-        try:
-            result = func(*args, **kwargs)
-            queue.put((_TimeoutHandlerStatus.SUCCESS, result))
-        except Exception as e:
-            queue.put((_TimeoutHandlerStatus.EXCEPTION, e))
 
     def decorator(func):
         @wraps(func)

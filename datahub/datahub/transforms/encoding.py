@@ -447,8 +447,8 @@ class EncodeAF3TokenLevelFeatures(Transform):
         - `asym_id`: Unique integer for each distinct chain (pn_unit_iid)
             NOTE: We use `pn_unit_iid` rather than `chain_iid` to be more consistent
             with handling of multi-residue/multi-chain ligands (especially sugars)
-        - `entity_id`: Unique integer for each distinct sequence (chain_entity)
-        - `sym_id`: Unique integer within chains of this sequence. E.g. if chains A, B and C
+        - `entity_id`: Unique integer for each distinct sequence (pn_unit entity)
+        - `sym_id`: Unique integer within chains of this sequence. E.g. if pn_units A, B and C
             share a sequence but D does not, their `sym_id`s would be [0, 1, 2, 0].
         - `restype`: Integer encoding of the sequence. 32 possible values: 20 AA + unknown,
             4 RNA nucleotides + unknown, 4 DNA nucleotides + unknown, and gap. Ligands are
@@ -499,9 +499,9 @@ class EncodeAF3TokenLevelFeatures(Transform):
         # ... (chain instance)
         asym_name, asym_id = np.unique(token_level_array.pn_unit_iid, return_inverse=True)
         # ... (chain entity)
-        entity_name, entity_id = np.unique(token_level_array.chain_entity, return_inverse=True)
+        entity_name, entity_id = np.unique(token_level_array.pn_unit_entity, return_inverse=True)
         # ... (within chain entity)
-        sym_name, sym_id = get_within_entity_idx(token_level_array, level="chain")
+        sym_name, sym_id = get_within_entity_idx(token_level_array, level="pn_unit")
 
         # ... sequence tokens
         restype = self.sequence_encoding.encode(token_level_array.res_name)

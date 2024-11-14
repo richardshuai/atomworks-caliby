@@ -12,6 +12,7 @@ from datahub.transforms.af3_reference_molecule import (
 from datahub.transforms.atom_array import add_global_token_id_annotation
 from datahub.transforms.rdkit_utils import atom_array_to_rdkit, find_automorphisms_with_rdkit
 from datahub.transforms.symmetry import apply_automorphs
+from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 
 
 def test_contrived_tyr():
@@ -158,7 +159,10 @@ def test_get_af3_reference_molecule_features_chain():
     atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.upper()] for el in atom_array.element])
     n_atoms = len(atom_array)
 
-    features = get_af3_reference_molecule_features(atom_array)
+    seed = 42
+    with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
+        features = get_af3_reference_molecule_features(atom_array, apply_random_rotation_and_translation=False)
+
     assert "ref_pos" in features
     assert "ref_mask" in features
     assert "ref_element" in features
@@ -174,6 +178,15 @@ def test_get_af3_reference_molecule_features_chain():
     assert features["ref_charge"].shape == (n_atoms,)
     assert features["ref_atom_name_chars"].shape == (n_atoms, 4)
     assert features["ref_automorphs"].shape == (1000, n_atoms, 2)
+
+    with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
+        features__with_random_rototranslation = get_af3_reference_molecule_features(
+            atom_array, apply_random_rotation_and_translation=True
+        )
+
+        # Assert that the features are different
+        assert not np.allclose(features["ref_pos"], features__with_random_rototranslation["ref_pos"])
+        assert np.allclose(features["ref_mask"], features__with_random_rototranslation["ref_mask"])
 
     # Inspect automorphs visually:
     # import matplotlib.pyplot as plt

@@ -11,6 +11,7 @@ from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
 from tests.conftest import (
+    AF2_DISTILLATION_FACEBOOK_DF,
     AF3_VALIDATION_DF,
     CIF_PARSER,
     INTERFACES_DF,
@@ -39,6 +40,9 @@ TEST_INTERFACES_FILTERS = [
     f"~(pn_unit_2_non_polymer_res_names.notnull() and pn_unit_2_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
 ]
 
+# +--------------------------------------------------------------------------+
+# AF3 and RF2AA PDB Datasets
+# +--------------------------------------------------------------------------+
 
 # Define the PDB datasets with their respective parsers...
 RF2AA_PN_UNITS_DATASET = StructuralDatasetWrapper(
@@ -143,9 +147,13 @@ RF2AA_PDB_DATASET = ConcatDatasetWithID(
 )  # NOTE: Order matters!
 AF3_PDB_DATASET = ConcatDatasetWithID(datasets=[AF3_PN_UNITS_DATASET, AF3_INTERFACES_DATASET])  # NOTE: Order matters!
 
+# +--------------------------------------------------------------------------+
+# Distillation datasets
+# +--------------------------------------------------------------------------+
+
 AF3_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
     dataset=PandasDataset(
-        data="/squash/af2_distillation_facebook/af2_distillation_facebook.parquet",
+        data=AF2_DISTILLATION_FACEBOOK_DF,
         id_column="example_id",
         name="af2fb_distillation",
         columns_to_load=["example_id", "sequence_hash"],
@@ -164,7 +172,7 @@ AF3_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
 AF3_AF2FB_DISTILLATION_CONCAT_DATASET = ConcatDatasetWithID(datasets=[AF3_AF2FB_DISTILLATION_DATASET])
 RF2AA_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
     dataset=PandasDataset(
-        data="/squash/af2_distillation_facebook/af2_distillation_facebook.parquet",
+        data=AF2_DISTILLATION_FACEBOOK_DF,
         id_column="example_id",
         name="af2fb_distillation",
         columns_to_load=["example_id", "sequence_hash"],
@@ -178,7 +186,9 @@ RF2AA_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
     ),
 )
 
-# Validation datasets
+# +--------------------------------------------------------------------------+
+# Validation datasets (tests inference as well)
+# +--------------------------------------------------------------------------+
 
 # ...for RF2AA
 RF2AA_VALIDATION_DATASET = StructuralDatasetWrapper(

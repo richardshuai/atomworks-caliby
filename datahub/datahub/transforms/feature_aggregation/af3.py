@@ -128,10 +128,10 @@ class AggregateFeaturesLikeAF3(Transform):
 
         data["ground_truth"].update(
             {
-                "coord_atom_lvl": torch.tensor(coord_atom_lvl),
-                "mask_atom_lvl": torch.tensor(mask_atom_lvl),
-                "coord_token_lvl": torch.tensor(coord_token_lvl),
-                "mask_token_lvl": torch.tensor(mask_token_lvl),
+                "coord_atom_lvl": torch.tensor(coord_atom_lvl),  # [n_atoms, 3]
+                "mask_atom_lvl": torch.tensor(mask_atom_lvl),  # [n_atoms]
+                "coord_token_lvl": torch.tensor(coord_token_lvl),  # [n_tokens, 3], using the representative tokens
+                "mask_token_lvl": torch.tensor(mask_token_lvl),  # [n_tokens], using the representative tokens
                 "chain_iid_token_lvl": chain_iid_token_lvl,  # numpy.ndarray of strings with shape (n_tokens,)
             }
         )

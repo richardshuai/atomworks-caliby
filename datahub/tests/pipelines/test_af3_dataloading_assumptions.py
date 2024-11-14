@@ -82,6 +82,7 @@ def assert_input_feature_dimensions(feats):
     assert f["is_ligand"].shape == (n_token,)
     assert f["is_dna"].shape == (n_token,)
     assert f["is_rna"].shape == (n_token,)
+
     assert f["ref_pos"].shape == (n_atoms, 3)
     assert f["ref_mask"].shape == (n_atoms,)
     assert f["ref_element"].shape == (
@@ -135,3 +136,7 @@ def assert_coordinates_for_noising_dimensions(coord_atom_lvl_to_be_noised, n_ato
     Asserts that the coordinates that will be noised have the correct dimensions for the AF3 model.
     """
     assert coord_atom_lvl_to_be_noised.shape == (TEST_DIFFUSION_BATCH_SIZE, n_atoms, 3)
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-x", "--log-cli-level=INFO", "-m slow", __file__])

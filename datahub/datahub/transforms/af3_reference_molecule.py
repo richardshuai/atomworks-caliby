@@ -3,6 +3,7 @@ from typing import Any
 
 import numpy as np
 import toolz
+import torch
 from biotite.structure import AtomArray
 from cifutils.utils.selection_utils import get_residue_starts
 from rdkit import Chem
@@ -14,6 +15,7 @@ from datahub.transforms.rdkit_utils import (
     ccd_code_to_rdkit_with_conformers,
     find_automorphisms_with_rdkit,
 )
+from datahub.utils.geometry import random_rigid_augmentation
 
 logger = logging.getLogger("datahub")
 
@@ -135,6 +137,7 @@ def get_af3_reference_molecule_features(
     atom_array: AtomArray,
     conformer_generation_timeout: float = 10.0,
     should_generate_automorphisms_with_rdkit: bool = True,
+    apply_random_rotation_and_translation: bool = True,
     **generate_conformers_kwargs,
 ) -> dict[str, Any]:
     """
@@ -146,24 +149,25 @@ def get_af3_reference_molecule_features(
             Defaults to 10.0 seconds.
         - should_generate_automorphisms_with_rdkit (bool, optional): Whether to generate automorphisms using RDKit. For example,
             we may want to generate automorphisms directly with networkx instead. Defaults to True.
+        - apply_random_rotation_and_translation (bool, optional): Whether to apply a random rotation and translation to each conformer (AF-3-style)
         - **generate_conformers_kwargs: Additional keyword arguments to pass to the generate_conformers function.
 
     Returns:
         dict[str, Any]: A dictionary containing the generated reference features.
 
     This function generates the following reference features for AF3:
-    - ref_pos: [N_atoms, 3] Atom positions in the reference conformer, with a random rotation and
-      translation applied. Atom positions are given in Å.
-    - ref_mask: [N_atoms] Mask indicating which atom slots are used in the reference conformer.
-    - ref_element: [N_atoms] One-hot encoding of the element atomic number for each atom in the
-      reference conformer, up to atomic number 128.
-    - ref_charge: [N_atoms] Charge for each atom in the reference conformer.
-    - ref_atom_name_chars: [N_atoms, 4, 64] One-hot encoding of the unique atom names in the reference conformer.
-      Each character is encoded as ord(c) - 32, and names are padded to length 4.
-    - ref_space_uid: [N_atoms] Numerical encoding of the chain id and residue index associated with
-      this reference conformer. Each (chain id, residue index) tuple is assigned an integer on first appearance.
-    - ref_automorphs: dict(int, torch.Tensor): A dictionary mapping the `ref_space_uid` to the automorphisms
-        of the reference conformer.
+        - ref_pos: [N_atoms, 3] Atom positions in the reference conformer, with a random rotation and
+        translation applied. Atom positions are given in Å.
+        - ref_mask: [N_atoms] Mask indicating which atom slots are used in the reference conformer.
+        - ref_element: [N_atoms, 128] One-hot encoding of the element atomic number for each atom in the
+        reference conformer, up to atomic number 128.
+        - ref_charge: [N_atoms] Charge for each atom in the reference conformer.
+        - ref_atom_name_chars: [N_atoms, 4, 64] One-hot encoding of the unique atom names in the reference conformer.
+        Each character is encoded as ord(c) - 32, and names are padded to length 4.
+        - ref_space_uid: [N_atoms] Numerical encoding of the chain id and residue index associated with
+        this reference conformer. Each (chain id, residue index) tuple is assigned an integer on first appearance.
+        - ref_automorphs: dict(int, torch.Tensor): A dictionary mapping the `ref_space_uid` to the automorphisms
+            of the reference conformer.
 
     Reference:
         - Section 2.8 of the AF3 supplementary information
@@ -222,6 +226,11 @@ def get_af3_reference_molecule_features(
             conformer=conformer,
             automorphs=ref_mol_automorphs[res_name] if ref_mol_automorphs else None,
         )
+
+        # ... apply a random rotation and translation to the reference conformer, if requested
+        if apply_random_rotation_and_translation:
+            # TODO: Implement more elegantly directly in numpy
+            _ref_pos = random_rigid_augmentation(torch.from_numpy(_ref_pos[np.newaxis, :]), batch_size=1).numpy()
 
         # ... fill the reference features for this residue
         ref_pos[res_start:res_end] = _ref_pos

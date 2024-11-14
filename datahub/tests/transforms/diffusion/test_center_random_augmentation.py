@@ -2,8 +2,9 @@ import pytest
 import torch
 
 from datahub.transforms.base import Compose
-from datahub.transforms.center_random_augmentation import CenterRandomAugmentation, center, random_augmentation
+from datahub.transforms.center_random_augmentation import CenterRandomAugmentation, center
 from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
+from datahub.utils.geometry import random_rigid_augmentation
 
 
 def test_center():
@@ -22,7 +23,7 @@ def test_random_augmentation():
     batch_size = 1
     coord_atom_lvl = torch.randn(batch_size, 10, 3)
 
-    coord_atom_lvl_augmented = random_augmentation(coord_atom_lvl, batch_size=batch_size)
+    coord_atom_lvl_augmented = random_rigid_augmentation(coord_atom_lvl, batch_size=batch_size)
 
     assert coord_atom_lvl_augmented.shape == (batch_size, 10, 3)
     assert not torch.allclose(coord_atom_lvl, coord_atom_lvl_augmented)

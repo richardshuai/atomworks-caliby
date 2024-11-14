@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 import torch
 
@@ -9,7 +11,12 @@ from datahub.transforms.atom_array import (
 from datahub.transforms.base import Compose
 from datahub.transforms.encoding import EncodeAtomArray, TokenEncoding
 from datahub.transforms.filters import FilterToProteins, RemoveHydrogens, RemoveTerminalOxygen
-from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeRF2AA, RF2AATemplate
+from datahub.transforms.template import (
+    AddRFTemplates,
+    FeaturizeTemplatesLikeRF2AA,
+    RandomSubsampleTemplates,
+    RF2AATemplate,
+)
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from tests.conftest import cached_parse
 
@@ -37,6 +44,35 @@ def test_add_rf_templates(test_case: dict):
         assert (
             len(data["template"][chain]) == n_templates
         ), f"For {pdb_id}-{chain}: Expected {n_templates} templates, got {len(data['template'][chain])}"
+
+
+@pytest.mark.parametrize("test_case", TEST_CASES)
+def test_subsample_template(test_case: dict):
+    pdb_id = test_case["pdb_id"]
+    data = cached_parse(pdb_id)
+
+    # Create a list of the number of templates for each chain
+    template_counts = []
+
+    out_before_subsampling = AddRFTemplates(
+        max_n_template=20, pick_top=False, min_seq_similarity=10, max_seq_similarity=100, min_template_length=10
+    )(data)
+
+    for _ in range(10):
+        # Sample 10 times
+        out_after_subsampling = RandomSubsampleTemplates(n_template=10)(copy.deepcopy(out_before_subsampling))
+        template_counts.extend(len(templates) for templates in out_after_subsampling["template"].values())
+
+    # Assert that at least one template has < n_template
+    assert any(count < 10 for count in template_counts), "Expected at least one template to have less than 10 templates"
+
+    # Assert that no template has > n_template
+    assert all(count <= 10 for count in template_counts), "Expected no template to have more than 10 templates"
+
+    # Assert the mean is what we would expect (~7.5 = 0.5 * 10 + 0.5 * 5)
+    assert (
+        7.5 - 1 < sum(template_counts) / len(template_counts) < 7.5 + 1
+    ), f"Expected mean to be around 7.5. Found {sum(template_counts) / len(template_counts)}. This is a stochastic test, so running again may fix this."
 
 
 @pytest.mark.parametrize("test_case", TEST_CASES)

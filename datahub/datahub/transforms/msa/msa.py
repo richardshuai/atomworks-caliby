@@ -984,7 +984,8 @@ class FeaturizeMSALikeAF3(Transform):
         | profile         | [N_token, 32]          | Distribution across restypes in the main MSA. Computed before MSA     |
         |                 |                        | processing (subsection 2.3).                                          |
         | deletion_mean   | [N_token]              | Mean number of deletions at each position in the main MSA. Computed   |
-        |                 |                        | before MSA processing (subsection 2.3).                               |
+        |                 |                        | before MSA processing (subsection 2.3). Like `deletion_value`,        |
+        |                 |                        | the mean deletions are transformed to [0, 1].                         |
 
     NOTE: The statement "Computed before MSA processing" is somewhat ambiguous; we interpret it as meaning that the DeepMind team computed the full profile
     and deletion mean before truncating the MSA to their `N_msa = 16,384` limit. We will adhere as closely to this interpretation as possible;

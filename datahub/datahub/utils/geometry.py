@@ -258,3 +258,31 @@ def get_random_rigid(batch_size: int, scale: float = 1.0, **tensor_kwargs) -> tu
     if batch_size == 1:
         rots, trans = rots.squeeze(0), trans.squeeze(0)
     return rots, trans
+
+
+def random_rigid_augmentation(coord_atom_lvl: torch.Tensor, batch_size: int, s: float = 1.0):
+    """
+    Apply random rigid body transformations to atomic coordinates.
+
+    Generates random rigid body transformations (rotation and translation)
+    for a batch of atomic coordinates and applies these transformations to the input coordinates.
+
+    Args:
+        coord_atom_lvl (torch.Tensor): A tensor containing atomic coordinates to be transformed.
+                                       The shape is expected to be (batch_size, num_atoms, 3).
+        batch_size (int): The number of transformations to generate and apply, corresponding to
+                          the number of coordinate sets in `coord_atom_lvl`.
+        s (float, optional): The translational scale in Angstrom. Random translations will be drawn from N(0, s), i.e. with standard deviation `s`. The rotational degree of freedom is sampled uniformly random.
+                             Defaults to 1.0.
+
+    Returns:
+        torch.Tensor: A tensor of the same shape as `coord_atom_lvl`, containing the transformed
+                      atomic coordinates.
+    """
+    rigid = get_random_rigid(batch_size, scale=s)
+
+    # (`get_random_rigid` squeezes dimension for batch_size=1)
+    if batch_size == 1:
+        rigid = rigid[0].unsqueeze(0), rigid[1].unsqueeze(0)
+
+    return apply_batched_rigid(rigid, coord_atom_lvl)
