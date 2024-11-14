@@ -119,7 +119,7 @@ class RemoveUnsupportedChainTypes(Transform):
         query_pn_unit_iids = data.get("query_pn_unit_iids", None)
 
         # Apply transform
-        atom_array = remove_unsupported_chain_types(atom_array, query_pn_unit_iids, SUPPORTED_CHAIN_TYPES)
+        atom_array = remove_unsupported_chain_types(atom_array, query_pn_unit_iids, self.supported_chain_types)
 
         # Update data
         data["atom_array"] = atom_array
