@@ -6,6 +6,7 @@ from typing import Any, Hashable, Sequence
 import biotite.structure as struc
 import einops
 import networkx as nx
+import networkx.algorithms.isomorphism as iso
 import numpy as np
 import torch
 from biotite.structure import AtomArray
@@ -916,7 +917,7 @@ def generate_automorphisms_from_atom_array_with_networkx(
         )
 
     # ...build the automorphism generator
-    matcher = nx.algorithms.isomorphism.GraphMatcher(G, G)
+    matcher = iso.GraphMatcher(G, G, node_match=iso.categorical_node_match(node_features, [""] * len(node_features)))
     automorphism_generator = matcher.isomorphisms_iter()
 
     # List to store permutations; the first row is the identity permutation

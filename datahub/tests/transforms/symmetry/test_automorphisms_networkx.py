@@ -1,6 +1,7 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
+from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 
 from datahub.encoding_definitions import AF3_TOKENS
 from datahub.transforms.atomize import AtomizeByCCDName
@@ -9,6 +10,7 @@ from datahub.transforms.symmetry import (
     find_automorphisms_with_networkx,
     generate_automorphisms_from_atom_array_with_networkx,
 )
+from datahub.utils.numpy import get_indices_of_non_constant_columns
 from tests.conftest import cached_parse
 
 TEST_CASES = [
@@ -42,9 +44,10 @@ def test_find_automorphisms_from_atom_array_with_networkx(test_case: dict):
 
 def test_manual_generate_automorphs_with_networkx():
     """
-    Test a single residue, ASP, manually.
-    ASP has four automorphisms, all of which occur due to resonance (and thus would not be detected by RDKit or OpenBabel)
+    Test the generate_automorphisms_from_atom_array_with_networkx function on a few residues with known automorphisms.
     """
+    # +---------------- ASP ----------------+
+    # ASP has four automorphisms, all of which occur due to resonance (and thus would not be detected by RDKit or OpenBabel)
     residue_atom_array = struc.info.residue(
         "ASP"
     )  # Aspartate - 4 automorphisms (two sets of equivalent oxygens, given resonane)
@@ -100,6 +103,34 @@ def test_find_automorphisms_within_entire_structure(pdb_id: str):
     for automorphism in automorphisms:
         # ...get the identity
         residue = atom_array[automorphism[0]]
+        residue_name = residue.res_name[0]
+
+        # skip of "OXT" is present in the residue (it's a terminal residue, and will have a different number of automorphisms)
+        if "OXT" in residue.atom_name:
+            continue
+
+        # ...if it's a glycine, there should be no automorphisms
+        if residue_name == "GLY":
+            assert len(automorphism) == 1, "Glycine should have no automorphisms, unless it's terminal."
+        # ...if it's an arginine, there should be 2 automorphisms, both involving nitrogens
+        if residue_name == "ARG":
+            assert len(automorphism) == 2, "Arginine should have 2 automorphisms."
+            changing_column_indices = get_indices_of_non_constant_columns(automorphism)
+            n_element = str(ELEMENT_NAME_TO_ATOMIC_NUMBER["N"])
+            assert np.all(
+                residue.element[changing_column_indices] == n_element
+            ), "All automorphisms of Arginine should involve nitrogens."
+        # ...if it's a tyrosine, there should be 2 automorphisms, all involving carbons
+        if residue_name == "TYR":
+            assert len(automorphism) == 2, "Tyrosine should have 2 automorphisms (carbons must swap together)"
+            changing_column_indices = get_indices_of_non_constant_columns(automorphism)
+            n_element = str(ELEMENT_NAME_TO_ATOMIC_NUMBER["C"])
+            assert np.all(
+                residue.element[changing_column_indices] == n_element
+            ), "All automorphisms of Tyrosine should involve carbons."
+        # ...isoleucine should have no automorphisms
+        if residue_name == "ILE":
+            assert len(automorphism) == 1, "Isoleucine should have no automorphisms."
 
         # ...calculate automorphisms
         local_automorphisms = generate_automorphisms_from_atom_array_with_networkx(residue)

@@ -180,3 +180,32 @@ def get_nearest_true_index_for_each_false(arr: np.ndarray) -> np.ndarray:
     nearest_true_indices = true_indices[np.argmin(distances, axis=1)]
 
     return nearest_true_indices
+
+
+def get_indices_of_non_constant_columns(arr: np.ndarray) -> np.ndarray:
+    """Identify columns where values change between consecutive rows.
+
+    Args:
+        arr (np.ndarray): A 2D NumPy array where you want to find columns with changing values.
+
+    Returns:
+        np.ndarray: An array of column indices where values change between consecutive rows.
+
+    Example:
+        >>> arr = np.array(
+        ...     [
+        ...         [151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161],
+        ...         [151, 152, 153, 154, 155, 156, 157, 158, 159, 161, 160],
+        ...     ]
+        ... )
+        >>> find_changing_columns(arr)
+        array([ 9, 10])
+    """
+    # Compute the differences between consecutive rows
+    differences = np.diff(arr, axis=0)
+
+    # Get the indices where the differences are non-zero
+    changing_indices = np.nonzero(differences)
+
+    # Return the column indices where changes occur
+    return changing_indices[1]
