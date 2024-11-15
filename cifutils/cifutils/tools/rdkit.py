@@ -755,7 +755,9 @@ def ccd_code_to_rdkit(
     if ccd_path.exists():
         # ...use the local CCD directory, which we assume is sharded by the first character of the res_name (as it should be, since we're using `rsync`)
         path = ccd_path / ccd_code[0] / ccd_code / f"{ccd_code}.cif"
-        cif_file = struc.io.pdbx.CIFFile.read(path)
+        with open(path, "r", encoding="utf-8") as file:
+            cif_file = struc.io.pdbx.CIFFile.read(file)
+
         return atom_array_to_rdkit(
             struc.io.pdbx.get_component(cif_file),
             set_coord=set_coord,
