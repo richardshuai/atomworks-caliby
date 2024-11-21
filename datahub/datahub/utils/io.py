@@ -182,46 +182,57 @@ def get_sharded_file_path(base_dir: Path, file_hash: str, extension: str, depth:
     return (nested_path / file_hash).with_suffix(extension)
 
 
-def convert_af3_model_output_to_atom_array(
+def convert_af3_model_output_to_atom_array_stack(
     atom_to_token_map: np.ndarray[int],
     pn_unit_iids: np.ndarray[str],
     decoded_restypes: np.ndarray[str],
     xyz: np.ndarray,
     elements: np.ndarray[int | str],
     token_is_atomized: np.ndarray[bool] = None,
-) -> struc.AtomArray:
+) -> struc.AtomArrayStack:
     """
-    Create an AtomArray from AlphaFold-3-type model outputs.
+    Create an AtomArrayStack from AlphaFold-3-type model outputs.
     Specific to AF-3; may not work with other formats.
 
     Parameters:
         - atom_to_token_map (np.ndarray): Mapping from atoms to tokens [n_atom]
         - pn_unit_iids (np.ndarray): PN unit IID's for each token [n_token]
         - decoded_restype (np.ndarray): Decoded residue types for each token [n_token]
-        - xyz (np.ndarray): Coordinates of atoms [n_atom, 3]
+        - xyz (np.ndarray): Coordinates of atoms [n_atom, 3] or [batch, n_atom, 3], where batch is the number of structures
         - elements (np.ndarray): Element types for each atom [n_atom]
         - token_is_atomized (np.ndarray, optional): Flags indicating if tokens are atomized [n_token]. If not provided
             or None, residues with a single atom are considered atomized.
 
     Returns:
-        - AtomArray: Constructed AtomArray.
+        - AtomArrayStack: Constructed AtomArrayStack.
     """
     atom_array = None
     chain_iid_residue_counts = {}
+
+    # If dimensions are [n_atom, 3], add a batch dimension
+    if len(xyz.shape) == 2:
+        xyz = np.expand_dims(xyz, axis=0)
 
     # If elements are integers, convert them to strings (since that's what we get from the CCD, and it better matches what CIF files expect)
     if np.issubdtype(type(elements[0]), np.integer):
         elements = np.array([ATOMIC_NUMBER_TO_ELEMENT[element] for element in elements])
 
+    #######################################################################################################
+    # Iterate over the residues, and create the appropriate atoms for each residue with empty coordinates
+    # We add the atom type, residue ID, chain ID, and transformation ID to the AtomArray
+    #######################################################################################################
+
     for global_res_idx, res_name in enumerate(decoded_restypes):
         # Get atoms corresponding to the residue
-        atom_indices_in_residue = np.where(atom_to_token_map == global_res_idx)[0]
+        atom_indices_in_token = np.where(atom_to_token_map == global_res_idx)[0]
 
         # ...check if we're dealing with an atomized token
         if token_is_atomized is not None:
+            # If we have the token_is_atomized array, we can use it to determine if the residue is atomized
             is_atom = token_is_atomized[global_res_idx]
         else:
-            is_atom = len(atom_indices_in_residue) == 1
+            # Otherwise, we assume that a residue with a single atom is atomized
+            is_atom = len(atom_indices_in_token) == 1
 
         #  ...compute the residue ID
         pn_unit_iid = pn_unit_iids[global_res_idx]
@@ -233,10 +244,8 @@ def convert_af3_model_output_to_atom_array(
         res_id = chain_iid_residue_counts[pn_unit_iid]
 
         if is_atom:
-            coord = xyz[atom_indices_in_residue.item()]
-
             # UNL is "Unknown Ligand" in the CCD
-            element = elements[atom_indices_in_residue].item()
+            element = elements[atom_indices_in_token].item()
 
             def atom_name_exists(atom_name: str) -> bool:
                 return (
@@ -257,7 +266,7 @@ def convert_af3_model_output_to_atom_array(
                     if not atom_name_exists(f"{element}{atom_count}")
                 )
 
-            atom = struc.Atom(coord, res_name=UNKNOWN_LIGAND, element=element, atom_name=atom_name)
+            atom = struc.Atom(np.full((3,), np.nan), res_name=UNKNOWN_LIGAND, element=element, atom_name=atom_name)
             residue_atom_array = struc.array([atom])
         else:
             chem_type = get_chem_comp_type(res_name)
@@ -271,7 +280,7 @@ def convert_af3_model_output_to_atom_array(
             # If needed, remove type-specific atoms (e.g., OXT in polypeptides, O3' in RNA or DNA) for residues participating in inter-residue bonds
             # If we are at a terminal residue, we don't want to remove these leaving groups
             residue_atom_array = filter_residue_atoms(
-                residue_atom_array=residue_atom_array, chem_type=chem_type, elements=elements[atom_indices_in_residue]
+                residue_atom_array=residue_atom_array, chem_type=chem_type, elements=elements[atom_indices_in_token]
             )
 
             # Empty coordinates to avoid unexpected behavior
@@ -279,9 +288,6 @@ def convert_af3_model_output_to_atom_array(
 
             # Wipe the bond information (we are better off letting PyMOL infer the bonds)
             residue_atom_array.bonds = None
-
-        # Set the coordinates
-        residue_atom_array.coord = xyz[atom_indices_in_residue]
 
         # Get the chain_iid, chain_id, and transformation_id
         pn_unit_id = convert_pn_unit_iids_to_pn_unit_ids([pn_unit_iid])[0]
@@ -307,7 +313,20 @@ def convert_af3_model_output_to_atom_array(
         else:
             atom_array += residue_atom_array
 
-    return atom_array
+    #######################################################################################################
+    # Iterate over the batches of coordinates, and create a new AtomArray for each batch
+    #######################################################################################################
+    atom_arrays = []
+    for coords in xyz:
+        # ...create a new AtomArray for each batch, with new coordinates
+        batch_atom_array = atom_array.copy()
+        batch_atom_array.coord = coords
+        atom_arrays.append(batch_atom_array)
+
+    # Convert to a stack
+    atom_array_stack = struc.stack(atom_arrays)
+
+    return atom_array_stack
 
 
 def filter_residue_atoms(
