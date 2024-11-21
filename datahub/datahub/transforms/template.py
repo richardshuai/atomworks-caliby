@@ -645,6 +645,27 @@ class FeaturizeTemplatesLikeRF2AA(Transform):
         return data
 
 
+def blank_af3_template_features(n_templates: int, n_tokens: int, gap_token_index: int) -> dict[str, torch.Tensor]:
+    """
+    Generates blank template features for AF3.
+
+    Args:
+        - n_templates (int): Number of templates.
+        - n_tokens (int): Number of tokens.
+        - gap_token_index (int): Index of the gap token in the sequence encoding.
+
+    Returns:
+        dict: A dictionary containing initialized template features.
+    """
+    return {
+        "template_restype": torch.full((n_templates, n_tokens), gap_token_index, dtype=int),
+        "template_pseudo_beta_mask": torch.zeros((n_templates, n_tokens), dtype=bool),
+        "template_backbone_frame_mask": torch.zeros((n_templates, n_tokens), dtype=bool),
+        "template_distogram": torch.full((n_templates, n_tokens, n_tokens), fill_value=float("nan")),
+        "template_unit_vector": torch.zeros((n_templates, n_tokens, n_tokens, 3)),
+    }
+
+
 def featurize_templates_like_af3(
     atom_array: AtomArray,
     templates_by_chain: dict[str, list[dict[str, Any]]],
@@ -695,23 +716,20 @@ def featurize_templates_like_af3(
     n_templates = (
         max(len(templates_by_chain.get(chain_id, [])) for chain_id in templates_by_chain) if templates_by_chain else 0
     )
+    n_templates = max(n_templates, 1)  # Ensure at least one template is filled (use a blank template if no templates)
 
     # Get full atom array token starts (useful for going from atom-level > token-level annotations)
     _a_token_starts = get_token_starts(atom_array)  # [n_token] (int)
 
     # Initialize features to fill
     _n_token = len(_a_token_starts)
-    res_type = torch.full(
-        (n_templates, _n_token), sequence_encoding.token_to_idx[gap_token], dtype=int
-    )  # [n_templates, n_token] (int)
-    template_pseudo_beta_mask = torch.zeros((n_templates, _n_token), dtype=bool)  # [n_templates, n_token] (bool)
-    template_backbone_frame_mask = torch.zeros((n_templates, _n_token), dtype=bool)  # [n_templates, n_token] (bool)
-    template_distogram = torch.full(
-        (n_templates, _n_token, _n_token), fill_value=float("nan")
-    )  # [n_templates, n_token, n_token] (float)
-    template_unit_vector = torch.zeros(
-        (n_templates, _n_token, _n_token, 3)
-    )  # [n_templates, n_token, n_token, 3] (float)
+
+    blank_af3_template = blank_af3_template_features(n_templates, _n_token, sequence_encoding.token_to_idx[gap_token])
+    res_type = blank_af3_template["template_restype"]  # [n_templates, n_token] (int)
+    template_pseudo_beta_mask = blank_af3_template["template_pseudo_beta_mask"]  # [n_templates, n_token] (bool)
+    template_backbone_frame_mask = blank_af3_template["template_backbone_frame_mask"]  # [n_templates, n_token] (bool)
+    template_distogram = blank_af3_template["template_distogram"]  # [n_templates, n_token, n_token] (float)
+    template_unit_vector = blank_af3_template["template_unit_vector"]  # [n_templates, n_token, n_token, 3] (float)
 
     # Fill the template features chain by chain and template by template ...
     for chain in chain_instance_iter(atom_array):

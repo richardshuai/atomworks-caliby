@@ -58,10 +58,11 @@ def test_subsample_template(test_case: dict):
         max_n_template=20, pick_top=False, min_seq_similarity=10, max_seq_similarity=100, min_template_length=10
     )(data)
 
-    for _ in range(10):
-        # Sample 10 times
-        out_after_subsampling = RandomSubsampleTemplates(n_template=10)(copy.deepcopy(out_before_subsampling))
-        template_counts.extend(len(templates) for templates in out_after_subsampling["template"].values())
+    with rng_state(create_rng_state_from_seeds(12345)):
+        for _ in range(100):
+            # Sample 10 times
+            out_after_subsampling = RandomSubsampleTemplates(n_template=10)(copy.deepcopy(out_before_subsampling))
+            template_counts.extend(len(templates) for templates in out_after_subsampling["template"].values())
 
     # Assert that at least one template has < n_template
     assert any(count < 10 for count in template_counts), "Expected at least one template to have less than 10 templates"
