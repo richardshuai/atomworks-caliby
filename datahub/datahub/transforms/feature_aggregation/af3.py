@@ -136,6 +136,32 @@ class AggregateFeaturesLikeAF3(Transform):
             }
         )
 
+        # data for symmetry resolution
+        if "symmetry_resolution" not in data:
+            data["symmetry_resolution"] = {}
+
+        if "crop_info" not in data:
+            data["symmetry_resolution"].update(
+                {
+                    "molecule_entity": torch.tensor(data["atom_array"].molecule_entity),
+                    "molecule_iid": torch.tensor(data["atom_array"].molecule_iid),
+                    "crop_mask": torch.arange(data["atom_array"].shape[0]),
+                    "coord_atom_lvl": torch.tensor(coord_atom_lvl),  # [n_atoms, 3]
+                    "mask_atom_lvl": torch.tensor(mask_atom_lvl),  # [n_atoms]
+                }
+            )
+        else:
+            token_starts = get_token_starts(data["crop_info"]["atom_array"])
+            data["symmetry_resolution"].update(
+                {
+                    "molecule_entity": torch.tensor(data["crop_info"]["atom_array"].molecule_entity),
+                    "molecule_iid": torch.tensor(data["crop_info"]["atom_array"].molecule_iid),
+                    "crop_mask": torch.tensor(data["crop_info"]["crop_atom_idxs"]),
+                    "coord_atom_lvl": torch.tensor(data["crop_info"]["atom_array"].coord),
+                    "mask_atom_lvl": torch.tensor(data["crop_info"]["atom_array"].occupancy > 0.0),
+                }
+            )
+
         # Add atom-level features for noising
         data["coord_atom_lvl_to_be_noised"] = torch.tensor(atom_array.coord_to_be_noised)
 
