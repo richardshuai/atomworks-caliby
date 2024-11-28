@@ -187,7 +187,7 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str):
         assert last_run_time < first_run_time * 0.9
 
 
-def process_pdb_id(pdb_id):
+def calculate_msa_coverage_of_pdb_id(pdb_id):
     """Take as input a PDB ID and return the number of proteins and RNA/DNA chains with MSAs. Used in the MSA coverage test."""
     num_proteins = num_proteins_with_msas = num_rna = num_rna_with_msa = num_dna = num_dna_with_msa = 0
 
@@ -292,7 +292,7 @@ def test_msa_coverage():
 
     num_processes = min(8, os.cpu_count() or 8)
     with Pool(processes=num_processes) as pool:
-        results_generator = pool.imap(process_pdb_id, pdb_ids, chunksize=20)
+        results_generator = pool.imap(calculate_msa_coverage_of_pdb_id, pdb_ids, chunksize=20)
         for results in tqdm(results_generator, total=len(pdb_ids)):
             if results is None:
                 continue

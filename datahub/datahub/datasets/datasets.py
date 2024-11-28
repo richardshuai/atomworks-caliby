@@ -2,7 +2,7 @@ import copy
 import os
 import socket
 import time
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
@@ -24,7 +24,7 @@ from datahub.utils.rng import capture_rng_states
 _USER = default(os.getenv("USER"), "")
 
 
-class BaseDataset(ABC):
+class BaseDataset(Dataset):
     """
     Abstract base class for datasets. All dataset types (e.g., Pandas, Polars) should inherit from this class
     and implement its methods.

@@ -135,7 +135,7 @@ def build_af3_transform_pipeline(
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
 
-    if crop_contiguous_probability > 0 or crop_spatial_probability > 0:
+    if (crop_contiguous_probability > 0 or crop_spatial_probability > 0) and not is_inference:
         assert np.isclose(
             crop_contiguous_probability + crop_spatial_probability, 1.0, atol=1e-6
         ), "Crop probabilities must sum to 1.0"

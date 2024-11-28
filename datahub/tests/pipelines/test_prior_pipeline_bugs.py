@@ -112,48 +112,54 @@ def test_specific_examples_rf2aa(example_id: str):
 # ------------------- AF3 Pipeline -----------------------#
 ##########################################################
 
+
 # Define the PDB datasets with their respective parsers...
-# (We must redefine due to the filters we imposed in the conftest)
-PN_UNITS_DATASET_AF3 = StructuralDatasetWrapper(
-    dataset_parser=PNUnitsDFParser(),
-    cif_parser=CIF_PARSER,
-    transform=build_af3_transform_pipeline(
-        protein_msa_dirs=PROTEIN_MSA_DIRS,
-        rna_msa_dirs=RNA_MSA_DIRS,
-        is_inference=False,
-    ),
-    dataset=PandasDataset(
-        name="pn_units",
-        id_column="example_id",
-        data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/pn_units_df_train.parquet"),
-        filters=TEST_PN_UNITS_FILTERS,
-    ),
-    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
-    return_key="feats",
-    save_failed_examples_to_dir=None,
-)
+# (We must redefine due to the filters we imposed in the conftest; left as a fixture for lazy loading)
+@pytest.fixture
+def full_pdb_dataset_af3():
+    # Create PN_UNITS_DATASET_AF3
+    pn_units_dataset_af3 = StructuralDatasetWrapper(
+        dataset_parser=PNUnitsDFParser(),
+        cif_parser=CIF_PARSER,
+        transform=build_af3_transform_pipeline(
+            protein_msa_dirs=PROTEIN_MSA_DIRS,
+            rna_msa_dirs=RNA_MSA_DIRS,
+            is_inference=False,
+        ),
+        dataset=PandasDataset(
+            name="pn_units",
+            id_column="example_id",
+            data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/pn_units_df_train.parquet"),
+            filters=TEST_PN_UNITS_FILTERS,
+        ),
+        cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
+        return_key="feats",
+        save_failed_examples_to_dir=None,
+    )
 
-INTERFACES_DATASET_AF3 = StructuralDatasetWrapper(
-    dataset_parser=InterfacesDFParser(),
-    cif_parser=CIF_PARSER,
-    transform=build_af3_transform_pipeline(
-        protein_msa_dirs=PROTEIN_MSA_DIRS,
-        rna_msa_dirs=RNA_MSA_DIRS,
-        is_inference=False,
-    ),
-    dataset=PandasDataset(
-        name="interfaces",
-        id_column="example_id",
-        data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/interfaces_df_train.parquet"),
-        filters=TEST_INTERFACES_FILTERS,
-    ),
-    cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
-    return_key="feats",
-    save_failed_examples_to_dir=None,
-)
+    # Create INTERFACES_DATASET_AF3
+    interfaces_dataset_af3 = StructuralDatasetWrapper(
+        dataset_parser=InterfacesDFParser(),
+        cif_parser=CIF_PARSER,
+        transform=build_af3_transform_pipeline(
+            protein_msa_dirs=PROTEIN_MSA_DIRS,
+            rna_msa_dirs=RNA_MSA_DIRS,
+            is_inference=False,
+        ),
+        dataset=PandasDataset(
+            name="interfaces",
+            id_column="example_id",
+            data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/interfaces_df_train.parquet"),
+            filters=TEST_INTERFACES_FILTERS,
+        ),
+        cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
+        return_key="feats",
+        save_failed_examples_to_dir=None,
+    )
 
-# ...build the ConcatDataset
-PDB_DATASET_AF3 = ConcatDatasetWithID(datasets=[PN_UNITS_DATASET_AF3, INTERFACES_DATASET_AF3])  # NOTE: Order matters!
+    # Combine both datasets into a single ConcatDatasetWithID
+    return ConcatDatasetWithID(datasets=[pn_units_dataset_af3, interfaces_dataset_af3])
+
 
 PRIOR_PIPELINE_BUGS_AF3 = [
     "{['pdb', 'interfaces']}{2g37}{1}{['B_1', 'F_1']}",
@@ -163,11 +169,11 @@ PRIOR_PIPELINE_BUGS_AF3 = [
 
 @pytest.mark.parametrize("example_id", PRIOR_PIPELINE_BUGS_RF2AA)
 @pytest.mark.very_slow
-def test_specific_examples_af3(example_id: str):
+def test_specific_examples_af3(example_id: str, full_pdb_dataset_af3: ConcatDatasetWithID):
     """Run a single example through the pipeline. Useful for debugging specific examples."""
     try:
-        index = get_row_and_index_by_example_id(PDB_DATASET_AF3, example_id)["index"]
-        sample = PDB_DATASET_AF3[index]
+        index = get_row_and_index_by_example_id(full_pdb_dataset_af3, example_id)["index"]
+        sample = full_pdb_dataset_af3[index]
         assert sample is not None, f"Sample is None, with example_id: {example_id}"
     except Exception as e:
         # We may be excluding some examples with the filters, which is desireable in some cases (e.g., AF-3 excluded ligands)

@@ -64,7 +64,7 @@ def identity_collate_fn(batch):
 
 @pytest.mark.parametrize("dataset_to_test", DATASETS_TO_TEST)
 @pytest.mark.slow
-def test_data_loading_pipeline_with_multiple_workers(dataset_to_test: dict):
+def test_data_loading_pipelines_with_random_examples(dataset_to_test: dict):
     """Test random examples using a DataLoader with basic smoke tests."""
     dataset = dataset_to_test["dataset"]
     dataset_type = dataset_to_test["type"]
