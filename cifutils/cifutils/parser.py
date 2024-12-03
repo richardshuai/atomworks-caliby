@@ -579,7 +579,8 @@ class CIFParser:
             logger.warning(
                 "PDB file detected; assuming all residues are resolved. We highly recommend using CIF files instead."
             )
+        parse_from_cif_kwargs["assume_residues_all_resolved"] = True
 
         # ...parse the CIF block into a dictionary
         parse_from_cif_kwargs["file_type"] = "pdb"
-        return self.parse_from_cif(filename=cif_buffer, assume_residues_all_resolved=True, **parse_from_cif_kwargs)
+        return self.parse_from_cif(filename=cif_buffer, **parse_from_cif_kwargs)

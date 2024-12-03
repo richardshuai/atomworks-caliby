@@ -36,6 +36,7 @@ def test_af2_predicted_pdb_example():
         filename=DIR / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb",
         remove_waters=True,
         residues_to_remove=[],
+        assume_residues_all_resolved=True,
     )
     # Check if processing runs through
     assert result is not None
@@ -53,6 +54,7 @@ def test_pdb_with_same_chain_poly_non_poly():
     result = CIF_PARSER_BIOTITE.parse(
         filename=DIR / "1qfe.pdb",
         keep_hydrogens=False,
+        assume_residues_all_resolved=True,
     )
     # Check if processing runs through
     assert result is not None
