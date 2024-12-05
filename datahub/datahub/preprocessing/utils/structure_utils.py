@@ -11,11 +11,12 @@ import numpy as np
 import requests
 from biotite.structure import AtomArray, CellList
 from cifutils.common import not_isin
+from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 from cifutils.enums import ChainType
 from scipy.spatial.distance import cdist
 
 from datahub.common import default
-from datahub.preprocessing.constants import FLUORINE_ATOMIC_NUMBER, OXYGEN_ATOMIC_NUMBER, ClashSeverity
+from datahub.preprocessing.constants import ClashSeverity
 
 logger = logging.getLogger("preprocess")
 
@@ -47,9 +48,10 @@ def get_pn_units_with_non_biological_bonds(atom_array: AtomArray, bond_mask: np.
 
     # Check for non-biological bonds
     non_biological_bonds = (
-        (atom_a_elements == OXYGEN_ATOMIC_NUMBER) & (atom_b_elements == OXYGEN_ATOMIC_NUMBER)  # Oxygen-oxygen bonds
-        | (atom_a_elements == FLUORINE_ATOMIC_NUMBER)
-        & (atom_b_elements == FLUORINE_ATOMIC_NUMBER)  # Fluorine-fluorine bonds
+        (atom_a_elements == ELEMENT_NAME_TO_ATOMIC_NUMBER["O"])
+        & (atom_b_elements == ELEMENT_NAME_TO_ATOMIC_NUMBER["O"])  # Oxygen-oxygen bonds
+        | (atom_a_elements == ELEMENT_NAME_TO_ATOMIC_NUMBER["F"])
+        & (atom_b_elements == ELEMENT_NAME_TO_ATOMIC_NUMBER["F"])  # Fluorine-fluorine bonds
         | np.isin(atom_a_res_names, ["HOH", "OH", "O"])  # Bonds involving free oxygen or hydroxyl groups
         | np.isin(atom_b_res_names, ["HOH", "OH", "O"])
     )

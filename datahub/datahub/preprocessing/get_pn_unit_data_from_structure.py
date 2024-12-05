@@ -1,5 +1,5 @@
 """
-Pre-process mmCIF files and return a dataframe containing a record for each PN unit in the PDB entry.
+Pre-process mmCIF files and return a dataframe containing a record for each PN unit in the structure.
 
 See the README for a term glosssary.
 """
@@ -21,9 +21,9 @@ from cifutils.common import not_isin
 from cifutils.constants import CRYSTALLIZATION_AIDS
 from cifutils.parser import CIFParser
 
-import datahub.preprocessing.utils as dp  # to avoid circular imports
+import datahub.preprocessing.utils.structure_utils as dp  # to avoid circular imports
 from datahub.common import exists
-from datahub.preprocessing.constants import CELL_SIZE, PDB_REGEX, ChainType, ClashSeverity
+from datahub.preprocessing.constants import CELL_SIZE, ChainType, ClashSeverity
 from datahub.utils.misc import hash_sequence
 
 logger = logging.getLogger("preprocess")
@@ -31,12 +31,12 @@ logger = logging.getLogger("preprocess")
 
 @dataclass
 class DataPreprocessor:
+    # (Whether examples are from the PDB)
+    from_pdb: bool = True
     # (Cutoff distances)
     close_distance: float = 30.0
     contact_distance: float = 5
     clash_distance: float = 1.0
-    # (Paths)
-    base_cif_dir: PathLike = "/databases/rcsb/cif"
     # (Misc)
     ignore_residues: list[str] = field(default_factory=list)
     # (Efficiency)
@@ -56,24 +56,15 @@ class DataPreprocessor:
         self.parser = CIFParser()
         logger.info(f"Initialized DataPreprocessor with the following parameters: {self.__dict__}")
 
-    def _maybe_infer_path(self, path_or_pdb_id: PathLike | str) -> Path:
+    def _load_structure_with_cifutils(self, path: PathLike) -> dict[str, Any]:
         """
-        Given a path or PDB ID, return the path to the PDB entry.
-        If the PDB ID is given, infer the path to the PDB entry.
+        Load structure file using CIFUtils parser.
+        Supported file types: .cif, .cif.gz, .pdb, .pdb.gz
         """
-        if isinstance(path_or_pdb_id, str) and PDB_REGEX.match(path_or_pdb_id):
-            pdb_id = path_or_pdb_id.lower()
-            path = Path(f"{self.base_cif_dir}/{pdb_id[1:3]}/{pdb_id}.cif.gz")
-        else:
-            path = Path(path_or_pdb_id)
-        return path
-
-    def _load_cif(self, path_or_pdb_id: PathLike | str) -> dict[str, Any]:
-        """Load mmCIF file using CIFUtils Biotite parser."""
-        path = self._maybe_infer_path(path_or_pdb_id)
         self.path = path  # for logging
         return self.parser.parse(
             filename=path,
+            assume_residues_all_resolved=(not self.from_pdb),
             build_assembly=self.build_assembly,
             add_bonds=self.add_bonds,
             add_missing_atoms=self.add_missing_atoms,
@@ -117,7 +108,7 @@ class DataPreprocessor:
 
     def get_rows(
         self,
-        path_or_pdb_id: PathLike | str,
+        path_to_structure: PathLike,
         ligand_scores: list[str] = [
             "RSCC",
             "RSR",
@@ -129,24 +120,26 @@ class DataPreprocessor:
         ],
     ) -> list[dict[str, Any]]:
         """
-        Processes a PDB entry, applies filters, and generates a list of records to be loaded at train-time.
-        We create a record for each PN unit (protein, nucleic acid, or non-polymer) in the PDB entry.
-        Each record contains information about a query PN unit and its partner (contacting) PN units in the PDB entry.
+        Processes a structure file, applies filters, and generates a list of records to be loaded at train-time.
+        We create a record for each PN unit (protein, nucleic acid, or non-polymer) in the structure.
+        Each record contains information about a query PN unit and its partner (contacting) PN units in the structure.
 
         Args:
-        - path_or_pdb_id (str): The path to the PDB entry (in cif format / cif.gz format) to process.
-            OR the PDB ID of the entry to process. If the PDB ID is provided, the path to the entry will be inferred
-            via the `self.base_cif_dir` directory.
+        - path_to_structure (PathLike): The path to the structure file to process. Must be readable by a CIFParser.
 
         Returns:
         - list: A list of dictionaries. Each dictionary contains information about a query PN unit and its partner PN units.
         """
-        result_dict = self._load_cif(path_or_pdb_id)
+        path_to_structure = Path(path_to_structure)
+        if not path_to_structure.exists():
+            raise FileNotFoundError(f"File not found: {path_to_structure}")
+
+        result_dict = self._load_structure_with_cifutils(path_to_structure)
         id = result_dict["metadata"]["id"]
         self.id = id  # For logging
 
-        # Query the RCSB for ligand validity scores
-        if exists(ligand_scores) and len(ligand_scores) > 0:
+        # If applicable, query the RCSB for ligand validity scores
+        if self.from_pdb and exists(ligand_scores) and len(ligand_scores) > 0:
             # Attempt fetching ligand validity scores
             ligand_validity_scores = dp.get_ligand_validity_scores_from_pdb_id(id)
             if exists(ligand_validity_scores) and len(ligand_validity_scores) > 0:
@@ -166,20 +159,30 @@ class DataPreprocessor:
         # Process each assembly
         records = []
         for assembly_id in result_dict["assemblies"].keys():
-            result = self._process_assembly(result_dict, assembly_id, ligand_validity_scores)
+            result = self._generate_pn_unit_metadata_for_assembly(result_dict, assembly_id, ligand_validity_scores)
             if result is not None:
+                # The path info should be saved as well
+                for row in result:
+                    row["path"] = path_to_structure
                 records.extend(result)
         return records
 
-    def _process_assembly(
-        self, result_dict: dict, assembly_id: str, ligand_validity_scores: pd.DataFrame | None = None
+    def _generate_pn_unit_metadata_for_assembly(
+        self,
+        result_dict: dict,
+        assembly_id: str,
+        ligand_validity_scores: pd.DataFrame | None = None,
     ) -> list[dict[str, Any]]:
         """
         Processes an atom array that represents a single assembly and generate a list of metadata records for each PN unit.
 
         Arguments:
-        — result_dict (dict): The dictionary containing the output of CIFUtils Biotite parser.
+        — result_dict (dict): The dictionary containing the output of CIFUtils parser.
         — assembly_id (str): The ID of the assembly to process.
+        — ligand_validity_scores (pd.DataFrame | None): A DataFrame containing ligand validity scores, otherwise None.
+
+        Returns:
+        — list[dict[str, Any]]: A list of dictionaries, each containing metadata about a PN unit in the assembly.
         """
         id = result_dict["metadata"]["id"]
         full_atom_array = result_dict["assemblies"][assembly_id][0]  # Choose the first model
@@ -217,7 +220,7 @@ class DataPreprocessor:
 
         if num_polymer_pn_units > self.polymer_pn_unit_limit:
             logger.warning(
-                f"(PDB ID {self.id}): {num_polymer_pn_units} polymer PN units in entry; skipping for performance reasons."
+                f"(Example {self.id}): {num_polymer_pn_units} polymer PN units in entry; skipping for performance reasons."
             )
             return None
 
@@ -225,7 +228,7 @@ class DataPreprocessor:
 
         # Build cell list for rapid distance computations
         if len(filtered_atom_array) == 0:
-            logger.warning(f"(PDB ID {self.id}): No atoms remaining after filtering.")
+            logger.warning(f"(Example {self.id}): No atoms remaining after filtering.")
             return []
         cell_list = struc.CellList(filtered_atom_array, cell_size=CELL_SIZE)
 
@@ -239,7 +242,7 @@ class DataPreprocessor:
         )
         if clashing_pn_units_set:
             logger.warning(
-                f"(PDB ID {self.id}): Clash detected between PN units: {[id_map_dict['pn_unit_iid'][pn_unit] for pn_unit in clashing_pn_units_set]}"
+                f"(Example {self.id}): Clash detected between PN units: {[id_map_dict['pn_unit_iid'][pn_unit] for pn_unit in clashing_pn_units_set]}"
             )
             filtered_atom_array, clash_severity = dp.handle_clashing_pn_units(
                 clashing_pn_units_set, clashing_pn_units_dict, filtered_atom_array, id_map_dict["pn_unit_iid"]
@@ -357,7 +360,11 @@ class DataPreprocessor:
                 }
             elif query_pn_unit_type.is_polymer():
                 chain_id = query_pn_unit_atom_array.chain_id[0]  # (Polymers have only one chain)
-                ec_numbers = chain_info_dict[chain_id]["ec_numbers"]
+                ec_numbers = (
+                    chain_info_dict[chain_id]["ec_numbers"]
+                    if "ec_numbers" in chain_info_dict[chain_id].keys()
+                    else None
+                )
                 type_specific_criteria = {
                     "ec_numbers": json.dumps(ec_numbers),
                     "sequence_length": len(
@@ -397,7 +404,7 @@ class DataPreprocessor:
             # fmt: off
             pn_unit_record = {
                 # ...add entry-level data  to the record (e.g., resolution, deposition date, etc.)
-                "pdb_id": id,
+                "pdb_id": id if self.from_pdb else None,
                 "assembly_id": assembly_id,
                 "clash_severity": clash_severity.value,
                 "resolution": result_dict["metadata"]["resolution"],
@@ -405,12 +412,11 @@ class DataPreprocessor:
                 "release_date": result_dict["metadata"]["release_date"],
                 "method": result_dict["metadata"]["method"],
                 "num_polymer_pn_units": num_polymer_pn_units,
-                "num_atoms": len(filtered_atom_array),
+                "num_resolved_atoms_in_processed_assembly": len(filtered_atom_array),
+                "total_num_atoms_in_unprocessed_assembly": len(full_atom_array),
                 "all_pn_unit_iids_after_processing": json.dumps([id_map_dict["pn_unit_iid"][pn_unit_iid] for pn_unit_iid in np.unique(filtered_atom_array.pn_unit_iid)]), # e.g., what we should load at train-time, after resolving clashes
 
                 # ...add the fundamental PN unit-level data to the record directly from the AtomArray
-                "q_pn_unit_chain_id": query_pn_unit_atom_array.chain_id[0],  # All atoms in a PN unit have the same chain ID
-                "q_pn_unit_chain_iid": query_pn_unit_atom_array.chain_iid[0],  # All atoms in a PN unit have the same chain IID
                 "q_pn_unit_id": id_map_dict["pn_unit_id"][query_pn_unit_atom_array.pn_unit_id[0]],
                 "q_pn_unit_iid": id_map_dict["pn_unit_iid"][query_pn_unit_iid],
                 "q_pn_unit_molecule_id": query_pn_unit_atom_array.molecule_id[0],  # All atoms in a PN unit have the same molecule ID
@@ -421,7 +427,7 @@ class DataPreprocessor:
                 "q_pn_unit_type": query_pn_unit_type.value,
 
                 # ...add derived PN unit-level data to the record
-                "q_pn_unit_num_atoms": len(query_pn_unit_atom_array),
+                "q_pn_unit_num_resolved_atoms": len(query_pn_unit_atom_array),
                 "q_pn_unit_is_multichain": len(np.unique(query_pn_unit_atom_array.chain_id)) > 1,
                 "q_pn_unit_is_multiresidue": len(np.unique(query_pn_unit_atom_array.res_id)) > 1,
                 "q_pn_unit_num_resolved_residues": num_resolved_residues,

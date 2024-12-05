@@ -32,15 +32,11 @@ def extract_contacting_pn_unit_info(partner_list: str | None = None) -> dict:
     }
 
 
-def process_pdb_id_group(group: pd.DataFrame) -> list[dict]:
+def process_structure_group(group: pd.DataFrame) -> list[dict]:
     interfaces_list = []
 
     pdb_id = group["pdb_id"].iloc[0]
-
-    # ...validate that the PDB ID is a four-letter alphanumeric code
-    if not pdb_id.isalnum() or len(pdb_id) != 4:
-        logger.warning(f"Invalid PDB ID: {pdb_id}")
-        return interfaces_list
+    structure_path = group["path"].iloc[0]
 
     pn_units = group["q_pn_unit_iid"].tolist()
     contacting_pn_units_info_dict = {
@@ -90,6 +86,7 @@ def process_pdb_id_group(group: pd.DataFrame) -> list[dict]:
             interface = {
                 # ...populate entry-wide fields (do not change between interfaces within the same example)
                 "pdb_id": pdb_id,
+                "path": structure_path,
                 "assembly_id": pn_unit_1_data["assembly_id"],  # same entry
                 "clash_severity": pn_unit_1_data["clash_severity"],  # same entry
                 "resolution": pn_unit_1_data["resolution"],  # same entry
@@ -97,12 +94,14 @@ def process_pdb_id_group(group: pd.DataFrame) -> list[dict]:
                 "release_date": pn_unit_1_data["release_date"],  # same entry
                 "method": pn_unit_1_data["method"],  # same entry
                 "num_polymer_pn_units": pn_unit_1_data["num_polymer_pn_units"],  # same entry
+                "num_resolved_atoms_in_processed_assembly": pn_unit_1_data["num_resolved_atoms_in_processed_assembly"],
+                "total_num_atoms_in_unprocessed_assembly": pn_unit_1_data["total_num_atoms_in_unprocessed_assembly"],
                 "all_pn_unit_iids_after_processing": pn_unit_1_data["all_pn_unit_iids_after_processing"],  # same entry
 
                 # ...generate the unique example ID (used for debugging)
                 "example_id": generate_example_id(
                     ["pdb", "interfaces"],
-                    pdb_id,
+                    pdb_id if pd.notna(pdb_id) else Path(structure_path).stem.split(".")[0],
                     pn_unit_1_data["assembly_id"],
                     [sorted_pair[0], sorted_pair[1]],
                 ),
@@ -120,8 +119,8 @@ def process_pdb_id_group(group: pd.DataFrame) -> list[dict]:
                 "pn_unit_2_non_polymer_res_names": pn_unit_2_data["q_pn_unit_non_polymer_res_names"],
                 "pn_unit_1_type": pn_unit_1_data["q_pn_unit_type"],
                 "pn_unit_2_type": pn_unit_2_data["q_pn_unit_type"],
-                "pn_unit_1_num_atoms": pn_unit_1_data["q_pn_unit_num_atoms"],
-                "pn_unit_2_num_atoms": pn_unit_2_data["q_pn_unit_num_atoms"],
+                "pn_unit_1_num_resolved_atoms": pn_unit_1_data["q_pn_unit_num_resolved_atoms"],
+                "pn_unit_2_num_resolved_atoms": pn_unit_2_data["q_pn_unit_num_resolved_atoms"],
                 "pn_unit_1_is_multichain": pn_unit_1_data["q_pn_unit_is_multichain"],
                 "pn_unit_2_is_multichain": pn_unit_2_data["q_pn_unit_is_multichain"],
                 "pn_unit_1_is_multiresidue": pn_unit_1_data["q_pn_unit_is_multiresidue"],
@@ -182,16 +181,16 @@ def process_pdb_id_group(group: pd.DataFrame) -> list[dict]:
             pn_unit_2 in contacting_pn_units_info_dict[pn_unit_1]
             or pn_unit_1 in contacting_pn_units_info_dict[pn_unit_2]
         ):
-            raise ValueError(f"Missing interface for {pdb_id} between {pn_unit_1} and {pn_unit_2}")
+            raise ValueError(f"Missing interface for {structure_path} between {pn_unit_1} and {pn_unit_2}")
 
     return interfaces_list
 
 
 def generate_interfaces_df(df: pd.DataFrame) -> pd.DataFrame:
-    entries_by_pdb_id_and_assembly_id = [group for _, group in df.groupby(["pdb_id", "assembly_id"])]
+    entries_by_path_and_assembly_id = [group for _, group in df.groupby(["path", "assembly_id"])]
     num_workers = min(cpu_count(), 14)  # Adjust based on your system
     chunksize = min(
-        2000, max(1, len(entries_by_pdb_id_and_assembly_id) // num_workers), len(entries_by_pdb_id_and_assembly_id)
+        2000, max(1, len(entries_by_path_and_assembly_id) // num_workers), len(entries_by_path_and_assembly_id)
     )
 
     logger.info(f"Generating interfaces dataframe using {num_workers} workers...")
@@ -199,8 +198,8 @@ def generate_interfaces_df(df: pd.DataFrame) -> pd.DataFrame:
     # Create a pool of workers
     with Pool(processes=num_workers) as pool:
         interfaces_list = tqdm(
-            pool.imap(process_pdb_id_group, entries_by_pdb_id_and_assembly_id, chunksize=chunksize),
-            total=len(entries_by_pdb_id_and_assembly_id),
+            pool.imap(process_structure_group, entries_by_path_and_assembly_id, chunksize=chunksize),
+            total=len(entries_by_path_and_assembly_id),
         )
 
         # Flatten the list of lists
@@ -213,17 +212,6 @@ def generate_and_save_interfaces_df(input_path: str, output_path: str):
     # ...load the query PN unit DataFrame
     logger.info("Loading query PN unit dataframe...")
     query_pn_units_df = pd.read_parquet(input_path)
-
-    # ...assert that we have the columns from clustering already
-    # (Cluster columns include with "protein_cluster_" and "nucleic_acid_cluster_")
-    assert any("protein_cluster_" in col for col in query_pn_units_df.columns), (
-        "Missing protein cluster columns in the input DataFrame. "
-        "Please run the clustering script before generating the interfaces DataFrame."
-    )
-    assert any("nucleic_acid_cluster_" in col for col in query_pn_units_df.columns), (
-        "Missing nucleic acid cluster columns in the input DataFrame. "
-        "Please run the clustering script before generating the interfaces DataFrame."
-    )
 
     # ...create the interfaces DataFrame
     logger.info("Generating interfaces dataframe...")

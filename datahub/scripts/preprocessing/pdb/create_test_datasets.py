@@ -13,15 +13,15 @@ from pathlib import Path
 import fire
 import pandas as pd
 
-from scripts.preprocessing.clustering.annotate_clusters import (
+from scripts.preprocessing.clustering.cluster_sequences import (
     AF3_CLUSTER_CHOICE_SUFFIXES,
     add_pn_unit_cluster_column,
+    cluster_all_sequences,
 )
-from scripts.preprocessing.clustering.cluster_sequences import cluster_all_sequences
-from scripts.preprocessing.pdb.confscript import get_all_pdb_ids
+from scripts.preprocessing.pdb.confscript import get_all_files_in_dir
 from scripts.preprocessing.pdb.generate_interfaces_df import generate_and_save_interfaces_df
 from scripts.preprocessing.pdb.generate_pn_units_df import generate_pn_units_df
-from scripts.preprocessing.pdb.process_pdbs import run_pipeline
+from scripts.preprocessing.pdb.get_csvs_from_structures import run_pipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ def create_test_datasets(
         additional_pdbs_needed = num_pdbs - num_master_pdb_ids
 
         logger.info(f"Fetching all PDB IDs to select additional {additional_pdbs_needed} PDB IDs...")
-        all_pdb_ids = set(get_all_pdb_ids(base_cif_dir=base_cif_dir))
+        all_pdb_ids = set(get_all_files_in_dir(base_dir=base_cif_dir, only_stem=True))
         selected_pdb_ids = set(master_pdb_id_list)
 
         # Select additional PDB IDs not in master_pdb_id_list but present in all PDB ids

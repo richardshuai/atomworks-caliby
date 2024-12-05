@@ -6,7 +6,8 @@ import pytest
 
 from scripts.preprocessing.pdb.generate_interfaces_df import generate_interfaces_df
 from scripts.preprocessing.pdb.generate_pn_units_df import generate_pn_units_df
-from scripts.preprocessing.pdb.process_pdbs import run_pipeline as process_pdb
+from scripts.preprocessing.pdb.get_csvs_from_structures import run_pipeline as process_pdb
+from tests.conftest import get_digs_path
 
 PDB_PROCESSING_TEST_CASES = [
     {
@@ -64,11 +65,12 @@ def temp_dir():
 def processed_pdb_files(temp_dir):
     # Define a pre-defined list of PDB IDs
     pdb_ids = [test_case["pdb_id"] for test_case in PDB_PROCESSING_TEST_CASES]
+    paths = [get_digs_path(pdb_id) for pdb_id in pdb_ids]
 
     # Run the process_pdb function to process the PDB IDs and save the output in the temp directory
     process_pdb(
-        base_cif_dir="/databases/rcsb/cif",
-        pdb_selection=",".join(pdb_ids),
+        base_dir="/databases/rcsb/cif",
+        selection=",".join(paths),
         out_dir=temp_dir,
     )
 

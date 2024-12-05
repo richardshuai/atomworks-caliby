@@ -39,6 +39,7 @@ def read_csv_file(csv_path: PathLike):
         "q_pn_unit_processed_entity_non_canonical_sequence_hash": str,
         "q_pn_unit_id": str,
         "q_pn_unit_iid": str,
+        "path": str,
     }
 
     # Read the CSV file with the specified data types
@@ -92,7 +93,9 @@ def concatenate_csv_files(input_dir: PathLike, output_path: PathLike = None, num
     return concatenated_df
 
 
-def generate_pn_units_df(input_dir: PathLike, output_path: PathLike | None = None, num_workers: int = 4):
+def generate_pn_units_df(
+    input_dir: PathLike, output_path: PathLike | None = None, num_workers: int = 4, dataset_name: str = "pdb"
+):
     # Convert to Path, if given
     output_path = Path(output_path) if output_path is not None else None
 
@@ -125,8 +128,8 @@ def generate_pn_units_df(input_dir: PathLike, output_path: PathLike | None = Non
     # Add the example_id column (required for testing and reproducibility)
     concatenated_df["example_id"] = concatenated_df.apply(
         lambda x: generate_example_id(
-            ["pdb", "pn_units"],
-            x["pdb_id"],
+            [dataset_name, "pn_units"],
+            x["pdb_id"] if pd.notna(x["pdb_id"]) else Path(x["path"]).stem.split(".")[0],
             x["assembly_id"],
             [x["q_pn_unit_iid"]],
         ),

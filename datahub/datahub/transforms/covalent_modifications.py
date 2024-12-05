@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from biotite.structure import AtomArray
 
-from datahub.preprocessing.utils import get_inter_pn_unit_bond_mask
+from datahub.preprocessing.utils.structure_utils import get_inter_pn_unit_bond_mask
 from datahub.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,

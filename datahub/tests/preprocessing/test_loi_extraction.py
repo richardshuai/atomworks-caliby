@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from tests.conftest import get_digs_path
 from tests.preprocessing.conftest import DATA_PREPROCESSOR
 
 LOI_EXTRACTION_TEST_CASES = [
@@ -45,14 +46,15 @@ LOI_EXTRACTION_TEST_CASES = [
 @pytest.mark.parametrize("test_case", LOI_EXTRACTION_TEST_CASES)
 def test_loi_extraction(test_case: dict[str, Any]):
     pdb_id = test_case["pdb_id"]
+    path = get_digs_path(pdb_id)
 
     # Check that the LOI is extracted correctly from the CIF file
-    parsed = DATA_PREPROCESSOR._load_cif(pdb_id)
+    parsed = DATA_PREPROCESSOR._load_structure_with_cifutils(path)
     loi_set = set(parsed["ligand_info"]["ligand_of_interest"])
     assert loi_set == test_case["loi"]
 
     # Check that the LOI exmples give the correct molecule
-    rows = DATA_PREPROCESSOR.get_rows(pdb_id)
+    rows = DATA_PREPROCESSOR.get_rows(path)
     df = pd.DataFrame(rows)
 
     loi_seen = {k: 0 for k in loi_set}

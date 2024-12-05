@@ -2,7 +2,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
-from datahub.preprocessing.utils import get_atom_mask_from_cell_list
+from datahub.preprocessing.utils.structure_utils import get_atom_mask_from_cell_list
 
 
 @pytest.fixture

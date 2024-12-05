@@ -3,267 +3,210 @@ Functions to cluster protein and nucleic acid sequences using MMseqs2.
 
 NOTE: Not able to be run interactively due to `mmseqs` instability; must be run via command line.
 NOTE: See `https://github.com/soedinglab/MMseqs2` for MMseqs2 installation instructions (`conda` recommended).
+
+From the AF3 supplement:
+    Chain-based clustering occur at 40% sequence homology for proteins, 100% homology for nucleic acids,
+    100% homology for peptides (<10 residues), and according to CCD identity for small molecules (e.g., only identical molecules share a cluster)
 """
 
 import logging
-import shutil
-import subprocess
-from os import PathLike, devnull
+from os import PathLike
 from pathlib import Path
 
 import fire
 import pandas as pd
+from cifutils.enums import ChainType, ChainTypeInfo
 
-from datahub.preprocessing.constants import NA_VALUES
-from scripts.preprocessing.clustering.create_fasta_files_from_df import create_fasta_files
+from datahub.preprocessing.utils.clustering import MMSeqs2Config, cluster_all_sequences
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-def run_mmseqs2_clustering(
-    input_fasta: str,
-    cluster_identity: float = 0.4,
-    coverage: float = 0.8,
-    coverage_mode: int = 0,
-    temp_dir: PathLike | str | None = None,
-) -> pd.DataFrame:
-    """
-    Runs MMseqs2 clustering on the input FASTA file.
-
-    Args:
-        input_fasta (str): Path to the input FASTA file. The headers for the sequences should be unique, as they are used to identify the sequences in the output.
-        cluster_identity (float): Sequence identity threshold for clustering. Default is 0.4 (40%) for proteins, per AF-3.
-        coverage (float): Coverage threshold for clustering. Default is 0.8 (80%).
-        coverage_mode (int): Mode for coverage calculation. Options are:
-            0: (Default) coverage of query and target (bi-directional; most common default for full-length protein sequence comparisons)
-            1: coverage of target
-            2: coverage of query
-            3: target seq. length has to be at least x% of query length
-            4: query seq. length has to be at least x% of target length
-            5: short seq. needs to be at least x% of the other seq. length
-        tmp_dir (PathLike | str): Path to the temporary directory where MMseqs2 will write intermediate files. Default is None.
-
-    Returns:
-        pd.DataFrame: DataFrame containing the clustering results with columns ["cluster_rep_seq_hash", "seq_hash"].
-
-    Example:
-        cluster_rep_seq_hash, seq_hash
-        afe56282ba3, afe56282ba3
-        afe56282ba3, ee1f80a23f3
-        afe56282ba3, 4a2caa18797
-        afe56282ba3, 19f7ce1eed1
-
-    References:
-    - PDB clustering approach: https://www.rcsb.org/docs/grouping-structures/sequence-based-clustering
-    - MMseqs2 documentation: https://github.com/soedinglab/mmseqs2/wiki
-    - CLI documentation for the `easy-cluster` command: `mmseqs easy-cluster -h`
-    """
-    temp_dir = Path.cwd() / "temp" if temp_dir is None else Path(temp_dir)
-    try:
-        # Run MMseqs2 easy-cluster command
-        logger.info(
-            f"Running MMseqs2 easy-cluster with cluster_identity={cluster_identity}, coverage={coverage}, and coverage_mode={coverage_mode}..."
-        )
-        with open(devnull, "w") as fnull:
-            subprocess.run(
-                [
-                    "mmseqs",
-                    "easy-cluster",
-                    input_fasta,
-                    "result",
-                    temp_dir,
-                    "--min-seq-id",
-                    str(
-                        cluster_identity
-                    ),  # Sequence identity threshold for clustering, typically 0.4 for proteins, and 1.0 for nucleic acids and peptides
-                    "-c",
-                    str(coverage),  # Coverage threshold for clustering, typically 0.8
-                    "-s",
-                    "8",  # MMseqs2's highest alignment sensitivity for clustering
-                    "--cluster-mode",
-                    "0",  # 0 = standard, 1 = Connected component algorithm, slower but capable of covering more remote homologs. See https://www.rcsb.org/docs/grouping-structures/sequence-based-clustering
-                    "--cov-mode",
-                    str(
-                        coverage_mode
-                    ),  # Bi-directional coverage requirements (0) likely best for full-length proteins (but possible failure mode for fragment vs. full protein)
-                ],
-                check=True,
-                stdout=fnull,
-                stderr=fnull,
-            )
-
-        logger.info("Clustering completed! Parsing TSV output file into a pandas DataFrame...")
-
-        current_dir = Path.cwd()
-        cluster_file = current_dir / "result_cluster.tsv"
-
-        # Load the TSV output file into a DataFrame
-        df = pd.read_csv(
-            cluster_file,
-            sep="\t",
-            header=None,
-            names=["cluster_rep_seq_hash", "seq_hash"],
-            keep_default_na=False,
-            na_values=NA_VALUES,
-        )
-
-        logger.info(f"DataFrame created with {len(df)} rows!")
-
-        return df
-
-    except subprocess.CalledProcessError as e:
-        logger.error(f"An error occurred while running MMseqs2: {e}")
+AF3_CLUSTER_CHOICE_SUFFIXES = {
+    # cov defines the minimum coverage, which is defined by the number of aligned residue
+    # pairs divided by either the maximum of the length of query/centre and target/non-centre
+    # sequences alnRes/max(qLen,tLen) (default mode, cov-mode 0), or by the length of
+    # the target/non-centre sequence alnRes/tLen (cov-mode 1), or by the length of the
+    # query/centre alnRes/qLen (--cov-mode 2).
+    # Reference: https://mmseqs.com/latest/userguide.pdf
+    "protein": "protein_cluster_(id:0,4)(cov:0,8)(cov_mode:0)_rep_seq_hash",
+    "peptide": "protein_cluster_(id:1,0)(cov:0,8)(cov_mode:0)_rep_seq_hash",
+    "nucleic_acid": "nucleic_acid_cluster_(id:1,0)(cov:0,8)(cov_mode:0)_rep_seq_hash",
+    "ligand": "non_polymer_res_names",
+}
 
 
-def cluster_all_sequences(
+def cluster_proteins_and_nucleic_acids(
     pn_units_df: PathLike | str | pd.DataFrame,
     output_path: str | None = None,
-    cluster_modes: list[dict] = [
-        {
-            "cluster_identity": 0.4,
-            "coverage": 0.8,
-            "coverage_mode": 0,
-        },
-        {
-            "cluster_identity": 1.0,
-            "coverage": 0.8,
-            "coverage_mode": 0,
-        },
-    ],
-):
+    clustering_configs: list[MMSeqs2Config] = [MMSeqs2Config(), MMSeqs2Config(cluster_identity=1.0)],
+    sequence_col_name: str = "q_pn_unit_processed_entity_canonical_sequence",
+    sequence_hash_col_name: str = "q_pn_unit_processed_entity_canonical_sequence_hash",
+) -> pd.DataFrame | None:
     """
-    Clusters protein and nucleic acid sequences from a DataFrame and merges the cluster information back into the DataFrame.
+    Clusters protein and nucleic acid sequences using MMseqs2.
 
-    This function performs the following steps:
-    1. Creates (deduplicated) FASTA files for proteins and nucleic acids from the input DataFrame.
-    2. Runs MMseqs2 clustering on the generated FASTA files for each specified parameter configuration.
-    3. Merges the clustering results back into the original DataFrame.
-    4. Saves the updated DataFrame with clustering information to a specified output path.
-
-    Args:
-        pn_units_df_path (PathLike | str | pd.DataFrame): Path to the input DataFrame stored as a Parquet file, or the DataFrame directly.
-        output_path (str | None): Path to save the output DataFrame with clustering information. If None, returns the dataframe without saving.
-        cluster_modes (list[dict]): List of dictionaries specifying the clustering configurations to run.
-
-    Columns added to DataFrame:
-        - protein_cluster_{configuration}_rep_seq_hash: Representative sequence hash for protein clusters with the given configuration.
-        - nucleic_acid_cluster_{configuration}_rep_seq_hash: Representative sequence hash for nucleic acid clusters with the given configuration.
+    Parameters:
+        pn_units_df (PathLike | str | pd.DataFrame): Path to the input DataFrame or the DataFrame itself.
+        output_path (str | None): Path to save the output DataFrame. If None, the modified DataFrame is returned.
+        sequence_col_name (str): Name of the column containing the sequences to be clustered.
+        sequence_hash_col_name (str): Name of the column containing hashes of the sequences to be clustered.
+        clustering_configs (list[MMSeqs2Config]): List of MMSeqs2Config objects specifying the clustering configurations to run.
 
     Returns:
-        None
+        (pd.DataFrame | None): The modified DataFrame if `output_path` is None, otherwise returns None.
     """
-    current_dir = Path.cwd()
-    temp_dir = current_dir / "tmp"
 
+    # Get input DataFrame
     if not isinstance(pn_units_df, pd.DataFrame):
         pn_units_df = Path(pn_units_df)
         df = pd.read_parquet(pn_units_df)
     else:
         df = pn_units_df
 
-    # Create FASTA files for proteins and nucleic acids from the dataframe, and save them in the temp directory
-    logger.info("Creating FASTA files for proteins and nucleic acids...")
-    create_fasta_files(df, temp_dir)
-    logger.info(f"FASTA files saved to {temp_dir}; will be cleaned up after clustering.")
+    # Record original length for sanity check
+    original_df_length = len(df)
 
-    for cluster_mode in cluster_modes:
-        # Run clustering for proteins
-        protein_fasta = temp_dir / "protein_sequences.fasta"
-        protein_cluster_df = run_mmseqs2_clustering(
-            str(protein_fasta),
-            cluster_identity=cluster_mode["cluster_identity"],
-            coverage=cluster_mode["coverage"],
-            coverage_mode=cluster_mode["coverage_mode"],
-            temp_dir=temp_dir,
+    # Build protein dataframe
+    proteins_df = df[df["q_pn_unit_type"].isin([chain_type.value for chain_type in ChainTypeInfo.PROTEINS])]
+
+    # Build nucleic acid DataFrame
+    nucleic_acids_df = df[df["q_pn_unit_type"].isin([chain_type.value for chain_type in ChainTypeInfo.NUCLEIC_ACIDS])]
+
+    # Compute protein clusters
+    if len(proteins_df) > 0:
+        df_with_protein_clusters = cluster_all_sequences(
+            proteins_df,
+            sequence_col_name,
+            sequence_hash_col_name,
+            output_col_prefix="q_pn_unit_protein_cluster",
+            set_to_cluster_col=False,
+            output_path=None,
+            clustering_configs=clustering_configs,
         )
 
-        # Run clustering for nucleic acids
-        nucleic_acid_fasta = temp_dir / "nucleic_acid_sequences.fasta"
-        nucleic_acid_cluster_df = run_mmseqs2_clustering(
-            str(nucleic_acid_fasta),
-            cluster_identity=cluster_mode["cluster_identity"],
-            coverage=cluster_mode["coverage"],
-            coverage_mode=cluster_mode["coverage_mode"],
-            temp_dir=temp_dir,
+    # Compute nucleic acid clusters
+    if len(nucleic_acids_df) > 0:
+        df_with_nucleic_acid_clusters = cluster_all_sequences(
+            nucleic_acids_df,
+            sequence_col_name,
+            sequence_hash_col_name,
+            output_col_prefix="q_pn_unit_nucleic_acid_cluster",
+            set_to_cluster_col=False,
+            output_path=None,
+            clustering_configs=clustering_configs,
         )
 
-        # Create a short string of the cluster mode for the column name
-        cluster_mode_str = f"(id:{cluster_mode['cluster_identity']})(cov:{cluster_mode['coverage']})(cov_mode:{cluster_mode['coverage_mode']})".replace(
-            ".", ","
-        )
+    # Merge the cluster information back into the full dataframe
+    if len(proteins_df) > 0:
+        protein_merge_cols = df.columns.intersection(df_with_protein_clusters.columns).tolist()
+        df = df.merge(df_with_protein_clusters, how="left", on=protein_merge_cols)
 
-        logger.info("Merging clustering information into the master DataFrame...")
-        # Merge protein clusters into the master DataFrame
+    if len(nucleic_acids_df) > 0:
+        nucleic_acid_merge_cols = df.columns.intersection(df_with_nucleic_acid_clusters.columns).tolist()
+        df = df.merge(df_with_nucleic_acid_clusters, how="left", on=nucleic_acid_merge_cols)
 
-        # ...drop the `cluster_mode_str` col, if it already exists
-        protein_cluster_col = f"q_pn_unit_protein_cluster_{cluster_mode_str}_rep_seq_hash"
-        if protein_cluster_col in df.columns:
-            df.drop(columns=[protein_cluster_col], inplace=True)
+    assert len(df) == original_df_length
 
-        # ...merge and rename
-        df = df.merge(
-            protein_cluster_df[["seq_hash", "cluster_rep_seq_hash"]],
-            left_on="q_pn_unit_processed_entity_canonical_sequence_hash",
-            right_on="seq_hash",
-            how="left",
-        ).rename(columns={"cluster_rep_seq_hash": protein_cluster_col})
-        logger.info(f"Merged protein clusters for {cluster_mode_str} configuration.")
-
-        # Drop the redundant 'seq_hash' column from the merge
-        if "seq_hash" in df.columns:
-            df.drop(columns=["seq_hash"], inplace=True)
-
-        # Merge nucleic acid clusters into the master DataFrame
-
-        # ...drop the `cluster_mode_str` col, if it already exists
-        nucleic_acid_cluster_col = f"q_pn_unit_nucleic_acid_cluster_{cluster_mode_str}_rep_seq_hash"
-        if nucleic_acid_cluster_col in df.columns:
-            df.drop(columns=[nucleic_acid_cluster_col], inplace=True)
-
-        # ...merge and rename
-        df = df.merge(
-            nucleic_acid_cluster_df[["seq_hash", "cluster_rep_seq_hash"]],
-            left_on="q_pn_unit_processed_entity_canonical_sequence_hash",
-            right_on="seq_hash",
-            how="left",
-        ).rename(columns={"cluster_rep_seq_hash": nucleic_acid_cluster_col})
-        logger.info(f"Merged nucleic acid clusters for {cluster_mode_str} sequence identity.")
-
-        # Drop the redundant 'seq_hash' column from the merge
-        if "seq_hash" in df.columns:
-            df.drop(columns=["seq_hash"], inplace=True)
-
-        logger.info(f"Clustering completed for {cluster_mode_str} configuration!")
-
-    logger.info("Clusting complete!")
+    # Save or return the modified DataFrame
     if output_path is not None:
-        # Save before cleaning up, in case of errors
-        logger.info(f"Saving to {output_path}...")
-        df.to_parquet(output_path, index=False)
-        logger.info(f"DataFrame with clustering information saved to {output_path}")
-
-    # Remove everything in the temp directory
-    logger.info("Cleaning up...")
-    try:
-        shutil.rmtree(temp_dir)
-
-        # Remove files created by MMseqs2 in the current directory
-        current_dir = Path.cwd()
-        filenames = ["result_cluster.tsv", "result_all_seqs.fasta", "result_rep_seq.fasta"]
-        for filename in filenames:
-            file_path = current_dir / filename
-            if file_path.exists():
-                file_path.unlink()
-
-    except Exception as e:
-        logger.error(f"Error removing temp directory {temp_dir}: {e}")
-
-    if output_path is None:
-        # Return after cleaning up (primarily used for testing)
+        df.to_parquet(output_path)
+    else:
         return df
 
 
+def add_pn_unit_cluster_column(
+    pn_units_df: str | PathLike | pd.DataFrame,
+    cluster_choice_suffixes: dict = AF3_CLUSTER_CHOICE_SUFFIXES,
+    replace_df: bool = False,
+) -> pd.DataFrame:
+    """
+    Add a cluster column to the PN units dataframe based on the query PN unit type.
+    Note that the cluster column for interfaces is handled by `generate_interfaces_df.py`.
+
+    Args:
+        pn_units_df (str | PathLike | DataFrame): Path to the PN units dataframe in parquet format or a DataFrame.
+        suffixes (dict): Dictionary of suffixes for protein, nucleic acid, and ligand.
+        replace_df (bool): Whether to replace the input DataFrame with the updated DataFrame.
+
+    Returns:
+        DataFrame | None: The updated PN units dataframe with the cluster column added, or None if replace_df is True.
+    """
+    if isinstance(pn_units_df, (str, PathLike)):
+        df = pd.read_parquet(pn_units_df)
+    else:
+        df = pn_units_df
+
+    q_pn_unit_type_col = "q_pn_unit_type"
+    q_pn_unit_sequence_length_col = "q_pn_unit_sequence_length"
+    pn_unit_prefix = "q_pn_unit_"
+
+    logger.info("Adding cluster column to PN units dataframe...")
+
+    df["cluster"] = df.apply(
+        lambda x: x[f"{pn_unit_prefix}{cluster_choice_suffixes['peptide']}"]
+        if ChainType(x[q_pn_unit_type_col]).is_protein() and x[q_pn_unit_sequence_length_col] < 10
+        else x[f"{pn_unit_prefix}{cluster_choice_suffixes['protein']}"]
+        if ChainType(x[q_pn_unit_type_col]).is_protein()
+        else x[f"{pn_unit_prefix}{cluster_choice_suffixes['nucleic_acid']}"]
+        if ChainType(x[q_pn_unit_type_col]).is_nucleic_acid()
+        else x[f"{pn_unit_prefix}{cluster_choice_suffixes['ligand']}"],
+        axis=1,
+    )
+
+    # Save the updated DataFrame if replace_df is True and the input was a file
+    if replace_df:
+        if isinstance(pn_units_df, (str, PathLike)):
+            logger.info(f"Saving updated PN units dataframe to {pn_units_df}...")
+            df.to_parquet(pn_units_df)
+        else:
+            raise ValueError("Cannot replace DataFrame if it was not loaded from a file.")
+    else:
+        logger.info("Cluster column added to PN units dataframe. Returning the modified dataframe.")
+        return df
+
+
+def cluster_and_annotate_clusters(
+    pn_units_df: PathLike | str | pd.DataFrame,
+    clustering_configs: list[MMSeqs2Config] = [MMSeqs2Config(), MMSeqs2Config(cluster_identity=1.0)],
+    cluster_choice_suffixes: dict = AF3_CLUSTER_CHOICE_SUFFIXES,
+    sequence_col_name: str = "q_pn_unit_processed_entity_canonical_sequence",
+    sequence_hash_col_name: str = "q_pn_unit_processed_entity_canonical_sequence_hash",
+    output_path: PathLike | None = None,
+):
+    """
+    Main entry point for AF3-like clustering and annotation of clusters. The resulting DataFrame is either returned or saved to disk.
+
+    Args:
+        pn_units_df (PathLike | str | pd.DataFrame): Path to the input DataFrame stored as a Parquet file, or the DataFrame directly.
+        clustering_configs (list[MMSeqs2Config]): List of MMSeqs2Config objects specifying the clustering configurations to run.
+        cluster_choice_suffixes (dict): Dictionary of suffixes for protein, nucleic acid, and ligand.
+        sequence_col_name (str): Name of the column containing the sequences to be clustered.
+        sequence_hash_col_name (str): Name of the column containing hashes of the sequences to be clustered.
+        output_path (PathLike | None): Path to save the output DataFrame with clustering information. If None, returns the dataframe without saving.
+
+    Returns:
+        DataFrame | None: Returns the updated PN units dataframe with the cluster column added if output_path is None,
+            or returns None otherwise.
+    """
+
+    df_with_specific_cluster_columns = cluster_proteins_and_nucleic_acids(
+        pn_units_df=pn_units_df,
+        sequence_col_name=sequence_col_name,
+        sequence_hash_col_name=sequence_hash_col_name,
+        clustering_configs=clustering_configs,
+    )
+    df_with_generic_cluster_column = add_pn_unit_cluster_column(
+        df_with_specific_cluster_columns, cluster_choice_suffixes=cluster_choice_suffixes
+    )
+
+    if output_path is None:
+        return df_with_generic_cluster_column
+    else:
+        logger.info(f"DataFrame with clustering information saved to {output_path}")
+        df_with_generic_cluster_column.to_parquet(output_path)
+
+
 if __name__ == "__main__":
-    fire.Fire(cluster_all_sequences)
+    fire.Fire(cluster_and_annotate_clusters)
