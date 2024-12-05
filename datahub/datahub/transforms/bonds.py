@@ -279,7 +279,7 @@ def get_af3_token_bond_features(atom_array: AtomArray, distance_cutoff: float = 
     token_starts = token_start_end_idxs[:-1]
     token_bonds = apply_segment_wise_2d(get_bond_distance_matrix(atom_array), token_start_end_idxs, np.nanmin)
 
-    # remove bonds below distance cutoff
+    # remove bonds above distance cutoff
     token_bonds = token_bonds < distance_cutoff
 
     # remove token self-bonds
@@ -292,7 +292,7 @@ def get_af3_token_bond_features(atom_array: AtomArray, distance_cutoff: float = 
     return token_bonds
 
 
-class GetAF3TokenBondFeatures(Transform):
+class AddAF3TokenBondFeatures(Transform):
     """
     Transform that generates AF3-style token bond features for an AtomArray.
 

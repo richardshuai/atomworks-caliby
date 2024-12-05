@@ -27,7 +27,7 @@ from datahub.transforms.base import (
     RandomRoute,
     SubsetToKeys,
 )
-from datahub.transforms.bonds import GetAF3TokenBondFeatures
+from datahub.transforms.bonds import AddAF3TokenBondFeatures
 from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
@@ -256,7 +256,7 @@ def build_af3_transform_pipeline(
         EncodeMSA(encoding=af3_sequence_encoding, token_to_use_for_gap=af3_sequence_encoding.token_to_idx["<G>"]),
         # ...fill MSA, indexing into only the portions of the polymers that are present in the cropped structure
         FillFullMSAFromEncoded(pad_token=af3_sequence_encoding.token_to_idx["<G>"]),
-        GetAF3TokenBondFeatures(),
+        AddAF3TokenBondFeatures(),
         # ...featurize MSA
         ConvertToTorch(
             keys=[

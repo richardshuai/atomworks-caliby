@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DEFAULT_TEST_DATA_DIR = Path(os.path.dirname(__file__)).parent.parent.parent / "tests" / "data"
-DEFAULT_BASE_CIF_DIR = Path("/databases/rcsb/cif")
+DEFAULT_BASE_CIF_DIR = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb")
 
 # fmt: off
 """

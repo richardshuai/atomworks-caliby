@@ -46,7 +46,7 @@ def get_digs_path(pdbid: str, base: Literal["trrosetta", "mirror"] = "mirror") -
     if base == "trrosetta":
         base_dir = Path("/databases/TrRosetta/cif")
     elif base == "mirror":
-        base_dir = Path("/databases/rcsb/cif")
+        base_dir = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb")
     else:
         raise ValueError(f"Invalid base: {base}")
     pdbid = pdbid.lower()

@@ -479,11 +479,13 @@ def get_inter_pn_unit_bond_mask(atom_array: AtomArray) -> np.ndarray:
     Returns a mask indicating which bonds in `atom_array.bonds` are between two distinct PN units.
     Because we are operating at the PN unit-level, such bonds cannot be bonds between non-polymers.
 
-    Arguments:
-    - atom_array (AtomArray): The full atom array. Must have PN unit-level annotations.
+    WARNING: Must be applied before reassigning PN unit IIDs (e.g., as is done for covalent modifications).
+
+    Args:
+        atom_array (AtomArray): The full atom array. Must have PN unit-level annotations.
 
     Returns:
-    - numpy.ndarray: A boolean mask indicating which bonds are between two PN units.
+        numpy.ndarray: A boolean mask indicating which bonds are between two PN units.
     """
     bond_pn_unit_a = atom_array.pn_unit_iid[atom_array.bonds.as_array()[:, 0]]
     bond_pn_unit_b = atom_array.pn_unit_iid[atom_array.bonds.as_array()[:, 1]]

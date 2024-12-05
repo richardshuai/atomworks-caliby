@@ -19,7 +19,9 @@ class PNUnitsDFParser(MetadataRowParser):
         - Any extra information from the DataFrame, which is stored in the `extra_info` field.
     """
 
-    def __init__(self, base_dir: Path = Path("/databases/rcsb/cif"), file_extension: str = ".cif.gz"):
+    def __init__(
+        self, base_dir: Path = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb"), file_extension: str = ".cif.gz"
+    ):
         self.base_dir = base_dir
         self.file_extension = file_extension
 
@@ -54,7 +56,9 @@ class InterfacesDFParser(MetadataRowParser):
         - Any extra information from the DataFrame, which is stored in the `extra_info` field.
     """
 
-    def __init__(self, base_dir: Path = Path("/databases/rcsb/cif"), file_extension: str = ".cif.gz"):
+    def __init__(
+        self, base_dir: Path = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb"), file_extension: str = ".cif.gz"
+    ):
         self.base_dir = base_dir
         self.file_extension = file_extension
 

@@ -30,6 +30,8 @@ def flag_and_reassign_covalent_modifications(atom_array: AtomArray) -> AtomArray
             `atomize` annotation is set to `True` for these atoms.
 
     NOTE: If `atomize` annotation is not present in the `AtomArray`, it will be added.
+    NOTE: We do not modify the `is_polymer` annotation, which will still refer to the protein chain
+    for the atomized polymer atoms.
     """
     # Get all inter-PN unit bonds in the entry (i.e. between a polymer and a non-polymer PN unit)
     inter_pn_unit_bond_mask = get_inter_pn_unit_bond_mask(atom_array)

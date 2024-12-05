@@ -5,9 +5,12 @@ import pytest
 import torch
 from cifutils.constants import STANDARD_AA
 
+from datahub.encoding_definitions import AF3SequenceEncoding
+from datahub.transforms.atom_array import AddWithinChainInstanceResIdx, AddWithinPolyResIdxAnnotation
 from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose
+from datahub.transforms.base import Compose, ConvertToTorch
 from datahub.transforms.bonds import (
+    AddAF3TokenBondFeatures,
     AddRF2AABondFeaturesMatrix,
     AddRF2AATraversalDistanceMatrix,
     AddTokenBondAdjacency,
@@ -15,6 +18,8 @@ from datahub.transforms.bonds import (
     _create_rf2aa_bond_features_matrix,
     get_token_bond_adjacency,
 )
+from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
 from datahub.utils.token import get_token_starts
 from tests.conftest import cached_parse
 
@@ -271,6 +276,52 @@ def test_generate_rf2aa_traversal_distance_matrix(test_case):
     assert np.allclose(
         result["rf2aa_traversal_distance_matrix"], expected_from_nx
     ), f"Expected {expected_from_nx}, but got {result['rf2aa_traversal_distance_matrix']}"
+
+
+AF3_TOKEN_BOND_FEATURES_TEST_CASES = [
+    {
+        "pdb_id": "5epq",
+        "ligand-ligand-bonds": 288,  # 144 * 2
+        "protein-ligand-bonds": 8,  # 4 * 2
+    }
+]
+
+
+@pytest.mark.parametrize("test_case", AF3_TOKEN_BOND_FEATURES_TEST_CASES)
+def test_af3_token_bond_features(test_case: dict):
+    data = cached_parse(test_case["pdb_id"])
+    pipe = Compose(
+        [
+            FlagAndReassignCovalentModifications(),
+            AtomizeByCCDName(
+                atomize_by_default=True,
+                res_names_to_ignore=STANDARD_AA,
+                move_atomized_part_to_end=False,
+            ),
+            AddWithinChainInstanceResIdx(),
+            AddWithinPolyResIdxAnnotation(),
+            AddAF3TokenBondFeatures(),
+            EncodeAF3TokenLevelFeatures(sequence_encoding=AF3SequenceEncoding()),
+            ConvertToTorch(keys=["feats"]),
+        ],
+        track_rng_state=False,
+    )
+    data = pipe(data)
+    feats = data["feats"]
+
+    # Check that there are no protein-protein bonds
+    protein_protein_bonds = torch.outer(feats["is_protein"], feats["is_protein"])
+    protein_protein_bond_idxs = torch.where(protein_protein_bonds)
+    assert torch.sum(feats["token_bonds"][protein_protein_bond_idxs]) == 0
+
+    # Check that the number of ligand-ligand bonds is correct
+    ligand_ligand_bonds = torch.outer(feats["is_ligand"], feats["is_ligand"])
+    ligand_ligand_bond_idxs = torch.where(ligand_ligand_bonds)
+    assert torch.sum(feats["token_bonds"][ligand_ligand_bond_idxs]) == test_case["ligand-ligand-bonds"]
+
+    # Check that the number of protein-ligand bonds is correct
+    feats["token_bonds"][ligand_ligand_bonds] = False
+    assert torch.sum(feats["token_bonds"]) == test_case["protein-ligand-bonds"]
 
 
 if __name__ == "__main__":
