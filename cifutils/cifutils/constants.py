@@ -1,7 +1,37 @@
 """Constants used in the `cifutils` package."""
 
+import os
+import logging
 from typing import Final
 from toolz import keymap
+from dotenv import load_dotenv
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+
+def _load_env_var(var_name: str) -> str | None:
+    """Load an environment variable, returning None if it is not set."""
+    try:
+        return os.environ[var_name]
+    except KeyError:
+        logger.warning(
+            f"Environment variable {var_name} not set. "
+            "Will not be able to use function requiring this variable. "
+            "To set it you may:\n"
+            "  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file\n"
+            "  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'\n"
+            "  (3) write it to a .env file in the root of the cifutils repository"
+        )
+        return None
+
+
+CCD_MIRROR_PATH: Final[str] = _load_env_var("CCD_MIRROR_PATH")
+"""A path to a carbon-copy mirror of the CCD ligands in the RCSB CCD."""
+
+CCD_PICKLED_PATH: Final[str] = _load_env_var("CCD_PICKLED_PATH")
+"""A path to a processed version of the CCD ligands in the RCSB CCD as '.pkl' files."""
 
 UNKNOWN_ELEMENT: Final[str] = "X"
 """The element name for an unknown element."""
@@ -465,10 +495,3 @@ WARNING: It is important that this remains a tuple, as it is used by `np.isin`
 
 PEPTIDE_MAX_RESIDUES: Final[int] = 20
 """The maximum number of residues until which we consider a protein-like sequence to be a peptide."""
-
-# Paths specific to digs. TODO: Move to config file / make obsolete before release
-CCD_MIRROR_PATH: Final[str] = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_ligands_2024_05_31/ccd"
-"""A path to a carbon-copy mirror of the CCD ligands in the RCSB CCD."""
-
-CCD_PICKLED_PATH: Final[str] = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_library"
-"""A path to a processed version of the CCD ligands in the RCSB CCD as '.pkl' files."""

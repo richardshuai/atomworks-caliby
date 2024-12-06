@@ -1,1 +1,0 @@
-rsync -avz --include '*/' --include '*.cif' --include '*.sdf' --exclude '*' rsync://ftp.ebi.ac.uk/pub/databases/msd/pdbechem_v2/ccd/ ./ccd

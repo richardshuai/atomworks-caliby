@@ -22,6 +22,8 @@ from os import PathLike
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cifutils")
 
+from cifutils.constants import CCD_MIRROR_PATH
+
 
 def parse_ccd_ligand_from_cif(cif_path: PathLike) -> dict:
     """Parse a single molecule from the PDB-Ligands set using Biotite"""
@@ -295,7 +297,7 @@ def save_ligands_to_pickles(ligands, params):
 
 
 def main(
-    ligand_dir: str = "/projects/ml/RF2_allatom/cifutils_biotite/ccd_ligands_2024_05_31/ccd",
+    ligand_dir: str = CCD_MIRROR_PATH,
     out_dir: str = ".",
     use_ideal: bool = True,
     debug: bool = False,
