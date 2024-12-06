@@ -19,10 +19,11 @@ from datetime import datetime
 import biotite.structure.io.pdbx as pdbx
 from os import PathLike
 
+from cifutils.constants import CCD_MIRROR_PATH
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cifutils")
-
-from cifutils.constants import CCD_MIRROR_PATH
 
 
 def parse_ccd_ligand_from_cif(cif_path: PathLike) -> dict:
