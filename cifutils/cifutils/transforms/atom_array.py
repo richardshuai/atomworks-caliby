@@ -24,44 +24,66 @@ from cifutils.common import exists, deduplicate_iterator
 from cifutils.enums import ChainType
 from cifutils.utils.selection_utils import annot_start_stop_idxs
 from cifutils.common import sum_string_arrays, not_isin
-from cifutils.constants import CCD_PICKLED_PATH
+from cifutils.constants import CCD_MIRROR_PATH, ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
 import os
 
 logger = logging.getLogger("cifutils")
 
 
-def remove_atoms_by_residue_names(atom_array: AtomArray, residues_to_remove: list[str]) -> AtomArray:
+def subset_atom_array(atom_array: AtomArray | AtomArrayStack, keep: np.ndarray) -> AtomArray | AtomArrayStack:
+    """Subsets an AtomArray or AtomArrayStack by a boolean mask."""
+    if isinstance(atom_array, AtomArrayStack):
+        return atom_array[:, keep]
+    else:
+        return atom_array[keep]
+
+
+def remove_ccd_components(
+    atom_array: AtomArray | AtomArrayStack, ccd_codes_to_remove: list[str]
+) -> AtomArray | AtomArrayStack:
     """
-    Remove atoms from the AtomArray that have residue names in the residues_to_remove list.
+    Remove atoms from the AtomArray or AtomArrayStack that have CCD codes in the ccd_codes_to_remove list.
 
     Parameters:
         atom_array (AtomArray): The array of atoms.
-        residues_to_remove (list): A list of residue names to be removed from the atom array.
+        ccd_codes_to_remove (list): A list of CCD codes to be removed from the atom array.
 
     Returns:
         AtomArray: The filtered atom array.
     """
-    residues_to_remove = list(residues_to_remove)
-    return atom_array[not_isin(atom_array.res_name, residues_to_remove)]
+    ccd_codes_to_remove = list(ccd_codes_to_remove)
+    return subset_atom_array(atom_array, not_isin(atom_array.res_name, ccd_codes_to_remove))
+
+
+def remove_hydrogens(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+    """Removes hydrogens from the AtomArray or AtomArrayStack."""
+    keep = not_isin(atom_array.element, HYDROGEN_LIKE_SYMBOLS)
+    return subset_atom_array(atom_array, keep)
+
+
+def remove_waters(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+    """Removes waters from the AtomArray or AtomArrayStack."""
+    return remove_ccd_components(atom_array, WATER_LIKE_CCDS)
 
 
 def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
     """
     Arginine naming ambiguities are fixed (ensuring NH1 is always closer to CD than NH2)
     """
+    # TODO: Generalize to AtomArrayStack
     arg_mask = atom_array.res_name == "ARG"
 
     arg_nh1_mask = (atom_array.atom_name == "NH1") & arg_mask
     arg_nh2_mask = (atom_array.atom_name == "NH2") & arg_mask
     arg_cd_mask = (atom_array.atom_name == "CD") & arg_mask
 
-    cd_nh1_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh1_mask], axis=1)
-    cd_nh2_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh2_mask], axis=1)
+    cd_nh1_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh1_mask], axis=-1)
+    cd_nh2_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh2_mask], axis=-1)
 
     # Check if there are any name swamps required
     _to_swap = cd_nh1_dist > cd_nh2_dist  # local mask
     # turn local mask into global mask
-    to_swap = np.zeros(len(atom_array), dtype=bool)
+    to_swap = np.zeros(atom_array.array_lengths(), dtype=bool)
     to_swap[arg_nh1_mask] = _to_swap
     to_swap[arg_nh2_mask] = _to_swap
 
@@ -76,7 +98,7 @@ def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
     return atom_array
 
 
-def mse_to_met(atom_array: AtomArray) -> AtomArray:
+def mse_to_met(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
     """
     Convert MSE to MET for arginine residues.
     """
@@ -94,18 +116,27 @@ def mse_to_met(atom_array: AtomArray) -> AtomArray:
         _elt_prev = atom_array.element[se_mask][0]
         if _elt_prev == "SE":
             atom_array.element[se_mask] = "S"
-        elif _elt_prev == 34:
-            atom_array.element[se_mask] = 16
-        elif _elt_prev == "34":
-            atom_array.element[se_mask] = "16"
+        elif _elt_prev == ELEMENT_NAME_TO_ATOMIC_NUMBER["SE"]:
+            atom_array.element[se_mask] = ELEMENT_NAME_TO_ATOMIC_NUMBER["S"]
+        elif _elt_prev == str(ELEMENT_NAME_TO_ATOMIC_NUMBER["SE"]):
+            atom_array.element[se_mask] = str(ELEMENT_NAME_TO_ATOMIC_NUMBER["S"])
 
         # Reorder atoms for canonical MET ordering
-        atom_array[mse_mask] = atom_array[mse_mask][struc.info.standardize_order(atom_array[mse_mask])]
+        if isinstance(atom_array, AtomArray):
+            atom_array_mse = atom_array[mse_mask]
+            atom_array_mse = atom_array_mse[struc.info.standardize_order(atom_array_mse)]
+            atom_array[mse_mask] = atom_array_mse
+        elif isinstance(atom_array, AtomArrayStack):
+            atom_array_mse = atom_array[:, mse_mask]
+            atom_array_mse = atom_array_mse[:, struc.info.standardize_order(atom_array_mse[0])]
+            atom_array[:, mse_mask] = atom_array_mse
+        else:
+            raise ValueError(f"Unsupported atom array type: {type(atom_array)}")
 
     return atom_array
 
 
-def keep_last_residue(atom_array: AtomArray) -> AtomArray:
+def keep_last_residue(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
     """
     Removes duplicate residues in the atom array, keeping only the last occurrence.
 
@@ -134,10 +165,10 @@ def keep_last_residue(atom_array: AtomArray) -> AtomArray:
     merged_df = atom_df.merge(duplicates_df, on=["chain_id", "res_id", "res_name"], how="left", indicator=True)
 
     # Create a mask where True indicates the row is not in duplicates_df
-    mask = merged_df["_merge"] == "left_only"
+    keep = merged_df["_merge"] == "left_only"
 
     # Remove rows from atom_array with the deletion mask
-    return atom_array[mask]
+    return subset_atom_array(atom_array, keep)
 
 
 def maybe_patch_non_polymer_at_symmetry_center(
@@ -234,7 +265,7 @@ def maybe_patch_non_polymer_at_symmetry_center(
         return atom_array_stack
 
 
-def add_polymer_annotation(atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
+def add_polymer_annotation(atom_array: AtomArray | AtomArrayStack, chain_info_dict: dict) -> AtomArray | AtomArrayStack:
     """
     Adds an annotation to the atom array to indicate whether a chain is a polymer.
 
@@ -275,7 +306,7 @@ def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> Atom
     return atom_array
 
 
-def add_pn_unit_id_annotation(atom_array: AtomArray) -> AtomArray:
+def add_pn_unit_id_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
     """
     Adds the polymer/non-polymer unit ID (pn_unit_id) annotation to the AtomArray.
     Two covalently bonded ligands are considered one PN unit, but a ligand bonded to a protein is considered two PN units.
@@ -305,7 +336,39 @@ def add_pn_unit_id_annotation(atom_array: AtomArray) -> AtomArray:
     return atom_array
 
 
-def add_molecule_id_annotation(atom_array: AtomArray) -> AtomArray:
+def add_pn_unit_iid_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+    """Adds the polymer/non-polymer unit instance ID (pn_unit_iid) annotation to the AtomArray or AtomArrayStack."""
+    # ...create an array that concatenates the pn_unit_id and transformation_id
+    _temp_pn_unit_iid = sum_string_arrays(atom_array.pn_unit_id, "_", atom_array.transformation_id)
+    _final_pn_unit_iid = np.full(len(atom_array.array_length()), fill_value="", dtype=object)
+
+    # ...iterate through unique pn_unit_iids
+    # (We implicitly assume that a given pn_unit_id will have the same transformation_id across all atoms in the unit)
+    for pn_unit_iid in np.unique(_temp_pn_unit_iid):
+        # ...get the pn_unit_atom_array
+        pn_unit_atom_array = subset_atom_array(atom_array, _temp_pn_unit_iid == pn_unit_iid)
+        # ...get the transformation_id and pn_unit_id (which is the same for all atoms in the unit)
+        transformation_id = pn_unit_atom_array.transformation_id[0]
+        pn_unit_id = pn_unit_atom_array.pn_unit_id[0].astype(str)
+
+        # ...split apart the pn_unit_id by commas
+        pn_unit_ids = pn_unit_id.split(",")
+
+        # ...add the transformation_id to each pn_unit_id
+        pn_unit_iids = [f"{unit_id}_{transformation_id}" for unit_id in pn_unit_ids]
+
+        # ...join the instance-level identifiers back into a single string
+        pn_unit_iid_formatted = ",".join(pn_unit_iids)
+
+        # ...update the AtomArray with the instance-level identifier
+        _final_pn_unit_iid[_temp_pn_unit_iid == pn_unit_iid] = pn_unit_iid_formatted
+
+    atom_array.set_annotation("pn_unit_iid", _final_pn_unit_iid.astype(str))
+
+    return atom_array
+
+
+def add_molecule_id_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
     """Adds the molecule ID (molecule_id) annotation to the AtomArray."""
     # ...initialize the pn_unit_id to chain_id (we will later update for multi-chain non-polymer PN units)
     atom_array.add_annotation("molecule_id", dtype=np.int16)
@@ -451,37 +514,6 @@ def add_chain_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack
     return atom_array_stack
 
 
-def add_pn_unit_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack:
-    """Adds the polymer/non-polymer unit instance ID (pn_unit_iid) annotation to the AtomArrayStack."""
-    # ...create an array that concatenates the pn_unit_id and transformation_id
-    _temp_pn_unit_iid = sum_string_arrays(atom_array_stack.pn_unit_id, "_", atom_array_stack.transformation_id)
-    _final_pn_unit_iid = np.full(len(atom_array_stack[0]), fill_value="", dtype=object)
-
-    # ...iterate through unique pn_unit_iids
-    # (We implicitly assume that a given pn_unit_id will have the same transformation_id across all atoms in the unit)
-    for pn_unit_iid in np.unique(_temp_pn_unit_iid):
-        pn_unit_atom_array = atom_array_stack[:, _temp_pn_unit_iid == pn_unit_iid]
-        # ...get the transformation_id and pn_unit_id (which is the same for all atoms in the unit)
-        transformation_id = pn_unit_atom_array.transformation_id[0]
-        pn_unit_id = pn_unit_atom_array.pn_unit_id[0].astype(str)
-
-        # ...split apart the pn_unit_id by commas
-        pn_unit_ids = pn_unit_id.split(",")
-
-        # ...add the transformation_id to each pn_unit_id
-        pn_unit_iids = [f"{unit_id}_{transformation_id}" for unit_id in pn_unit_ids]
-
-        # ...join the instance-level identifiers back into a single string
-        pn_unit_iid_formatted = ",".join(pn_unit_iids)
-
-        # ...update the AtomArray with the instance-level identifier
-        _final_pn_unit_iid[_temp_pn_unit_iid == pn_unit_iid] = pn_unit_iid_formatted
-
-    atom_array_stack.set_annotation("pn_unit_iid", _final_pn_unit_iid.astype(str))
-
-    return atom_array_stack
-
-
 def add_iid_annotations_to_assemblies(assemblies_dict: dict) -> dict:
     """Adds chain, PN unit, and molecule IIDs to assembly AtomArrayStacks."""
     for assembly_id, assembly in assemblies_dict.items():
@@ -502,6 +534,30 @@ def add_iid_annotations_to_assemblies(assemblies_dict: dict) -> dict:
         assemblies_dict[assembly_id] = assembly
 
     return assemblies_dict
+
+
+def add_id_and_entity_annotations(atom_array: AtomArray) -> AtomArray:
+    """Adds all 6 ('chain', 'pn_unit', 'molecule') x ('id', 'entity') annotations to the AtomArray."""
+    # ...annotate PN units (requires bonds)
+    atom_array = add_pn_unit_id_annotation(atom_array)
+
+    # ...annotate molecules (requires bonds)
+    atom_array = add_molecule_id_annotation(atom_array)
+
+    levels = ["chain", "pn_unit", "molecule"]
+    lower_level_ids = ["res_id", "chain_id", "pn_unit_id"]
+    lower_level_entities = ["res_name", "chain_entity", "pn_unit_entity"]
+
+    for level, lower_level_id, lower_level_entity in zip(levels, lower_level_ids, lower_level_entities):
+        # ...annotate entities at appropriate level
+        atom_array, _ = annotate_entities(
+            atom_array=atom_array,
+            level=level,
+            lower_level_id=lower_level_id,
+            lower_level_entity=lower_level_entity,
+        )
+
+    return atom_array
 
 
 def add_chain_type_annotation(atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
@@ -530,12 +586,11 @@ def add_chain_type_annotation(atom_array: AtomArray, chain_info_dict: dict) -> A
 def add_bonds_to_bondlist_and_remove_leaving_atoms(
     cif_block: CIFBlock,
     atom_array: AtomArray,
-    chain_info_dict: dict,
+    chain_info: dict,
     keep_hydrogens: bool,
-    known_residues: list[str] | set[str],
     converted_res: dict = {},
     ignored_res: list = [],
-    processed_ccd_path: os.PathLike = CCD_PICKLED_PATH,
+    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> AtomArray:
     """
     Add bonds to the atom array using precomputed CCD data and the mmCIF `struct_conn` field.
@@ -546,10 +601,9 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
         atom_array (AtomArray): The atom array to which the bonds will be added.
         chain_info_dict (dict): A dictionary containing information about the chains in the structure.
         keep_hydrogens (bool): Whether to add hydrogens to the atom array.
-        known_residues (list): A list of known residues.
         converted_res (dict): A dictionary containing the residue conversions.
         ignored_res (list): A list of residues to ignore when adding bonds.
-        processed_ccd_path (os.PathLike): The path to the processed CCD data from which
+        ccd_mirror_path (os.PathLike): The path to the processed CCD data from which
             reference bond information will be read.
     Returns:
         AtomArray: The updated atom array with bonds added.
@@ -560,7 +614,7 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
     # Step 1: Add inter-residue and inter-chain bonds from the `struct_conn` category in the CIF file
     leaving_atom_indices = []
     struct_conn_bonds, struct_conn_leaving_atom_indices = add_bonds_from_struct_conn(
-        cif_block, chain_info_dict, atom_array, converted_res, ignored_res
+        cif_block, chain_info, atom_array, converted_res, ignored_res
     )
 
     if exists(struct_conn_leaving_atom_indices) and len(struct_conn_leaving_atom_indices) > 0:
@@ -572,10 +626,9 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
         chain_bonds, chain_leaving_atom_indices = get_inter_and_intra_residue_bonds(
             atom_array=atom_array,
             chain_id=chain_id,
-            chain_type=chain_info_dict[chain_id]["type"],
-            known_residues=known_residues,
+            chain_type=chain_info[chain_id]["type"],
             keep_hydrogens=keep_hydrogens,
-            processed_ccd_path=processed_ccd_path,
+            ccd_mirror_path=ccd_mirror_path,
         )
         if exists(chain_bonds):
             inter_and_intra_residue_bonds.append(chain_bonds)

@@ -5,10 +5,12 @@ Convenience utils for working with (generalized) FASTA files.
 import os
 import re
 
-from cifutils.constants import CCD_PICKLED_PATH
+from cifutils.constants import CCD_MIRROR_PATH
 from cifutils.enums import ChainType
-from cifutils.utils.residue_utils import get_processed_ccd_codes
 from cifutils.utils.sequence_utils import get_3_from_1_letter_code
+from cifutils.utils.ccd import (
+    check_ccd_codes_are_available,
+)
 import logging
 
 logger = logging.getLogger("cifutils")
@@ -33,7 +35,7 @@ def split_generalized_fasta_sequence(sequence: str) -> list[str]:
 
 
 def one_letter_to_ccd_code(
-    seq: list[str], chain_type: ChainType, processed_ccd_path: os.PathLike = CCD_PICKLED_PATH
+    seq: list[str], chain_type: ChainType, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH
 ) -> list[str]:
     """
     Convert a sequence of one-letter codes or parenthesized full CCD IDs to full CCD IDs.
@@ -68,11 +70,8 @@ def one_letter_to_ccd_code(
             # ... remove the parentheses and yield the 3-letter code
             chem_comp_id = chem_comp_id.strip("()")
 
-            # ... ensure it is contained in the processed CCD
-            if chem_comp_id not in get_processed_ccd_codes(processed_ccd_path=processed_ccd_path):
-                raise ValueError(
-                    f"Chemical component id {chem_comp_id=} not found in processed CCD at {processed_ccd_path}"
-                )
+            # ... ensure it is contained in the CCD mirror
+            check_ccd_codes_are_available([chem_comp_id], ccd_mirror_path=ccd_mirror_path, mode="raise")
 
         else:
             chem_comp_id = get_3_from_1_letter_code(chem_comp_id, chain_type=chain_type)

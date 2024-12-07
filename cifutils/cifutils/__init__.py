@@ -1,6 +1,6 @@
 import logging
 import os
-from cifutils.parser import CIFParser  # noqa: F401
+# from cifutils.parser import CIFParser  # noqa: F401
 
 # Set global logging level to `WARNING` if not set by user
 logger = logging.getLogger("cifutils")

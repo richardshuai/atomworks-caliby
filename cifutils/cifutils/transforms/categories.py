@@ -20,7 +20,9 @@ import biotite.structure as struc
 from biotite.structure.io.pdbx import CIFBlock
 from biotite.structure import AtomArray
 import toolz
-from cifutils.constants import UNKNOWN_LIGAND
+from cifutils.constants import UNKNOWN_LIGAND, CCD_MIRROR_PATH, UNKNOWN_AA
+from cifutils.utils.ccd import get_available_ccd_codes
+import os
 
 logger = logging.getLogger("cifutils")
 
@@ -198,7 +200,7 @@ def get_metadata_from_category(cif_block: CIFBlock, fallback_id: str = None) -> 
 
 
 def load_monomer_sequence_information_from_category(
-    cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray, known_residues: list[str] | set[str]
+    cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH
 ) -> dict:
     """
     Load monomer sequence information into a chain_info_dict, using:
@@ -214,12 +216,10 @@ def load_monomer_sequence_information_from_category(
         cif_block (CIFBlock): The CIF block containing the monomer sequence information.
         chain_info_dict (dict): The dictionary where the monomer sequence information will be stored.
         atom_array (AtomArray): The atom array used to get the sequence for non-polymers.
-        known_residues (list): The set of known residues to filter out unknown residues.
 
     Returns:
         The updated chain_info_dict with monomer sequence information.
     """
-    known_residues = set(known_residues)
 
     # Assert that entity_poly_seq category is present
     assert "entity_poly_seq" in cif_block.keys(), "entity_poly_seq category not found in CIF block."
@@ -237,8 +237,13 @@ def load_monomer_sequence_information_from_category(
         logger.info("Sequence heterogeneity detected, keeping only the last occurrence of each residue.")
         polymer_seq_df = polymer_seq_df[~duplicates]
 
-    # Map any polymer residues not in the precompiled CCD data to "UNK" (unknown polymer residue)
-    polymer_seq_df["residue_name"] = polymer_seq_df["residue_name"].apply(lambda x: x if x in known_residues else "UNK")
+    # Map any polymer residues not in CCD data to "UNK" (unknown polymer residue)
+    # TODO:(@ncorley) Do we really want to map to UNKNOWN_AA indiscriminately? I think we should do UNKNOWN_R/DNA #
+    #  depending on chain type!
+    def _replace_by_unknown_if_not_available(x):
+        return x if x in get_available_ccd_codes(ccd_mirror_path) else UNKNOWN_AA
+
+    polymer_seq_df["residue_name"] = polymer_seq_df["residue_name"].apply(_replace_by_unknown_if_not_available)
 
     # Map rcsb_entity to lists of residue names and residue IDs
     polymer_seq_df["rcsb_entity"] = polymer_seq_df["rcsb_entity"].astype(float)
@@ -281,8 +286,9 @@ def load_monomer_sequence_information_from_category(
             residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
 
             # Map any non-polymer residues not in the precompiled CCD data to "UNL" (unknown ligand)
+            available_ccd_codes = get_available_ccd_codes(ccd_mirror_path)
             residue_name_list = [
-                residue if residue in known_residues else UNKNOWN_LIGAND for residue in residue_name_list
+                residue if residue in available_ccd_codes else UNKNOWN_LIGAND for residue in residue_name_list
             ]
 
             chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)

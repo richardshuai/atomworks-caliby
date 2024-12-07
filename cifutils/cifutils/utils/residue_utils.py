@@ -3,8 +3,6 @@ Utility functions to handle creation and manipulation of residues.
 """
 
 __all__ = [
-    "get_processed_ccd_residue",
-    "get_processed_ccd_codes",
     "get_chem_comp_type",
     "build_chem_comp_atom_list",
     "add_missing_atoms_as_unresolved",
@@ -18,16 +16,58 @@ from cifutils.common import (
     deduplicate_iterator,
     exists,
 )
-from pathlib import Path
-import pandas as pd
 import os
-from functools import lru_cache, cache
+from functools import cache
 from cifutils.utils.atom_matching_utils import standardize_heavy_atom_ids
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, CCD_PICKLED_PATH
+from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, CCD_MIRROR_PATH
 from cifutils.common import not_isin
-from cifutils.constants import UNKNOWN_LIGAND, HYDROGEN_LIKE_SYMBOLS, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from cifutils.constants import UNKNOWN_LIGAND, HYDROGEN_LIKE_SYMBOLS
+from cifutils.utils.ccd import get_ccd_component
 
 logger = logging.getLogger("cifutils")
+
+
+# @lru_cache(maxsize=1000)
+# def get_processed_ccd_residue(ccd_code: str, processed_ccd_path: os.PathLike = CCD_PICKLED_PATH) -> dict:
+#     """
+#     Loads the data for a given chemical component code (CCD code) from the precompiled library.
+
+#     Args:
+#         ccd_code (str): The chemical component code to load. For example, "ALA" or "NAG".
+#         processed_ccd_path (os.PathLike, optional): Path to the directory containing
+#             precompiled residue data as .pkl files. Defaults to PROCESSED_CCD_PATH.
+
+#     Returns:
+#         dict: A dictionary containing the precompiled data for the specified chemical component.
+
+#     Raises:
+#         AssertionError: If the chemical component is not found in the precompiled library.
+#     """
+#     # Find the chemical component in the precompiled library
+#     path = Path(processed_ccd_path) / f"{ccd_code}.pkl"
+#     assert path.exists(), f"Chemical component {ccd_code=} not found in precompiled library."
+
+#     # Load and return the residue data
+#     return pd.read_pickle(path)
+
+
+# @cache
+# def get_processed_ccd_codes(processed_ccd_path: os.PathLike = CCD_PICKLED_PATH) -> set[str]:
+#     """Get a list of all chemical component codes (CCD codes) in the precompiled library.
+
+#     Args:
+#         processed_ccd_path (os.PathLike, optional): Path to the directory containing
+#             precompiled residue data as .pkl files. Defaults to PROCESSED_CCD_PATH.
+
+#     Returns:
+#         list[str]: A list of all CCD codes found in the precompiled library
+#             that can be used in `get_processed_ccd_residue()` with this processed_ccd_path.
+
+#     Example:
+#         >>> get_processed_ccd_codes()
+#         {'ALA', 'ARG', 'ASN', ...}
+#     """
+#     return set([path.stem.upper() for path in Path(processed_ccd_path).glob("*.pkl")])
 
 
 @cache
@@ -39,49 +79,6 @@ def _chem_comp_type_dict() -> dict[str, str]:
     chem_comp_ids = np.char.upper(ccd["chem_comp"]["id"].as_array())
     chem_comp_types = np.char.upper(ccd["chem_comp"]["type"].as_array())
     return dict(zip(chem_comp_ids, chem_comp_types))
-
-
-@lru_cache(maxsize=1000)
-def get_processed_ccd_residue(ccd_code: str, processed_ccd_path: os.PathLike = CCD_PICKLED_PATH) -> dict:
-    """
-    Loads the data for a given chemical component code (CCD code) from the precompiled library.
-
-    Args:
-        ccd_code (str): The chemical component code to load. For example, "ALA" or "NAG".
-        processed_ccd_path (os.PathLike, optional): Path to the directory containing
-            precompiled residue data as .pkl files. Defaults to PROCESSED_CCD_PATH.
-
-    Returns:
-        dict: A dictionary containing the precompiled data for the specified chemical component.
-
-    Raises:
-        AssertionError: If the chemical component is not found in the precompiled library.
-    """
-    # Find the chemical component in the precompiled library
-    path = Path(processed_ccd_path) / f"{ccd_code}.pkl"
-    assert path.exists(), f"Chemical component {ccd_code=} not found in precompiled library."
-
-    # Load and return the residue data
-    return pd.read_pickle(path)
-
-
-@cache
-def get_processed_ccd_codes(processed_ccd_path: os.PathLike = CCD_PICKLED_PATH) -> set[str]:
-    """Get a list of all chemical component codes (CCD codes) in the precompiled library.
-
-    Args:
-        processed_ccd_path (os.PathLike, optional): Path to the directory containing
-            precompiled residue data as .pkl files. Defaults to PROCESSED_CCD_PATH.
-
-    Returns:
-        list[str]: A list of all CCD codes found in the precompiled library
-            that can be used in `get_processed_ccd_residue()` with this processed_ccd_path.
-
-    Example:
-        >>> get_processed_ccd_codes()
-        {'ALA', 'ARG', 'ASN', ...}
-    """
-    return set([path.stem.upper() for path in Path(processed_ccd_path).glob("*.pkl")])
 
 
 def get_chem_comp_type(ccd_code: str, strict: bool = False) -> str:
@@ -114,7 +111,7 @@ def get_chem_comp_type(ccd_code: str, strict: bool = False) -> str:
 
 @cache
 def build_chem_comp_atom_list(
-    ccd_code: str, keep_hydrogens: bool, processed_ccd_path: os.PathLike = CCD_PICKLED_PATH
+    ccd_code: str, keep_hydrogens: bool, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH
 ) -> list[Atom]:
     """
     Build a list of atoms for a given chemical component code (CCD code) from CCD data.
@@ -127,41 +124,18 @@ def build_chem_comp_atom_list(
         list[Atom]: A list of Atom objects initialized with zero coordinates.
     """
 
-    ccd_atoms = get_processed_ccd_residue(ccd_code, processed_ccd_path)["atoms"]
-    is_hetero = ccd_code not in (STANDARD_AA + STANDARD_DNA + STANDARD_RNA)
+    ccd_atoms = get_ccd_component(ccd_code, ccd_mirror_path, coords=None, add_properties=False)
+    if not keep_hydrogens:
+        ccd_atoms = ccd_atoms[not_isin(ccd_atoms.element, HYDROGEN_LIKE_SYMBOLS)]
 
-    atom_list = []
-    for atom_name, atom_data in ccd_atoms.items():
-        if not keep_hydrogens and (atom_data["element"] in HYDROGEN_LIKE_SYMBOLS):
-            # ... skip creating hydrogens if we don't want them
-            continue
-
-        # ... create the atom and append it to the list
-        atom_list.append(
-            struc.Atom(
-                coord=[np.nan, np.nan, np.nan],
-                res_name=ccd_code,
-                atom_name=atom_name,
-                element=str(atom_data["element"]),
-                charge=atom_data["charge"],
-                hyb=atom_data["hyb"],
-                nhyd=atom_data["nhyd"],
-                hvydeg=atom_data["hvydeg"],
-                leaving_atom_flag=atom_data["leaving_atom_flag"],
-                leaving_group=atom_data["leaving_group"],
-                is_metal=atom_data["is_metal"],
-                hetero=is_hetero,
-            )
-        )
-
-    return atom_list
+    return [atom for atom in ccd_atoms]
 
 
 def add_missing_atoms_as_unresolved(
     atom_array: AtomArray,
     chain_info_dict: dict,
     keep_hydrogens: bool,
-    processed_ccd_path: os.PathLike = CCD_PICKLED_PATH,
+    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> AtomArray:
     """
     Add missing atoms to a polymer chain based on its sequence.
@@ -173,6 +147,8 @@ def add_missing_atoms_as_unresolved(
         atom_array (AtomArray): An array of atom objects representing the current state of the polymer chain.
         chain_info_dict (dict): A dictionary containing chain information, including whether the chain is a polymer and the sequence of residues.
         keep_hydrogens (bool): Whether to add hydrogens when building the residue atoms. Most, if not all, hydrogens will be unresolved.
+        ccd_mirror_path (os.PathLike): Path to the local mirror of the Chemical Component Dictionary (recommended).
+            If not provided, Biotite's built-in CCD will be used.
 
     Returns:
         AtomArray: An updated array of atom objects with the missing atoms added.
@@ -193,7 +169,7 @@ def add_missing_atoms_as_unresolved(
             chain_id (str): The ID of the chain.
         """
         residue_atom_list = build_chem_comp_atom_list(
-            ccd_code=residue_name, keep_hydrogens=keep_hydrogens, processed_ccd_path=processed_ccd_path
+            ccd_code=residue_name, keep_hydrogens=keep_hydrogens, processed_ccd_path=ccd_mirror_path
         )
         residue_ids.append(np.full(len(residue_atom_list), residue_id))
         chain_ids.append(np.full(len(residue_atom_list), chain_id))
@@ -280,7 +256,7 @@ def add_missing_atoms_as_unresolved(
                     residue_atom_list = _convert_unknown_ligand_to_atom_list(unknown_residue_atom_array)
                 else:
                     residue_atom_list = build_chem_comp_atom_list(
-                        residue_name, keep_hydrogens=keep_hydrogens, processed_ccd_path=processed_ccd_path
+                        residue_name, keep_hydrogens=keep_hydrogens, processed_ccd_path=ccd_mirror_path
                     )
 
                 # Preserve the residue ID for non-polymer chains (e.g., often starts at 101)

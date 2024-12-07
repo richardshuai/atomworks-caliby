@@ -1,8 +1,8 @@
 from __future__ import annotations
 from collections import OrderedDict
-from typing import Any
+from typing import Any, Callable
 import numpy as np
-from toolz import reduce
+from toolz.curried import reduce, compose
 
 
 def exists(obj: Any) -> bool:
@@ -19,6 +19,7 @@ def deduplicate_iterator(iterator):
 
 
 def to_hashable(element):
+    """Convert an element to a hashable type."""
     return element if isinstance(element, (int, str, np.integer, np.str_)) else tuple(element)
 
 
@@ -31,4 +32,10 @@ def sum_string_arrays(*objs: np.ndarray | str) -> np.ndarray:
 
 
 def not_isin(element: np.ndarray, array: np.ndarray, **isin_kwargs) -> np.ndarray:
+    """Like `~np.isin`, but more efficient."""
     return np.isin(element, array, invert=True, **isin_kwargs)
+
+
+def listmap(func: Callable, *iterables) -> list:
+    """Like `map`, but returns a list instead of an iterator."""
+    return compose(list, map)(func, *iterables)

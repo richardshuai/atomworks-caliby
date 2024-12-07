@@ -5,6 +5,7 @@ import logging
 from typing import Final
 from toolz import keymap
 from dotenv import load_dotenv
+import sys
 
 load_dotenv()
 
@@ -30,8 +31,8 @@ def _load_env_var(var_name: str) -> str | None:
 CCD_MIRROR_PATH: Final[str] = _load_env_var("CCD_MIRROR_PATH")
 """A path to a carbon-copy mirror of the CCD ligands in the RCSB CCD."""
 
-CCD_PICKLED_PATH: Final[str] = _load_env_var("CCD_PICKLED_PATH")
-"""A path to a processed version of the CCD ligands in the RCSB CCD as '.pkl' files."""
+PDB_MIRROR_PATH: Final[str] = _load_env_var("PDB_MIRROR_PATH")
+"""A path to a mirror of the PDB."""
 
 UNKNOWN_ELEMENT: Final[str] = "X"
 """The element name for an unknown element."""
@@ -412,20 +413,20 @@ Reference:
     - Biotite: https://github.com/biotite-dev/biotite/blob/v0.41.0/src/biotite/sequence/seqtypes.py#L348-L556
 """
 
-UNKNOWN_LIGAND: Final[str] = "UNL"
+UNKNOWN_LIGAND: Final[str] = sys.intern("UNL")
 """The CCD code for unknown ligands."""
 
-UNKNOWN_AA: Final[str] = "UNK"
+UNKNOWN_AA: Final[str] = sys.intern("UNK")
 """The CCD code for unknown amino acids."""
 
 # TODO: Change these to something unique.
-UNKNOWN_RNA: Final[str] = "X"
+UNKNOWN_RNA: Final[str] = sys.intern("X")
 """The (non-standard) CCD code for unknown RNA nucleotides."""
 
-UNKNOWN_DNA: Final[str] = "DX"
+UNKNOWN_DNA: Final[str] = sys.intern("DX")
 """The (non-standard) CCD code for unknown DNA nucleotides."""
 
-GAP: Final[str] = "<G>"
+GAP: Final[str] = sys.intern("<G>")
 """The (non-standard) code for a gap token."""
 
 
@@ -488,6 +489,13 @@ STANDARD_PURINE_RESIDUES: Final[tuple[str, ...]] = ("A", "G", "DA", "DG")
 HYDROGEN_LIKE_SYMBOLS: Final[tuple[str, ...]] = ("H", "H2", "D", "T", "1", 1)
 """
 A tuple of symbols for (isotopes of) hydrogen.
+
+WARNING: It is important that this remains a tuple, as it is used by `np.isin`
+ downstream, which does not play well with sets.
+"""
+
+WATER_LIKE_CCDS: Final[tuple[str, ...]] = ("HOH", "DOD")
+"""A tuple of CCD codes for water-like molecules.
 
 WARNING: It is important that this remains a tuple, as it is used by `np.isin`
  downstream, which does not play well with sets.

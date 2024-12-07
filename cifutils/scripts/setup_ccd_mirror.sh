@@ -23,16 +23,22 @@ else
 fi
 
 # Perform rsync with file counting
-echo "Syncing files from PDBeChem CCD..."
-rsync -avz --stats \
-    --include "*/" \
-    --include "*.cif" \
-    --include "*.sdf" \
-    --exclude "*" \
-    --delete \
-    "$REMOTE_PATH" "$DEST_PATH" > /tmp/rsync_ccd_output.txt 2>&1
+# ... existing code ...
 
-echo "Sync complete!"
+# Perform rsync with file counting
+echo "Syncing files from PDBeChem CCD..."
+if rsync -rltvz --stats --no-perms --chmod=ug=rwX,o=rX --delete --omit-dir-times \
+    --include "*.cif" --exclude "*" \
+    "$REMOTE_PATH" "$DEST_PATH"; then
+    echo "Sync completed successfully!"
+
+    wget https://files.wwpdb.org/pub/pdb/data/monomers/components.cif.gz -O "${DEST_PATH}/components.cif.gz"
+    # uncompress
+    gunzip -f "${DEST_PATH}/components.cif.gz"
+else
+    echo "Error: Sync failed with exit code $?"
+    exit 1
+fi
 
 # Create/Update README with sync information
 README_PATH="${DEST_PATH}/README"

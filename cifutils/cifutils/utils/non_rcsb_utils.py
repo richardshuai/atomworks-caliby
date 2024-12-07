@@ -44,7 +44,7 @@ def load_monomer_sequence_information_from_atom_array(chain_info_dict: dict, ato
     return chain_info_dict
 
 
-def infer_processed_entity_sequences_from_atom_array(chain_info_dict: dict, atom_array: AtomArray) -> dict:
+def infer_processed_entity_sequences_from_atom_array(chain_info: dict, atom_array: AtomArray) -> dict:
     """
     Infer processed entity sequences from an AtomArray.
     """
@@ -53,8 +53,8 @@ def infer_processed_entity_sequences_from_atom_array(chain_info_dict: dict, atom
         _, residue_name_list = struc.get_residues(chain_atom_array)
         chain_type = ChainType(chain_atom_array.chain_type[0])
 
-        if chain_id not in chain_info_dict:
-            chain_info_dict[chain_id] = {}
+        if chain_id not in chain_info:
+            chain_info[chain_id] = {}
 
         # Create the processed single-letter sequence representations
         processed_entity_non_canonical_sequence = [
@@ -63,12 +63,12 @@ def infer_processed_entity_sequences_from_atom_array(chain_info_dict: dict, atom
         processed_entity_canonical_sequence = [
             get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=True) for residue in residue_name_list
         ]
-        chain_info_dict[chain_id]["processed_entity_non_canonical_sequence"] = "".join(
+        chain_info[chain_id]["processed_entity_non_canonical_sequence"] = "".join(
             processed_entity_non_canonical_sequence
         )
-        chain_info_dict[chain_id]["processed_entity_canonical_sequence"] = "".join(processed_entity_canonical_sequence)
+        chain_info[chain_id]["processed_entity_canonical_sequence"] = "".join(processed_entity_canonical_sequence)
 
-    return chain_info_dict
+    return chain_info
 
 
 def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:

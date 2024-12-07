@@ -12,7 +12,7 @@ import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
 from cifutils.constants import (
-    CCD_PICKLED_PATH,
+    CCD_MIRROR_PATH,
     PEPTIDE_MAX_RESIDUES,
     STANDARD_AA_ONE_LETTER,
     STANDARD_RNA,
@@ -21,14 +21,15 @@ from cifutils.constants import (
 )
 from cifutils.common import exists
 from cifutils.enums import ChainType
-from cifutils.transforms.atom_array import add_molecule_id_annotation, add_pn_unit_id_annotation, annotate_entities
+import cifutils.transforms.atom_array as ta
 from cifutils.utils.bond_utils import get_inter_and_intra_residue_bonds
-from cifutils.utils.residue_utils import build_chem_comp_atom_list, get_chem_comp_type, get_processed_ccd_codes
+from cifutils.utils.residue_utils import build_chem_comp_atom_list, get_chem_comp_type
 from cifutils.enums import ChainTypeInfo
 from cifutils.tools.fasta import split_generalized_fasta_sequence, one_letter_to_ccd_code
 from cifutils.utils.io_utils import read_any, get_structure
 from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import get_1_from_3_letter_code
+from cifutils.utils.ccd import check_ccd_codes_are_available
 import logging
 
 logger = logging.getLogger("cifutils")
@@ -245,7 +246,7 @@ def sequence_to_atom_array(
     *,
     chain_type: ChainType | str = None,
     is_polymer: bool = None,
-    processed_ccd_path: os.PathLike = CCD_PICKLED_PATH,
+    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> AtomArray:
     if isinstance(seq, str):
         seq = one_letter_to_ccd_code(split_generalized_fasta_sequence(seq), chain_type=chain_type)
@@ -259,20 +260,13 @@ def sequence_to_atom_array(
 
     # Ensure that the sequence is a valid combination of existing 3-letter CCD codes
     ccd_codes_in_seq = set(seq)
-    if not ccd_codes_in_seq.issubset(get_processed_ccd_codes(processed_ccd_path)):
-        invalid_ids = ccd_codes_in_seq - get_processed_ccd_codes(processed_ccd_path)
-        raise ValueError(
-            "Invalid chemical component ids in sequence that were not found "
-            f"in the precompiled library ({processed_ccd_path}): \n{invalid_ids}"
-        )
+    check_ccd_codes_are_available(ccd_codes_in_seq, ccd_mirror_path=ccd_mirror_path, mode="raise")
 
     # ... create a list of atoms based on the reference CCD entries
     atom_list = []
     atom_lens = []
-    for res_id, chem_comp_id in enumerate(seq):
-        atoms_in_chem_comp = build_chem_comp_atom_list(
-            chem_comp_id, keep_hydrogens=False, processed_ccd_path=processed_ccd_path
-        )
+    for res_id, ccd_code in enumerate(seq):
+        atoms_in_chem_comp = build_chem_comp_atom_list(ccd_code, keep_hydrogens=False, ccd_mirror_path=ccd_mirror_path)
         atom_list.extend(atoms_in_chem_comp)
         atom_lens.append(len(atoms_in_chem_comp))
 
@@ -287,9 +281,8 @@ def sequence_to_atom_array(
         atom_array,
         chain_id=chain_id,
         chain_type=chain_type,
-        known_residues=get_processed_ccd_codes(processed_ccd_path),
         keep_hydrogens=False,
-        processed_ccd_path=processed_ccd_path,
+        ccd_mirror_path=ccd_mirror_path,
     )
     # ... add bonds to the atom array
     atom_array.bonds = struc.BondList(atom_array.array_length(), bond_list)
@@ -405,25 +398,9 @@ def get_next_chain_id_generator(occupied_chain_ids: list[str] = []) -> Iterator[
             yield chain_id
 
 
-def create_extra_annotations_for_inference(atom_array: AtomArray) -> AtomArray:
-    # ...annotate PN units (requires bonds)
-    atom_array = add_pn_unit_id_annotation(atom_array)
-
-    # ...annotate molecules (requires bonds)
-    atom_array = add_molecule_id_annotation(atom_array)
-
-    levels = ["chain", "pn_unit", "molecule"]
-    lower_level_ids = ["res_id", "chain_id", "pn_unit_id"]
-    lower_level_entities = ["res_name", "chain_entity", "pn_unit_entity"]
-
-    for level, lower_level_id, lower_level_entity in zip(levels, lower_level_ids, lower_level_entities):
-        # ...annotate entities at appropriate level
-        atom_array, _ = annotate_entities(
-            atom_array=atom_array,
-            level=level,
-            lower_level_id=lower_level_id,
-            lower_level_entity=lower_level_entity,
-        )
+def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
+    # ... annotate ids and entities
+    atom_array = ta.add_id_and_entity_annotations(atom_array)
 
     # ... annotate iids (assumes we are only given the asym)
     atom_array.set_annotation("chain_iid", atom_array.chain_id)
@@ -462,7 +439,7 @@ def components_to_atom_array(components: list[ChemicalComponent | dict]) -> Atom
     for arr in atom_arrays[1:]:
         atom_array += arr
 
-    atom_array = create_extra_annotations_for_inference(atom_array)
+    atom_array = add_inference_iid_id_entity_annotations(atom_array)
 
     return atom_array
 

@@ -24,9 +24,10 @@ from cifutils.common import to_hashable
 from cifutils.enums import ChainType
 from functools import cache
 import networkx as nx
-from cifutils.utils.residue_utils import get_processed_ccd_residue
-from cifutils.constants import CCD_PICKLED_PATH
+from cifutils.constants import CCD_MIRROR_PATH, HYDROGEN_LIKE_SYMBOLS
+from cifutils.utils.ccd import get_available_ccd_codes, get_ccd_component
 import os
+from cifutils.common import not_isin
 
 logger = logging.getLogger("cifutils")
 
@@ -55,45 +56,28 @@ def _get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
 
 @cache
 def get_intra_residue_bonds(
-    residue_name: dict, keep_hydrogens: bool, processed_ccd_path: os.PathLike = CCD_PICKLED_PATH
+    ccd_code: str, keep_hydrogens: bool, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Retrieve intra-residue bonds for a given residue.
 
     Args:
-        residue_data (dict): Dictionary containing keys for the intra-residue bonds and constituent atoms, derived from OpenBabel.
+        ccd_code (str): The CCD code for the residue. E.g. `ALA` for alanine, `NAP` for N-acetyl-D-glucosamine.
         keep_hydrogens (bool): Whether or not hydrogens are being added to the structure. Relevant for bond removal.
+        ccd_mirror_path (os.PathLike): Path to the local mirror of the Chemical Component Dictionary (recommended).
+            If not provided, Biotite's built-in CCD will be used.
 
     Returns:
         tuple: Three arrays representing the atom indices and bond types within the residue frame.
     """
-    residue_data = get_processed_ccd_residue(residue_name, processed_ccd_path=processed_ccd_path).copy()
+    # TODO:(smathis) Modify
+    chem_comp = get_ccd_component(ccd_code, ccd_mirror_path=ccd_mirror_path, coords=None, add_properties=False)
 
-    # If we aren't adding hydrogens, we need to remove any bonds to hydrogen/deuterium, and any hydrogen/deuterium atoms from the atom list
     if not keep_hydrogens:
-        residue_data["intra_residue_bonds"] = [
-            bond
-            for bond in residue_data["intra_residue_bonds"]
-            if not residue_data["atoms"][bond["atom_a_id"]]["element"] == 1
-            and not residue_data["atoms"][bond["atom_b_id"]]["element"] == 1
-        ]
-        residue_data["atoms"] = {
-            atom_id: atom_data for atom_id, atom_data in residue_data["atoms"].items() if not atom_data["element"] == 1
-        }
+        chem_comp = chem_comp[not_isin(chem_comp.element, HYDROGEN_LIKE_SYMBOLS)]
 
-    # Create a mapping of atom IDs to indices
-    atom_id_to_index = {atom_id: index for index, atom_id in enumerate(residue_data["atoms"].keys())}
-    atom_a_indices = []
-    atom_b_indices = []
-    bond_types = []
-    for bond in residue_data["intra_residue_bonds"]:
-        atom_a_index = atom_id_to_index[bond["atom_a_id"]]
-        atom_b_index = atom_id_to_index[bond["atom_b_id"]]
-        bond_type = _get_bond_type_from_order_and_is_aromatic(bond["order"], bond["is_aromatic"])
-        atom_a_indices.append(atom_a_index)
-        atom_b_indices.append(atom_b_index)
-        bond_types.append(bond_type)
-    return np.array(atom_a_indices), np.array(atom_b_indices), np.array(bond_types)
+    bonds = chem_comp.bonds.as_array()
+    return bonds[:, 0], bonds[:, 1], bonds[:, 2]
 
 
 def add_bonds_from_struct_conn(
@@ -229,9 +213,8 @@ def get_inter_and_intra_residue_bonds(
     atom_array: AtomArray,
     chain_id: str,
     chain_type: str,
-    known_residues: list[str] | set[str],
     keep_hydrogens: bool,
-    processed_ccd_path: os.PathLike = CCD_PICKLED_PATH,
+    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Adds inter-residue and intra_residue bonds to an atom array for a given chain.
@@ -249,8 +232,6 @@ def get_inter_and_intra_residue_bonds(
         intra_residue_bonds: An np.array of intra-residue bonds to be added to the atom array.
         leaving_atom_indices: An np.array of indices of atom indices that are leaving groups for bookkeeping.
     """
-    known_residues = set(known_residues)
-
     # Possible types given at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity_poly.type.html
     # TODO: This should really be a property of the residues, to deal with peptide-nucleic acid hybrids
     atom_pairs = {
@@ -279,6 +260,7 @@ def get_inter_and_intra_residue_bonds(
     for i in range(len(residues)):
         current_res = residues[i]
         next_res = residues[i + 1] if i + 1 < len(residues) else None
+
         # Add inter-residue bond if there is a next residue
         if next_res and exists(bond_atoms):
             atom_a = current_res[current_res.atom_name == bond_atoms[0]]
@@ -306,12 +288,12 @@ def get_inter_and_intra_residue_bonds(
                 )
 
         # Add intra-residue bonds for the current residue
-        residue_name = current_res.res_name[
+        ccd_code = current_res.res_name[
             0
         ]  # current_res.res_name is a list of identical values, so we just take the first one
-        if residue_name in known_residues:
+        if ccd_code in get_available_ccd_codes(ccd_mirror_path=ccd_mirror_path):
             atom_a_local_indices, atom_b_local_indices, bond_types = get_intra_residue_bonds(
-                residue_name, keep_hydrogens, processed_ccd_path=processed_ccd_path
+                ccd_code, keep_hydrogens, ccd_mirror_path=ccd_mirror_path
             )
             if atom_a_local_indices.size and atom_b_local_indices.size and bond_types.size:
                 atom_a_intra_residue_indices.append(current_res.index[atom_a_local_indices])
@@ -521,6 +503,7 @@ def fix_bonded_atom_charges(atom):
     Returns:
         dict: A dictionary with updated 'charge', 'hyb', and 'nhyd' values.
     """
+    # TODO(smathis): Obsolete.
     # ...convert to int for comparison
     element = atom.element.astype(int)
     charge = atom.charge.astype(int)
@@ -540,3 +523,5 @@ def fix_bonded_atom_charges(atom):
 
     # ...default (no change)
     return {"charge": charge, "hyb": hyb, "nhyd": nhyd}
+
+

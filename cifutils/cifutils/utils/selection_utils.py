@@ -1,6 +1,6 @@
 """Utility functions for selecting segments of an AtomArray"""
 
-__all__ = ["annot_start_stop_idxs"]
+__all__ = ["annot_start_stop_idxs", "get_residue_starts"]
 
 from biotite.structure import AtomArray
 import numpy as np
