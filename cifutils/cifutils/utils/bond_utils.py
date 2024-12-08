@@ -3,7 +3,6 @@ Utility functions for the detection, and creation, of bonds in a structure.
 """
 
 __all__ = [
-    "get_intra_residue_bonds",
     "get_struct_conn_bonds",
     "get_inferred_polymer_bonds",
     "get_coarse_graph_as_nodes_and_edges",
@@ -16,19 +15,12 @@ import numpy as np
 from cifutils.utils.selection_utils import get_residue_starts
 from biotite.structure import AtomArray, BondList
 import biotite.structure as struc
-from cifutils.common import exists
 from biotite.structure.io.pdbx import CIFBlock
 import logging
 from cifutils.utils.atom_matching_utils import get_matching_atom
 from cifutils.transforms.categories import category_to_df
 from cifutils.common import to_hashable
-from cifutils.enums import ChainType
-from functools import cache
 import networkx as nx
-from cifutils.constants import CCD_MIRROR_PATH, HYDROGEN_LIKE_SYMBOLS
-from cifutils.utils.ccd import get_available_ccd_codes, get_ccd_component
-import os
-from cifutils.common import not_isin
 
 logger = logging.getLogger("cifutils")
 
@@ -54,13 +46,12 @@ def _get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
         else non_aromatic_bond_types.get(order, struc.BondType.ANY)
     )
 
-def get_inferred_polymer_bonds(
-        atom_array: AtomArray
-) -> BondList:
+
+def get_inferred_polymer_bonds(atom_array: AtomArray) -> BondList:
     residue_starts = get_residue_starts(atom_array, add_exclusive_stop=True)
     polymer_bonds = struc.bonds._connect_inter_residue(atom_array, residue_starts)
     return polymer_bonds
-    
+
 
 def get_struct_conn_bonds(
     cif_block: CIFBlock,
@@ -381,12 +372,12 @@ def fix_bonded_atom_charges(atom):
     hvydeg = atom.hvydeg.astype(int)
 
     # ...manually fix charges and hydrogen counts for certain cases
-    #    for nitrogen
+    #    for nitrogen
     if element == 7 and charge == 1 and hyb == 3 and nhyd == 2 and hvydeg == 2:  # -(NH2+)-
         return {"charge": 0, "hyb": 2, "nhyd": 0}
     elif element == 7 and charge == 1 and hyb == 3 and nhyd == 3 and hvydeg == 0:  # free NH3+ group
         return {"charge": 0, "hyb": 2, "nhyd": 2}
-    #    for oxygen
+    #    for oxygen
     elif element == 8 and charge == -1 and hyb == 3 and nhyd == 0:
         return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
     elif element == 8 and charge == -1 and hyb == 2 and nhyd == 0:  # O-linked connections
@@ -394,5 +385,3 @@ def fix_bonded_atom_charges(atom):
 
     # ...default (no change)
     return {"charge": charge, "hyb": hyb, "nhyd": nhyd}
-
-

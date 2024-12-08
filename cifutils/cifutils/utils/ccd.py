@@ -307,5 +307,5 @@ def identify_leaving_groups(atom_array: struc.AtomArray, atom_idx: int) -> list[
 
 
 def get_chem_comp_leaving_atom_names(ccd_code: str) -> dict[int, list[int]]:
-    # TODO(smathis)
+    # TODO(smathis)
     raise NotImplementedError
