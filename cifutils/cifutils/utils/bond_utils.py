@@ -4,8 +4,8 @@ Utility functions for the detection, and creation, of bonds in a structure.
 
 __all__ = [
     "get_intra_residue_bonds",
-    "add_bonds_from_struct_conn",
-    "get_inter_and_intra_residue_bonds",
+    "get_struct_conn_bonds",
+    "get_inferred_polymer_bonds",
     "get_coarse_graph_as_nodes_and_edges",
     "get_connected_nodes",
     "hash_graph",
@@ -13,7 +13,8 @@ __all__ = [
 ]
 
 import numpy as np
-from biotite.structure import AtomArray
+from cifutils.utils.selection_utils import get_residue_starts
+from biotite.structure import AtomArray, BondList
 import biotite.structure as struc
 from cifutils.common import exists
 from biotite.structure.io.pdbx import CIFBlock
@@ -53,34 +54,15 @@ def _get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
         else non_aromatic_bond_types.get(order, struc.BondType.ANY)
     )
 
+def get_inferred_polymer_bonds(
+        atom_array: AtomArray
+) -> BondList:
+    residue_starts = get_residue_starts(atom_array, add_exclusive_stop=True)
+    polymer_bonds = struc.bonds._connect_inter_residue(atom_array, residue_starts)
+    return polymer_bonds
+    
 
-@cache
-def get_intra_residue_bonds(
-    ccd_code: str, keep_hydrogens: bool, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Retrieve intra-residue bonds for a given residue.
-
-    Args:
-        ccd_code (str): The CCD code for the residue. E.g. `ALA` for alanine, `NAP` for N-acetyl-D-glucosamine.
-        keep_hydrogens (bool): Whether or not hydrogens are being added to the structure. Relevant for bond removal.
-        ccd_mirror_path (os.PathLike): Path to the local mirror of the Chemical Component Dictionary (recommended).
-            If not provided, Biotite's built-in CCD will be used.
-
-    Returns:
-        tuple: Three arrays representing the atom indices and bond types within the residue frame.
-    """
-    # TODO:(smathis) Modify
-    chem_comp = get_ccd_component(ccd_code, ccd_mirror_path=ccd_mirror_path, coords=None, add_properties=False)
-
-    if not keep_hydrogens:
-        chem_comp = chem_comp[not_isin(chem_comp.element, HYDROGEN_LIKE_SYMBOLS)]
-
-    bonds = chem_comp.bonds.as_array()
-    return bonds[:, 0], bonds[:, 1], bonds[:, 2]
-
-
-def add_bonds_from_struct_conn(
+def get_struct_conn_bonds(
     cif_block: CIFBlock,
     chain_info_dict: dict,
     atom_array: AtomArray,
@@ -207,119 +189,6 @@ def add_bonds_from_struct_conn(
             )
 
     return struct_conn_bonds, leaving_atom_indices
-
-
-def get_inter_and_intra_residue_bonds(
-    atom_array: AtomArray,
-    chain_id: str,
-    chain_type: str,
-    keep_hydrogens: bool,
-    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Adds inter-residue and intra_residue bonds to an atom array for a given chain.
-
-    Args:
-        atom_array (AtomArray): The atom array to which the bonds are added.
-        chain_id (str): The ID of the chain for which bonds are added.
-        chain_type (str): The type of the chain, used to determine the type of bond.
-        known_residues (list): A list of valid residue names.
-        keep_hydrogens (bool): Whether we are adding hydrogens to the residues (relevant for removing leaving groups).
-        processed_ccd_path (os.PathLike): The path to the processed CCD data from which
-            reference bond information will be read.
-
-    Returns:
-        intra_residue_bonds: An np.array of intra-residue bonds to be added to the atom array.
-        leaving_atom_indices: An np.array of indices of atom indices that are leaving groups for bookkeeping.
-    """
-    # Possible types given at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity_poly.type.html
-    # TODO: This should really be a property of the residues, to deal with peptide-nucleic acid hybrids
-    atom_pairs = {
-        ChainType.DNA: ("O3'", "P"),  # phosphodiester bond
-        ChainType.DNA_RNA_HYBRID: ("O3'", "P"),  # phosphodiester bond
-        ChainType.POLYPEPTIDE_D: ("C", "N"),  # peptide bond
-        ChainType.POLYPEPTIDE_L: ("C", "N"),  # peptide bond
-        ChainType.CYCLIC_PSEUDO_PEPTIDE: ("C", "N"),  # peptide bond
-        ChainType.RNA: ("O3'", "P"),  # phosphodiester bond
-    }
-
-    # Append as we go along and then concatenate at the end
-    inter_residue_bonds = []
-    atom_a_intra_residue_indices = []
-    atom_b_intra_residue_indices = []
-    intra_residue_bond_types = []
-    leaving_atom_indices = []
-
-    chain_type = ChainType.as_enum(chain_type)
-    bond_atoms = atom_pairs.get(chain_type, None)
-    atom_chain_array = atom_array[atom_array.chain_id == chain_id]
-
-    # Create iterators for the current and next residues
-    residues = list(struc.residue_iter(atom_chain_array))
-
-    for i in range(len(residues)):
-        current_res = residues[i]
-        next_res = residues[i + 1] if i + 1 < len(residues) else None
-
-        # Add inter-residue bond if there is a next residue
-        if next_res and exists(bond_atoms):
-            atom_a = current_res[current_res.atom_name == bond_atoms[0]]
-            atom_b = next_res[next_res.atom_name == bond_atoms[1]]
-            if atom_a and atom_b:
-                inter_residue_bonds.append([atom_a.index[0], atom_b.index[0], struc.BondType.SINGLE])
-
-                # Leaving group bookkeeping
-                leaving_atom_indices.append(current_res.index[np.isin(current_res.atom_name, atom_a.leaving_group[0])])
-                leaving_atom_indices.append(next_res.index[np.isin(next_res.atom_name, atom_b.leaving_group[0])])
-
-                # Fix charges
-                atom_a_updates = fix_bonded_atom_charges(atom_a[0])
-                atom_a.charge, atom_a.hyb, atom_a.nhyd = (
-                    np.array([atom_a_updates["charge"]]),
-                    np.array([atom_a_updates["hyb"]]),
-                    np.array([atom_a_updates["nhyd"]]),
-                )
-
-                atom_b_updates = fix_bonded_atom_charges(atom_b[0])
-                atom_b.charge, atom_b.hyb, atom_b.nhyd = (
-                    np.array([atom_b_updates["charge"]]),
-                    np.array([atom_b_updates["hyb"]]),
-                    np.array([atom_b_updates["nhyd"]]),
-                )
-
-        # Add intra-residue bonds for the current residue
-        ccd_code = current_res.res_name[
-            0
-        ]  # current_res.res_name is a list of identical values, so we just take the first one
-        if ccd_code in get_available_ccd_codes(ccd_mirror_path=ccd_mirror_path):
-            atom_a_local_indices, atom_b_local_indices, bond_types = get_intra_residue_bonds(
-                ccd_code, keep_hydrogens, ccd_mirror_path=ccd_mirror_path
-            )
-            if atom_a_local_indices.size and atom_b_local_indices.size and bond_types.size:
-                atom_a_intra_residue_indices.append(current_res.index[atom_a_local_indices])
-                atom_b_intra_residue_indices.append(current_res.index[atom_b_local_indices])
-                intra_residue_bond_types.append(bond_types)
-
-    # At the end, we concatenate the lists to form the final arrays
-    if atom_a_intra_residue_indices and atom_b_intra_residue_indices and intra_residue_bond_types:
-        intra_residue_bonds = np.column_stack(
-            (
-                np.concatenate(atom_a_intra_residue_indices),
-                np.concatenate(atom_b_intra_residue_indices),
-                np.concatenate(intra_residue_bond_types),
-            )
-        )
-    else:
-        intra_residue_bonds = np.array([], dtype=np.int32).reshape(0, 3)
-
-    leaving_atom_indices = (
-        np.concatenate(leaving_atom_indices) if leaving_atom_indices else np.array([], dtype=np.int32)
-    )
-
-    if inter_residue_bonds:
-        return np.vstack((np.array(inter_residue_bonds), intra_residue_bonds)), leaving_atom_indices
-    else:
-        return intra_residue_bonds, leaving_atom_indices
 
 
 def get_coarse_graph_as_nodes_and_edges(atom_array: AtomArray, annotations: str | tuple[str]):
@@ -512,10 +381,12 @@ def fix_bonded_atom_charges(atom):
     hvydeg = atom.hvydeg.astype(int)
 
     # ...manually fix charges and hydrogen counts for certain cases
+    #    for nitrogen
     if element == 7 and charge == 1 and hyb == 3 and nhyd == 2 and hvydeg == 2:  # -(NH2+)-
         return {"charge": 0, "hyb": 2, "nhyd": 0}
     elif element == 7 and charge == 1 and hyb == 3 and nhyd == 3 and hvydeg == 0:  # free NH3+ group
         return {"charge": 0, "hyb": 2, "nhyd": 2}
+    #    for oxygen
     elif element == 8 and charge == -1 and hyb == 3 and nhyd == 0:
         return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
     elif element == 8 and charge == -1 and hyb == 2 and nhyd == 0:  # O-linked connections

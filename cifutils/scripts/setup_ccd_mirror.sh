@@ -28,7 +28,7 @@ fi
 # Perform rsync with file counting
 echo "Syncing files from PDBeChem CCD..."
 if rsync -rltvz --stats --no-perms --chmod=ug=rwX,o=rX --delete --omit-dir-times \
-    --include "*.cif" --exclude "*" \
+    --include="*/" --include "*.cif" --exclude "*" \
     "$REMOTE_PATH" "$DEST_PATH"; then
     echo "Sync completed successfully!"
 

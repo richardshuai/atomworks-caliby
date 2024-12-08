@@ -13,8 +13,8 @@ from biotite.structure.io.pdbx import CIFBlock
 import networkx as nx
 from collections import defaultdict
 from cifutils.utils.bond_utils import (
-    add_bonds_from_struct_conn,
-    get_inter_and_intra_residue_bonds,
+    get_struct_conn_bonds,
+    get_inferred_polymer_bonds,
     get_coarse_graph_as_nodes_and_edges,
     get_connected_nodes,
     hash_graph,
@@ -613,7 +613,7 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
 
     # Step 1: Add inter-residue and inter-chain bonds from the `struct_conn` category in the CIF file
     leaving_atom_indices = []
-    struct_conn_bonds, struct_conn_leaving_atom_indices = add_bonds_from_struct_conn(
+    struct_conn_bonds, struct_conn_leaving_atom_indices = get_struct_conn_bonds(
         cif_block, chain_info, atom_array, converted_res, ignored_res
     )
 
@@ -623,7 +623,7 @@ def add_bonds_to_bondlist_and_remove_leaving_atoms(
     # Step 2: Add inter-residue and intra-residue bonds
     inter_and_intra_residue_bonds = []
     for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
-        chain_bonds, chain_leaving_atom_indices = get_inter_and_intra_residue_bonds(
+        chain_bonds, chain_leaving_atom_indices = get_inferred_polymer_bonds(
             atom_array=atom_array,
             chain_id=chain_id,
             chain_type=chain_info[chain_id]["type"],

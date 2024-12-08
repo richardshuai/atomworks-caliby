@@ -22,7 +22,7 @@ from cifutils.constants import (
 from cifutils.common import exists
 from cifutils.enums import ChainType
 import cifutils.transforms.atom_array as ta
-from cifutils.utils.bond_utils import get_inter_and_intra_residue_bonds
+from cifutils.utils.bond_utils import get_inferred_polymer_bonds
 from cifutils.utils.residue_utils import build_chem_comp_atom_list, get_chem_comp_type
 from cifutils.enums import ChainTypeInfo
 from cifutils.tools.fasta import split_generalized_fasta_sequence, one_letter_to_ccd_code
@@ -277,7 +277,7 @@ def sequence_to_atom_array(
     atom_array.set_annotation("index", np.arange(len(atom_array)))
 
     # Compute bonds and leaving groups
-    bond_list, leaving_atom_indices = get_inter_and_intra_residue_bonds(
+    bond_list, leaving_atom_indices = get_inferred_polymer_bonds(
         atom_array,
         chain_id=chain_id,
         chain_type=chain_type,

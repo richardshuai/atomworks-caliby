@@ -304,3 +304,8 @@ def identify_leaving_groups(atom_array: struc.AtomArray, atom_idx: int) -> list[
     graph = atom_array.bonds.as_graph()
     leaving_atom_idxs = find_new_components_after_removal(graph, atom_idx)
     return listmap(list, leaving_atom_idxs)
+
+
+def get_chem_comp_leaving_atom_names(ccd_code: str) -> dict[int, list[int]]:
+    # TODO(smathis)
+    raise NotImplementedError
