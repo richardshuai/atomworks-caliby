@@ -32,6 +32,9 @@ class ChainType(IntEnum):
     POLYPEPTIDE_L = 6
     RNA = 7
     NON_POLYMER = 8
+    WATER = 9
+    BRANCHED = 10
+    MACROLIDE = 11
 
     @classmethod
     def from_string(cls, str_value: str) -> "ChainType":
@@ -105,7 +108,7 @@ class ChainType(IntEnum):
 
     def is_non_polymer(self) -> bool:
         """Check if a ChainType is a non-polymer."""
-        return self == ChainType.NON_POLYMER
+        return self in ChainTypeInfo.NON_POLYMERS
 
     def to_string(self) -> str:
         """
@@ -146,6 +149,13 @@ class ChainTypeInfo:
         ChainType.OTHER_POLYMER,
     )
 
+    NON_POLYMERS: Final[tuple[ChainType, ...]] = (
+        ChainType.NON_POLYMER,
+        ChainType.WATER,
+        ChainType.BRANCHED,
+        ChainType.MACROLIDE,
+    )
+
     PROTEINS: Final[tuple[ChainType, ...]] = (
         ChainType.POLYPEPTIDE_D,
         ChainType.POLYPEPTIDE_L,
@@ -169,9 +179,9 @@ class ChainTypeInfo:
                 "POLYPEPTIDE(L)": ChainType.POLYPEPTIDE_L,
                 "POLYRIBONUCLEOTIDE": ChainType.RNA,
                 "NON-POLYMER": ChainType.NON_POLYMER,
-                "BRANCHED": ChainType.NON_POLYMER,  # The PDB does not consider oligosaccharides to be polymers
-                "MACROLIDE": ChainType.NON_POLYMER,
-                "WATER": ChainType.NON_POLYMER,
+                "WATER": ChainType.WATER,
+                "BRANCHED": ChainType.BRANCHED,
+                "MACROLIDE": ChainType.MACROLIDE,
                 "OTHER": ChainType.OTHER_POLYMER,  # WARNING! Paradoxically, "other" is a polymer type.
             },
         )
@@ -179,8 +189,7 @@ class ChainTypeInfo:
 
     # Compute the reverse mapping, from ChainType enums to chain_type strings
     ENUM_TO_STRING: Final[MappingProxyType[ChainType, str]] = MappingProxyType(
-        {chain_type: chain_type_str for chain_type_str, chain_type in STRING_TO_ENUM.items()}
-        | {ChainType.NON_POLYMER: "NON-POLYMER"}
+        {v: k for k, v in STRING_TO_ENUM.items()}
     )
 
     VALID_CHEM_COMP_TYPES: Final[MappingProxyType[ChainType, set[str]]] = MappingProxyType(
