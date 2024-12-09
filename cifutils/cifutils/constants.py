@@ -6,6 +6,7 @@ from typing import Final
 from toolz import keymap
 from dotenv import load_dotenv
 import sys
+from types import MappingProxyType
 
 load_dotenv()
 
@@ -41,7 +42,7 @@ UNKNOWN_ATOMIC_NUMBER: Final[int] = 0
 """The atomic number for an unknown element."""
 
 # fmt: off
-ELEMENT_NAME_TO_ATOMIC_NUMBER: Final[dict[str, int]] = keymap(str.upper, {
+ELEMENT_NAME_TO_ATOMIC_NUMBER: Final[MappingProxyType[str, int]] = MappingProxyType(keymap(str.upper, {
     "H": 1,    "He": 2,   "Li": 3,   "Be": 4,   "B": 5,   "C": 6,   "N": 7,    "O": 8,    "F": 9,   "Ne": 10,  
     "Na": 11,  "Mg": 12,  "Al": 13,  "Si": 14,  "P": 15,  "S": 16,  "Cl": 17,  "Ar": 18,  "K": 19,  "Ca": 20,  
     "Sc": 21,  "Ti": 22,  "V": 23,   "Cr": 24,  "Mn": 25, "Fe": 26, "Co": 27,  "Ni": 28,  "Cu": 29, "Zn": 30,  
@@ -55,10 +56,10 @@ ELEMENT_NAME_TO_ATOMIC_NUMBER: Final[dict[str, int]] = keymap(str.upper, {
     "Md": 101, "No": 102, "Lr": 103, "Rf": 104, "Db": 105,"Sg": 106, "Bh": 107,"Hs": 108, "Mt": 109,"Ds": 110, 
     "Rg": 111, "Cn": 112, "Nh": 113, "Fl": 114, "Mc": 115, "Lv": 116, "Ts": 117, "Og": 118,
     UNKNOWN_ELEMENT: UNKNOWN_ATOMIC_NUMBER
-})
+}))
 """Map canonical *UPPERCASE* 2 letter element names to their atomic numbers. WARNING: Case-sensitive."""
 
-ATOMIC_NUMBER_TO_ELEMENT: Final[dict[int | str, str]] = (
+ATOMIC_NUMBER_TO_ELEMENT: Final[MappingProxyType[int | str, str]] = MappingProxyType(
     {v: k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()} | 
     {str(v): k for k, v in ELEMENT_NAME_TO_ATOMIC_NUMBER.items()}
 )
@@ -213,6 +214,35 @@ LIGAND_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset([chemtype.upper() for 
 
 MASK_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset([chemtype.upper() for chemtype in ("mask",)])
 """Set of mask-like chemical component types. All uppercase."""
+
+CHEM_TYPE_POLYMERIZATION_ATOMS: Final[MappingProxyType[str, tuple[str, str]]] = MappingProxyType(
+    keymap(
+        str.upper,
+        {
+            # peptide bonds
+            "peptide linking": ("C", "N"),
+            "L-peptide linking": ("C", "N"),
+            "D-peptide linking": ("C", "N"),
+            "L-beta-peptide, C-gamma linking": ("CG", "N"),
+            "D-beta-peptide, C-gamma linking": ("CG", "N"),
+            "L-gamma-peptide, C-delta linking": ("CD", "N"),
+            "D-gamma-peptide, C-delta linking": ("CD", "N"),
+            # phosphodiester bonds
+            "DNA linking": ("O3'", "P"),
+            "L-DNA linking": ("O3'", "P"),
+            "RNA linking": ("O3'", "P"),
+            "L-RNA linking": ("O3'", "P"),
+        },
+    )
+)
+"""A mapping of chemical component types to the atoms that they link when part of a polymer."""
+
+STRUCT_CONN_BOND_TYPES: Final[frozenset[str]] = frozenset({"covale", "disulf", "metalc", "hydrog"})
+"""A set of bond types that are considered when adding bonds to the atom array.
+
+Reference:
+    - https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_struct_conn.conn_type_id.html
+"""
 
 CRYSTALLIZATION_AIDS: Final[list[str]] = [
     "SO4",

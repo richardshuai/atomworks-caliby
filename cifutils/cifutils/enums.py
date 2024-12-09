@@ -194,3 +194,17 @@ class ChainTypeInfo:
             ChainType.RNA: RNA_LIKE_CHEM_TYPES,
         }
     )
+
+    ATOMS_AT_POLYMER_BOND: Final[MappingProxyType[ChainType, tuple[str, str]]] = MappingProxyType(
+        {
+            # peptide bonds
+            ChainType.POLYPEPTIDE_D: ("C", "N"),
+            ChainType.POLYPEPTIDE_L: ("C", "N"),
+            ChainType.CYCLIC_PSEUDO_PEPTIDE: ("C", "N"),
+            # phosphodiester bonds
+            ChainType.RNA: ("O3'", "P"),
+            ChainType.DNA: ("O3'", "P"),
+            ChainType.DNA_RNA_HYBRID: ("O3'", "P"),
+        }
+    )
+    """A mapping of chain types to the atoms that they link when part of a polymer."""

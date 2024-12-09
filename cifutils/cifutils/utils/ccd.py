@@ -8,7 +8,6 @@ import logging
 from functools import lru_cache, cache
 import toolz
 import networkx as nx
-from cifutils.common import listmap
 from typing import Iterable
 
 
@@ -249,7 +248,7 @@ def get_ccd_component(
         return get_ccd_component_from_biotite(ccd_code)
 
 
-def find_new_components_after_removal(graph: nx.Graph, node_to_remove: int) -> list[set[int]]:
+def _find_new_components_after_removal(graph: nx.Graph, node_to_remove: int) -> list[list[int]]:
     """
     Identifies connected components that would form after removing a node from a graph.
 
@@ -258,7 +257,7 @@ def find_new_components_after_removal(graph: nx.Graph, node_to_remove: int) -> l
         - node_to_remove (int): The node to hypothetically remove.
 
     Returns:
-        - list[set]: List of sets containing node indices in each new component.
+        - list[list[int]]: List of lists containing node indices in each new component.
     """
     # Get the neighbors before removal
     neighbors = set(graph.neighbors(node_to_remove))
@@ -278,34 +277,65 @@ def find_new_components_after_removal(graph: nx.Graph, node_to_remove: int) -> l
             continue
 
         # Find all nodes reachable from this neighbor
-        component = set(nx.bfs_tree(subgraph, start))
+        component = list(nx.bfs_tree(subgraph, start))
         components.append(component)
-        unvisited -= component
+        unvisited -= set(component)
 
     return components
 
 
-def identify_leaving_groups(atom_array: struc.AtomArray, atom_idx: int) -> list[list[str]]:
+@lru_cache(maxsize=2000)
+def get_chem_comp_leaving_atom_names(
+    ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, mode: Literal["warn", "raise"] = "warn"
+) -> dict[str, tuple[str, ...]]:
     """
-    Identifies groups of atoms that would become disconnected if a specific atom were removed.
+    Computes the canonical leaving groups for a given CCD entry based on the PDBs annotation
+    of leaving atoms.
 
-    Args:
-        - atom_array (AtomArray): The atomic structure to analyze.
-        - atom_idx (int): Index of the atom to hypothetically remove.
-
-    Returns:
-        - list[list[str]]: Lists of atom names in each potential leaving group.
+    The returned dictionary maps the name of the atom to the names of the atoms that would
+    become disconnected if the atom were removed.
 
     Example:
-        >>> atom_array = get_ccd_component_from_mirror("ATP")
-        >>> leaving_groups = identify_leaving_groups(atom_array, 0)
-        >>> print(leaving_groups)  # Would show potential phosphate groups
+        >>> get_chem_comp_leaving_atom_names("ALA")
+        {'N': ('H2',), 'C': ('OXT', 'HXT'), 'OXT': ('HXT',)}
     """
-    graph = atom_array.bonds.as_graph()
-    leaving_atom_idxs = find_new_components_after_removal(graph, atom_idx)
-    return listmap(list, leaving_atom_idxs)
+    chem_comp = get_ccd_component(ccd_code, ccd_mirror_path)
 
+    if "is_leaving_atom" not in chem_comp.get_annotation_categories():
+        if mode == "warn":
+            logger.warning(
+                f"No 'is_leaving_atom' annotation found for `{ccd_code}`. "
+                "Cannot compute leaving groups, returning empty dictionary. "
+                "Check if your CCD mirror is up to date."
+            )
+        elif mode == "raise":
+            raise ValueError(
+                f"No 'is_leaving_atom' annotation found for `{ccd_code}`. "
+                "Cannot compute leaving groups. Check if your CCD mirror is up to date."
+            )
+        return {}
 
-def get_chem_comp_leaving_atom_names(ccd_code: str) -> dict[int, list[int]]:
-    # TODO(smathis)
-    raise NotImplementedError
+    # ... initialize output
+    leaving_atom_names = {}
+
+    # ... get relevant annotations
+    is_leaving_atom = chem_comp.get_annotation("is_leaving_atom")
+    atom_name = chem_comp.get_annotation("atom_name")
+
+    # ... skip if no atoms are annotated as leaving atoms (majority of CCD entries)
+    if not any(is_leaving_atom):
+        return {}
+
+    # ... compute the leaving groups based on the bond graph and annotation
+    bond_graph = chem_comp.bonds.as_graph()
+    for atom_idx in range(chem_comp.array_length()):
+        # ... find the connected groups of atoms if the current atom were removed
+        connected_groups = _find_new_components_after_removal(bond_graph, atom_idx)
+
+        # ... check if all atoms in the connected group are flagged as leaving atoms
+        #     by the CCD entry
+        for connected_group in connected_groups:
+            if all(is_leaving_atom[connected_group]):
+                leaving_atom_names[atom_name[atom_idx]] = tuple(atom_name[idx] for idx in connected_group)
+
+    return leaving_atom_names

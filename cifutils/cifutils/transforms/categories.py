@@ -23,6 +23,7 @@ import toolz
 from cifutils.constants import UNKNOWN_LIGAND, CCD_MIRROR_PATH, UNKNOWN_AA
 from cifutils.utils.ccd import get_available_ccd_codes
 import os
+from cifutils.utils.selection_utils import get_residue_starts
 
 logger = logging.getLogger("cifutils")
 
@@ -253,6 +254,7 @@ def load_monomer_sequence_information_from_category(
     }
 
     # Build up the chain_info_dict with the sequence information
+    res_starts = get_residue_starts(atom_array)
     for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
         rcsb_entity = int(chain_info_dict[chain_id]["rcsb_entity"])
         if rcsb_entity in polymer_entity_id_to_residue_names_and_ids:
@@ -282,8 +284,9 @@ def load_monomer_sequence_information_from_category(
                 )
         else:
             # For non-polymers, we must re-compute every time, since entities are not guaranteed to have the same monomer sequence (e.g., for H2O chains)
-            chain_atom_array = atom_array[atom_array.chain_id == chain_id]
-            residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
+            chain_res_starts = res_starts[atom_array.chain_id[res_starts] == chain_id]
+            residue_id_list = atom_array.res_id[chain_res_starts]
+            residue_name_list = atom_array.res_name[chain_res_starts]
 
             # Map any non-polymer residues not in the precompiled CCD data to "UNL" (unknown ligand)
             available_ccd_codes = get_available_ccd_codes(ccd_mirror_path)

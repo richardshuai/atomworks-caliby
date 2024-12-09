@@ -22,7 +22,7 @@ from pathlib import Path
 import io
 from cifutils.utils.io_utils import read_any, get_structure, to_cif_buffer
 from cifutils.utils.chain_utils import create_chain_id_generator
-from cifutils.common import exists
+from cifutils.common import exists, default
 from cifutils.transforms.categories import (
     get_chain_info_from_category,
     get_metadata_from_category,
@@ -75,12 +75,12 @@ class CIFParser:
         # Transform related arguments
         add_missing_atoms = kwargs.get("add_missing_atoms")
         add_bonds = kwargs.get("add_bonds")
-        add_entity_annotations = kwargs.get("add_entity_annotations")
+        add_id_and_entity_annotations = kwargs.get("add_id_and_entity_annotations")
         if (not add_missing_atoms) and add_bonds:
             raise ValueError("`add_bonds` requires `add_missing_atoms` to be True")
 
-        if (not add_bonds) and add_entity_annotations:
-            raise ValueError("`add_entity_annotations` requires `add_bonds` to be True")
+        if (not add_bonds) and add_id_and_entity_annotations:
+            raise ValueError("`add_id_and_entity_annotations` requires `add_bonds` to be True")
 
         residues_to_remove = kwargs.get("residues_to_remove")
         check_ccd_codes_are_available(residues_to_remove, ccd_mirror_path=self.ccd_mirror_path, mode="warn")
@@ -195,6 +195,7 @@ class CIFParser:
         return result
 
     def parse_from_cif(
+        # TODO: For clean, common API, we should use the words `add`, `fix`, `remove` (drop `patch` and `keep`)
         self,
         filename: os.PathLike | io.StringIO | io.BytesIO,
         *,
@@ -202,13 +203,13 @@ class CIFParser:
         assume_residues_all_resolved: bool = False,
         add_missing_atoms: bool = True,
         add_bonds: bool = True,
-        add_entity_annotations: bool = True,
-        residues_to_remove: list[str] = CRYSTALLIZATION_AIDS,
-        patch_symmetry_centers: bool = True,
+        add_id_and_entity_annotations: bool = True,
+        remove_ccds: list[str] = CRYSTALLIZATION_AIDS,  # TODO: rename to `remove_ccd_codes`
+        patch_symmetry_centers: bool = True,  # TODO: rename to `fix_symmetry_centers`
         build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
         fix_arginines: bool = True,
         convert_mse_to_met: bool = False,
-        keep_hydrogens: bool = True,
+        keep_hydrogens: bool = True,  # TODO: rename to `remove_hydrogens`
         remove_waters: bool = True,
         model: int | None = None,
         **kwargs,
@@ -231,11 +232,11 @@ class CIFParser:
                 (a) precompiled intra-residue bond data, (b) standard inter-residue bonds,
                 and (c) the `struct_conn` category to determine connectivity. Cannot be True
                 if `add_missing_atoms` is False. Defaults to True.
-            add_entity_annotations (bool, optional): Whether to add entity annotations to the structure.
-                Defaults to True.
+            add_id_and_entity_annotations (bool, optional): Whether to add identifier and entity
+                annotations to the structure. Defaults to True.
             remove_waters (bool, optional): Whether to remove water molecules from the
                 structure. Defaults to True.
-            residues_to_remove (list, optional): A list of residue names to remove from
+            remove_ccds (list, optional): A list of CCD codes (e.g. `ALA`, `HEM`, ...) to remove from
                 the structure. Defaults to crystallization aids. NOTE: Exclusion of polymer
                 residues and common multi-chain ligands must be done with care to avoid sequence gaps.
             patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues
@@ -263,11 +264,6 @@ class CIFParser:
                 'extra_info': A dictionary with information for cross-compatibility and caching.
                     Should typically not be used directly.
         """
-        # ...initializations
-
-        _converted_res = {}
-        _ignored_res = []
-
         # ...default running dictionary, which we will populate through a series of Transforms
         data_dict = {}
         data_dict["extra_info"] = {}
@@ -278,7 +274,7 @@ class CIFParser:
 
         # ...load metadata into "metadata" key (either from RCSB standard fields, or from the custom `extra_metadata` field)
         if isinstance(filename, (io.StringIO, io.BytesIO)):
-            fallback_filename = "unknown_id"
+            fallback_filename = list(cif_file.keys())[0]
         else:
             fallback_filename = Path(filename).stem
         data_dict["metadata"] = get_metadata_from_category(data_dict["cif_block"], fallback_id=fallback_filename)
@@ -316,7 +312,7 @@ class CIFParser:
         data_dict["asym_unit"] = asym_unit_stack
 
         # ...load chain information from the first model (uses atom_array to build chain list)
-        if "entity" and "entity_poly" in data_dict["cif_block"].keys():
+        if "entity" and "entity_poly" in data_dict["cif_block"]:
             # We can get the chain information directly from the CIF file
             data_dict["chain_info"] = get_chain_info_from_category(data_dict["cif_block"], data_dict["asym_unit"][0])
         else:
@@ -328,44 +324,49 @@ class CIFParser:
             asym_unit_stack = ta.remove_hydrogens(asym_unit_stack)
 
         # ...remove any explicitly excluded residues (e.g., crystallization solvents, waters)
-        if residues_to_remove or remove_waters:
+        if remove_ccds or remove_waters:
             # NOTE: If the excluded residues are part of a polymer chain, or part of a
             #  multi-chain ligand, this may create sequence gaps!
             # ... remove the residues we don't want to keep
-            residues_to_remove = set(map(str.upper, residues_to_remove))
+            remove_ccds = set(map(str.upper, remove_ccds))
             if remove_waters:
-                residues_to_remove.update(WATER_LIKE_CCDS)
+                remove_ccds.update(WATER_LIKE_CCDS)
 
-            asym_unit_stack = ta.remove_ccd_components(asym_unit_stack, residues_to_remove)
-            _ignored_res.extend(residues_to_remove)
+            asym_unit_stack = ta.remove_ccd_components(asym_unit_stack, remove_ccds)
 
         # ...replace non-polymeric chain sequence ids with author sequence ids (since the non-polymer sequence ID's are not informative)
         asym_unit_stack = ta.update_nonpoly_seq_ids(asym_unit_stack, data_dict["chain_info"])
+
+        # ...load monomer sequence information into chain_info_dict
+        # NOTE: We MAY NOT delete polymer atoms from the AtomArray after this step, as the sequences won't be updated
+        if not assume_residues_all_resolved:
+            # Use the `entity_poly_seq` category as ground-truth for polymers, and the AtomArray as ground-truth for non-polymers
+            data_dict["chain_info"] = load_monomer_sequence_information_from_category(
+                cif_block=data_dict["cif_block"],
+                chain_info_dict=data_dict["chain_info"],
+                atom_array=asym_unit_stack,
+                ccd_mirror_path=self.ccd_mirror_path,
+            )
+        else:
+            # Use the AtomArray as ground-truth for all residues (e.g., distillation sets)
+            data_dict["chain_info"] = load_monomer_sequence_information_from_atom_array(
+                chain_info_dict=data_dict["chain_info"],
+                atom_array=asym_unit_stack,
+            )
+
+        # ...handle sequence heterogeneity by selecting the residue that appears last
+        asym_unit_stack = ta.keep_last_residue(asym_unit_stack)
+
+        # ...add the is_polymer annotation to the AtomArray
+        asym_unit_stack = ta.add_polymer_annotation(asym_unit_stack, data_dict["chain_info"])
+
+        # ...add the ChainType annotation to the AtomArray
+        asym_unit_stack = ta.add_chain_type_annotation(asym_unit_stack, data_dict["chain_info"])
 
         # ...loop through models
         models = []
         for model_idx in range(asym_unit_stack.stack_depth()):
             atom_array = data_dict["asym_unit"][model_idx]
-
-            # ...load monomer sequence information into chain_info_dict
-            # NOTE: We MAY NOT delete polymer atoms from the AtomArray after this step, as the sequences won't be updated
-            if not assume_residues_all_resolved:
-                # Use the `entity_poly_seq` category as ground-truth for polymers, and the AtomArray as ground-truth for non-polymers
-                data_dict["chain_info"] = load_monomer_sequence_information_from_category(
-                    cif_block=data_dict["cif_block"],
-                    chain_info_dict=data_dict["chain_info"],
-                    atom_array=atom_array,
-                    ccd_mirror_path=self.ccd_mirror_path,
-                )
-            else:
-                # Use the AtomArray as ground-truth for all residues (e.g., distillation sets)
-                data_dict["chain_info"] = load_monomer_sequence_information_from_atom_array(
-                    chain_info_dict=data_dict["chain_info"],
-                    atom_array=atom_array,
-                )
-
-            # ...handle sequence heterogeneity by selecting the residue that appears last
-            atom_array = ta.keep_last_residue(atom_array)
 
             # ...optionally, create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
             # NOTE: If adding bonds, we must add missing atoms to ensure we can later remove leaving atoms
@@ -377,12 +378,6 @@ class CIFParser:
                     keep_hydrogens=keep_hydrogens,
                     ccd_mirror_path=self.ccd_mirror_path,
                 )
-
-            # ...add the is_polymer annotation to the AtomArray
-            atom_array = ta.add_polymer_annotation(atom_array, data_dict["chain_info"])
-
-            # ...add the ChainType annotation to the AtomArray
-            atom_array = ta.add_chain_type_annotation(atom_array, data_dict["chain_info"])
 
             if assume_residues_all_resolved:
                 data_dict["chain_info"] = infer_processed_entity_sequences_from_atom_array(
@@ -396,7 +391,6 @@ class CIFParser:
             # ...convert MSE to MET
             if convert_mse_to_met:
                 atom_array = ta.mse_to_met(atom_array)
-                _converted_res["MSE"] = "MET"
 
             # ...generate and add bonds to the atom array bond list
             if add_bonds:
@@ -406,11 +400,12 @@ class CIFParser:
                     chain_info=data_dict["chain_info"],
                     keep_hydrogens=keep_hydrogens,  # needed for leaving group resolution
                     converted_res=_converted_res,  # needed for leaving group resolution
-                    ignored_res=_ignored_res,
-                    ccd_mirror_path=self.ccd_mirror_path,
+                    ignored_res=default(remove_ccds, []),
+                    ccd_mirror_path=CCD_MIRROR_PATH,  # self.ccd_mirror_path,
                 )
 
-            if add_entity_annotations:
+            # ... add identifiers and entity annotations
+            if add_id_and_entity_annotations:
                 atom_array = ta.add_id_and_entity_annotations(atom_array, data_dict["chain_info"])
 
             models.append(atom_array)

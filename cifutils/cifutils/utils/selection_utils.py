@@ -2,11 +2,13 @@
 
 __all__ = ["annot_start_stop_idxs", "get_residue_starts"]
 
-from biotite.structure import AtomArray
+from biotite.structure import AtomArray, AtomArrayStack
 import numpy as np
 
 
-def annot_start_stop_idxs(atom_array: AtomArray, annots: str | list[str], add_exclusive_stop: bool = False):
+def annot_start_stop_idxs(
+    atom_array: AtomArray | AtomArrayStack, annots: str | list[str], add_exclusive_stop: bool = False
+):
     """
     Computes the start and stop indices for segments in an AtomArray where any of the specified annotation(s) change.
 
@@ -33,7 +35,7 @@ def annot_start_stop_idxs(atom_array: AtomArray, annots: str | list[str], add_ex
     if isinstance(annots, str):
         annots = [annots]
 
-    annots_differ = np.zeros(len(atom_array) - 1, dtype=bool)
+    annots_differ = np.zeros(atom_array.array_length() - 1, dtype=bool)
     for annot in annots:
         annot_array = atom_array.get_annotation(annot)
         annots_differ |= annot_array[1:] != annot_array[:-1]
@@ -45,7 +47,7 @@ def annot_start_stop_idxs(atom_array: AtomArray, annots: str | list[str], add_ex
     return np.concatenate(([0], start_stop_idxs))
 
 
-def get_residue_starts(atom_array: AtomArray, add_exclusive_stop: bool = False):
+def get_residue_starts(atom_array: AtomArray | AtomArrayStack, add_exclusive_stop: bool = False):
     """
     More robust version of `biotite.structure.residues.get_residue_starts` that also
     differentiates between residues resulting from different transformation ids.

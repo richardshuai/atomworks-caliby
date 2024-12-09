@@ -1,19 +1,28 @@
 from cifutils.utils.selection_utils import get_residue_starts
-from cifutils.constants import UNKNOWN_LIGAND, CCD_MIRROR_PATH
+from cifutils.constants import UNKNOWN_LIGAND, CCD_MIRROR_PATH, WATER_LIKE_CCDS
 import cifutils.transforms.atom_array as ta
-from cifutils.utils.io_utils import load_any
+from cifutils.utils.io_utils import read_any, get_structure
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds, get_struct_conn_bonds
 from biotite.database.rcsb import fetch
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack, BondList
 import os
 from cifutils.utils.ccd import check_ccd_codes_are_available, get_ccd_component
-import biotite.structure as struc
-from typing import Sequence
+from typing import Sequence, Final
 import logging
 
 logger = logging.getLogger(__file__)
-atom_array = load_any(fetch("6lyz", "cif"), model=1)
+cif_file = read_any(fetch("6lyz", "cif"))
+atom_array = get_structure(cif_file, model=1)
+ccd_mirror_path = CCD_MIRROR_PATH
+use_ccd_charges = True
+keep_hydrogens = False
+
+DO_NOT_MATCH_CCD: Final[frozenset[str]] = frozenset(WATER_LIKE_CCDS + (UNKNOWN_LIGAND,))
+"""
+CCDs that should not be matched to a template for the
+purpose of adding missing atoms.
+"""
 
 try:
     from biotite.structure import concatenate
@@ -21,6 +30,56 @@ try:
     logger.info("Biotite updated. Please remove the below definition.")
 except ImportError:
     # TODO: Replace through biotite import after upgrade to 1.0.2
+    @staticmethod
+    def _bond_list_concatenate(bonds_lists):
+        """
+        Concatenate multiple :class:`BondList` objects into a single
+        :class:`BondList`, respectively.
+        Parameters
+        ----------
+        bonds_lists : iterable object of BondList
+            The bond lists to be concatenated.
+        Returns
+        -------
+        concatenated_bonds : BondList
+            The concatenated bond lists.
+        Examples
+        --------
+        >>> bonds1 = BondList(2, np.array([(0, 1)]))
+        >>> bonds2 = BondList(3, np.array([(0, 1), (0, 2)]))
+        >>> merged_bonds = BondList.concatenate([bonds1, bonds2])
+        >>> print(merged_bonds.get_atom_count())
+        5
+        >>> print(merged_bonds.as_array()[:, :2])
+        [[0 1]
+         [2 3]
+         [2 4]]
+        """
+        # Ensure that the bonds_lists can be iterated over multiple times
+        if not isinstance(bonds_lists, Sequence):
+            bonds_lists = list(bonds_lists)
+
+        merged_bonds = np.concatenate([bond_list._bonds for bond_list in bonds_lists])
+        # Offset the indices of appended bonds list
+        # (consistent with addition of AtomArray)
+        start = 0
+        stop = 0
+        cum_atom_count = 0
+        for bond_list in bonds_lists:
+            stop = start + bond_list._bonds.shape[0]
+            merged_bonds[start:stop, :2] += cum_atom_count
+            cum_atom_count += bond_list._atom_count
+            start = stop
+
+        merged_bond_list = BondList(cum_atom_count)
+        # Array is not used in constructor to prevent unnecessary
+        # maximum and redundant bond calculation
+        merged_bond_list._bonds = merged_bonds
+        merged_bond_list._max_bonds_per_atom = max([bond_list._max_bonds_per_atom for bond_list in bonds_lists])
+        return merged_bond_list
+
+    setattr(BondList, "concatenate", _bond_list_concatenate)
+
     def concatenate(atoms):
         """
         Concatenate multiple :class:`AtomArray` or :class:`AtomArrayStack` objects into
@@ -118,18 +177,16 @@ except ImportError:
 def get_empty_ccd_template(
     ccd_code: str,
     ccd_mirror_path: os.PathLike,
-    chain_id: str,
-    res_id: int,
-    remove_hydrogens: bool = True,
-    **annotations: int | float | str,
+    keep_hydrogens: bool = False,
+    **res_wise_annotations: int | float | str,
 ) -> AtomArray:
     template_cc = get_ccd_component(ccd_code, ccd_mirror_path, coords=None)
 
-    if remove_hydrogens:
+    if not keep_hydrogens:
         template_cc = ta.remove_hydrogens(template_cc)
 
-    # set default annotations
-    for annot, value in annotations.items():
+    # set default residue-wise annotations
+    for annot, value in res_wise_annotations.items():
         if value is not None:
             template_cc.set_annotation(annot, np.full(len(template_cc), value))
 
@@ -138,30 +195,42 @@ def get_empty_ccd_template(
 
 def match_residue_to_template(
     real: AtomArray,
-    has_bfactor: bool,
     use_ccd_charges: bool,
     keep_hydrogens: bool,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ):
+    # ... get information about the residue
     ccd_code = real.res_name[0]
+    annotations = set(real.get_annotation_categories())
 
     # ... get empty template (no occupation, nan coordinates)
     template = get_empty_ccd_template(
         ccd_code,
         ccd_mirror_path=ccd_mirror_path,
+        keep_hydrogens=keep_hydrogens,
+        # ... add required residue-wise annotations
         chain_id=real.chain_id[0],
         res_id=real.res_id[0],
         occupancy=0.0,
-        bfactor=np.nan if has_bfactor else None,
-        keep_hydrogens=keep_hydrogens,
+        # ... add custom residue-wise annotations if they exist
+        b_factor=np.nan if "b_factor" in annotations else None,
+        chain_type=real.chain_type[0] if "chain_type" in annotations else None,
+        is_polymer=real.is_polymer[0] if "is_polymer" in annotations else None,
     )
+
+    # ... fail if there are multiple atoms with the same name in the `real` array
+    if len(np.unique(real.atom_name)) != len(real):
+        raise ValueError(f"CCD {ccd_code}: Multiple atoms with the same name in \n{real}")
 
     # ... determine whether to use the standard or alternative atom naming
     match_by = "atom_name"
     if "alt_atom_id" in template.get_annotation_categories():
         n_matches_std = np.sum(np.isin(real.atom_name, template.atom_name))
         n_matches_alt = np.sum(np.isin(real.atom_name, template.alt_atom_id))
-        match_by = "alt_atom_id" if n_matches_alt > n_matches_std else "atom_name"
+        match_alt = n_matches_alt > n_matches_std
+        match_by = "alt_atom_id" if match_alt else "atom_name"
+        if match_alt:
+            logger.warning(f"CCD {ccd_code}: Having to use alternative atom IDs for matching.")
     # ... and record what we used to match
     template.set_annotation("uses_alt_atom_id", [(match_by == "alt_atom_id")] * len(template))
 
@@ -185,10 +254,15 @@ def match_residue_to_template(
         template.coord[match] = atom.coord
         template.occupancy[match] = atom._annot.get("occupancy", 1.0)
         template.ins_code[match] = atom._annot.get("ins_code", template.ins_code[match])
-        if has_bfactor:
-            template.bfactor[match] = atom._annot.get("bfactor", np.nan)
+        if "b_factor" in annotations:
+            template.b_factor[match] = atom._annot.get("b_factor", np.nan)
         if not use_ccd_charges:
             template.charge[match] = atom._annot.get("charge", template.charge[match])
+
+    # ... copy over general residue annotations
+    template.chain_id = [atom.chain_id] * len(template)
+    template.res_id = [atom.res_id] * len(template)
+    template.ins_code = [atom.ins_code] * len(template)
 
     # ... return matched array
     return template
@@ -200,8 +274,6 @@ def match_array_to_template(
     keep_hydrogens: bool = False,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> list[AtomArray]:
-    has_bfactor = "bfactor" in atom_array.get_annotation_categories()
-
     # Initialize return variable
     template_list: list[AtomArray] = []
 
@@ -213,7 +285,9 @@ def match_array_to_template(
         # ... if the chemical component is not in the CCD or unknown
         #     we cannot get a template and therefore just copy over from the
         #     atom array
-        if (ccd_code is UNKNOWN_LIGAND) or not check_ccd_codes_are_available([ccd_code], ccd_mirror_path):
+        if (ccd_code in DO_NOT_MATCH_CCD) or not check_ccd_codes_are_available(
+            [ccd_code], ccd_mirror_path, mode="warn"
+        ):
             n_atoms = real.array_length()
             real.set_annotation("stereo", np.full(n_atoms, fill_value="N", dtype="<U1"))
             real.set_annotation("is_leaving_atom", np.zeros(n_atoms, dtype=bool))
@@ -221,13 +295,11 @@ def match_array_to_template(
             real.set_annotation("is_n_terminal_atom", np.zeros(n_atoms, dtype=bool))
             real.set_annotation("is_c_terminal_atom", np.zeros(n_atoms, dtype=bool))
             real.set_annotation("uses_alt_atom_id", np.zeros(n_atoms, dtype=bool))
-            template_list.extend(real)
+            template_list.append(real)
             continue
 
         # ... otherwise, we can get a template from the CCD
-        template = match_residue_to_template(
-            real=real, has_bfactor=has_bfactor, use_ccd_charges=use_ccd_charges, keep_hydrogens=keep_hydrogens
-        )
+        template = match_residue_to_template(real=real, use_ccd_charges=use_ccd_charges, keep_hydrogens=keep_hydrogens)
 
         template_list.append(template)
 
@@ -267,24 +339,34 @@ def get_leaving_atoms(atom_array: AtomArray, atom_idxs_to_check: np.ndarray) -> 
 
 
 def add_missing_atoms(atom_array: AtomArray) -> AtomArray:
-    # TODO(smathis)
-
     # ... match all residues to a CCD template
     #     (unless no CCD template esits, in which case we copy over)
     #     this also creates the intra-residue bonds from the CCD
     matched_templates = match_array_to_template(atom_array)
 
     # ... concatenate individual residues to an AtomArray
-    atoms = struc.concatenate(matched_templates)
+    atoms = concatenate(matched_templates)
 
-    # ... create inter-residue polymer bonds
-    polymer_bonds = get_inferred_polymer_bonds(atoms)
-    atoms.bonds = atoms.bonds.merge(polymer_bonds)
+    # ... infer inter-residue polymer bonds
+    polymer_bonds, polymer_bond_leaving_atom_idxs = get_inferred_polymer_bonds(atoms)
 
     # ... create any remaining inter-residue bonds that
     #     are specified in struct_conn
-    struct_conn_bonds = get_struct_conn_bonds()
-    atoms.bonds = atoms.bonds.merge(struct_conn_bonds)
+    struct_conn_bonds, struct_conn_leaving_atom_idxs = get_struct_conn_bonds(cif, chain_info, atoms)
+
+    # ... merge all inter-residue bonds
+    inter_bonds = BondList(
+        atom_count=atoms.array_length(),
+        bonds=np.array(polymer_bonds + struct_conn_bonds),
+    )
+    #    and add them to the atom array
+    atoms.bonds = atoms.bonds.merge(inter_bonds)
+
+    # ... merge all leaving group indices
+    is_leaving = np.zeros(len(atoms), dtype=bool)
+    is_leaving[np.concatenate(polymer_bond_leaving_atom_idxs + struct_conn_leaving_atom_idxs)] = True
+    #     and remove them from the atom array
+    atoms = atoms[~is_leaving]
 
     # ... check which atoms to inspect for leaving groups:
     atom_idxs_with_inter_bonds = np.unique(polymer_bonds[:, :2].flatten())

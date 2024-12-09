@@ -9,6 +9,7 @@ from biotite.structure import AtomArray
 import biotite.structure as struc
 from cifutils.common import deduplicate_iterator
 from cifutils.utils.residue_utils import get_chem_comp_type
+from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import get_1_from_3_letter_code
 from cifutils.enums import ChainType
 from cifutils.constants import (
@@ -32,9 +33,11 @@ def load_monomer_sequence_information_from_atom_array(chain_info_dict: dict, ato
 
     Assumes that there are no fully unresolved residues in the AtomArray; otherwise, the sequence will be incomplete.
     """
+    res_starts = get_residue_starts(atom_array)
     for chain_id in np.unique(atom_array.chain_id):
-        chain_atom_array = atom_array[atom_array.chain_id == chain_id]
-        residue_id_list, residue_name_list = struc.get_residues(chain_atom_array)
+        res_starts_in_chain = res_starts[atom_array.chain_id[res_starts] == chain_id]
+        residue_id_list = atom_array.res_id[res_starts_in_chain]
+        residue_name_list = atom_array.res_name[res_starts_in_chain]
 
         if chain_id not in chain_info_dict:
             chain_info_dict[chain_id] = {}
