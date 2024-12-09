@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 from collections import OrderedDict
 from typing import Any, Callable
+
 import numpy as np
-from toolz.curried import reduce, compose
+from toolz.curried import compose, reduce
 
 
 def exists(obj: Any) -> bool:

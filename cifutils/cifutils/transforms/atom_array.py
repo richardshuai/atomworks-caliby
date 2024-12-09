@@ -3,24 +3,25 @@ Transforms operating predominantly on Biotite's `AtomArray` objects.
 These operations should take as input, and return, `AtomArray` objects.
 """
 
-from biotite.structure import AtomArray, AtomArrayStack
+import logging
+from collections import Counter, defaultdict
+
+import biotite.structure as struc
+import networkx as nx
 import numpy as np
 import pandas as pd
-import biotite.structure as struc
-from collections import Counter
-import logging
-import networkx as nx
-from collections import defaultdict
+from biotite.structure import AtomArray, AtomArrayStack
+
+from cifutils.common import not_isin, sum_string_arrays
+from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
+from cifutils.enums import ChainType
 from cifutils.utils.bond_utils import (
+    generate_inter_level_bond_hash,
     get_coarse_graph_as_nodes_and_edges,
     get_connected_nodes,
     hash_graph,
-    generate_inter_level_bond_hash,
 )
-from cifutils.enums import ChainType
 from cifutils.utils.selection_utils import annot_start_stop_idxs
-from cifutils.common import sum_string_arrays, not_isin
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
 
 logger = logging.getLogger("cifutils")
 
@@ -78,7 +79,7 @@ def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
     # Check if there are any name swamps required
     _to_swap = cd_nh1_dist > cd_nh2_dist  # local mask
     # turn local mask into global mask
-    to_swap = np.zeros(atom_array.array_lengths(), dtype=bool)
+    to_swap = np.zeros(atom_array.array_length(), dtype=bool)
     to_swap[arg_nh1_mask] = _to_swap
     to_swap[arg_nh2_mask] = _to_swap
 

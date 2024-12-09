@@ -1,12 +1,14 @@
-import pytest
-import numpy as np
-from biotite.database import rcsb
-from biotite.structure import AtomArray, AtomArrayStack
-from cifutils.utils.io_utils import load_any, get_structure, read_any, to_cif_string, to_pdb_string
+import io
 import tempfile
 from contextlib import nullcontext
-import io
+
 import biotite.structure as struc
+import numpy as np
+import pytest
+from biotite.database import rcsb
+from biotite.structure import AtomArray, AtomArrayStack
+
+from cifutils.utils.io_utils import get_structure, load_any, read_any, to_cif_string, to_pdb_string
 
 
 @pytest.mark.parametrize(

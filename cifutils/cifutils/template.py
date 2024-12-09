@@ -1,22 +1,20 @@
-from cifutils.utils.selection_utils import get_residue_starts
-from cifutils.constants import UNKNOWN_LIGAND, CCD_MIRROR_PATH, WATER_LIKE_CCDS
-import cifutils.transforms.atom_array as ta
-from cifutils.utils.io_utils import read_any, get_structure
-from cifutils.utils.bond_utils import get_inferred_polymer_bonds, get_struct_conn_bonds
-from biotite.database.rcsb import fetch
-import numpy as np
-from biotite.structure import AtomArray, AtomArrayStack, BondList
-import os
-from cifutils.utils.ccd import check_ccd_codes_are_available, get_ccd_component
-from typing import Sequence, Final
 import logging
+import os
+from typing import Final, Sequence
+
+import numpy as np
+from biotite.database.rcsb import fetch
+from biotite.structure import AtomArray, AtomArrayStack, BondList
+
+import cifutils.transforms.atom_array as ta
+from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
+from cifutils.utils.bond_utils import get_inferred_polymer_bonds, get_struct_conn_bonds
+from cifutils.utils.ccd import check_ccd_codes_are_available, get_ccd_component
+from cifutils.utils.io_utils import get_structure, read_any
+from cifutils.utils.selection_utils import get_residue_starts
 
 logger = logging.getLogger(__file__)
-cif_file = read_any(fetch("6lyz", "cif"))
-atom_array = get_structure(cif_file, model=1)
-ccd_mirror_path = CCD_MIRROR_PATH
-use_ccd_charges = True
-keep_hydrogens = False
+
 
 DO_NOT_MATCH_CCD: Final[frozenset[str]] = frozenset(WATER_LIKE_CCDS + (UNKNOWN_LIGAND,))
 """

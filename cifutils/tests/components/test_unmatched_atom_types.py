@@ -1,5 +1,6 @@
 import numpy as np
-from tests.conftest import TEST_DATA_DIR, CIF_PARSER_BIOTITE
+
+from tests.conftest import CIF_PARSER_BIOTITE, TEST_DATA_DIR
 
 
 def test_unmatched_atom_types():

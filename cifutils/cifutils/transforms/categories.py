@@ -4,26 +4,26 @@ These transforms are used to extract information from the CIFBlock and return a 
 """
 
 from __future__ import annotations
-import logging
 
-import numpy as np
-import pandas as pd
+import logging
+import os
 from datetime import datetime
 
+import biotite.structure as struc
+import numpy as np
+import pandas as pd
+import toolz
+from biotite.structure import AtomArray
+from biotite.structure.io.pdbx import CIFBlock
+
+from cifutils.common import deduplicate_iterator, exists
+from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_AA, UNKNOWN_LIGAND
+from cifutils.enums import ChainType
+from cifutils.utils.ccd import get_available_ccd_codes
+from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import (
     get_1_from_3_letter_code,
 )
-from cifutils.common import deduplicate_iterator, exists
-from cifutils.enums import ChainType
-
-import biotite.structure as struc
-from biotite.structure.io.pdbx import CIFBlock
-from biotite.structure import AtomArray
-import toolz
-from cifutils.constants import UNKNOWN_LIGAND, CCD_MIRROR_PATH, UNKNOWN_AA
-from cifutils.utils.ccd import get_available_ccd_codes
-import os
-from cifutils.utils.selection_utils import get_residue_starts
 
 logger = logging.getLogger("cifutils")
 

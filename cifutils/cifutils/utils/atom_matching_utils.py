@@ -4,11 +4,13 @@ Utility functions to support proper matching and resolution of residue atoms in 
 
 __all__ = ["get_std_alt_atom_id_conversion"]
 
+from functools import cache
+
+import biotite.structure as struc
 import numpy as np
 from biotite.structure.atoms import AtomArray
+
 from cifutils.common import exists
-import biotite.structure as struc
-from functools import cache
 
 
 @cache

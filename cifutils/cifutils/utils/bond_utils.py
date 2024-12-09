@@ -11,23 +11,24 @@ __all__ = [
     "generate_inter_level_bond_hash",
 ]
 
-import numpy as np
-from cifutils.utils.selection_utils import get_residue_starts
-from biotite.structure import AtomArray
-import biotite.structure as struc
 import logging
-from cifutils.common import to_hashable
-from cifutils.enums import ChainType, ChainTypeInfo
-from cifutils.constants import (
-    CHEM_TYPE_POLYMERIZATION_ATOMS,
-    STRUCT_CONN_BOND_TYPES,
-    AA_OR_NA_CHEM_COMP_TYPES,
-    STRUCT_CONN_BOND_ORDER_TO_INT,
-)
+
+import biotite.structure as struc
 import networkx as nx
-from cifutils.utils.ccd import get_chem_comp_type
-from cifutils.utils.ccd import get_chem_comp_leaving_atom_names
+import numpy as np
 import pandas as pd
+from biotite.structure import AtomArray
+
+from cifutils.common import to_hashable
+from cifutils.constants import (
+    AA_OR_NA_CHEM_COMP_TYPES,
+    CHEM_TYPE_POLYMERIZATION_ATOMS,
+    STRUCT_CONN_BOND_ORDER_TO_INT,
+    STRUCT_CONN_BOND_TYPES,
+)
+from cifutils.enums import ChainType, ChainTypeInfo
+from cifutils.utils.ccd import get_chem_comp_leaving_atom_names, get_chem_comp_type
+from cifutils.utils.selection_utils import get_residue_starts
 
 logger = logging.getLogger("cifutils")
 
@@ -115,8 +116,8 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
             bonding_atoms = ChainTypeInfo.ATOMS_AT_POLYMER_BOND.get(chain_type, None)
 
         # ... get (more detailed) bonding atoms based on chem-comp types
-        this_link = get_chem_comp_type(res_names[this_res_start], strict=False)
-        next_link = get_chem_comp_type(res_names[next_res_start], strict=False)
+        this_link = get_chem_comp_type(res_names[this_res_start], mode="warn")
+        next_link = get_chem_comp_type(res_names[next_res_start], mode="warn")
 
         # ... decide which bonds to form:
         if (this_link in CHEM_TYPE_POLYMERIZATION_ATOMS) and (next_link in AA_OR_NA_CHEM_COMP_TYPES):

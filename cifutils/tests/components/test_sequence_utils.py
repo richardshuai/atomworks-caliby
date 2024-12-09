@@ -1,13 +1,13 @@
 import numpy as np
 
 from cifutils.utils.sequence_utils import (
-    is_pyramidine,
-    is_purine,
-    is_unknown_nucleotide,
-    is_standard_aa,
     is_glycine,
-    is_standard_aa_not_glycine,
     is_protein_unknown,
+    is_purine,
+    is_pyramidine,
+    is_standard_aa,
+    is_standard_aa_not_glycine,
+    is_unknown_nucleotide,
 )
 
 

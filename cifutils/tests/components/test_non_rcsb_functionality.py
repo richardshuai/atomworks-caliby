@@ -1,10 +1,12 @@
-import pytest
-from tests.conftest import CIF_PARSER_BIOTITE, get_digs_path
-from tests.components.test_chain_types import CHAIN_TYPE_TEST_CASES
 from pathlib import Path
+
 import numpy as np
-from cifutils.utils.non_rcsb_utils import infer_chain_info_from_atom_array
+import pytest
+
 from cifutils.enums import ChainType
+from cifutils.utils.non_rcsb_utils import infer_chain_info_from_atom_array
+from tests.components.test_chain_types import CHAIN_TYPE_TEST_CASES
+from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
 
 DIR = Path(__file__).parent.parent / "data"
 CIF_PATHS = [DIR / "example_distillation_output.cif"]
@@ -74,7 +76,7 @@ def test_pdb_with_same_chain_poly_non_poly():
 
 @pytest.mark.parametrize("test_case", CHAIN_TYPE_TEST_CASES)
 def test_infer_chain_info_from_atom_array(test_case: dict):
-    cif_path = get_digs_path(test_case["pdb_id"])
+    cif_path = get_pdb_path(test_case["pdb_id"])
     atom_array = CIF_PARSER_BIOTITE.parse(
         filename=cif_path,
         add_bonds=False,

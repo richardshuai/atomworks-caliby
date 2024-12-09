@@ -1,6 +1,6 @@
 from itertools import product
-from typing import Iterator, Sequence
 from string import ascii_uppercase
+from typing import Iterator, Sequence
 
 
 def create_chain_id_generator(unavailable_chain_ids: Sequence[str] = []) -> Iterator[str]:

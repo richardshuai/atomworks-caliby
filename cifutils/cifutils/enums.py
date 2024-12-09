@@ -1,17 +1,19 @@
 """Enums used in the `cifutils` package."""
 
 from enum import IntEnum
-from typing import Union, Final
 from types import MappingProxyType
+from typing import Final, Union
+
+import numpy as np
+from toolz import keymap
+
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
     DNA_LIKE_CHEM_TYPES,
-    RNA_LIKE_CHEM_TYPES,
     POLYPEPTIDE_D_CHEM_TYPES,
     POLYPEPTIDE_L_CHEM_TYPES,
+    RNA_LIKE_CHEM_TYPES,
 )
-from toolz import keymap
-import numpy as np
 
 
 class ChainType(IntEnum):

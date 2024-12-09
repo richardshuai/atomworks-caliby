@@ -1,8 +1,9 @@
 """PyTest function to check the assignment of PN unit IDs."""
 
-import pytest
-from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 import numpy as np
+import pytest
+
+from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
 
 PN_UNIT_IID_TEST_CASES = [
     {
@@ -86,7 +87,7 @@ PN_UNIT_IID_TEST_CASES = [
 
 @pytest.mark.parametrize("test_case", PN_UNIT_IID_TEST_CASES)
 def test_identifiers(test_case):
-    path = get_digs_path(test_case["pdb_id"])
+    path = get_pdb_path(test_case["pdb_id"])
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
         build_assembly=(test_case["assembly_id"],),
@@ -138,7 +139,7 @@ MOLECULE_TEST_CASES = [
 
 @pytest.mark.parametrize("test_case", MOLECULE_TEST_CASES)
 def test_add_molecule_annotation(test_case: dict):
-    path = get_digs_path(test_case["pdb_id"])
+    path = get_pdb_path(test_case["pdb_id"])
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
     )

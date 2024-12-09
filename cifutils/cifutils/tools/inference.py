@@ -1,4 +1,5 @@
 import io
+import logging
 import os
 from abc import ABC
 from collections import Counter
@@ -11,27 +12,25 @@ from typing import Iterator, Literal
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
+
+import cifutils.transforms.atom_array as ta
+from cifutils.common import exists
 from cifutils.constants import (
     CCD_MIRROR_PATH,
     PEPTIDE_MAX_RESIDUES,
     STANDARD_AA_ONE_LETTER,
-    STANDARD_RNA,
     STANDARD_DNA_ONE_LETTER,
+    STANDARD_RNA,
     UNKNOWN_LIGAND,
 )
-from cifutils.common import exists
-from cifutils.enums import ChainType
-import cifutils.transforms.atom_array as ta
-from ciftuils.template import concatenate
+from cifutils.enums import ChainType, ChainTypeInfo
+from cifutils.template import concatenate
+from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds
-from cifutils.utils.ccd import get_ccd_component
-from cifutils.enums import ChainTypeInfo
-from cifutils.tools.fasta import split_generalized_fasta_sequence, one_letter_to_ccd_code
-from cifutils.utils.io_utils import read_any, get_structure
+from cifutils.utils.ccd import check_ccd_codes_are_available, get_ccd_component, get_chem_comp_type
+from cifutils.utils.io_utils import get_structure, read_any
 from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import get_1_from_3_letter_code
-from cifutils.utils.ccd import check_ccd_codes_are_available, get_chem_comp_type
-import logging
 
 logger = logging.getLogger("cifutils")
 

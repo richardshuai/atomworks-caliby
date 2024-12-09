@@ -2,8 +2,8 @@
 
 __all__ = ["annot_start_stop_idxs", "get_residue_starts"]
 
-from biotite.structure import AtomArray, AtomArrayStack
 import numpy as np
+from biotite.structure import AtomArray, AtomArrayStack
 
 
 def annot_start_stop_idxs(

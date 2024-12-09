@@ -1,7 +1,9 @@
-import pytest
-from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
 import time
+
+import pytest
+
+from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
 
 TEST_CASES = [
     "1A7J",  # Contains an unusual operation expression for assembly building
@@ -10,7 +12,7 @@ TEST_CASES = [
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_caching(pdb_id: str, tmp_path):
-    path = get_digs_path(pdb_id)
+    path = get_pdb_path(pdb_id)
 
     # First, we load normally, tracking how long it takes...
     start_time = time.time()

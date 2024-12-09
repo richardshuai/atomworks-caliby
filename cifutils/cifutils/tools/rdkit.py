@@ -3,30 +3,31 @@ Tools for using RDKit with AtomArray objects.
 """
 
 import copy
+import io
 import logging
 from collections import Counter
 from functools import cache, lru_cache, wraps
 from os import PathLike
 from pathlib import Path
-import io
+from typing import Callable, Final
+
 import biotite.structure as struc
 import numpy as np
+import toolz
 from biotite.structure import AtomArray
-from cifutils.constants import (
-    METAL_ELEMENTS,
-    UNKNOWN_LIGAND,
-    BIOTITE_DEFAULT_ANNOTATIONS,
-    HYDROGEN_LIKE_SYMBOLS,
-    CCD_MIRROR_PATH,
-)
 from rdkit import Chem
 from rdkit.Chem import Mol, rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.DataStructs import ExplicitBitVect
 
 from cifutils.common import exists, not_isin
-import toolz
-from typing import Final, Callable
+from cifutils.constants import (
+    BIOTITE_DEFAULT_ANNOTATIONS,
+    CCD_MIRROR_PATH,
+    HYDROGEN_LIKE_SYMBOLS,
+    METAL_ELEMENTS,
+    UNKNOWN_LIGAND,
+)
 
 logger = logging.getLogger(__name__)
 

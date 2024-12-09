@@ -5,23 +5,25 @@ Such files do not follow the standard CIF format and thus may require special ha
 
 __all__ = ["load_monomer_sequence_information_from_atom_array", "infer_chain_info_from_atom_array"]
 
-from biotite.structure import AtomArray
+import logging
+
 import biotite.structure as struc
+import numpy as np
+from biotite.structure import AtomArray
+from biotite.structure.io.pdbx import CIFCategory
+
 from cifutils.common import deduplicate_iterator
+from cifutils.constants import (
+    AA_LIKE_CHEM_TYPES,
+    DNA_LIKE_CHEM_TYPES,
+    POLYPEPTIDE_D_CHEM_TYPES,
+    POLYPEPTIDE_L_CHEM_TYPES,
+    RNA_LIKE_CHEM_TYPES,
+)
+from cifutils.enums import ChainType
 from cifutils.utils.ccd import get_chem_comp_type
 from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import get_1_from_3_letter_code
-from cifutils.enums import ChainType
-from cifutils.constants import (
-    AA_LIKE_CHEM_TYPES,
-    POLYPEPTIDE_L_CHEM_TYPES,
-    POLYPEPTIDE_D_CHEM_TYPES,
-    RNA_LIKE_CHEM_TYPES,
-    DNA_LIKE_CHEM_TYPES,
-)
-import logging
-import numpy as np
-from biotite.structure.io.pdbx import CIFCategory
 
 logger = logging.getLogger("cifutils")
 

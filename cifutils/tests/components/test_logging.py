@@ -1,7 +1,8 @@
+import importlib
 import logging
 import os
+
 import cifutils
-import importlib
 
 
 def test_cifutils_logging_level():

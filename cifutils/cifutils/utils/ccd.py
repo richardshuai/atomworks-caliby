@@ -1,15 +1,16 @@
+import logging
+import os
+from functools import cache, lru_cache
+from typing import Iterable, Literal
+
 import biotite.structure as struc
+import biotite.structure.io.pdbx as pdbx
+import networkx as nx
+import numpy as np
+import toolz
+
 from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH
-import biotite.structure.io.pdbx as pdbx
-import os
-from typing import Literal
-import numpy as np
-import logging
-from functools import lru_cache, cache
-import toolz
-import networkx as nx
-from typing import Iterable
 
 logger = logging.getLogger(__name__)
 

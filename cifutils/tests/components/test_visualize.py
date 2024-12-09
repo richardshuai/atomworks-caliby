@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
 import py3Dmol
+import pytest
 from biotite.structure import AtomArray
+
 from cifutils.utils.visualize import view
 
 

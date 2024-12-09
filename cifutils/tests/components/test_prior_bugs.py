@@ -1,6 +1,7 @@
 import pytest
-from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
+
 from cifutils.constants import CRYSTALLIZATION_AIDS
+from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
 
 TEST_CASES = [
     "5e5j",  # Comes from more than 1 experimental method (X-ray & neutron scattering)
@@ -20,7 +21,7 @@ TEST_CASES = [
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_prior_bugs(pdb_id: str):
-    path = get_digs_path(pdb_id)
+    path = get_pdb_path(pdb_id)
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
         save_to_cache=False,

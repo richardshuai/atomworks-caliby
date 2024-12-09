@@ -6,8 +6,6 @@ __all__ = [
 ]
 
 import numpy as np
-from cifutils.utils.io_utils import logger
-from cifutils.enums import ChainType
 from Bio.Data.PDBData import (
     nucleic_letters_3to1,
     nucleic_letters_3to1_extended,
@@ -15,15 +13,18 @@ from Bio.Data.PDBData import (
     protein_letters_3to1,
     protein_letters_3to1_extended,
 )  # TODO: Deprecate these in favour of the direct mappings from the CCD
+
 from cifutils.constants import (
-    STANDARD_AA,
-    STANDARD_PYRAMIDINE_RESIDUES,
-    STANDARD_PURINE_RESIDUES,
-    UNKNOWN_AA,
-    UNKNOWN_RNA,
-    UNKNOWN_DNA,
     GAP,
+    STANDARD_AA,
+    STANDARD_PURINE_RESIDUES,
+    STANDARD_PYRAMIDINE_RESIDUES,
+    UNKNOWN_AA,
+    UNKNOWN_DNA,
+    UNKNOWN_RNA,
 )
+from cifutils.enums import ChainType
+from cifutils.utils.io_utils import logger
 
 
 def get_1_from_3_letter_code(

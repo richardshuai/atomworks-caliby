@@ -4,16 +4,18 @@ Utility functions for computing bioassemblies based on rototranslations of the a
 
 __all__ = ["process_assemblies"]
 
-import biotite.structure.io.pdbx as pdbx
-from biotite.structure.io.pdbx import CIFCategory
-from biotite.structure import AtomArrayStack
 from typing import Literal
-from cifutils.transforms.atom_array import (
-    maybe_fix_non_polymer_at_symmetry_center,
-    add_iid_annotations_to_assemblies,
-)
+
+import biotite.structure.io.pdbx as pdbx
 import numpy as np
+from biotite.structure import AtomArrayStack
 from biotite.structure.atoms import repeat
+from biotite.structure.io.pdbx import CIFCategory
+
+from cifutils.transforms.atom_array import (
+    add_iid_annotations_to_assemblies,
+    maybe_fix_non_polymer_at_symmetry_center,
+)
 
 
 def _matrix_rotate(v: np.ndarray, matrix: np.ndarray) -> np.ndarray:

@@ -3,13 +3,14 @@ Regression tests for complex cases to ensure consistent behavior.
 """
 
 import pickle
-import pytest
 from pathlib import Path
-from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
-from cifutils.constants import CRYSTALLIZATION_AIDS
 
+import pytest
 from assertpy import assert_that
+
+from cifutils.constants import CRYSTALLIZATION_AIDS
+from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
 
 TEST_CASES = [
     "6mub",  # Symmetry center clash
@@ -22,7 +23,7 @@ TEST_CASES = [
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_regression_against_stored_result(pdb_id: str):
-    path = get_digs_path(pdb_id)
+    path = get_pdb_path(pdb_id)
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
         add_missing_atoms=True,

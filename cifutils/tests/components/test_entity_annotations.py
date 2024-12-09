@@ -1,11 +1,11 @@
-from tests.conftest import get_digs_path, CIF_PARSER_BIOTITE
-from cifutils.constants import CRYSTALLIZATION_AIDS
-from cifutils.transforms.atom_array import annotate_entities
-from cifutils.common import not_isin
-from biotite.structure import AtomArray
-
 import numpy as np
 import pytest
+from biotite.structure import AtomArray
+
+from cifutils.common import not_isin
+from cifutils.constants import CRYSTALLIZATION_AIDS
+from cifutils.transforms.atom_array import annotate_entities
+from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
 
 # fmt: off
 MOLECULE_ENTITY_TEST_CASES = [
@@ -67,7 +67,7 @@ def validate_molecule_entity_annotations(atom_array: AtomArray, test_case: dict)
 
 @pytest.mark.parametrize("test_case", MOLECULE_ENTITY_TEST_CASES)
 def test_add_molecule_entity_annotation(test_case: dict):
-    path = get_digs_path(test_case["pdb_id"])
+    path = get_pdb_path(test_case["pdb_id"])
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
         add_missing_atoms=True,
@@ -93,7 +93,7 @@ def test_add_molecule_entity_annotation_on_modified_pdb():
     and manually adjusts the bond list to break the symmetry between the multiple copies of the same molecule.
     """
     pdb_id = "1hge"
-    path = get_digs_path(pdb_id)
+    path = get_pdb_path(pdb_id)
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
         add_missing_atoms=True,
@@ -183,7 +183,7 @@ def test_regenerate_and_add_chain_entity_annotation(test_case):
     - Regenerate the chain entities for equivalent chains (ensure all equivalent chains have the same chain_entity)
     - Add the chain entity annotation to the atom array
     """
-    path = get_digs_path(test_case["pdb_id"])
+    path = get_pdb_path(test_case["pdb_id"])
     result = CIF_PARSER_BIOTITE.parse(filename=path)
     atom_array = result["assemblies"]["1"][0]  # First model, first assembly
 

@@ -6,21 +6,20 @@ __all__ = ["load_any", "get_structure", "read_any", "to_cif_buffer", "to_cif_str
 
 import gzip
 import io
-from biotite.structure import AtomArray, AtomArrayStack
-from biotite.structure.io import pdbx
+import logging
+import os
+from contextlib import nullcontext
+from datetime import datetime
+from pathlib import Path
+from typing import Literal
+
 import biotite.structure.io.pdb as biotite_pdb
 import numpy as np
-from pathlib import Path
-import logging
-from typing import Literal
-from contextlib import nullcontext
-import os
-from cifutils.common import default
-from datetime import datetime
-from cifutils.common import exists
+from biotite.structure import AtomArray, AtomArrayStack
+from biotite.structure.io import pdbx
 
+from cifutils.common import default, exists
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
-
 
 logger = logging.getLogger("cifutils")
 

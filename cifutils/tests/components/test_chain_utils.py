@@ -1,8 +1,8 @@
-import pytest
 from string import ascii_uppercase
 
-from cifutils.utils.chain_utils import create_chain_id_generator
+import pytest
 
+from cifutils.utils.chain_utils import create_chain_id_generator
 
 NEXT_CHAIN_ID_TEST_CASES = [
     {"input": ["A", "B", "C"], "expected": "D"},

@@ -2,16 +2,16 @@
 Convenience utils for working with (generalized) FASTA files.
 """
 
+import logging
 import os
 import re
 
 from cifutils.constants import CCD_MIRROR_PATH
 from cifutils.enums import ChainType
-from cifutils.utils.sequence_utils import get_3_from_1_letter_code
 from cifutils.utils.ccd import (
     check_ccd_codes_are_available,
 )
-import logging
+from cifutils.utils.sequence_utils import get_3_from_1_letter_code
 
 logger = logging.getLogger("cifutils")
 

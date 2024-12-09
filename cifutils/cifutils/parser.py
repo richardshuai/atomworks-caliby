@@ -12,39 +12,42 @@ Written by Nate Corley and Simon Mathis in Summer of 2024.
 """
 
 from __future__ import annotations
+
+import io
 import logging
-from typing import Literal
-from cifutils.constants import CRYSTALLIZATION_AIDS
-import numpy as np
-import pandas as pd
 import os
 from pathlib import Path
-import io
-from cifutils.utils.io_utils import read_any, get_structure, to_cif_buffer
-from cifutils.utils.chain_utils import create_chain_id_generator
+from typing import Literal
+
+import biotite.structure as struc
+import numpy as np
+import pandas as pd
+from biotite.file import InvalidFileError
+from biotite.structure import AtomArrayStack
+from toolz import keyfilter
+
+import cifutils.transforms.atom_array as ta
+from cifutils import template
 from cifutils.common import exists
+from cifutils.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS
 from cifutils.transforms.categories import (
+    category_to_dict,
     get_chain_info_from_category,
+    get_ligand_of_interest_info,
     get_metadata_from_category,
     load_monomer_sequence_information_from_category,
-    get_ligand_of_interest_info,
-    category_to_dict,
-)
-import cifutils.transforms.atom_array as ta
-from cifutils.utils.non_rcsb_utils import (
-    load_monomer_sequence_information_from_atom_array,
-    infer_chain_info_from_atom_array,
-    infer_processed_entity_sequences_from_atom_array,
 )
 from cifutils.utils.assembly_utils import process_assemblies
-from cifutils.utils.non_rcsb_utils import get_identity_assembly_gen_category, get_identity_op_expr_category
-import biotite.structure as struc
-from biotite.structure import AtomArrayStack
-from biotite.file import InvalidFileError
-from cifutils.constants import CCD_MIRROR_PATH, WATER_LIKE_CCDS
 from cifutils.utils.ccd import check_ccd_codes_are_available
-from toolz import keyfilter
-from cifutils import template
+from cifutils.utils.chain_utils import create_chain_id_generator
+from cifutils.utils.io_utils import get_structure, read_any, to_cif_buffer
+from cifutils.utils.non_rcsb_utils import (
+    get_identity_assembly_gen_category,
+    get_identity_op_expr_category,
+    infer_chain_info_from_atom_array,
+    infer_processed_entity_sequences_from_atom_array,
+    load_monomer_sequence_information_from_atom_array,
+)
 
 logger = logging.getLogger("cifutils")
 
@@ -73,8 +76,8 @@ class CIFParser:
     def _validate_arguments(self, **kwargs):
         """Validate the arguments passed to the CIFParser object."""
         # Transform related arguments
-        residues_to_remove = kwargs.get("residues_to_remove")
-        check_ccd_codes_are_available(residues_to_remove, ccd_mirror_path=self.ccd_mirror_path, mode="warn")
+        remove_ccds = kwargs.get("remove_ccds", [])
+        check_ccd_codes_are_available(remove_ccds, ccd_mirror_path=self.ccd_mirror_path, mode="warn")
 
         # Caching related arguments
         save_to_cache = kwargs.get("save_to_cache")
@@ -100,7 +103,7 @@ class CIFParser:
             - Directly parse from CIF, using the specified keyword arguments; or,
             - Load the CIF from a cached directory, re-building bioassemblies on-the-fly
 
-        In addition to the arguments in `parse_cif_from_rcsb`, this function can also include the following arguments:
+        In addition to the arguments in `parse_from_cif`, this function can also include the following arguments:
 
         Args:
             - filename (PathLike | io.StringIO | io.BytesIO): Path to the CIF file. May be any format of CIF file
@@ -190,19 +193,19 @@ class CIFParser:
         self,
         filename: os.PathLike | io.StringIO | io.BytesIO,
         *,
-        save_to_cache: bool = False,
         assume_residues_all_resolved: bool = False,
         add_missing_atoms: bool = True,
         add_id_and_entity_annotations: bool = True,
-        remove_ccds: list[str] = CRYSTALLIZATION_AIDS,  # TODO: rename to `remove_ccd_codes`
-        patch_symmetry_centers: bool = True,  # TODO: rename to `fix_symmetry_centers`
-        build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
+        add_bond_types_from_struct_conn: list[str] = ["covale"],
+        remove_ccds: list[str] = CRYSTALLIZATION_AIDS,
+        remove_waters: bool = True,
+        fix_ligands_at_symmetry_centers: bool = True,
         fix_arginines: bool = True,
         convert_mse_to_met: bool = False,
         keep_hydrogens: bool = True,  # TODO: rename to `remove_hydrogens`
-        remove_waters: bool = True,
         model: int | None = None,
-        add_bond_types_from_struct_conn: list[str] = ["covale"],
+        build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
+        save_to_cache: bool = False,
         **kwargs,
     ) -> dict:
         """
@@ -210,30 +213,25 @@ class CIFParser:
         information, residue information, atom array, metadata, and legacy data.
 
         Args:
-            save_to_cache (bool): Whether to save the results to cache (see `parse`).
             filename (str): Path to the CIF file. May be any format of CIF file
                 (e.g., gz, bcif, etc.). This can be a path to a file or a buffer.
             assume_residues_all_resolved (bool): Whether we can assume when parsing
                 that all residues are represented, and all atoms are present. Required
                 for distillation examples that do not have all RCSB fields. Defaults to False.
             add_missing_atoms (bool, optional): Whether to add missing atoms to the
-                structure (from entirely or partially unresolved residues), including
-                relevant OpenBabel atom-level data. Defaults to True.
-            add_bonds (bool, optional): Whether to add bonds to the structure. Leverages
-                (a) precompiled intra-residue bond data, (b) standard inter-residue bonds,
-                and (c) the `struct_conn` category to determine connectivity. Cannot be True
-                if `add_missing_atoms` is False. Defaults to True.
+                structure (from entirely or partially unresolved residues). Defaults to True.
             add_id_and_entity_annotations (bool, optional): Whether to add identifier and entity
                 annotations to the structure. Defaults to True.
-            remove_waters (bool, optional): Whether to remove water molecules from the
-                structure. Defaults to True.
+            add_bond_types_from_struct_conn (list, optional): A list of bond types to add to the structure
+                from the `struct_conn` category. Defaults to `["covale"]`. This means that we will only
+                add covalent bonds to the structure (excluding disulfide bonds).
             remove_ccds (list, optional): A list of CCD codes (e.g. `ALA`, `HEM`, ...) to remove from
                 the structure. Defaults to crystallization aids. NOTE: Exclusion of polymer
                 residues and common multi-chain ligands must be done with care to avoid sequence gaps.
-            patch_symmetry_centers (bool, optional): Whether to patch non-polymer residues
+            remove_waters (bool, optional): Whether to remove water molecules from the
+                structure. Defaults to True.
+            fix_ligands_at_symmetry_centers (bool, optional): Whether to patch non-polymer residues
                 at symmetry centers that clash with themselves when transformed. Defaults to True.
-            build_assembly (string, list, or tuple, optional): Specifies which assembly to build, if any. Options are None
-                (e.g., asymmetric unit), "first", "all", or a list or tuple of assembly IDs. Defaults to "all".
             fix_arginines (bool, optional): Whether to fix arginine naming ambiguity, see the
                 AF-3 supplement for details. Defaults to True.
             convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE)
@@ -242,6 +240,9 @@ class CIFParser:
                 (e.g., when adding missing atoms). Defaults to True.
             model (int, optional): The model number to parse from the CIF file for NMR entries.
                 Defaults to all models (None).
+            build_assembly (string, list, or tuple, optional): Specifies which assembly to build, if any. Options are None
+                (e.g., asymmetric unit), "first", "all", or a list or tuple of assembly IDs. Defaults to "all".
+            save_to_cache (bool): Whether to save the results to cache (see `parse`).
 
         Returns:
             dict: A dictionary containing the following keys:
@@ -300,15 +301,14 @@ class CIFParser:
         # ...ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
         if not isinstance(asym_unit_stack, AtomArrayStack):
             asym_unit_stack = struc.stack([asym_unit_stack])
-        data_dict["asym_unit"] = asym_unit_stack
 
         # ...load chain information from the first model (uses atom_array to build chain list)
         if "entity" and "entity_poly" in cif_file.block:
             # We can get the chain information directly from the CIF file
-            data_dict["chain_info"] = get_chain_info_from_category(cif_file.block, data_dict["asym_unit"][0])
+            data_dict["chain_info"] = get_chain_info_from_category(cif_file.block, asym_unit_stack[0])
         else:
             # We must infer the chain information from the AtomArray residue names (not bulletproof)
-            data_dict["chain_info"] = infer_chain_info_from_atom_array(data_dict["asym_unit"][0])
+            data_dict["chain_info"] = infer_chain_info_from_atom_array(asym_unit_stack[0])
 
         if not keep_hydrogens:
             # ...most examples, except NMR studies and small molecules, will not have any hydrogens
@@ -357,7 +357,7 @@ class CIFParser:
         # ...loop through models
         models = []
         for model_idx in range(asym_unit_stack.stack_depth()):
-            atom_array = data_dict["asym_unit"][model_idx]
+            atom_array = asym_unit_stack[model_idx]
 
             # ... add any atoms that should be there based on the sequence information
             #     but may not be resolved. These will have occupancy 0.0 and `nan` coords.
@@ -385,7 +385,7 @@ class CIFParser:
 
             # ... add identifiers and entity annotations
             if add_id_and_entity_annotations:
-                atom_array = ta.add_id_and_entity_annotations(atom_array, data_dict["chain_info"])
+                atom_array = ta.add_id_and_entity_annotations(atom_array)
 
             models.append(atom_array)
 
@@ -413,7 +413,7 @@ class CIFParser:
                 struct_oper_category=struct_oper_category,
                 asym_unit_atom_array_stack=data_dict["asym_unit"],
                 build_assembly=build_assembly,
-                fix_symmetry_centers=patch_symmetry_centers,
+                fix_symmetry_centers=fix_ligands_at_symmetry_centers,
             )
 
             # If we're caching, we need to store the assembly information in extra_info

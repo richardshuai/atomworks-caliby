@@ -1,12 +1,13 @@
 """Constants used in the `cifutils` package."""
 
-import os
 import logging
-from typing import Final
-from toolz import keymap
-from dotenv import load_dotenv
+import os
 import sys
 from types import MappingProxyType
+from typing import Final
+
+from dotenv import load_dotenv
+from toolz import keymap
 
 load_dotenv()
 
@@ -428,7 +429,7 @@ Reference:
     - AF3 (Supp. Table 10) https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
 """
 
-AF3_EXCLUDED_LIGANDS_REGEX: Final[str] = "(?:^|,)\s*(?:" + "|".join(AF3_EXCLUDED_LIGANDS) + ")\s*(?:,|$)"
+AF3_EXCLUDED_LIGANDS_REGEX: Final[str] = r"(?:^|,)\s*(?:" + "|".join(AF3_EXCLUDED_LIGANDS) + r")\s*(?:,|$)"
 """A regex pattern that matches any of the ligands in `AF3_EXCLUDED_LIGANDS`. Used for filtering out ligands from the assembled dataframes."""
 
 # TODO: Replace this by general mapping of CCD codes to one-letter codes.

@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
-from cifutils.enums import ChainType
 
+from cifutils.enums import ChainType
 from cifutils.tools.fasta import split_generalized_fasta_sequence
 from cifutils.tools.inference import (
     ChemicalComponent,
