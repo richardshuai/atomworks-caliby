@@ -306,43 +306,20 @@ def match_array_to_template(
     return template_list
 
 
-def get_leaving_atoms(atom_array: AtomArray, atom_idxs_to_check: np.ndarray) -> np.ndarray:
-    atom_array.set_annotation("idx", np.arange(atom_array.array_length()))
-    is_atom_leaving = np.zeros(atom_array.array_length(), dtype=bool)
-
-    for idx in atom_idxs_to_check:
-        # TODO: Maybe pre-compute these?
-        # ... get all atoms bonded to this idx
-        bonded_atoms = atom_array.bonds.get_bonded_atoms(idx)
-
-        # ... filter down to atoms that are in the same residue
-        #     as the atom to check
-        in_same_res = atom_array.res_id[bonded_atoms] == atom_array.res_id[idx]
-        #     and atoms that are flagged as possible leaving groups
-        can_leave = atom_array.is_leaving_atom[bonded_atoms]
-        maybe_leaving_atoms = bonded_atoms[in_same_res & can_leave]
-
-        if len(maybe_leaving_atoms) == 0:
-            logger.info(
-                f"Atom {atom_array[idx]} is involved in an inter-residue bond, "
-                "but appears to not have a leaving group."
-            )
-
-        # ... perform a bond-graph walk on the residue, starting from
-        #     any of the `maybe_leaving_atoms` and find groups attached
-        #     to each 'maybe_leaving_atom'
-        for leaving_atom_idx in maybe_leaving_atoms:
-            # TODO:
-            pass
-
-    return is_atom_leaving
-
-
-def add_missing_atoms(atom_array: AtomArray) -> AtomArray:
+def add_missing_atoms(
+    atom_array: AtomArray,
+    struct_conn_dict: dict = {},
+    ignore_ccd: list[str] = [],
+    keep_bond_types: list[str] = ["covale"],
+    keep_hydrogens: bool = False,
+    use_ccd_charges: bool = True,
+) -> AtomArray:
     # ... match all residues to a CCD template
     #     (unless no CCD template esits, in which case we copy over)
     #     this also creates the intra-residue bonds from the CCD
-    matched_templates = match_array_to_template(atom_array)
+    matched_templates = match_array_to_template(
+        atom_array, use_ccd_charges=use_ccd_charges, keep_hydrogens=keep_hydrogens
+    )
 
     # ... concatenate individual residues to an AtomArray
     atoms = concatenate(matched_templates)
@@ -352,7 +329,12 @@ def add_missing_atoms(atom_array: AtomArray) -> AtomArray:
 
     # ... create any remaining inter-residue bonds that
     #     are specified in struct_conn
-    struct_conn_bonds, struct_conn_leaving_atom_idxs = get_struct_conn_bonds(cif, chain_info, atoms)
+    struct_conn_bonds, struct_conn_leaving_atom_idxs = get_struct_conn_bonds(
+        atoms,
+        struct_conn_dict=struct_conn_dict,
+        ignore_ccd=ignore_ccd,
+        keep_bond_types=keep_bond_types,
+    )
 
     # ... merge all inter-residue bonds
     inter_bonds = BondList(
@@ -364,16 +346,9 @@ def add_missing_atoms(atom_array: AtomArray) -> AtomArray:
 
     # ... merge all leaving group indices
     is_leaving = np.zeros(len(atoms), dtype=bool)
-    is_leaving[np.concatenate(polymer_bond_leaving_atom_idxs + struct_conn_leaving_atom_idxs)] = True
+    is_leaving[np.concatenate((polymer_bond_leaving_atom_idxs, struct_conn_leaving_atom_idxs))] = True
     #     and remove them from the atom array
     atoms = atoms[~is_leaving]
-
-    # ... check which atoms to inspect for leaving groups:
-    atom_idxs_with_inter_bonds = np.unique(polymer_bonds[:, :2].flatten())
-
-    # ... remove leaving group atoms
-    is_atom_leaving = get_leaving_atoms(atoms, atom_idxs_to_check=atom_idxs_with_inter_bonds)
-    # TODO:
 
     # ... fix charges of bonded atoms
     # TODO:

@@ -193,6 +193,9 @@ DNA_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset(
 )
 """Set of DNA-like chemical component types. All uppercase."""
 
+NA_LIKE_CHEM_TYPES: Final[frozenset[str]] = RNA_LIKE_CHEM_TYPES | DNA_LIKE_CHEM_TYPES
+"""DNA or RNA-like chemical component types."""
+
 CARBOHYDRATE_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset(
     [
         chemtype.upper()
@@ -214,6 +217,9 @@ LIGAND_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset([chemtype.upper() for 
 
 MASK_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset([chemtype.upper() for chemtype in ("mask",)])
 """Set of mask-like chemical component types. All uppercase."""
+
+AA_OR_NA_CHEM_COMP_TYPES: Final[frozenset[str]] = AA_LIKE_CHEM_TYPES | NA_LIKE_CHEM_TYPES
+"""Amino acid or DNA/RNA-like chemical component types."""
 
 CHEM_TYPE_POLYMERIZATION_ATOMS: Final[MappingProxyType[str, tuple[str, str]]] = MappingProxyType(
     keymap(
@@ -242,6 +248,21 @@ STRUCT_CONN_BOND_TYPES: Final[frozenset[str]] = frozenset({"covale", "disulf", "
 
 Reference:
     - https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_struct_conn.conn_type_id.html
+"""
+
+STRUCT_CONN_BOND_ORDER_TO_INT: Final[MappingProxyType[str, int]] = MappingProxyType(
+    {
+        "sing": 1,
+        "doub": 2,
+        "trip": 3,
+        "quad": 4,
+    }
+)
+"""
+Mapping from `struct_conn.pdbx_value_order` to integer bond orders.
+
+References:
+    - https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_struct_conn.pdbx_value_order.html
 """
 
 CRYSTALLIZATION_AIDS: Final[list[str]] = [

@@ -20,10 +20,9 @@ from cifutils.common import to_hashable
 from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.constants import (
     CHEM_TYPE_POLYMERIZATION_ATOMS,
-    AA_LIKE_CHEM_TYPES,
-    RNA_LIKE_CHEM_TYPES,
-    DNA_LIKE_CHEM_TYPES,
     STRUCT_CONN_BOND_TYPES,
+    AA_OR_NA_CHEM_COMP_TYPES,
+    STRUCT_CONN_BOND_ORDER_TO_INT,
 )
 import networkx as nx
 from cifutils.utils.residue_utils import get_chem_comp_type
@@ -31,8 +30,6 @@ from cifutils.utils.ccd import get_chem_comp_leaving_atom_names
 import pandas as pd
 
 logger = logging.getLogger("cifutils")
-
-POLYMER_CHEM_COMP_TYPES = AA_LIKE_CHEM_TYPES | RNA_LIKE_CHEM_TYPES | DNA_LIKE_CHEM_TYPES
 
 
 def _get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
@@ -113,6 +110,8 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
     res_names = atom_array.res_name
     atom_names = atom_array.atom_name
     chain_types = atom_array.chain_type if "chain_type" in atom_array.get_annotation_categories() else None
+    set_is_polymer = "is_polymer" in atom_array.get_annotation_categories()
+    is_polymer = atom_array.is_polymer if set_is_polymer else np.zeros(atom_array.array_length(), dtype=bool)
 
     # ... get iterators over the residues
     residue_starts = get_residue_starts(atom_array, add_exclusive_stop=True)
@@ -142,7 +141,7 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
         next_link = get_chem_comp_type(res_names[next_res_start], strict=False)
 
         # ... decide which bonds to form:
-        if this_link in CHEM_TYPE_POLYMERIZATION_ATOMS and next_link in POLYMER_CHEM_COMP_TYPES:
+        if (this_link in CHEM_TYPE_POLYMERIZATION_ATOMS) and (next_link in AA_OR_NA_CHEM_COMP_TYPES):
             bonding_atoms = CHEM_TYPE_POLYMERIZATION_ATOMS[this_link]
 
         # ... add the bonds if we have bonding atoms
@@ -189,29 +188,37 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
                 atom_names=next_res_atom_names,
                 offset=next_res_start,
             )
-            leaving.append(leaving_this_res)
-            leaving.append(leaving_next_res)
+            leaving.append(leaving_this_res) if len(leaving_this_res) > 0 else None
+            leaving.append(leaving_next_res) if len(leaving_next_res) > 0 else None
 
-    return bonds, np.concatenate(leaving)
+            # ... optionally add `is_polymer` annotation to the atom array
+            is_polymer[this_res_start:next_res_stop] = True
+
+            # Fix charges (TODO: Implement)
+
+    if set_is_polymer:
+        # ... if polymer annotation was not present before, we set it here based on the inferred bonds
+        atom_array.set_annotation("is_polymer", is_polymer)
+
+    return bonds, np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
 
 
 def get_struct_conn_bonds(
-    struct_conn_dict: dict[str, np.ndarray],
-    chain_info_dict: dict,
     atom_array: AtomArray,
+    struct_conn_dict: dict[str, np.ndarray],
     ignore_ccd: list[str] = [],
-    keep_bonds: list[str] = ["covale"],
-) -> tuple[list[list[int]], list[int]]:
+    keep_bond_types: list[str] = ["covale"],
+) -> tuple[list[tuple[int, int, struc.BondType]], np.ndarray]:
     """
     Adds bonds from the 'struct_conn' category of a CIF block to an atom array. Only covalent bonds are considered.
 
     Args:
-        struct_conn_dict (dict): The struct_conn category of a CIF block as a dictionary. E.g.
+        atom_array (AtomArray): The atom array used to get atom indices.
+        struct_conn_dict (dict[str, np.ndarray]): The struct_conn category of a CIF block as a dictionary.
+            E.g. (Only mandatory fields are shown)
             ```
-                {'id': array(['disulf1',...]),
+                {
                 'conn_type_id': array(['disulf', ...]),
-                'pdbx_leaving_atom_flag': array(['?', ...]),
-                ...
                 'ptnr1_label_asym_id': array(['A', ...]),
                 'ptnr1_label_comp_id': array(['CYS', ...]),
                 'ptnr1_label_seq_id': array(['6', ...]),
@@ -221,48 +228,48 @@ def get_struct_conn_bonds(
                 'ptnr2_label_comp_id': array(['CYS', ...]),
                 'ptnr2_label_seq_id': array(['127', ...]),
                 'ptnr2_label_atom_id': array(['SG', ...]),
-                ...
+                'ptnr2_symmetry': array(['1_555', ...]),
+                }
             ```
-        chain_info_dict (Dict): A dictionary containing information about the chains.
-        atom_array (AtomArray): The atom array used to get atom indices.
-        ignore_ccd (list): A list of CCD codes that should be ignored.
-        keep_bonds (list): A list of bond types that should be kept. Valid bond types
+        ignore_ccd (list[str]): A list of CCD codes that should be ignored.
+        keep_bonds (list[str]): A list of bond types that should be kept. Valid bond types
             are: ["covale", "disulf", "metalc", "hydrog"]. Defaults to ["covale"], which is
             the use-case in structure-prediction, where we would a-priori know covalent bonds
             (except for disulfides).
 
-            Reference: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_struct_conn.conn_type_id.html
-
     Returns:
-        struct_conn_bonds: A List of bonds to be added to the atom array.
-        leaving_atom_indices: A List of indices of atoms that are leaving groups for bookkeeping.
+        bonds (list[tuple[int, int, struc.BondType]]): A List of bonds to be added to the atom array.
+        leaving (np.ndarray): An array of indices of atoms that are leaving groups for bookkeeping.
+
+    References:
+        - https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_struct_conn.conn_type_id.html
     """
     # ... validate input
-    invalid_bond_types = set(keep_bonds) - STRUCT_CONN_BOND_TYPES
+    invalid_bond_types = set(keep_bond_types) - STRUCT_CONN_BOND_TYPES
     if len(invalid_bond_types) > 0:
         raise ValueError(
             f"Invalid bond type(s) provided: {invalid_bond_types}! Valid bond types are: {STRUCT_CONN_BOND_TYPES}"
         )
-
-    # ... initialize return values
-    bonds: list[tuple[int, int, struc.BondType]] = []
-    leaving: list[np.ndarray] = []
+    if len(struct_conn_dict) == 0:
+        return [], np.array([], dtype=int)
 
     # ... get the standard-to-alternative atom name mapping
     # ... convert struct_conn_dict to a DataFrame and filter for the bond types we want to keep
     struct_conn_df = pd.DataFrame(struct_conn_dict)
-    struct_conn_df = struct_conn_df[struct_conn_df["conn_type_id"].isin(keep_bonds)]
+    struct_conn_df = struct_conn_df[struct_conn_df["conn_type_id"].isin(keep_bond_types)]
 
     if struct_conn_df.empty:
         # ... skip if no bonds to add
-        return bonds, leaving
+        return [], np.array([], dtype=int)
     logger.debug(f"Attempting to add {len(struct_conn_df)} bonds from `struct_conn`")
 
     # ... extract relevant annotations
     chain_ids = atom_array.chain_id
     res_names = atom_array.res_name
     res_ids = atom_array.res_id
+    ins_codes = atom_array.ins_code
     atom_names = atom_array.atom_name
+    is_polymer = atom_array.is_polymer
     global_atom_idx = np.arange(atom_array.array_length())
     alt_atom_ids = atom_array.alt_atom_id if "alt_atom_id" in atom_array.get_annotation_categories() else atom_names
     uses_alt_atom_id = (
@@ -270,6 +277,12 @@ def get_struct_conn_bonds(
         if "uses_alt_atom_id" in atom_array.get_annotation_categories()
         else np.zeros(len(atom_array), dtype=bool)
     )
+    all_chain_ids = np.unique(chain_ids)
+    polymer_chain_ids = np.unique(chain_ids[is_polymer])
+
+    # ... initialize return values
+    bonds: list[tuple[int, int, struc.BondType]] = []
+    leaving: list[np.ndarray] = []
 
     for _, row in struct_conn_df.iterrows():
         res_name1 = row["ptnr1_label_comp_id"]
@@ -280,7 +293,7 @@ def get_struct_conn_bonds(
 
         chain_id1 = row["ptnr1_label_asym_id"]
         chain_id2 = row["ptnr2_label_asym_id"]
-        if (chain_id1 not in chain_info_dict) or (chain_id2 not in chain_info_dict):
+        if (chain_id1 not in all_chain_ids) or (chain_id2 not in all_chain_ids):
             # ... skip, but warn if the chains are not present in the structure
             logger.info(
                 f"Found covalent bond involving chains {chain_id1} and {chain_id2}, but at least one "
@@ -294,17 +307,20 @@ def get_struct_conn_bonds(
         # NOTE: For non-polymers within PDB files, we may not have the auth_seq_id; we use the label_seq_id in such cases
         res_id1 = int(
             row["ptnr1_label_seq_id"]
-            if chain_info_dict[chain_id1]["is_polymer"] or "ptnr1_auth_seq_id" not in row
+            if (chain_id1 in polymer_chain_ids) or ("ptnr1_auth_seq_id" not in row)
             else row["ptnr1_auth_seq_id"]
         )
         res_id2 = int(
             row["ptnr2_label_seq_id"]
-            if chain_info_dict[chain_id2]["is_polymer"] or "ptnr2_auth_seq_id" not in row
+            if (chain_id2 in polymer_chain_ids) or ("ptnr2_auth_seq_id" not in row)
             else row["ptnr2_auth_seq_id"]
         )
+        ins_code1 = row.get("pdbx_ptnr1_PDB_ins_code", "")
+        ins_code2 = row.get("pdbx_ptnr2_PDB_ins_code", "")
+
         # ... get masks for the residues to which atoms 1 & 2 belong
-        in_res1 = (chain_ids == chain_id1) & (res_ids == res_id1) & (res_names == res_name1)
-        in_res2 = (chain_ids == chain_id2) & (res_ids == res_id2) & (res_names == res_name2)
+        in_res1 = (chain_ids == chain_id1) & (res_ids == res_id1) & (res_names == res_name1) & (ins_codes == ins_code1)
+        in_res2 = (chain_ids == chain_id2) & (res_ids == res_id2) & (res_names == res_name2) & (ins_codes == ins_code2)
         in_res1_start = global_atom_idx[in_res1][0]
         in_res2_start = global_atom_idx[in_res2][0]
 
@@ -333,21 +349,22 @@ def get_struct_conn_bonds(
         atom_name2 = row["ptnr2_label_atom_id"]
 
         if uses_alt_atom_id[in_res1_start]:
-            atom1_local_idx = np.where(alt_atom_ids[in_res1] == atom_name1)[0]
+            atom1_local_idx = np.where(alt_atom_ids[in_res1] == atom_name1)[0][0]
         else:
-            atom1_local_idx = np.where(atom_names[in_res1] == atom_name1)[0]
+            atom1_local_idx = np.where(atom_names[in_res1] == atom_name1)[0][0]
 
         if uses_alt_atom_id[in_res2_start]:
-            atom_2_local_idx = np.where(alt_atom_ids[in_res2] == atom_name2)[0]
+            atom_2_local_idx = np.where(alt_atom_ids[in_res2] == atom_name2)[0][0]
         else:
-            atom_2_local_idx = np.where(atom_names[in_res2] == atom_name2)[0]
+            atom_2_local_idx = np.where(atom_names[in_res2] == atom_name2)[0][0]
 
         # ... convert local atom indices to global indices
         atom1_global_idx = in_res1_start + atom1_local_idx
         atom2_global_idx = in_res2_start + atom_2_local_idx
 
         # ... add the bond
-        bonds.append([atom1_global_idx, atom2_global_idx, struc.BondType.SINGLE])
+        bond_order = STRUCT_CONN_BOND_ORDER_TO_INT.get(row["pdbx_value_order"], 1)
+        bonds.append([atom1_global_idx, atom2_global_idx, struc.BondType(bond_order)])
 
         # ... and identify the leaving atoms
         leaving_res1 = _get_leaving_atom_idxs_for(
@@ -362,12 +379,25 @@ def get_struct_conn_bonds(
             atom_names=atom_names[in_res2],
             offset=in_res2_start,
         )
-        leaving.append(leaving_res1)
-        leaving.append(leaving_res2)
+        leaving.append(leaving_res1) if len(leaving_res1) > 0 else None
+        leaving.append(leaving_res2) if len(leaving_res2) > 0 else None
+
+        # ... verify leaving group computation
+        leaving_flag = {
+            "one": True,
+            "both": True,
+            "none": False,
+        }.get(row["pdbx_leaving_atom_flag"], None)
+        found_leaving = len(leaving_res1) > 0 or len(leaving_res2) > 0
+        if leaving_flag is not None and (leaving_flag != found_leaving):
+            logger.warning(
+                f"Leaving group for bond {chain_id1}:{res_id1}:{atom_name1} and {chain_id2}:{res_id2}:{atom_name2} "
+                "was not computed correctly! Please report this issue to the developers."
+            )
 
         # Fix charges (TODO: Implement)
 
-    return bonds, leaving
+    return bonds, np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
 
 
 def get_coarse_graph_as_nodes_and_edges(atom_array: AtomArray, annotations: str | tuple[str]):
