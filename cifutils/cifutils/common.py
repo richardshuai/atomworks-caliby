@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import copy
 from collections import OrderedDict
+from functools import lru_cache, wraps
 from typing import Any, Callable
 
 import numpy as np
@@ -41,3 +43,18 @@ def not_isin(element: np.ndarray, array: np.ndarray, **isin_kwargs) -> np.ndarra
 def listmap(func: Callable, *iterables) -> list:
     """Like `map`, but returns a list instead of an iterator."""
     return compose(list, map)(func, *iterables)
+
+
+def immutable_lru_cache(maxsize: int = 128, typed: bool = False):
+    """An immutable version of `lru_cache` for caching functions that return mutable objects."""
+
+    def decorator(func):
+        cached_func = lru_cache(maxsize=maxsize, typed=typed)(func)
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return copy.deepcopy(cached_func(*args, **kwargs))
+
+        return wrapper
+
+    return decorator

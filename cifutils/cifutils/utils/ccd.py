@@ -9,8 +9,17 @@ import networkx as nx
 import numpy as np
 import toolz
 
-from cifutils.common import exists
-from cifutils.constants import CCD_MIRROR_PATH
+from cifutils.common import exists, immutable_lru_cache
+from cifutils.constants import (
+    AA_LIKE_CHEM_TYPES,
+    CCD_MIRROR_PATH,
+    DNA_LIKE_CHEM_TYPES,
+    RNA_LIKE_CHEM_TYPES,
+    UNKNOWN_AA,
+    UNKNOWN_DNA,
+    UNKNOWN_LIGAND,
+    UNKNOWN_RNA,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +214,7 @@ def parse_ccd_cif(
     return atoms
 
 
-@lru_cache(maxsize=2000)
+@immutable_lru_cache(maxsize=2000)
 def get_ccd_component_from_mirror(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, **parse_ccd_cif_kwargs
 ) -> struc.AtomArray:
@@ -285,7 +294,7 @@ def _find_connected_components_after_removal(graph: nx.Graph, node_to_remove: in
     return components
 
 
-@lru_cache(maxsize=2000)
+@immutable_lru_cache(maxsize=2000)
 def get_chem_comp_leaving_atom_names(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, mode: Literal["warn", "raise"] = "warn"
 ) -> dict[str, tuple[str, ...]]:
@@ -353,7 +362,6 @@ def _chem_comp_type_dict() -> dict[str, str]:
     return dict(zip(chem_comp_ids, chem_comp_types))
 
 
-@cache
 def get_chem_comp_type(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, mode: Literal["warn", "raise"] = "warn"
 ) -> str:
@@ -382,3 +390,17 @@ def get_chem_comp_type(
             chem_comp_type = "OTHER"
 
     return chem_comp_type
+
+
+def get_unknown_ccd_code_for_chem_comp_type(chem_comp_type: str) -> str:
+    """
+    Get the CCD code for an unknown chemical component type.
+    """
+    if chem_comp_type in AA_LIKE_CHEM_TYPES:
+        return UNKNOWN_AA
+    elif chem_comp_type in DNA_LIKE_CHEM_TYPES:
+        return UNKNOWN_DNA
+    elif chem_comp_type in RNA_LIKE_CHEM_TYPES:
+        return UNKNOWN_RNA
+    else:
+        return UNKNOWN_LIGAND
