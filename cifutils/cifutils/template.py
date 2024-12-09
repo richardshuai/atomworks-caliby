@@ -1,12 +1,14 @@
+import copy
 import logging
 import os
-from typing import Final, Sequence
+from typing import Any, Final, Sequence
 
+import biotite.structure as struc
 import numpy as np
-from biotite.database.rcsb import fetch
 from biotite.structure import AtomArray, AtomArrayStack, BondList
 
 import cifutils.transforms.atom_array as ta
+from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds, get_struct_conn_bonds
 from cifutils.utils.ccd import check_ccd_codes_are_available, get_ccd_component
@@ -192,29 +194,13 @@ def get_empty_ccd_template(
 
 
 def match_residue_to_template(
+    template: AtomArray,
     real: AtomArray,
     use_ccd_charges: bool,
-    keep_hydrogens: bool,
-    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ):
     # ... get information about the residue
     ccd_code = real.res_name[0]
     annotations = set(real.get_annotation_categories())
-
-    # ... get empty template (no occupation, nan coordinates)
-    template = get_empty_ccd_template(
-        ccd_code,
-        ccd_mirror_path=ccd_mirror_path,
-        keep_hydrogens=keep_hydrogens,
-        # ... add required residue-wise annotations
-        chain_id=real.chain_id[0],
-        res_id=real.res_id[0],
-        occupancy=0.0,
-        # ... add custom residue-wise annotations if they exist
-        b_factor=np.nan if "b_factor" in annotations else None,
-        chain_type=real.chain_type[0] if "chain_type" in annotations else None,
-        is_polymer=real.is_polymer[0] if "is_polymer" in annotations else None,
-    )
 
     # ... fail if there are multiple atoms with the same name in the `real` array
     if len(np.unique(real.atom_name)) != len(real):
@@ -266,46 +252,108 @@ def match_residue_to_template(
     return template
 
 
-def match_array_to_template(
-    atom_array: AtomArray,
-    use_ccd_charges: bool = True,
+def build_template_atom_array(
+    chain_info_dict: dict[str, dict[str, Any]],
+    atom_array: AtomArray | None = None,
     keep_hydrogens: bool = False,
+    use_ccd_charges: bool = True,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
-) -> list[AtomArray]:
-    # Initialize return variable
-    template_list: list[AtomArray] = []
+) -> AtomArray:
+    # ... check if the chain_to_sequence_map is consistent with the atom_array
+    if exists(atom_array) and (not set(struc.get_chains(atom_array)) == set(chain_info_dict)):
+        raise ValueError(
+            "Mismatch between `atom_array` and `chain_to_sequence`! "
+            f"Atom array contains chains {struc.get_chains(atom_array)} but chain_to_sequence "
+            f"contains chains {chain_info_dict.keys()}."
+        )
 
-    _cc_start_stop_idxs = get_residue_starts(atom_array, add_exclusive_stop=True)
-    for cc_start, cc_stop in zip(_cc_start_stop_idxs[:-1], _cc_start_stop_idxs[1:]):
-        ccd_code = atom_array.res_name[cc_start]
-        real = atom_array[cc_start:cc_stop]
+    # ... extract the relevant entries from the chain_info_dict for readability
+    chain_id_to_res_ids = {chain_id: chain_info_dict[chain_id]["res_id"] for chain_id in chain_info_dict}
+    chain_id_to_res_names = {chain_id: chain_info_dict[chain_id]["res_name"] for chain_id in chain_info_dict}
+    chain_id_to_is_polymer = {chain_id: chain_info_dict[chain_id]["is_polymer"] for chain_id in chain_info_dict}
+    chain_id_to_types = {chain_id: chain_info_dict[chain_id]["chain_type"] for chain_id in chain_info_dict}
+    annotations = set(atom_array.get_annotation_categories()) if exists(atom_array) else set()
 
-        # ... if the chemical component is not in the CCD or unknown
-        #     we cannot get a template and therefore just copy over from the
-        #     atom array
-        if (ccd_code in DO_NOT_MATCH_CCD) or not check_ccd_codes_are_available(
-            [ccd_code], ccd_mirror_path, mode="warn"
-        ):
-            n_atoms = real.array_length()
-            real.set_annotation("stereo", np.full(n_atoms, fill_value="N", dtype="<U1"))
-            real.set_annotation("is_leaving_atom", np.zeros(n_atoms, dtype=bool))
-            real.set_annotation("is_backbone_atom", np.zeros(n_atoms, dtype=bool))
-            real.set_annotation("is_n_terminal_atom", np.zeros(n_atoms, dtype=bool))
-            real.set_annotation("is_c_terminal_atom", np.zeros(n_atoms, dtype=bool))
-            real.set_annotation("uses_alt_atom_id", np.zeros(n_atoms, dtype=bool))
-            template_list.append(real)
-            continue
+    # ... extreact the relevant entries from the atom_array if it exists
+    all_false = lambda n: np.zeros(n, dtype=bool)  # noqa: E731, convenience function
+    chain_ids = atom_array.chain_id if exists(atom_array) else all_false(0)
+    res_ids = atom_array.res_id if exists(atom_array) else all_false(0)
+    res_names = atom_array.res_name if exists(atom_array) else all_false(0)
+    is_polymer = atom_array.is_polymer if exists(atom_array) else all_false(0)
 
-        # ... otherwise, we can get a template from the CCD
-        template = match_residue_to_template(real=real, use_ccd_charges=use_ccd_charges, keep_hydrogens=keep_hydrogens)
+    # Add a file sink to the logger
+    logger.setLevel(logging.DEBUG)
 
-        template_list.append(template)
+    # ... create a list of atoms based on the reference CCD entries
+    template_residues = []
+    for chain_id in sorted(chain_info_dict):
+        chain_res_ids = chain_id_to_res_ids[chain_id]
+        chain_res_names = chain_id_to_res_names[chain_id]
+        chain_is_polymer = chain_id_to_is_polymer[chain_id]
+        chain_type = chain_id_to_types[chain_id]
 
-    return template_list
+        assert len(chain_res_ids) == len(chain_res_names), "Lenght mismatch between chain_res_ids, chain_res_names!"
+
+        for res_id, (res_id_original, ccd_code) in enumerate(zip(chain_res_ids, chain_res_names), start=1):
+            res_id_original = int(res_id_original)
+            # ... and corresponding mask
+            res_mask = (chain_ids == chain_id) & (res_names == ccd_code) & (res_ids == res_id_original)
+
+            # ... if we cannot get a template from the CCD, we copy over the atoms from the atom_array verbatim
+            if (ccd_code in DO_NOT_MATCH_CCD) or not check_ccd_codes_are_available(
+                [ccd_code], ccd_mirror_path, mode="warn"
+            ):
+                if not res_mask.any():
+                    # ... skip if we cannot find the residue in the reference atom_array
+                    logger.warning(
+                        f"No atoms found for residue {ccd_code} in chain {chain_id} with ID {res_id_original}!"
+                    )
+                    continue
+
+                # ... otherwise, we copy over the atoms from the atom_array
+                real = atom_array[res_mask]
+                n_atoms = real.array_length()
+                real.set_annotation("stereo", np.full(n_atoms, fill_value="N", dtype="<U1"))
+                real.set_annotation("is_leaving_atom", all_false(n_atoms))
+                real.set_annotation("is_backbone_atom", all_false(n_atoms))
+                real.set_annotation("is_n_terminal_atom", all_false(n_atoms))
+                real.set_annotation("is_c_terminal_atom", all_false(n_atoms))
+                real.set_annotation("uses_alt_atom_id", all_false(n_atoms))
+                real.set_annotation("chain_type", [chain_type] * n_atoms)
+                real.set_annotation("is_polymer", [chain_is_polymer] * n_atoms)
+                template_residues.append(real)
+                continue
+
+            # ... get empty template (no occupation, nan coordinates)
+            tmpl = get_empty_ccd_template(
+                ccd_code,
+                ccd_mirror_path=ccd_mirror_path,
+                keep_hydrogens=keep_hydrogens,
+                # ... add required residue-wise annotations
+                chain_id=chain_id,
+                res_id=res_id_original if chain_is_polymer else res_id,
+                occupancy=0.0,
+                # ... add custom residue-wise annotations if they exist
+                is_polymer=chain_is_polymer,
+                b_factor=np.nan if "b_factor" in annotations else None,
+                chain_type=chain_type,
+            )
+
+            # ... copy over the annotations & coordinates from the atom_array if the residue exists
+            if res_mask.any():
+                real = atom_array[res_mask]
+                tmpl = match_residue_to_template(template=tmpl, real=real, use_ccd_charges=use_ccd_charges)
+
+            template_residues.append(tmpl)
+
+    template_array = concatenate(template_residues)
+
+    return template_array
 
 
 def add_missing_atoms(
     atom_array: AtomArray,
+    chain_info_dict: dict[str, dict[str, Any]],
     struct_conn_dict: dict = {},
     add_bond_types_from_struct_conn: list[str] = ["covale"],
     keep_hydrogens: bool = False,
@@ -314,12 +362,12 @@ def add_missing_atoms(
     # ... match all residues to a CCD template
     #     (unless no CCD template esits, in which case we copy over)
     #     this also creates the intra-residue bonds from the CCD
-    matched_templates = match_array_to_template(
-        atom_array, use_ccd_charges=use_ccd_charges, keep_hydrogens=keep_hydrogens
+    atoms = build_template_atom_array(
+        chain_info_dict=chain_info_dict,
+        atom_array=atom_array,
+        use_ccd_charges=use_ccd_charges,
+        keep_hydrogens=keep_hydrogens,
     )
-
-    # ... concatenate individual residues to an AtomArray
-    atoms = concatenate(matched_templates)
 
     # ... infer inter-residue polymer bonds
     polymer_bonds, polymer_bond_leaving_atom_idxs = get_inferred_polymer_bonds(atoms)

@@ -43,8 +43,8 @@ def load_monomer_sequence_information_from_atom_array(chain_info_dict: dict, ato
 
         if chain_id not in chain_info_dict:
             chain_info_dict[chain_id] = {}
-        chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
-        chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)
+        chain_info_dict[chain_id]["res_name"] = list(residue_name_list)
+        chain_info_dict[chain_id]["res_id"] = list(residue_id_list)
 
     return chain_info_dict
 
@@ -181,7 +181,7 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
             inferred_chain_type_str = str(ChainType.NON_POLYMER)
             is_polymer = False
 
-        chain_info_dict[chain_id] = {"is_polymer": is_polymer, "type": inferred_chain_type_str}
+        chain_info_dict[chain_id] = {"is_polymer": is_polymer, "chain_type": inferred_chain_type_str}
 
     return chain_info_dict
 

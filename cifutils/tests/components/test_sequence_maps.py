@@ -40,7 +40,7 @@ def test_parser_one_letter_sequence_outputs(pdb_id: str):
 
     chain_info = result["chain_info"]
     for chain_id, chain_details in chain_info.items():
-        chain_type = chain_details["type"]
+        chain_type = chain_details["chain_type"]
         # Get the atom array for that specific chain and count the number of unique residues
         atom_array = result["asym_unit"][0]  # First model
         chain_atom_array = atom_array[atom_array.chain_id == chain_id]

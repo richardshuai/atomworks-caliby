@@ -293,6 +293,8 @@ def get_struct_conn_bonds(
         )
         ins_code1 = row.get("pdbx_ptnr1_PDB_ins_code", "")
         ins_code2 = row.get("pdbx_ptnr2_PDB_ins_code", "")
+        ins_code1 = "" if ins_code1 in (".", "?") else ins_code1
+        ins_code2 = "" if ins_code2 in (".", "?") else ins_code2
 
         # ... get masks for the residues to which atoms 1 & 2 belong
         in_res1 = (chain_ids == chain_id1) & (res_ids == res_id1) & (res_names == res_name1) & (ins_codes == ins_code1)

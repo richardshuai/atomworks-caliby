@@ -87,8 +87,8 @@ def test_infer_chain_info_from_atom_array(test_case: dict):
     chain_info = infer_chain_info_from_atom_array(atom_array)
 
     for chain_id, info_dict in chain_info.items():
-        assert info_dict["type"] == test_case["chain_types"][chain_id]
-        if info_dict["type"] == ChainType.NON_POLYMER:
+        assert info_dict["chain_type"] == test_case["chain_types"][chain_id]
+        if ChainType.as_enum(info_dict["chain_type"]).is_non_polymer():
             assert not info_dict["is_polymer"]
         else:
             assert info_dict["is_polymer"]

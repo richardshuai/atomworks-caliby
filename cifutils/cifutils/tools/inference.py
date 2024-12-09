@@ -260,6 +260,11 @@ def sequence_to_atom_array(
 
     # Ensure that the sequence is a valid combination of existing 3-letter CCD codes
     ccd_codes_in_seq = set(seq)
+    if UNKNOWN_LIGAND in ccd_codes_in_seq:
+        raise ValueError(
+            f"Unknown ligand `{UNKNOWN_LIGAND}` found in sequence. If you want to pass a ligand, that "
+            f"is not in the CCD, use a SMILES string or SDF file instead."
+        )
     check_ccd_codes_are_available(ccd_codes_in_seq, ccd_mirror_path=ccd_mirror_path, mode="raise")
 
     # ... create a list of atoms based on the reference CCD entries

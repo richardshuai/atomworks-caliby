@@ -336,7 +336,7 @@ def add_pn_unit_iid_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomAr
     """Adds the polymer/non-polymer unit instance ID (pn_unit_iid) annotation to the AtomArray or AtomArrayStack."""
     # ...create an array that concatenates the pn_unit_id and transformation_id
     _temp_pn_unit_iid = sum_string_arrays(atom_array.pn_unit_id, "_", atom_array.transformation_id)
-    _final_pn_unit_iid = np.full(len(atom_array.array_length()), fill_value="", dtype=object)
+    _final_pn_unit_iid = np.full(atom_array.array_length(), fill_value="", dtype=object)
 
     # ...iterate through unique pn_unit_iids
     # (We implicitly assume that a given pn_unit_id will have the same transformation_id across all atoms in the unit)
@@ -575,7 +575,7 @@ def add_chain_type_annotation(
     # Add annotation for chain_type as an integer
     atom_array.add_annotation("chain_type", dtype=np.int8)
     for chain_id in np.unique(atom_array.chain_id):
-        chain_type = chain_info_dict[chain_id]["type"]
+        chain_type = chain_info_dict[chain_id]["chain_type"]
         chain_type_enum = ChainType.from_string(chain_type)
         atom_array.chain_type[atom_array.chain_id == chain_id] = chain_type_enum.value
 

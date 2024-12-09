@@ -364,6 +364,7 @@ class CIFParser:
             if add_missing_atoms:
                 atom_array = template.add_missing_atoms(
                     atom_array,
+                    chain_info_dict=data_dict["chain_info"],
                     struct_conn_dict=category_to_dict(cif_file.block, "struct_conn"),
                     add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
                     keep_hydrogens=keep_hydrogens,

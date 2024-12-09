@@ -92,9 +92,9 @@ def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> 
 
         chain_info_dict[chain_id] = {
             "rcsb_entity": rscb_entity,
-            "type": polymer_info.get(
-                "polymer_type", chain_info.get("entity_type", "")
-            ).lower(),  # Convert to lowercase to match ChainType enum
+            "chain_type": polymer_info.get(
+                "polymer_type", chain_info.get("entity_type", "non-polymer")
+            ).upper(),  # Convert to uppercase to match ChainType enum
             "unprocessed_entity_canonical_sequence": polymer_info.get("canonical_sequence", "").replace("\n", ""),
             "unprocessed_entity_non_canonical_sequence": polymer_info.get("non_canonical_sequence", "").replace(
                 "\n", ""
@@ -224,32 +224,34 @@ def load_monomer_sequence_information_from_category(
 
     # Assert that entity_poly_seq category is present
     assert "entity_poly_seq" in cif_block.keys(), "entity_poly_seq category not found in CIF block."
+    available_ccd_codes = get_available_ccd_codes(ccd_mirror_path)
 
     # Handle polymers by using `entity_poly_seq`
     polymer_seq_df = category_to_df(cif_block, "entity_poly_seq")
     polymer_seq_df = polymer_seq_df.loc[:, ["entity_id", "num", "mon_id"]].rename(
-        columns={"entity_id": "rcsb_entity", "num": "residue_id", "mon_id": "residue_name"}
+        columns={"entity_id": "rcsb_entity", "num": "res_id", "mon_id": "res_name"}
     )
 
     # Keep only the last occurrence of each residue
-    duplicates = polymer_seq_df.duplicated(subset=["rcsb_entity", "residue_id"], keep="last")
+    duplicates = polymer_seq_df.duplicated(subset=["rcsb_entity", "res_id"], keep="last")
     entities_with_sequence_heterogeneity = polymer_seq_df[duplicates]["rcsb_entity"].unique()
     if duplicates.any():
         logger.info("Sequence heterogeneity detected, keeping only the last occurrence of each residue.")
         polymer_seq_df = polymer_seq_df[~duplicates]
 
-    # Map any polymer residues not in CCD data to "UNK" (unknown polymer residue)
-    # TODO:(@ncorley) Do we really want to map to UNKNOWN_AA indiscriminately? I think we should do UNKNOWN_R/DNA #
-    #  depending on chain type!
-    def _replace_by_unknown_if_not_available(x):
-        return x if x in get_available_ccd_codes(ccd_mirror_path) else UNKNOWN_AA
+    # Map any polymer residues not in CCD data to the corresponding UNKNOWN_* token
+    def _replace_by_unknown_if_not_available(ccd_code: str) -> str:
+        if ccd_code in available_ccd_codes:
+            return ccd_code
+        else:
+            return get_unknown_ccd_code_for_chem_comp_type(get_chem_comp_type(ccd_code))
 
-    polymer_seq_df["residue_name"] = polymer_seq_df["residue_name"].apply(_replace_by_unknown_if_not_available)
+    polymer_seq_df["res_name"] = polymer_seq_df["res_name"].apply(_replace_by_unknown_if_not_available)
 
     # Map rcsb_entity to lists of residue names and residue IDs
     polymer_seq_df["rcsb_entity"] = polymer_seq_df["rcsb_entity"].astype(float)
-    polymer_entity_id_to_residue_names_and_ids = {
-        rcsb_entity: {"residue_names": group["residue_name"].tolist(), "residue_ids": group["residue_id"].tolist()}
+    polymer_entity_id_to_res_names_and_ids = {
+        rcsb_entity: {"res_name": group["res_name"].tolist(), "res_id": group["res_id"].tolist()}
         for rcsb_entity, group in polymer_seq_df.groupby("rcsb_entity")
     }
 
@@ -257,24 +259,23 @@ def load_monomer_sequence_information_from_category(
     res_starts = get_residue_starts(atom_array)
     for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
         rcsb_entity = int(chain_info_dict[chain_id]["rcsb_entity"])
-        if rcsb_entity in polymer_entity_id_to_residue_names_and_ids:
+
+        if rcsb_entity in polymer_entity_id_to_res_names_and_ids:
             # For polymers, we use the stored entity residue list
-            residue_names = polymer_entity_id_to_residue_names_and_ids[rcsb_entity]["residue_names"]
-            chain_type = ChainType.from_string(chain_info_dict[chain_id]["type"])
+            residue_names = polymer_entity_id_to_res_names_and_ids[rcsb_entity]["res_name"]
+            chain_type = ChainType.from_string(chain_info_dict[chain_id]["chain_type"])
             if residue_names:
-                chain_info_dict[chain_id]["residue_name_list"] = residue_names
-                chain_info_dict[chain_id]["residue_id_list"] = polymer_entity_id_to_residue_names_and_ids[rcsb_entity][
-                    "residue_ids"
-                ]
+                chain_info_dict[chain_id]["res_name"] = residue_names
+                chain_info_dict[chain_id]["res_id"] = polymer_entity_id_to_res_names_and_ids[rcsb_entity]["res_id"]
 
                 # Create the processed single-letter sequence representations
                 processed_entity_non_canonical_sequence = [
-                    get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=False)
-                    for residue in residue_names
+                    get_1_from_3_letter_code(ccd_code, chain_type, use_closest_canonical=False)
+                    for ccd_code in residue_names
                 ]
                 processed_entity_canonical_sequence = [
-                    get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=True)
-                    for residue in residue_names
+                    get_1_from_3_letter_code(ccd_code, chain_type, use_closest_canonical=True)
+                    for ccd_code in residue_names
                 ]
                 chain_info_dict[chain_id]["processed_entity_non_canonical_sequence"] = "".join(
                     processed_entity_non_canonical_sequence
@@ -289,13 +290,12 @@ def load_monomer_sequence_information_from_category(
             residue_name_list = atom_array.res_name[chain_res_starts]
 
             # Map any non-polymer residues not in the precompiled CCD data to "UNL" (unknown ligand)
-            available_ccd_codes = get_available_ccd_codes(ccd_mirror_path)
             residue_name_list = [
                 residue if residue in available_ccd_codes else UNKNOWN_LIGAND for residue in residue_name_list
             ]
 
-            chain_info_dict[chain_id]["residue_name_list"] = list(residue_name_list)
-            chain_info_dict[chain_id]["residue_id_list"] = list(residue_id_list)
+            chain_info_dict[chain_id]["res_name"] = list(residue_name_list)
+            chain_info_dict[chain_id]["res_id"] = list(residue_id_list)
 
         chain_info_dict[chain_id]["has_sequence_heterogeneity"] = (
             str(rcsb_entity) in entities_with_sequence_heterogeneity
@@ -303,7 +303,7 @@ def load_monomer_sequence_information_from_category(
 
     # Remove entries from chain_info_dict that have no residues
     chain_info_dict = {
-        chain_id: chain_info for chain_id, chain_info in chain_info_dict.items() if "residue_name_list" in chain_info
+        chain_id: chain_info for chain_id, chain_info in chain_info_dict.items() if "res_name" in chain_info
     }
 
     return chain_info_dict
