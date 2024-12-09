@@ -84,6 +84,9 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Avoid linting notebooks
 exclude = ["*.ipynb"]
+select = [
+    "I", # ... sort imports
+]
 
 [tool.pytest]
 testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
