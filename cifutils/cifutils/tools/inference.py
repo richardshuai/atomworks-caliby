@@ -22,14 +22,15 @@ from cifutils.constants import (
 from cifutils.common import exists
 from cifutils.enums import ChainType
 import cifutils.transforms.atom_array as ta
+from ciftuils.template import concatenate
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds
-from cifutils.utils.residue_utils import build_chem_comp_atom_list, get_chem_comp_type
+from cifutils.utils.ccd import get_ccd_component
 from cifutils.enums import ChainTypeInfo
 from cifutils.tools.fasta import split_generalized_fasta_sequence, one_letter_to_ccd_code
 from cifutils.utils.io_utils import read_any, get_structure
 from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import get_1_from_3_letter_code
-from cifutils.utils.ccd import check_ccd_codes_are_available
+from cifutils.utils.ccd import check_ccd_codes_are_available, get_chem_comp_type
 import logging
 
 logger = logging.getLogger("cifutils")
@@ -263,38 +264,36 @@ def sequence_to_atom_array(
     check_ccd_codes_are_available(ccd_codes_in_seq, ccd_mirror_path=ccd_mirror_path, mode="raise")
 
     # ... create a list of atoms based on the reference CCD entries
-    atom_list = []
-    atom_lens = []
+    atoms = []
     for res_id, ccd_code in enumerate(seq):
-        atoms_in_chem_comp = build_chem_comp_atom_list(ccd_code, keep_hydrogens=False, ccd_mirror_path=ccd_mirror_path)
-        atom_list.extend(atoms_in_chem_comp)
-        atom_lens.append(len(atoms_in_chem_comp))
+        res = get_ccd_component(ccd_code, ccd_mirror_path=ccd_mirror_path)
+        res.res_id = res_id
+        res.chain_id = chain_id
+        atoms.append(res)
 
-    # ... convert to AtomArray
-    atom_array = struc.array(atom_list)
-    atom_array.set_annotation("chain_id", [chain_id] * len(atom_array))
-    atom_array.set_annotation("res_id", np.repeat(np.arange(len(atom_lens)), atom_lens))
-    atom_array.set_annotation("index", np.arange(len(atom_array)))
+    # ... concatenate atoms to AtomArray
+    atom_array = concatenate(atoms)
 
     # Compute bonds and leaving groups
-    bond_list, leaving_atom_indices = get_inferred_polymer_bonds(
-        atom_array,
-        chain_id=chain_id,
-        chain_type=chain_type,
-        keep_hydrogens=False,
-        ccd_mirror_path=ccd_mirror_path,
-    )
+    polymer_bonds, polymer_bonds_leaving_atoms = get_inferred_polymer_bonds(atom_array)
     # ... add bonds to the atom array
-    atom_array.bonds = struc.BondList(atom_array.array_length(), bond_list)
+    atom_array.bonds = atoms.bonds.merge(struc.BondList(atom_array.array_length(), polymer_bonds))
     # ... remove the leaving groups
-    atom_array = atom_array[np.setdiff1d(atom_array.index, leaving_atom_indices)]
+    atom_array = atom_array[np.setdiff1d(np.arange(atom_array.array_length()), polymer_bonds_leaving_atoms)]
 
     # ... remove index annotation and leaving group annotations
-    atom_array.del_annotation("index")
-    atom_array.del_annotation("leaving_group")
-    atom_array.del_annotation("leaving_atom_flag")
+    _annotations_to_remove = [
+        "alt_atom_id",
+        "charge",
+        "is_leaving_atom",
+        "is_backbone_atom",
+        "is_n_terminal_atom",
+        "is_c_terminal_atom",
+    ]
+    for annotation in _annotations_to_remove:
+        atom_array.del_annotation(annotation)
 
-    # Add annotations
+    # Add custom annotations
     atom_array.set_annotation("occupancy", np.ones(atom_array.array_length()))
     atom_array.set_annotation("is_polymer", np.full(atom_array.array_length(), is_polymer))
     atom_array.set_annotation("chain_type", np.full(atom_array.array_length(), chain_type))

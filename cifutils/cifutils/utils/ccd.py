@@ -1,4 +1,5 @@
 import biotite.structure as struc
+from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH
 import biotite.structure.io.pdbx as pdbx
 import os
@@ -9,7 +10,6 @@ from functools import lru_cache, cache
 import toolz
 import networkx as nx
 from typing import Iterable
-
 
 logger = logging.getLogger(__name__)
 
@@ -248,7 +248,7 @@ def get_ccd_component(
         return get_ccd_component_from_biotite(ccd_code)
 
 
-def _find_new_components_after_removal(graph: nx.Graph, node_to_remove: int) -> list[list[int]]:
+def _find_connected_components_after_removal(graph: nx.Graph, node_to_remove: int) -> list[list[int]]:
     """
     Identifies connected components that would form after removing a node from a graph.
 
@@ -330,7 +330,7 @@ def get_chem_comp_leaving_atom_names(
     bond_graph = chem_comp.bonds.as_graph()
     for atom_idx in range(chem_comp.array_length()):
         # ... find the connected groups of atoms if the current atom were removed
-        connected_groups = _find_new_components_after_removal(bond_graph, atom_idx)
+        connected_groups = _find_connected_components_after_removal(bond_graph, atom_idx)
 
         # ... check if all atoms in the connected group are flagged as leaving atoms
         #     by the CCD entry
@@ -339,3 +339,45 @@ def get_chem_comp_leaving_atom_names(
                 leaving_atom_names[atom_name[atom_idx]] = tuple(atom_name[idx] for idx in connected_group)
 
     return leaving_atom_names
+
+
+@cache
+def _chem_comp_type_dict() -> dict[str, str]:
+    """
+    Get a dictionary of all residue names and their corresponding chemical component types.
+    """
+    ccd = struc.info.ccd.get_ccd()  # NOTE: biotite caches this internally
+    chem_comp_ids = np.char.upper(ccd["chem_comp"]["id"].as_array())
+    chem_comp_types = np.char.upper(ccd["chem_comp"]["type"].as_array())
+    return dict(zip(chem_comp_ids, chem_comp_types))
+
+
+@cache
+def get_chem_comp_type(
+    ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, mode: Literal["warn", "raise"] = "warn"
+) -> str:
+    """
+    Get the chemical component type for a CCD code from the Chemical Component Dictionary (CCD).
+    Can be combined with CHEM_TYPES from `cifutils_biotite.constants` to determine if a component is a
+    protein, nucleic acid, or carbohydrate.
+
+    Args:
+        ccd_code (str): The CCD code for the component. E.g. `ALA` for alanine, `NAP` for N-acetyl-D-glucosamine.
+
+    Example:
+        >>> get_chem_comp_type("ALA")
+        'L-PEPTIDE LINKING'
+    """
+    chem_comp_type = _chem_comp_type_dict().get(ccd_code, None)
+
+    # ... handle unknown chemical component types
+    if not exists(chem_comp_type):
+        if mode == "raise":
+            # ... raise an error if we want to fail loudly
+            raise ValueError(f"Chemical component type for `{ccd_code=}` not found in CCD.")
+        elif mode == "warn":
+            # ... otherwise set chemical component type to "other" - the equivalent of unknown.
+            logger.info(f"Chemical component type for `{ccd_code=}` not found in CCD. Using 'other'.")
+            chem_comp_type = "OTHER"
+
+    return chem_comp_type

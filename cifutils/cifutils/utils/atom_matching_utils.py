@@ -2,7 +2,7 @@
 Utility functions to support proper matching and resolution of residue atoms in a structure.
 """
 
-__all__ = ["standardize_heavy_atom_ids", "get_std_alt_atom_id_conversion"]
+__all__ = ["get_std_alt_atom_id_conversion"]
 
 import numpy as np
 from biotite.structure.atoms import AtomArray

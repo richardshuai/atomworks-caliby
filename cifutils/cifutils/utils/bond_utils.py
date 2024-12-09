@@ -25,33 +25,11 @@ from cifutils.constants import (
     STRUCT_CONN_BOND_ORDER_TO_INT,
 )
 import networkx as nx
-from cifutils.utils.residue_utils import get_chem_comp_type
+from cifutils.utils.ccd import get_chem_comp_type
 from cifutils.utils.ccd import get_chem_comp_leaving_atom_names
 import pandas as pd
 
 logger = logging.getLogger("cifutils")
-
-
-def _get_bond_type_from_order_and_is_aromatic(order, is_aromatic):
-    """Get the biotite struc.BondType from the bond order and aromaticity."""
-    aromatic_bond_types = {
-        1: struc.BondType.AROMATIC_SINGLE,
-        2: struc.BondType.AROMATIC_DOUBLE,
-        3: struc.BondType.AROMATIC_TRIPLE,
-    }
-
-    non_aromatic_bond_types = {
-        1: struc.BondType.SINGLE,
-        2: struc.BondType.DOUBLE,
-        3: struc.BondType.TRIPLE,
-        4: struc.BondType.QUADRUPLE,
-    }
-
-    return (
-        aromatic_bond_types.get(order, struc.BondType.ANY)
-        if is_aromatic
-        else non_aromatic_bond_types.get(order, struc.BondType.ANY)
-    )
 
 
 def _get_leaving_atom_idxs_for(atom_name: str, res_name: str, atom_names: np.ndarray, offset: int = 0) -> np.ndarray:
@@ -206,8 +184,7 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
 def get_struct_conn_bonds(
     atom_array: AtomArray,
     struct_conn_dict: dict[str, np.ndarray],
-    ignore_ccd: list[str] = [],
-    keep_bond_types: list[str] = ["covale"],
+    add_bond_types: list[str] = ["covale"],
 ) -> tuple[list[tuple[int, int, struc.BondType]], np.ndarray]:
     """
     Adds bonds from the 'struct_conn' category of a CIF block to an atom array. Only covalent bonds are considered.
@@ -231,8 +208,7 @@ def get_struct_conn_bonds(
                 'ptnr2_symmetry': array(['1_555', ...]),
                 }
             ```
-        ignore_ccd (list[str]): A list of CCD codes that should be ignored.
-        keep_bonds (list[str]): A list of bond types that should be kept. Valid bond types
+        add_bond_types (list[str]): A list of bond types that should be added. Valid bond types
             are: ["covale", "disulf", "metalc", "hydrog"]. Defaults to ["covale"], which is
             the use-case in structure-prediction, where we would a-priori know covalent bonds
             (except for disulfides).
@@ -245,7 +221,7 @@ def get_struct_conn_bonds(
         - https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_struct_conn.conn_type_id.html
     """
     # ... validate input
-    invalid_bond_types = set(keep_bond_types) - STRUCT_CONN_BOND_TYPES
+    invalid_bond_types = set(add_bond_types) - STRUCT_CONN_BOND_TYPES
     if len(invalid_bond_types) > 0:
         raise ValueError(
             f"Invalid bond type(s) provided: {invalid_bond_types}! Valid bond types are: {STRUCT_CONN_BOND_TYPES}"
@@ -253,11 +229,9 @@ def get_struct_conn_bonds(
     if len(struct_conn_dict) == 0:
         return [], np.array([], dtype=int)
 
-    # ... get the standard-to-alternative atom name mapping
-    # ... convert struct_conn_dict to a DataFrame and filter for the bond types we want to keep
+    # ... convert struct_conn_dict to a DataFrame
     struct_conn_df = pd.DataFrame(struct_conn_dict)
-    struct_conn_df = struct_conn_df[struct_conn_df["conn_type_id"].isin(keep_bond_types)]
-
+    struct_conn_df = struct_conn_df[struct_conn_df["conn_type_id"].isin(add_bond_types)]
     if struct_conn_df.empty:
         # ... skip if no bonds to add
         return [], np.array([], dtype=int)
@@ -277,6 +251,7 @@ def get_struct_conn_bonds(
         if "uses_alt_atom_id" in atom_array.get_annotation_categories()
         else np.zeros(len(atom_array), dtype=bool)
     )
+    all_res_names = np.unique(res_names)
     all_chain_ids = np.unique(chain_ids)
     polymer_chain_ids = np.unique(chain_ids[is_polymer])
 
@@ -287,8 +262,8 @@ def get_struct_conn_bonds(
     for _, row in struct_conn_df.iterrows():
         res_name1 = row["ptnr1_label_comp_id"]
         res_name2 = row["ptnr2_label_comp_id"]
-        if (res_name1 in ignore_ccd) or (res_name2 in ignore_ccd):
-            # ... skip if the residues are ignored
+        if (res_name1 not in all_res_names) or (res_name2 not in all_res_names):
+            # ... skip if the residues were removed from the structure
             continue
 
         chain_id1 = row["ptnr1_label_asym_id"]
@@ -570,36 +545,37 @@ def generate_inter_level_bond_hash(
         return ""
 
 
-def fix_bonded_atom_charges(atom):
-    """
-    Fix charges and hydrogen counts for cases when
-    charged a atom is connected by an inter-residue bond.
+# TODO: Reimplement with improved tools
+# def fix_bonded_atom_charges(atom):
+#     """
+#     Fix charges and hydrogen counts for cases when
+#     charged a atom is connected by an inter-residue bond.
 
-    Args:
-        atom (Atom): The atom object to be modified.
+#     Args:
+#         atom (Atom): The atom object to be modified.
 
-    Returns:
-        dict: A dictionary with updated 'charge', 'hyb', and 'nhyd' values.
-    """
-    # TODO(smathis): Obsolete.
-    # ...convert to int for comparison
-    element = atom.element.astype(int)
-    charge = atom.charge.astype(int)
-    nhyd = atom.nhyd.astype(int)
-    hyb = atom.hyb.astype(int)
-    hvydeg = atom.hvydeg.astype(int)
+#     Returns:
+#         dict: A dictionary with updated 'charge', 'hyb', and 'nhyd' values.
+#     """
+#     # TODO(smathis): Obsolete.
+#     # ...convert to int for comparison
+#     element = atom.element.astype(int)
+#     charge = atom.charge.astype(int)
+#     nhyd = atom.nhyd.astype(int)
+#     hyb = atom.hyb.astype(int)
+#     hvydeg = atom.hvydeg.astype(int)
 
-    # ...manually fix charges and hydrogen counts for certain cases
-    #    for nitrogen
-    if element == 7 and charge == 1 and hyb == 3 and nhyd == 2 and hvydeg == 2:  # -(NH2+)-
-        return {"charge": 0, "hyb": 2, "nhyd": 0}
-    elif element == 7 and charge == 1 and hyb == 3 and nhyd == 3 and hvydeg == 0:  # free NH3+ group
-        return {"charge": 0, "hyb": 2, "nhyd": 2}
-    #    for oxygen
-    elif element == 8 and charge == -1 and hyb == 3 and nhyd == 0:
-        return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
-    elif element == 8 and charge == -1 and hyb == 2 and nhyd == 0:  # O-linked connections
-        return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
+#     # ...manually fix charges and hydrogen counts for certain cases
+#     #    for nitrogen
+#     if element == 7 and charge == 1 and hyb == 3 and nhyd == 2 and hvydeg == 2:  # -(NH2+)-
+#         return {"charge": 0, "hyb": 2, "nhyd": 0}
+#     elif element == 7 and charge == 1 and hyb == 3 and nhyd == 3 and hvydeg == 0:  # free NH3+ group
+#         return {"charge": 0, "hyb": 2, "nhyd": 2}
+#     #    for oxygen
+#     elif element == 8 and charge == -1 and hyb == 3 and nhyd == 0:
+#         return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
+#     elif element == 8 and charge == -1 and hyb == 2 and nhyd == 0:  # O-linked connections
+#         return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
 
-    # ...default (no change)
-    return {"charge": charge, "hyb": hyb, "nhyd": nhyd}
+#     # ...default (no change)
+#     return {"charge": charge, "hyb": hyb, "nhyd": nhyd}

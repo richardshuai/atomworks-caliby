@@ -309,8 +309,7 @@ def match_array_to_template(
 def add_missing_atoms(
     atom_array: AtomArray,
     struct_conn_dict: dict = {},
-    ignore_ccd: list[str] = [],
-    keep_bond_types: list[str] = ["covale"],
+    add_bond_types_from_struct_conn: list[str] = ["covale"],
     keep_hydrogens: bool = False,
     use_ccd_charges: bool = True,
 ) -> AtomArray:
@@ -332,8 +331,7 @@ def add_missing_atoms(
     struct_conn_bonds, struct_conn_leaving_atom_idxs = get_struct_conn_bonds(
         atoms,
         struct_conn_dict=struct_conn_dict,
-        ignore_ccd=ignore_ccd,
-        keep_bond_types=keep_bond_types,
+        add_bond_types=add_bond_types_from_struct_conn,
     )
 
     # ... merge all inter-residue bonds

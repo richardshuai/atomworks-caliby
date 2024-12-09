@@ -22,12 +22,13 @@ from pathlib import Path
 import io
 from cifutils.utils.io_utils import read_any, get_structure, to_cif_buffer
 from cifutils.utils.chain_utils import create_chain_id_generator
-from cifutils.common import exists, default
+from cifutils.common import exists
 from cifutils.transforms.categories import (
     get_chain_info_from_category,
     get_metadata_from_category,
     load_monomer_sequence_information_from_category,
     get_ligand_of_interest_info,
+    category_to_dict,
 )
 import cifutils.transforms.atom_array as ta
 from cifutils.utils.non_rcsb_utils import (
@@ -36,7 +37,6 @@ from cifutils.utils.non_rcsb_utils import (
     infer_processed_entity_sequences_from_atom_array,
 )
 from cifutils.utils.assembly_utils import process_assemblies
-from cifutils.utils.residue_utils import add_missing_atoms_as_unresolved
 from cifutils.utils.non_rcsb_utils import get_identity_assembly_gen_category, get_identity_op_expr_category
 import biotite.structure as struc
 from biotite.structure import AtomArrayStack
@@ -44,6 +44,7 @@ from biotite.file import InvalidFileError
 from cifutils.constants import CCD_MIRROR_PATH, WATER_LIKE_CCDS
 from cifutils.utils.ccd import check_ccd_codes_are_available
 from toolz import keyfilter
+from cifutils import template
 
 logger = logging.getLogger("cifutils")
 
@@ -71,17 +72,7 @@ class CIFParser:
 
     def _validate_arguments(self, **kwargs):
         """Validate the arguments passed to the CIFParser object."""
-
         # Transform related arguments
-        add_missing_atoms = kwargs.get("add_missing_atoms")
-        add_bonds = kwargs.get("add_bonds")
-        add_id_and_entity_annotations = kwargs.get("add_id_and_entity_annotations")
-        if (not add_missing_atoms) and add_bonds:
-            raise ValueError("`add_bonds` requires `add_missing_atoms` to be True")
-
-        if (not add_bonds) and add_id_and_entity_annotations:
-            raise ValueError("`add_id_and_entity_annotations` requires `add_bonds` to be True")
-
         residues_to_remove = kwargs.get("residues_to_remove")
         check_ccd_codes_are_available(residues_to_remove, ccd_mirror_path=self.ccd_mirror_path, mode="warn")
 
@@ -149,7 +140,7 @@ class CIFParser:
                             struct_oper_category=extra_info["struct_oper_category"],
                             asym_unit_atom_array_stack=asym_unit,
                             build_assembly=kwargs.get("build_assembly", "all"),
-                            patch_symmetry_centers=kwargs.get("patch_symmetry_centers", True),
+                            fix_symmetry_centers=kwargs.get("patch_symmetry_centers", True),
                         )
                     else:
                         assemblies = asym_unit
@@ -202,7 +193,6 @@ class CIFParser:
         save_to_cache: bool = False,
         assume_residues_all_resolved: bool = False,
         add_missing_atoms: bool = True,
-        add_bonds: bool = True,
         add_id_and_entity_annotations: bool = True,
         remove_ccds: list[str] = CRYSTALLIZATION_AIDS,  # TODO: rename to `remove_ccd_codes`
         patch_symmetry_centers: bool = True,  # TODO: rename to `fix_symmetry_centers`
@@ -212,6 +202,7 @@ class CIFParser:
         keep_hydrogens: bool = True,  # TODO: rename to `remove_hydrogens`
         remove_waters: bool = True,
         model: int | None = None,
+        add_bond_types_from_struct_conn: list[str] = ["covale"],
         **kwargs,
     ) -> dict:
         """
@@ -277,7 +268,7 @@ class CIFParser:
             fallback_filename = list(cif_file.keys())[0]
         else:
             fallback_filename = Path(filename).stem
-        data_dict["metadata"] = get_metadata_from_category(data_dict["cif_block"], fallback_id=fallback_filename)
+        data_dict["metadata"] = get_metadata_from_category(cif_file.block, fallback_id=fallback_filename)
 
         # ...load structure into the "asym_unit" key using the RCSB labels for sequence ids, and later update for non-polymers
         common_extra_fields = [
@@ -312,9 +303,9 @@ class CIFParser:
         data_dict["asym_unit"] = asym_unit_stack
 
         # ...load chain information from the first model (uses atom_array to build chain list)
-        if "entity" and "entity_poly" in data_dict["cif_block"]:
+        if "entity" and "entity_poly" in cif_file.block:
             # We can get the chain information directly from the CIF file
-            data_dict["chain_info"] = get_chain_info_from_category(data_dict["cif_block"], data_dict["asym_unit"][0])
+            data_dict["chain_info"] = get_chain_info_from_category(cif_file.block, data_dict["asym_unit"][0])
         else:
             # We must infer the chain information from the AtomArray residue names (not bulletproof)
             data_dict["chain_info"] = infer_chain_info_from_atom_array(data_dict["asym_unit"][0])
@@ -342,7 +333,7 @@ class CIFParser:
         if not assume_residues_all_resolved:
             # Use the `entity_poly_seq` category as ground-truth for polymers, and the AtomArray as ground-truth for non-polymers
             data_dict["chain_info"] = load_monomer_sequence_information_from_category(
-                cif_block=data_dict["cif_block"],
+                cif_block=cif_file.block,
                 chain_info_dict=data_dict["chain_info"],
                 atom_array=asym_unit_stack,
                 ccd_mirror_path=self.ccd_mirror_path,
@@ -368,15 +359,15 @@ class CIFParser:
         for model_idx in range(asym_unit_stack.stack_depth()):
             atom_array = data_dict["asym_unit"][model_idx]
 
-            # ...optionally, create a larger atom array that includes missing atoms (e.g., hydrogens), then populate with atoms details loaded from structure
-            # NOTE: If adding bonds, we must add missing atoms to ensure we can later remove leaving atoms
+            # ... add any atoms that should be there based on the sequence information
+            #     but may not be resolved. These will have occupancy 0.0 and `nan` coords.
             if add_missing_atoms:
-                # Add missing atoms to the atom array, using the reference residue as a template
-                atom_array = add_missing_atoms_as_unresolved(
+                atom_array = template.add_missing_atoms(
                     atom_array,
-                    chain_info_dict=data_dict["chain_info"],
+                    struct_conn_dict=category_to_dict(cif_file.block, "struct_conn"),
+                    add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
                     keep_hydrogens=keep_hydrogens,
-                    ccd_mirror_path=self.ccd_mirror_path,
+                    use_ccd_charges=True,
                 )
 
             if assume_residues_all_resolved:
@@ -391,18 +382,6 @@ class CIFParser:
             # ...convert MSE to MET
             if convert_mse_to_met:
                 atom_array = ta.mse_to_met(atom_array)
-
-            # ...generate and add bonds to the atom array bond list
-            if add_bonds:
-                atom_array = ta.add_bonds_to_bondlist_and_remove_leaving_atoms(
-                    cif_block=data_dict["cif_block"],
-                    atom_array=atom_array,
-                    chain_info=data_dict["chain_info"],
-                    keep_hydrogens=keep_hydrogens,  # needed for leaving group resolution
-                    converted_res=_converted_res,  # needed for leaving group resolution
-                    ignored_res=default(remove_ccds, []),
-                    ccd_mirror_path=CCD_MIRROR_PATH,  # self.ccd_mirror_path,
-                )
 
             # ... add identifiers and entity annotations
             if add_id_and_entity_annotations:
@@ -434,7 +413,7 @@ class CIFParser:
                 struct_oper_category=struct_oper_category,
                 asym_unit_atom_array_stack=data_dict["asym_unit"],
                 build_assembly=build_assembly,
-                patch_symmetry_centers=patch_symmetry_centers,
+                fix_symmetry_centers=patch_symmetry_centers,
             )
 
             # If we're caching, we need to store the assembly information in extra_info
@@ -449,10 +428,10 @@ class CIFParser:
 
         # ...remove annotations that are no longer needed to save memory
         _remove_annotations = {
-            "ins_code",
-            "hetero",
             "leaving_atom_flag",
-            "leaving_group",
+            "is_leaving_atom",
+            "is_n_terminal_atom",
+            "is_c_terminal_atom",
             "index",
         }
         for annotation in _remove_annotations:

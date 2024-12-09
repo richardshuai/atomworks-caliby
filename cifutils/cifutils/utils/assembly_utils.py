@@ -9,7 +9,7 @@ from biotite.structure.io.pdbx import CIFCategory
 from biotite.structure import AtomArrayStack
 from typing import Literal
 from cifutils.transforms.atom_array import (
-    maybe_patch_non_polymer_at_symmetry_center,
+    maybe_fix_non_polymer_at_symmetry_center,
     add_iid_annotations_to_assemblies,
 )
 import numpy as np
@@ -156,7 +156,7 @@ def process_assemblies(
     assembly_gen_category: CIFCategory,
     struct_oper_category: CIFCategory,
     asym_unit_atom_array_stack: AtomArrayStack,
-    patch_symmetry_centers: bool,
+    fix_symmetry_centers: bool,
     build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
 ) -> None:
     """
@@ -166,7 +166,7 @@ def process_assemblies(
         assembly_gen_category (CIFCategory): The `pdbx_struct_assembly_gen` category from the CIF file.
         struct_oper_category (CIFCategory): The `pdbx_struct_oper_list` category from the CIF file.
         asym_unit_atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied (the asymmetric unit).
-        patch_symmetry_centers (bool): Flag to indicate if symmetry centers should be patched.
+        fix_symmetry_centers (bool): Flag to indicate if non-polymers at symmetry centers should be patched.
         build_assembly (string, list, or tuple, optional): Specifies which assembly to build, if any. Options are None
             (e.g., asymmetric unit), "first", "all", or a list or tuple of assembly IDs. Defaults to "all".
 
@@ -184,8 +184,8 @@ def process_assemblies(
     assemblies = add_iid_annotations_to_assemblies(assemblies)
 
     # Optionally, patch symmetry centers for non-polymer residues that clash with themselves
-    if patch_symmetry_centers and len(assemblies) > 0:
+    if fix_symmetry_centers and len(assemblies) > 0:
         for idx, assembly in assemblies.items():
-            assemblies[idx] = maybe_patch_non_polymer_at_symmetry_center(assembly)
+            assemblies[idx] = maybe_fix_non_polymer_at_symmetry_center(assembly)
 
     return assemblies

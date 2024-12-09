@@ -9,23 +9,18 @@ import pandas as pd
 import biotite.structure as struc
 from collections import Counter
 import logging
-from biotite.structure.io.pdbx import CIFBlock
 import networkx as nx
 from collections import defaultdict
 from cifutils.utils.bond_utils import (
-    get_struct_conn_bonds,
-    get_inferred_polymer_bonds,
     get_coarse_graph_as_nodes_and_edges,
     get_connected_nodes,
     hash_graph,
     generate_inter_level_bond_hash,
 )
-from cifutils.common import exists, deduplicate_iterator
 from cifutils.enums import ChainType
 from cifutils.utils.selection_utils import annot_start_stop_idxs
 from cifutils.common import sum_string_arrays, not_isin
-from cifutils.constants import CCD_MIRROR_PATH, ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
-import os
+from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
 
 logger = logging.getLogger("cifutils")
 
@@ -171,7 +166,7 @@ def keep_last_residue(atom_array: AtomArray | AtomArrayStack) -> AtomArray | Ato
     return subset_atom_array(atom_array, keep)
 
 
-def maybe_patch_non_polymer_at_symmetry_center(
+def maybe_fix_non_polymer_at_symmetry_center(
     atom_array_stack: AtomArrayStack, clash_distance: float = 1.0, clash_ratio: float = 0.5
 ) -> AtomArrayStack:
     """
@@ -514,7 +509,9 @@ def add_chain_iid_annotation(atom_array_stack: AtomArrayStack) -> AtomArrayStack
     return atom_array_stack
 
 
-def add_iid_annotations_to_assemblies(assemblies_dict: dict) -> dict:
+def add_iid_annotations_to_assemblies(
+    assemblies_dict: dict[str | int, AtomArray | AtomArrayStack],
+) -> dict[str | int, AtomArray | AtomArrayStack]:
     """Adds chain, PN unit, and molecule IIDs to assembly AtomArrayStacks."""
     for assembly_id, assembly in assemblies_dict.items():
         # ...add chain IIDs
@@ -560,17 +557,19 @@ def add_id_and_entity_annotations(atom_array: AtomArray) -> AtomArray:
     return atom_array
 
 
-def add_chain_type_annotation(atom_array: AtomArray, chain_info_dict: dict) -> AtomArray:
+def add_chain_type_annotation(
+    atom_array: AtomArray | AtomArrayStack, chain_info_dict: dict
+) -> AtomArray | AtomArrayStack:
     """
     Adds a chain_type annotation to the AtomArray.
 
     Args:
-        - atom_array (AtomArray): The full atom array.
+        - atom_array (AtomArray | AtomArrayStack): The full atom array.
         - chain_info_dict (dict): A dictionary mapping chain IDs to chain information,
             including the chain type (output of CIFUtils Biotite parser).
 
     Returns:
-        - AtomArray: The AtomArray with the chain_type annotation added.
+        - AtomArray | AtomArrayStack: The AtomArray with the chain_type annotation added.
     """
     # Add annotation for chain_type as an integer
     atom_array.add_annotation("chain_type", dtype=np.int8)
@@ -581,76 +580,3 @@ def add_chain_type_annotation(atom_array: AtomArray, chain_info_dict: dict) -> A
 
     # Return the modified atom array
     return atom_array
-
-
-def add_bonds_to_bondlist_and_remove_leaving_atoms(
-    cif_block: CIFBlock,
-    atom_array: AtomArray,
-    chain_info: dict,
-    keep_hydrogens: bool,
-    converted_res: dict = {},
-    ignored_res: list = [],
-    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
-) -> AtomArray:
-    """
-    Add bonds to the atom array using precomputed CCD data and the mmCIF `struct_conn` field.
-    After adding the bonds, remove the leaving atoms and bonds to the leaving atoms.
-
-    Args:
-        cif_block (CIFBlock): The CIF file block containing the structure data.
-        atom_array (AtomArray): The atom array to which the bonds will be added.
-        chain_info_dict (dict): A dictionary containing information about the chains in the structure.
-        keep_hydrogens (bool): Whether to add hydrogens to the atom array.
-        converted_res (dict): A dictionary containing the residue conversions.
-        ignored_res (list): A list of residues to ignore when adding bonds.
-        ccd_mirror_path (os.PathLike): The path to the processed CCD data from which
-            reference bond information will be read.
-    Returns:
-        AtomArray: The updated atom array with bonds added.
-    """
-    # Step 0: Add index to atom_array for ease of access
-    atom_array.set_annotation("index", np.arange(len(atom_array)))
-
-    # Step 1: Add inter-residue and inter-chain bonds from the `struct_conn` category in the CIF file
-    leaving_atom_indices = []
-    struct_conn_bonds, struct_conn_leaving_atom_indices = get_struct_conn_bonds(
-        cif_block, chain_info, atom_array, converted_res, ignored_res
-    )
-
-    if exists(struct_conn_leaving_atom_indices) and len(struct_conn_leaving_atom_indices) > 0:
-        leaving_atom_indices.append(np.concatenate(struct_conn_leaving_atom_indices))
-
-    # Step 2: Add inter-residue and intra-residue bonds
-    inter_and_intra_residue_bonds = []
-    for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
-        chain_bonds, chain_leaving_atom_indices = get_inferred_polymer_bonds(
-            atom_array=atom_array,
-            chain_id=chain_id,
-            chain_type=chain_info[chain_id]["type"],
-            keep_hydrogens=keep_hydrogens,
-            ccd_mirror_path=ccd_mirror_path,
-        )
-        if exists(chain_bonds):
-            inter_and_intra_residue_bonds.append(chain_bonds)
-        if exists(chain_leaving_atom_indices) and len(chain_leaving_atom_indices) > 0:
-            leaving_atom_indices.append(chain_leaving_atom_indices)
-
-    if len(struct_conn_bonds) == 0:
-        combined_bonds = np.vstack(inter_and_intra_residue_bonds)
-    else:
-        combined_bonds = np.vstack((np.vstack(inter_and_intra_residue_bonds), struct_conn_bonds))
-
-    # Step 3: Add the bonds to the atom array
-    bond_list = struc.BondList(len(atom_array), combined_bonds)
-    atom_array.bonds = bond_list
-
-    # Step 4: Delete leaving atoms and bonds to leaving atoms
-    if len(leaving_atom_indices) > 0:
-        leaving_atoms = np.unique(np.concatenate(leaving_atom_indices))
-        all_atom_indices = atom_array.index
-        return atom_array[np.setdiff1d(all_atom_indices, leaving_atoms, True)]
-    else:
-        logger.info(
-            "No leaving atoms found in the structure - this is expected if using `assume_residues_all_resolved` with a computationally-predicted file."
-        )
-        return atom_array
