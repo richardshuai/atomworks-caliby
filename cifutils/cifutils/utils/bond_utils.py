@@ -179,7 +179,7 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
         # ... if polymer annotation was not present before, we set it here based on the inferred bonds
         atom_array.set_annotation("is_polymer", is_polymer)
 
-    return np.array(bonds), np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
+    return np.array(bonds).reshape(-1, 3), np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
 
 
 def get_struct_conn_bonds(
@@ -228,14 +228,14 @@ def get_struct_conn_bonds(
             f"Invalid bond type(s) provided: {invalid_bond_types}! Valid bond types are: {STRUCT_CONN_BOND_TYPES}"
         )
     if len(struct_conn_dict) == 0:
-        return np.array([], dtype=int), np.array([], dtype=int)
+        return np.empty((0, 3), dtype=int), np.empty((0,), dtype=int)
 
     # ... convert struct_conn_dict to a DataFrame
     struct_conn_df = pd.DataFrame(struct_conn_dict)
     struct_conn_df = struct_conn_df[struct_conn_df["conn_type_id"].isin(add_bond_types)]
     if struct_conn_df.empty:
         # ... skip if no bonds to add
-        return np.array([], dtype=int), np.array([], dtype=int)
+        return np.empty((0, 3), dtype=int), np.empty((0,), dtype=int)
     logger.debug(f"Attempting to add {len(struct_conn_df)} bonds from `struct_conn`")
 
     # ... extract relevant annotations
@@ -375,7 +375,7 @@ def get_struct_conn_bonds(
 
         # Fix charges (TODO: Implement)
 
-    return np.array(bonds), np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
+    return np.array(bonds).reshape(-1, 3), np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
 
 
 def get_coarse_graph_as_nodes_and_edges(atom_array: AtomArray, annotations: str | tuple[str]):

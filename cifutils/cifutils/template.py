@@ -390,7 +390,7 @@ def add_missing_atoms(
 
     # ... merge all leaving group indices
     is_leaving = np.zeros(len(atoms), dtype=bool)
-    is_leaving[np.concatenate((polymer_bond_leaving_atom_idxs, struct_conn_leaving_atom_idxs))] = True
+    is_leaving[np.concatenate((polymer_bond_leaving_atom_idxs, struct_conn_leaving_atom_idxs), axis=0)] = True
     #     and remove them from the atom array
     atoms = atoms[~is_leaving]
 
