@@ -13,12 +13,12 @@ __all__ = [
 
 import logging
 
-import biotite.structure as struc
 import networkx as nx
 import numpy as np
 import pandas as pd
-from biotite.structure import AtomArray
 
+import biotite.structure as struc
+from biotite.structure import AtomArray
 from cifutils.common import exists, to_hashable
 from cifutils.constants import (
     AA_OR_NA_CHEM_COMP_TYPES,
