@@ -383,7 +383,7 @@ def add_missing_atoms(
     # ... merge all inter-residue bonds
     inter_bonds = BondList(
         atom_count=atoms.array_length(),
-        bonds=np.array(polymer_bonds + struct_conn_bonds),
+        bonds=np.concatenate((polymer_bonds, struct_conn_bonds)),
     )
     #    and add them to the atom array
     atoms.bonds = atoms.bonds.merge(inter_bonds)

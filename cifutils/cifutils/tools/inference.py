@@ -24,7 +24,7 @@ from cifutils.constants import (
     UNKNOWN_LIGAND,
 )
 from cifutils.enums import ChainType, ChainTypeInfo
-from cifutils.template import concatenate
+from cifutils.template import build_template_atom_array
 from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds
 from cifutils.utils.ccd import check_ccd_codes_are_available, get_ccd_component, get_chem_comp_type
@@ -268,22 +268,23 @@ def sequence_to_atom_array(
     check_ccd_codes_are_available(ccd_codes_in_seq, ccd_mirror_path=ccd_mirror_path, mode="raise")
 
     # ... create a list of atoms based on the reference CCD entries
-    atoms = []
-    for res_id, ccd_code in enumerate(seq):
-        res = get_ccd_component(ccd_code, ccd_mirror_path=ccd_mirror_path)
-        res.res_id = res_id
-        res.chain_id = chain_id
-        atoms.append(res)
-
-    # ... concatenate atoms to AtomArray
-    atom_array = concatenate(atoms)
+    atom_array = build_template_atom_array(
+        chain_info_dict={
+            chain_id: dict(res_name=seq, res_id=np.arange(len(seq)), chain_type=chain_type, is_polymer=is_polymer)
+        },
+        atom_array=None,
+        keep_hydrogens=False,
+        use_ccd_charges=True,
+        ccd_mirror_path=ccd_mirror_path,
+    )
 
     # Compute bonds and leaving groups
     polymer_bonds, polymer_bonds_leaving_atoms = get_inferred_polymer_bonds(atom_array)
     # ... add bonds to the atom array
-    atom_array.bonds = atoms.bonds.merge(struc.BondList(atom_array.array_length(), polymer_bonds))
+    atom_array.bonds = atom_array.bonds.merge(struc.BondList(atom_array.array_length(), polymer_bonds))
     # ... remove the leaving groups
     atom_array = atom_array[np.setdiff1d(np.arange(atom_array.array_length()), polymer_bonds_leaving_atoms)]
+    # TODO: Add functionality to support custom `struct_conn` bonds
 
     # ... remove index annotation and leaving group annotations
     _annotations_to_remove = [

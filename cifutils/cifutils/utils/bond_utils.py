@@ -57,7 +57,7 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
             chain_id, res_id, res_name, and atom_name. Optionally includes chain_type annotation.
 
     Returns:
-        - polymer_bonds (List[Tuple[int, int, struc.BondType]]): List of tuples containing (atom1_idx, atom2_idx,
+        - polymer_bonds (np.array[[int, int, struc.BondType]]): List of tuples containing (atom1_idx, atom2_idx,
             bond_type) for each inferred polymer bond.
         - leaving_atom_idxs (np.ndarray): Array of atom indices that represent leaving groups displaced during bond
             formation.
@@ -179,14 +179,14 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
         # ... if polymer annotation was not present before, we set it here based on the inferred bonds
         atom_array.set_annotation("is_polymer", is_polymer)
 
-    return bonds, np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
+    return np.array(bonds), np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
 
 
 def get_struct_conn_bonds(
     atom_array: AtomArray,
     struct_conn_dict: dict[str, np.ndarray],
     add_bond_types: list[str] = ["covale"],
-) -> tuple[list[tuple[int, int, struc.BondType]], np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Adds bonds from the 'struct_conn' category of a CIF block to an atom array. Only covalent bonds are considered.
 
@@ -215,7 +215,7 @@ def get_struct_conn_bonds(
             (except for disulfides).
 
     Returns:
-        bonds (list[tuple[int, int, struc.BondType]]): A List of bonds to be added to the atom array.
+        bonds (np.array[[int, int, struc.BondType]]): A List of bonds to be added to the atom array.
         leaving (np.ndarray): An array of indices of atoms that are leaving groups for bookkeeping.
 
     References:
@@ -228,14 +228,14 @@ def get_struct_conn_bonds(
             f"Invalid bond type(s) provided: {invalid_bond_types}! Valid bond types are: {STRUCT_CONN_BOND_TYPES}"
         )
     if len(struct_conn_dict) == 0:
-        return [], np.array([], dtype=int)
+        return np.array([], dtype=int), np.array([], dtype=int)
 
     # ... convert struct_conn_dict to a DataFrame
     struct_conn_df = pd.DataFrame(struct_conn_dict)
     struct_conn_df = struct_conn_df[struct_conn_df["conn_type_id"].isin(add_bond_types)]
     if struct_conn_df.empty:
         # ... skip if no bonds to add
-        return [], np.array([], dtype=int)
+        return np.array([], dtype=int), np.array([], dtype=int)
     logger.debug(f"Attempting to add {len(struct_conn_df)} bonds from `struct_conn`")
 
     # ... extract relevant annotations
@@ -375,7 +375,7 @@ def get_struct_conn_bonds(
 
         # Fix charges (TODO: Implement)
 
-    return bonds, np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
+    return np.array(bonds), np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
 
 
 def get_coarse_graph_as_nodes_and_edges(atom_array: AtomArray, annotations: str | tuple[str]):
