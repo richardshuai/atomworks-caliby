@@ -83,9 +83,10 @@ docstring-code-line-length = 88
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Avoid linting notebooks
-exclude = ["*.ipynb"]
 select = [
     "I", # ... sort imports
+    "F",  # ... remove unused imports
+    "W",  # ... fix warnings
 ]
 
 [tool.pytest]
