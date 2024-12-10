@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pytest
 
 from cifutils.common import not_isin
@@ -17,6 +18,9 @@ def test_mse_to_met_residue(ccd_mirror_path: os.PathLike | None):
     # Test with local CCD data
     mse = get_ccd_component("MSE", ccd_mirror_path=ccd_mirror_path)
     met = get_ccd_component("MET", ccd_mirror_path=ccd_mirror_path)
+    # Set coordinates to `nan` to avoid comparing coordinates
+    mse.coord[:] = np.nan
+    met.coord[:] = np.nan
     is_heavy = lambda x: not_isin(x.element, HYDROGEN_LIKE_SYMBOLS)  # noqa
     mse_converted = mse_to_met(mse)
     assert_same_atom_array(mse_converted[is_heavy(mse_converted)], met[is_heavy(met)])
@@ -28,10 +32,9 @@ def test_mse_to_met_pdb(pdb_id: str):
     result = CIF_PARSER_BIOTITE.parse(
         filename=path,
         add_missing_atoms=True,
-        add_bonds=True,
         remove_waters=True,
         build_assembly="all",
-        patch_symmetry_centers=True,
+        fix_symmetry_centers=True,
         fix_arginines=True,
         convert_mse_to_met=True,
     )

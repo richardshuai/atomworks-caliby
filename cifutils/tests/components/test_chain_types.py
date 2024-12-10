@@ -85,7 +85,7 @@ CHAIN_TYPE_TEST_CASES = [
             "B": ChainType.POLYPEPTIDE_L,
             "C": ChainType.POLYPEPTIDE_L,
             "D": ChainType.POLYPEPTIDE_L,
-            "E": ChainType.NON_POLYMER,  # Oligosaccharide
+            "E": ChainType.BRANCHED,  # Oligosaccharide
             "F": ChainType.NON_POLYMER,  # Monosaccharide
             "G": ChainType.NON_POLYMER,  # Monosaccharide
             "H": ChainType.NON_POLYMER,
@@ -129,4 +129,6 @@ def test_chain_types(test_case: dict[str, Any]):
 
         # ...check that the type matches the expected type for chains that we care about
         if pn_unit_id.astype(str) in test_case["chain_types"]:
-            assert ChainType(pn_unit_atom_array.chain_type[0]) == test_case["chain_types"][pn_unit_id.astype(str)]
+            got = ChainType.as_enum(pn_unit_atom_array.chain_type[0])
+            expected = test_case["chain_types"][pn_unit_id.astype(str)]
+            assert got == expected, f"Mismatch for {pn_unit_id=}: {got=}, {expected=}"

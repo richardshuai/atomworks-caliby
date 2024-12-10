@@ -17,10 +17,9 @@ def test_remove_hydrogens(pdb_id: str):
     result_no_hydrogens = CIF_PARSER_BIOTITE.parse(
         filename=path,
         add_missing_atoms=True,
-        add_bonds=True,
         remove_waters=True,
         build_assembly="all",
-        patch_symmetry_centers=True,
+        fix_symmetry_centers=True,
         fix_arginines=True,
         keep_hydrogens=False,
     )
