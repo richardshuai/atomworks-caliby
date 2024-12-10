@@ -37,7 +37,7 @@ def test_af2_predicted_pdb_example():
     result = CIF_PARSER_BIOTITE.parse(
         filename=DIR / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb",
         remove_waters=True,
-        residues_to_remove=[],
+        remove_ccds=[],
         assume_residues_all_resolved=True,
     )
     # Check if processing runs through
@@ -68,7 +68,9 @@ def test_pdb_with_same_chain_poly_non_poly():
     assert len(set(polymer_chain_ids).intersection(non_polymer_chain_ids)) == 0
 
     # Assert that all residues have coordinates
-    assert np.all(np.isfinite(atom_array.coord))
+    if not np.all(np.isfinite(atom_array.coord)):
+        culprits = atom_array[(~np.isfinite(atom_array.coord)).any(axis=1)]
+        raise RuntimeError(f"Some residues are missing coordinates: \n{culprits}")
 
     # Assert that all atoms are full occupancy
     assert np.all(atom_array.occupancy == 1.0)
@@ -87,8 +89,10 @@ def test_infer_chain_info_from_atom_array(test_case: dict):
     chain_info = infer_chain_info_from_atom_array(atom_array)
 
     for chain_id, info_dict in chain_info.items():
-        assert info_dict["chain_type"] == test_case["chain_types"][chain_id]
-        if ChainType.as_enum(info_dict["chain_type"]).is_non_polymer():
+        got = ChainType.as_enum(info_dict["chain_type"])
+        expected = ChainType.as_enum(test_case["chain_types"][chain_id])
+        assert got == expected
+        if got.is_non_polymer():
             assert not info_dict["is_polymer"]
         else:
             assert info_dict["is_polymer"]
