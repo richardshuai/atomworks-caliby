@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray, AtomArrayStack
 
-from cifutils.common import not_isin, sum_string_arrays
+from cifutils.common import listmap, not_isin, sum_string_arrays
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
 from cifutils.enums import ChainType
 from cifutils.utils.bond_utils import (
@@ -580,4 +580,11 @@ def add_chain_type_annotation(
         atom_array.chain_type[atom_array.chain_id == chain_id] = chain_type_enum.value
 
     # Return the modified atom array
+    return atom_array
+
+
+def add_atomic_number_annotation(atom_array: AtomArray) -> AtomArray:
+    """Adds the atomic number (atomic_number) annotation to the AtomArray."""
+    atom_array.add_annotation("atomic_number", dtype=np.int8)
+    atom_array.set_annotation("atomic_number", listmap(ELEMENT_NAME_TO_ATOMIC_NUMBER.get, atom_array.element))
     return atom_array

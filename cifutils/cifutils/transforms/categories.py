@@ -17,9 +17,9 @@ from biotite.structure import AtomArray
 from biotite.structure.io.pdbx import CIFBlock
 
 from cifutils.common import deduplicate_iterator, exists
-from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_AA, UNKNOWN_LIGAND
+from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND
 from cifutils.enums import ChainType
-from cifutils.utils.ccd import get_available_ccd_codes
+from cifutils.utils.ccd import get_available_ccd_codes, get_chem_comp_type, get_unknown_ccd_code_for_chem_comp_type
 from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import (
     get_1_from_3_letter_code,

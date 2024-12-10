@@ -27,7 +27,7 @@ from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.template import build_template_atom_array
 from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds
-from cifutils.utils.ccd import check_ccd_codes_are_available, get_ccd_component, get_chem_comp_type
+from cifutils.utils.ccd import check_ccd_codes_are_available, get_chem_comp_type
 from cifutils.utils.io_utils import get_structure, read_any
 from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import get_1_from_3_letter_code

@@ -8,7 +8,7 @@ from functools import cache
 
 import biotite.structure as struc
 import numpy as np
-from biotite.structure.atoms import AtomArray
+from biotite.structure.atoms import AtomArray, AtomArrayStack
 
 from cifutils.common import exists
 
@@ -76,6 +76,12 @@ def assert_same_atom_array(
         mismatch_mask = annot1 != annot2
         if np.any(mismatch_mask):
             msg = f"AtomArrays are not equivalent in `{annotation}`\n"
+            if isinstance(arr1, AtomArrayStack):
+                arr1 = arr1[0]
+                msg += "\t... arr1 is a stack, so only the first array is being compared\n"
+            if isinstance(arr2, AtomArrayStack):
+                arr2 = arr2[0]
+                msg += "\t... arr2 is a stack, so only the first array is being compared\n"
             arr1_mismatch = arr1[mismatch_mask][:max_print_length]  # max len to reduce length of print output
             arr2_mismatch = arr2[mismatch_mask][:max_print_length]
             msg += f"\tarr1: \n{arr1_mismatch}\n"
@@ -83,6 +89,13 @@ def assert_same_atom_array(
             raise ValueError(msg)
 
     if not np.allclose(arr1.coord, arr2.coord, equal_nan=True):
+        msg = "AtomArrays are not equivalent in coordinates\n"
+        if isinstance(arr1, AtomArrayStack):
+            arr1 = arr1[0]
+            msg += "\t... arr1 is a stack, so only the first array is being compared\n"
+        if isinstance(arr2, AtomArrayStack):
+            arr2 = arr2[0]
+            msg += "\t... arr2 is a stack, so only the first array is being compared\n"
         mismatch_mask = np.any(~np.isclose(arr1.coord, arr2.coord, equal_nan=True), axis=1)
         arr1_mismatch = arr1[mismatch_mask][:max_print_length]
         arr2_mismatch = arr2[mismatch_mask][:max_print_length]

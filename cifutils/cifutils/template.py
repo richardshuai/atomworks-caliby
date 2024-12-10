@@ -1,4 +1,3 @@
-import copy
 import logging
 import os
 from typing import Any, Final, Sequence
@@ -12,8 +11,6 @@ from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds, get_struct_conn_bonds
 from cifutils.utils.ccd import check_ccd_codes_are_available, get_ccd_component
-from cifutils.utils.io_utils import get_structure, read_any
-from cifutils.utils.selection_utils import get_residue_starts
 
 logger = logging.getLogger(__file__)
 
@@ -279,7 +276,6 @@ def build_template_atom_array(
     chain_ids = atom_array.chain_id if exists(atom_array) else all_false(0)
     res_ids = atom_array.res_id if exists(atom_array) else all_false(0)
     res_names = atom_array.res_name if exists(atom_array) else all_false(0)
-    is_polymer = atom_array.is_polymer if exists(atom_array) else all_false(0)
 
     # Add a file sink to the logger
     logger.setLevel(logging.DEBUG)

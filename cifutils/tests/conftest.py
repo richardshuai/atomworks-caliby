@@ -4,9 +4,7 @@ import logging
 import os
 from pathlib import Path
 
-import pytest
-
-from cifutils.constants import CCD_MIRROR_PATH, PDB_MIRROR_PATH
+from cifutils.constants import PDB_MIRROR_PATH
 from cifutils.parser import CIFParser as CIFParserBiotite
 
 TEST_DATA_DIR = Path(os.path.dirname(__file__)) / "data"

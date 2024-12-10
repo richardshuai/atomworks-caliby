@@ -56,7 +56,7 @@ def infer_processed_entity_sequences_from_atom_array(chain_info: dict, atom_arra
     for chain_id in np.unique(atom_array.chain_id):
         chain_atom_array = atom_array[atom_array.chain_id == chain_id]
         _, residue_name_list = struc.get_residues(chain_atom_array)
-        chain_type = ChainType(chain_atom_array.chain_type[0])
+        chain_type = ChainType.as_enum(chain_atom_array.chain_type[0])
 
         if chain_id not in chain_info:
             chain_info[chain_id] = {}
@@ -203,7 +203,7 @@ def get_identity_op_expr_category() -> CIFCategory:
         _pdbx_struct_oper_list.matrix[3][1]         0.0000000000 
         _pdbx_struct_oper_list.matrix[3][2]         0.0000000000 
         _pdbx_struct_oper_list.matrix[3][3]         1.0000000000 
-        _pdbx_struct_oper_list.vector[3]            0.0000000000 """
+        _pdbx_struct_oper_list.vector[3]            0.0000000000 """  # noqa: W291
     )
 
 

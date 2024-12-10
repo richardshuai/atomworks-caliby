@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
 
-from cifutils.common import to_hashable
+from cifutils.common import exists, to_hashable
 from cifutils.constants import (
     AA_OR_NA_CHEM_COMP_TYPES,
     CHEM_TYPE_POLYMERIZATION_ATOMS,
@@ -365,9 +365,9 @@ def get_struct_conn_bonds(
             "one": True,
             "both": True,
             "none": False,
-        }.get(row["pdbx_leaving_atom_flag"], None)
+        }.get(row.get("pdbx_leaving_atom_flag"), None)
         found_leaving = len(leaving_res1) > 0 or len(leaving_res2) > 0
-        if leaving_flag is not None and (leaving_flag != found_leaving):
+        if exists(leaving_flag) and (leaving_flag != found_leaving):
             logger.warning(
                 f"Leaving group for bond {chain_id1}:{res_id1}:{atom_name1} and {chain_id2}:{res_id2}:{atom_name2} "
                 "was not computed correctly! Please report this issue to the developers."

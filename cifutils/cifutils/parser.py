@@ -372,6 +372,8 @@ class CIFParser:
                 )
 
             if assume_residues_all_resolved:
+                is_nan = ~np.isfinite(atom_array.coord).any(axis=1)
+                atom_array = atom_array[~is_nan]
                 data_dict["chain_info"] = infer_processed_entity_sequences_from_atom_array(
                     data_dict["chain_info"], atom_array
                 )
