@@ -3,9 +3,8 @@ import pytest
 
 from biotite.structure import AtomArray
 from cifutils.common import not_isin
-from cifutils.constants import CRYSTALLIZATION_AIDS
 from cifutils.transforms.atom_array import annotate_entities
-from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
+from tests.conftest import CIF_PARSER, get_pdb_path
 
 # fmt: off
 MOLECULE_ENTITY_TEST_CASES = [
@@ -68,18 +67,9 @@ def validate_molecule_entity_annotations(atom_array: AtomArray, test_case: dict)
 @pytest.mark.parametrize("test_case", MOLECULE_ENTITY_TEST_CASES)
 def test_add_molecule_entity_annotation(test_case: dict):
     path = get_pdb_path(test_case["pdb_id"])
-    result = CIF_PARSER_BIOTITE.parse(
+    result = CIF_PARSER.parse(
         filename=path,
-        add_missing_atoms=True,
-        add_bonds=True,
-        remove_waters=True,
-        residues_to_remove=CRYSTALLIZATION_AIDS,
-        patch_symmetry_centers=True,
         build_assembly="all",
-        fix_arginines=True,
-        convert_mse_to_met=True,
-        keep_hydrogens=True,
-        model=None,
     )
     assert result is not None
     assembly_atom_array = result["assemblies"]["1"][0]  # Check the first model of the first assembly
@@ -94,18 +84,9 @@ def test_add_molecule_entity_annotation_on_modified_pdb():
     """
     pdb_id = "1hge"
     path = get_pdb_path(pdb_id)
-    result = CIF_PARSER_BIOTITE.parse(
+    result = CIF_PARSER.parse(
         filename=path,
-        add_missing_atoms=True,
-        add_bonds=True,
-        remove_waters=True,
-        residues_to_remove=CRYSTALLIZATION_AIDS,
-        patch_symmetry_centers=True,
         build_assembly="all",
-        fix_arginines=True,
-        convert_mse_to_met=True,
-        keep_hydrogens=True,
-        model=None,
     )
     atom_array = result["assemblies"]["1"][0]  # First model
 
@@ -184,7 +165,7 @@ def test_regenerate_and_add_chain_entity_annotation(test_case):
     - Add the chain entity annotation to the atom array
     """
     path = get_pdb_path(test_case["pdb_id"])
-    result = CIF_PARSER_BIOTITE.parse(filename=path)
+    result = CIF_PARSER.parse(filename=path)
     atom_array = result["assemblies"]["1"][0]  # First model, first assembly
 
     for equivalent_chains in test_case["equivalent_chains"]:

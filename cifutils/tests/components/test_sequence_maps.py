@@ -8,7 +8,7 @@ from cifutils.utils.sequence_utils import (
     get_1_from_3_letter_code,
     get_3_from_1_letter_code,
 )
-from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
+from tests.conftest import CIF_PARSER, get_pdb_path
 
 SEQUENCE_TEST_CASES = ["155c", "2e2h", "4cpa", "1en2", "1aqc", "1ivo", "3k4a", "1cbn", "133d", "1l2y", "3nez"]
 
@@ -27,13 +27,11 @@ def non_canonical_sequence_length(s):
 @pytest.mark.parametrize("pdb_id", SEQUENCE_TEST_CASES)
 def test_parser_one_letter_sequence_outputs(pdb_id: str):
     path = get_pdb_path(pdb_id)
-    result = CIF_PARSER_BIOTITE.parse(
+    result = CIF_PARSER.parse(
         filename=path,
         add_missing_atoms=True,
-        add_bonds=True,
         remove_waters=True,
         build_assembly="all",
-        patch_symmetry_centers=True,
         fix_arginines=False,
         convert_mse_to_met=False,
     )
@@ -148,7 +146,7 @@ UNKNOWN_TEST_CASES = [
     PROTEIN_TEST_CASES + DNA_TEST_CASES + RNA_TEST_CASES + UNKNOWN_TEST_CASES,
 )
 def test_get_3_from_1_letter_code(letter, chain_type, expected_three_letter):
-    assert get_3_from_1_letter_code(letter, ChainType.from_string(chain_type)) == expected_three_letter
+    assert get_3_from_1_letter_code(letter, ChainType.as_enum(chain_type)) == expected_three_letter
 
 
 # We can't test the reverse mapping for unknown letters (all map to "X")
@@ -156,7 +154,7 @@ def test_get_3_from_1_letter_code(letter, chain_type, expected_three_letter):
     "expected_one_letter, chain_type, three_letter_code", PROTEIN_TEST_CASES + DNA_TEST_CASES + RNA_TEST_CASES
 )
 def test_get_1_from_3_letter_code(three_letter_code, chain_type, expected_one_letter):
-    assert get_1_from_3_letter_code(three_letter_code, ChainType.from_string(chain_type)) == expected_one_letter
+    assert get_1_from_3_letter_code(three_letter_code, ChainType.as_enum(chain_type)) == expected_one_letter
 
 
 if __name__ == "__main__":

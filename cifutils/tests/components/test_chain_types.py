@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from cifutils.enums import ChainType
-from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
+from tests.conftest import CIF_PARSER, get_pdb_path
 
 # General Enum tests
 
@@ -24,11 +24,11 @@ def test_chain_type_from_int():
 
 
 def test_chain_type_from_string():
-    assert ChainType.from_string("polydeoxyribonucleotide") == ChainType.DNA
-    assert ChainType.from_string("POLYDEOXYRIBONUCLEOTIDE") == ChainType.DNA
-    assert ChainType.from_string("PolyDeoxyRibonucleotide") == ChainType.DNA
+    assert ChainType.as_enum("polydeoxyribonucleotide") == ChainType.DNA
+    assert ChainType.as_enum("POLYDEOXYRIBONUCLEOTIDE") == ChainType.DNA
+    assert ChainType.as_enum("PolyDeoxyRibonucleotide") == ChainType.DNA
     with pytest.raises(ValueError):
-        ChainType.from_string("invalid_chain_type")
+        ChainType.as_enum("invalid_chain_type")
 
 
 def test_chain_type_get_chain_type_strings():
@@ -116,7 +116,7 @@ CHAIN_TYPE_TEST_CASES = [
 @pytest.mark.parametrize("test_case", CHAIN_TYPE_TEST_CASES)
 def test_chain_types(test_case: dict[str, Any]):
     path = get_pdb_path(test_case["pdb_id"])
-    result = CIF_PARSER_BIOTITE.parse(
+    result = CIF_PARSER.parse(
         filename=path,
         build_assembly="all",
     )
@@ -129,6 +129,10 @@ def test_chain_types(test_case: dict[str, Any]):
 
         # ...check that the type matches the expected type for chains that we care about
         if pn_unit_id.astype(str) in test_case["chain_types"]:
-            got = ChainType.as_enum(pn_unit_atom_array.chain_type[0])
+            got = pn_unit_atom_array.chain_type[0]
             expected = test_case["chain_types"][pn_unit_id.astype(str)]
             assert got == expected, f"Mismatch for {pn_unit_id=}: {got=}, {expected=}"
+
+
+if __name__ == "__main__":
+    test_chain_types(CHAIN_TYPE_TEST_CASES[-2])

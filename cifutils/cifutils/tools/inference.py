@@ -273,7 +273,7 @@ def sequence_to_atom_array(
             chain_id: dict(res_name=seq, res_id=np.arange(len(seq)), chain_type=chain_type, is_polymer=is_polymer)
         },
         atom_array=None,
-        keep_hydrogens=False,
+        remove_hydrogens=True,
         use_ccd_charges=True,
         ccd_mirror_path=ccd_mirror_path,
     )

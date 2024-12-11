@@ -174,12 +174,12 @@ except ImportError:
 def get_empty_ccd_template(
     ccd_code: str,
     ccd_mirror_path: os.PathLike,
-    keep_hydrogens: bool = False,
+    remove_hydrogens: bool = True,
     **res_wise_annotations: int | float | str,
 ) -> AtomArray:
     template_cc = get_ccd_component(ccd_code, ccd_mirror_path, coords=None)
 
-    if not keep_hydrogens:
+    if remove_hydrogens:
         template_cc = ta.remove_hydrogens(template_cc)
 
     # set default residue-wise annotations
@@ -252,7 +252,7 @@ def match_residue_to_template(
 def build_template_atom_array(
     chain_info_dict: dict[str, dict[str, Any]],
     atom_array: AtomArray | None = None,
-    keep_hydrogens: bool = False,
+    remove_hydrogens: bool = True,
     use_ccd_charges: bool = True,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> AtomArray:
@@ -278,15 +278,16 @@ def build_template_atom_array(
     res_names = atom_array.res_name if exists(atom_array) else all_false(0)
 
     # Add a file sink to the logger
+    # TODO: I assume we don't want this in production
     logger.setLevel(logging.DEBUG)
 
     # ... create a list of atoms based on the reference CCD entries
     template_residues = []
-    for chain_id in sorted(chain_info_dict):
+    for chain_id in chain_info_dict:
         chain_res_ids = chain_id_to_res_ids[chain_id]
         chain_res_names = chain_id_to_res_names[chain_id]
         chain_is_polymer = chain_id_to_is_polymer[chain_id]
-        chain_type = chain_id_to_types[chain_id]
+        chain_type = chain_id_to_types[chain_id].value  # chain_type is an IntEnum; we want the value
 
         assert len(chain_res_ids) == len(chain_res_names), "Lenght mismatch between chain_res_ids, chain_res_names!"
 
@@ -324,7 +325,7 @@ def build_template_atom_array(
             tmpl = get_empty_ccd_template(
                 ccd_code,
                 ccd_mirror_path=ccd_mirror_path,
-                keep_hydrogens=keep_hydrogens,
+                remove_hydrogens=remove_hydrogens,
                 # ... add required residue-wise annotations
                 chain_id=chain_id,
                 res_id=res_id_original if chain_is_polymer else res_id,
@@ -352,7 +353,7 @@ def add_missing_atoms(
     chain_info_dict: dict[str, dict[str, Any]],
     struct_conn_dict: dict = {},
     add_bond_types_from_struct_conn: list[str] = ["covale"],
-    keep_hydrogens: bool = False,
+    remove_hydrogens: bool = True,
     use_ccd_charges: bool = True,
 ) -> AtomArray:
     # ... match all residues to a CCD template
@@ -362,7 +363,7 @@ def add_missing_atoms(
         chain_info_dict=chain_info_dict,
         atom_array=atom_array,
         use_ccd_charges=use_ccd_charges,
-        keep_hydrogens=keep_hydrogens,
+        remove_hydrogens=remove_hydrogens,
     )
 
     # ... infer inter-residue polymer bonds

@@ -1,6 +1,6 @@
 import pytest
 
-from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
+from tests.conftest import CIF_PARSER, get_pdb_path
 
 TEST_CASES = [
     # With the wrong version of biotite, these will lead to cif deserialization errors as the assembly category is represented slightly differently in these files
@@ -13,5 +13,5 @@ TEST_CASES = [
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_deserialize_assembly(pdb_id: str):
     digs_path = get_pdb_path(pdb_id)
-    result = CIF_PARSER_BIOTITE.parse(filename=digs_path, build_assembly="first")
+    result = CIF_PARSER.parse(filename=digs_path, build_assembly="first")
     assert result is not None

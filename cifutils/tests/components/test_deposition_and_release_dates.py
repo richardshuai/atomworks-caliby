@@ -1,6 +1,6 @@
 import pytest
 
-from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
+from tests.conftest import CIF_PARSER, get_pdb_path
 
 TEST_CASES = [
     {"pdb_id": "6wtf", "release_date": "2020-12-23", "deposition_date": "2020-05-02"},
@@ -11,14 +11,13 @@ TEST_CASES = [
 def test_ec_numbers(test_case: dict):
     pdb_id = test_case["pdb_id"]
     path = get_pdb_path(pdb_id)
-    result = CIF_PARSER_BIOTITE.parse(
+    result = CIF_PARSER.parse(
         filename=path,
         add_missing_atoms=False,
-        add_bonds=False,
         remove_waters=False,
-        residues_to_remove=[],
+        remove_ccds=[],
         build_assembly=None,
-        patch_symmetry_centers=False,
+        fix_ligands_at_symmetry_centers=False,
         fix_arginines=False,
         convert_mse_to_met=False,
     )

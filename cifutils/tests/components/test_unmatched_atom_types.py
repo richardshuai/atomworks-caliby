@@ -1,16 +1,16 @@
 import numpy as np
 
-from tests.conftest import CIF_PARSER_BIOTITE, TEST_DATA_DIR
+from tests.conftest import CIF_PARSER, TEST_DATA_DIR
 
 
 def test_unmatched_atom_types():
     """
-    Ensure that unmatched atom types are handled correctly. For cifutils_biotite, that means masking the residue with the unmathced atom with 0 occupancy.
+    Ensure that unmatched atom types are handled correctly. For CIFUtils, that means masking the residue with the unmatched atom with 0 occupancy.
     """
     filename = TEST_DATA_DIR / "1a8o_modified.cif"
 
     # Parse with cifutils_biotite
-    result_dict = result_dict = CIF_PARSER_BIOTITE.parse(filename=filename)
+    result_dict = result_dict = CIF_PARSER.parse(filename=filename)
 
     # Ensure that residue 2 has no occupancy
     atom_array = result_dict["asym_unit"][0]

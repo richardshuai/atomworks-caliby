@@ -1,15 +1,4 @@
-"""
-Full-featured CIF parsing library that can:
-* Parse CIF files from the RCSB PDB, including metadata, chain information, ligand information, and atom arrays
-* Parse distillation CIF files, which may not contain all fields from the RCSB PDB, but can be assumed to be complete
-* Add missing atoms and residues to the atom array using precompiled residue-level data (a pre-requisite for structure prediction)
-* Add bonds to the atom array using precompiled residue-level data, and standard inter-residue bonds (a pre-requisite for structure prediction)
-* Resolve naming ambiguities, such as arginine naming ambiguity
-* Resolve clashing residues at symmetry centers
-* ...and more!
-
-Written by Nate Corley and Simon Mathis in Summer of 2024.
-"""
+"""Entrypoint for parsing atomic-level structure files (e.g., PDB, CIF) into Biotite-compatible data structures."""
 
 from __future__ import annotations
 
@@ -93,27 +82,52 @@ class CIFParser:
         self,
         filename: os.PathLike,
         *,
-        load_from_cache: bool = False,
+        cache_dir: os.PathLike | None = None,
         save_to_cache: bool = False,
-        cache_dir: os.PathLike = None,
+        load_from_cache: bool = False,
         **kwargs,
     ):
-        """
-        Entrypoint for CIF parsing, which can either:
-            - Directly parse from CIF, using the specified keyword arguments; or,
-            - Load the CIF from a cached directory, re-building bioassemblies on-the-fly
+        """Entrypoint for general parsing of atomic-level structure files.
 
-        In addition to the arguments in `parse_from_cif`, this function can also include the following arguments:
+        Can either:
+            - Directly load structure from file, using the specified keyword arguments; or,
+            - Load the structure from a cached directory, re-building bioassemblies on-the-fly if necessary.
+
+        We categorize arguments into two groups:
+            - Wrapper arguments: Arguments that are used within the wrapping `parse` method (e.g., caching)
+            - CIF parsing arguments: Arguments that control structure parsing and are ultimately are passed
+                to the `parse_from_cif` method (regardless of file type, we convert to a CIF file before
+                parsing)
 
         Args:
-            - filename (PathLike | io.StringIO | io.BytesIO): Path to the CIF file. May be any format of CIF file
+            filename (PathLike | io.StringIO | io.BytesIO): Path to the CIF file. May be any format of CIF file
                 (e.g. .cif, .cif.gz, .pdb), Although .cif files are *strongly* recommended.
-            - load_from_cache (bool, optional): Whether to load pre-compiled results from cache. Defaults to False.
-            - save_to_cache (bool, optional): Whether to save pre-compiled results to cache. Defaults to False.
-            - cache_dir (PathLike, optional): Directory path to save pre-compiled results. Defaults to None.
-            - `parse_from_cif` arguments: Any arguments supported by `parse_from_cif`
+
+            *** Wrapper arguments ***
+
+            load_from_cache (bool, optional): Whether to load pre-compiled results from cache. Defaults to False.
+            cache_dir (PathLike, optional): Directory path to save pre-compiled results. Defaults to None.
+            save_to_cache (bool, optional): Whether to save the results to cache when building the structure. Defaults to False.
+
+            *** CIF parsing arguments (copied from `parse_from_cif`) ***
+            (See `parse_from_cif` for more details)
+
+        Returns:
+            dict: A dictionary containing the following keys:
+                chain_info: A dictionary mapping chain ID to sequence, type (as an IntEnum), RCSB entity,
+                    EC number, and other information.
+                ligand_info: A dictionary containing ligand of interest information.
+                asym_unit: An AtomArrayStack instance representing the asymmetric unit.
+                assemblies: A dictionary mapping assembly IDs to AtomArrayStack instances.
+                metadata: A dictionary containing metadata about the structure
+                    (e.g., resolution, deposition date, etc.).
+                extra_info: A dictionary with information for cross-compatibility and caching.
+                    Should typically not be used directly.
+
         """
-        self._validate_arguments(**kwargs)
+        self._validate_arguments(
+            cache_dir=cache_dir, save_to_cache=save_to_cache, load_from_cache=load_from_cache, **kwargs
+        )
 
         if cache_dir:
             cache_dir = Path(cache_dir)
@@ -160,18 +174,12 @@ class CIFParser:
         if str(filename).endswith((".pdb", ".pdb.gz")):
             result = self.parse_from_pdb(
                 filename=filename,
-                save_to_cache=save_to_cache,
-                cache_dir=cache_dir,
-                load_from_cache=load_from_cache,
                 **kwargs,
             )
         # Parse from CIF
         elif str(filename).endswith((".cif", ".cif.gz", ".bcif", ".bcif.gz")):
             result = self.parse_from_cif(
                 filename=filename,
-                save_to_cache=save_to_cache,
-                cache_dir=cache_dir,
-                load_from_cache=load_from_cache,
                 **kwargs,
             )
         else:
@@ -189,7 +197,6 @@ class CIFParser:
         return result
 
     def parse_from_cif(
-        # TODO: For clean, common API, we should use the words `add`, `fix`, `remove` (drop `patch` and `keep`)
         self,
         filename: os.PathLike | io.StringIO | io.BytesIO,
         *,
@@ -202,11 +209,9 @@ class CIFParser:
         fix_ligands_at_symmetry_centers: bool = True,
         fix_arginines: bool = True,
         convert_mse_to_met: bool = False,
-        keep_hydrogens: bool = True,  # TODO: rename to `remove_hydrogens`
+        remove_hydrogens: bool = False,
         model: int | None = None,
         build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
-        save_to_cache: bool = False,
-        **kwargs,
     ) -> dict:
         """
         Parse the CIF file (must contain information from the PDB) and return chain
@@ -236,25 +241,16 @@ class CIFParser:
                 AF-3 supplement for details. Defaults to True.
             convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE)
                 residues to methionine (MET) residues. Defaults to False.
-            keep_hydrogens (bool, optional): Whether to add hydrogens to the structure
-                (e.g., when adding missing atoms). Defaults to True.
+            remove_hydrogens (bool, optional): Whether to remove hydrogens from the structure
+                (e.g., when adding missing atoms). Defaults to False. Only has an effect if
+                `add_missing_atoms` is True.
             model (int, optional): The model number to parse from the CIF file for NMR entries.
                 Defaults to all models (None).
             build_assembly (string, list, or tuple, optional): Specifies which assembly to build, if any. Options are None
                 (e.g., asymmetric unit), "first", "all", or a list or tuple of assembly IDs. Defaults to "all".
-            save_to_cache (bool): Whether to save the results to cache (see `parse`).
 
         Returns:
-            dict: A dictionary containing the following keys:
-                'chain_info': A dictionary mapping chain ID to sequence, type, RCSB entity,
-                    EC number, and other information.
-                'ligand_info': A dictionary containing ligand of interest information.
-                'asym_unit': An AtomArrayStack instance representing the asymmetric unit.
-                'assemblies': A dictionary mapping assembly IDs to AtomArrayStack instances.
-                'metadata': A dictionary containing metadata about the structure
-                    (e.g., resolution, deposition date, etc.).
-                'extra_info': A dictionary with information for cross-compatibility and caching.
-                    Should typically not be used directly.
+            dict: See `parse` for output details.
         """
         # ...default running dictionary, which we will populate through a series of Transforms
         data_dict = {}
@@ -310,8 +306,8 @@ class CIFParser:
             # We must infer the chain information from the AtomArray residue names (not bulletproof)
             data_dict["chain_info"] = infer_chain_info_from_atom_array(asym_unit_stack[0])
 
-        if not keep_hydrogens:
-            # ...most examples, except NMR studies and small molecules, will not have any hydrogens
+        if remove_hydrogens:
+            # (Most examples, except NMR studies and small molecules, will not have any hydrogens)
             asym_unit_stack = ta.remove_hydrogens(asym_unit_stack)
 
         # ...remove any explicitly excluded residues (e.g., crystallization solvents, waters)
@@ -367,7 +363,7 @@ class CIFParser:
                     chain_info_dict=data_dict["chain_info"],
                     struct_conn_dict=category_to_dict(cif_file.block, "struct_conn"),
                     add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
-                    keep_hydrogens=keep_hydrogens,
+                    remove_hydrogens=remove_hydrogens,
                     use_ccd_charges=True,
                 )
 
@@ -389,6 +385,9 @@ class CIFParser:
             # ... add identifiers and entity annotations
             if add_id_and_entity_annotations:
                 atom_array = ta.add_id_and_entity_annotations(atom_array)
+
+            # ... add the atomic number annotation (vs. element, which is a string)
+            atom_array = ta.add_atomic_number_annotation(atom_array)
 
             models.append(atom_array)
 
@@ -419,10 +418,9 @@ class CIFParser:
                 fix_symmetry_centers=fix_ligands_at_symmetry_centers,
             )
 
-            # If we're caching, we need to store the assembly information in extra_info
-            if save_to_cache:
-                data_dict["extra_info"]["assembly_gen_category"] = assembly_gen_category
-                data_dict["extra_info"]["struct_oper_category"] = struct_oper_category
+            # Store the assembly generation and struct oper categories in extra_info for caching and future reference
+            data_dict["extra_info"]["assembly_gen_category"] = assembly_gen_category
+            data_dict["extra_info"]["struct_oper_category"] = struct_oper_category
         else:
             data_dict["assemblies"] = {}
 
@@ -462,14 +460,7 @@ class CIFParser:
             **parse_from_cif_kwargs: Additional keyword arguments to pass to `parse_from_cif`.
 
         Returns:
-            dict: A dictionary containing the following keys:
-                'chain_info': A dictionary mapping chain ID to sequence, type, RCSB entity,
-                    EC number, and other information.
-                'ligand_info': A dictionary containing ligand of interest information.
-                'asym_unit': An AtomArrayStack instance representing the asymmetric unit.
-                'assemblies': A dictionary mapping assembly IDs to AtomArrayStack instances.
-                'metadata': A dictionary containing metadata about the structure
-                    (e.g., resolution, deposition date, etc.).
+            dict: See `parse` for output details.
         """
         # ...read the PDB file into a CIF block
         pdb_file = read_any(filename)

@@ -10,9 +10,10 @@ import pytest
 from assertpy import assert_that
 from toolz import keymap
 
-from cifutils.constants import CRYSTALLIZATION_AIDS
+from cifutils.enums import ChainType
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
+from tests.conftest import CIF_PARSER, get_pdb_path
+from cifutils.constants import CRYSTALLIZATION_AIDS
 
 TEST_CASES = [
     "6mub",  # Symmetry center clash
@@ -26,17 +27,16 @@ TEST_CASES = [
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_regression_against_stored_result(pdb_id: str):
     path = get_pdb_path(pdb_id)
-    result = CIF_PARSER_BIOTITE.parse(
+    result = CIF_PARSER.parse(
         filename=path,
         add_missing_atoms=True,
-        add_bonds=True,
         remove_waters=True,
-        residues_to_remove=CRYSTALLIZATION_AIDS,
-        patch_symmetry_centers=True,
+        remove_ccds=CRYSTALLIZATION_AIDS,
+        fix_ligands_at_symmetry_centers=True,
         build_assembly="all",
         fix_arginines=True,
         convert_mse_to_met=True,
-        keep_hydrogens=True,
+        remove_hydrogens=False,
         model=None,
     )
     assert result is not None  # Check if processing runs through
@@ -59,7 +59,7 @@ def test_regression_against_stored_result(pdb_id: str):
         annotations_to_compare=["chain_id", "res_name", "res_id", "atom_name"],
     )
 
-    # ...the assemblies
+    # ... the assemblies
     for assembly_id in result["assemblies"]:
         assert_same_atom_array(
             result["assemblies"][assembly_id],
@@ -67,19 +67,19 @@ def test_regression_against_stored_result(pdb_id: str):
             annotations_to_compare=["chain_id", "res_name", "res_id", "atom_name"],
         )
 
-    # LEGACY COMPATABILITY:
-    # Rename expected result columns:
-    rename = {"residue_name_list": "res_name", "residue_id_list": "res_id", "type": "chain_type"}
-    expected_result["chain_info"] = keymap(lambda x: rename.get(x, x), expected_result["chain_info"])
-
-    # ...the ligand of interest information
+    # ... the ligand of interest information
     assert_that(result["ligand_info"]).is_equal_to(expected_result["ligand_info"])
 
-    # ...the chain information
+    # ... the chain information
     assert set(result["chain_info"].keys()) == set(expected_result["chain_info"].keys())
     for chain in result["chain_info"]:
-        got = result["chain_info"][chain]["chain_type"].upper()
-        expected = expected_result["chain_info"][chain]["chain_type"].upper()
+        # LEGACY HACK
+        rename = {"residue_name_list": "res_name", "residue_id_list": "res_id", "type": "chain_type"}
+        expected_result["chain_info"][chain] = keymap(lambda x: rename.get(x, x), expected_result["chain_info"][chain])
+
+        got = result["chain_info"][chain]["chain_type"]
+        # expected = expected_result["chain_info"][chain]["chain_type"]
+        expected = ChainType.as_enum(expected_result["chain_info"][chain]["chain_type"])
         assert got == expected, f"Chain info for {chain=} does not match: {got} != {expected}"
 
         got = result["chain_info"][chain]["res_name"]
@@ -94,10 +94,10 @@ def test_regression_against_stored_result(pdb_id: str):
         expected = expected_result["chain_info"][chain]["is_polymer"]
         assert got == expected, f"Chain info for {chain=} does not match: {got} != {expected}"
 
-    # ...the extra information
+    # ... the extra information
     assert_that(result["extra_info"]).is_equal_to(expected_result["extra_info"])
 
-    # ...the metadata
+    # ... the metadata
     assert_that(result["metadata"]).is_equal_to(expected_result["metadata"])
 
 

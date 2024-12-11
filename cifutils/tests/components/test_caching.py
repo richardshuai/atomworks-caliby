@@ -3,7 +3,7 @@ import time
 import pytest
 
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import CIF_PARSER_BIOTITE, get_pdb_path
+from tests.conftest import CIF_PARSER, get_pdb_path
 
 TEST_CASES = [
     "1A7J",  # Contains an unusual operation expression for assembly building
@@ -16,19 +16,14 @@ def test_caching(pdb_id: str, tmp_path):
 
     # First, we load normally, tracking how long it takes...
     start_time = time.time()
-    normal_result = CIF_PARSER_BIOTITE.parse(
+    normal_result = CIF_PARSER.parse(
         # Caching arguments
         load_from_cache=False,
         save_to_cache=False,
         cache_dir=None,
         # Standard arguments
         filename=path,
-        add_missing_atoms=True,
-        add_bonds=True,
-        remove_waters=True,
         build_assembly="all",
-        patch_symmetry_centers=True,
-        fix_arginines=True,
     )
     end_time = time.time()
     normal_elapsed_time = end_time - start_time
@@ -36,36 +31,26 @@ def test_caching(pdb_id: str, tmp_path):
     assert normal_elapsed_time > 0  # Check if processing time is non-zero
 
     # ...then we load, saving to the cache
-    save_cache_result = CIF_PARSER_BIOTITE.parse(
+    save_cache_result = CIF_PARSER.parse(
         # Caching arguments
         load_from_cache=False,
         save_to_cache=True,
         cache_dir=tmp_path,
         # Standard arguments
         filename=path,
-        add_missing_atoms=True,
-        add_bonds=True,
-        remove_waters=True,
         build_assembly="all",
-        patch_symmetry_centers=True,
-        fix_arginines=True,
     )
 
     # ...then, we load from the cache, and keep track of how long it takes
     start_time = time.time()
-    cached_result = CIF_PARSER_BIOTITE.parse(
+    cached_result = CIF_PARSER.parse(
         # Caching arguments
         load_from_cache=True,
         save_to_cache=False,
         cache_dir=tmp_path,
         # Standard arguments
         filename=path,
-        add_missing_atoms=True,
-        add_bonds=True,
-        remove_waters=True,
         build_assembly="all",
-        patch_symmetry_centers=True,
-        fix_arginines=True,
     )
     end_time = time.time()
     cached_elapsed_time = end_time - start_time
