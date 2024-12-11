@@ -10,10 +10,10 @@ import pytest
 from assertpy import assert_that
 from toolz import keymap
 
+from cifutils.constants import CRYSTALLIZATION_AIDS
 from cifutils.enums import ChainType
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
 from tests.conftest import CIF_PARSER, get_pdb_path
-from cifutils.constants import CRYSTALLIZATION_AIDS
 
 TEST_CASES = [
     "6mub",  # Symmetry center clash
