@@ -3,12 +3,12 @@ import os
 from functools import cache
 from typing import Iterable, Literal
 
+import biotite.structure as struc
+import biotite.structure.io.pdbx as pdbx
 import networkx as nx
 import numpy as np
 import toolz
 
-import biotite.structure as struc
-import biotite.structure.io.pdbx as pdbx
 from cifutils.common import exists, immutable_lru_cache
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
@@ -334,6 +334,7 @@ def get_chem_comp_leaving_atom_names(
     # ... get relevant annotations
     is_leaving_atom = chem_comp.get_annotation("is_leaving_atom")
     atom_name = chem_comp.get_annotation("atom_name")
+    element = chem_comp.get_annotation("element")
 
     # ... skip if no atoms are annotated as leaving atoms (majority of CCD entries)
     if not any(is_leaving_atom):
@@ -344,11 +345,13 @@ def get_chem_comp_leaving_atom_names(
     for atom_idx in range(chem_comp.array_length()):
         # ... find the connected groups of atoms if the current atom were removed
         connected_groups = _find_connected_components_after_removal(bond_graph, atom_idx)
+        
 
         # ... check if all atoms in the connected group are flagged as leaving atoms
         #     by the CCD entry
         for connected_group in connected_groups:
-            if all(is_leaving_atom[connected_group]):
+            heavy_atoms = list(filter(lambda x: element[x] != "H", connected_group))
+            if all(is_leaving_atom[heavy_atoms]):
                 leaving_atom_names[atom_name[atom_idx]] = tuple(atom_name[idx] for idx in connected_group)
 
     return leaving_atom_names
