@@ -119,9 +119,9 @@ apptainer build --bind $PWD:/cifutils_host cifutils.sif apptainer.spec
 # Basic Usage
 
 ### Example Flow
-Import the `CIFParser` object from the `cifutils` package:
+Import the `parse` method from the `cifutils` module:
 ```python
-from cifutils.parser import CIFParser
+from cifutils.parser import parse
 ```
 Create a path to the CIF file of interest:
 ```python
@@ -129,8 +129,7 @@ path = "/databases/rcsb/cif/ne/3nez.cif.gz"
 ```
 Parse away!
 ```python
-parser = CIFParser()
-result = parser.parse(
+result = parse(
     filename=path,
 )
 ```
@@ -155,7 +154,7 @@ These arguments modify how the CIF or PDB file is parsed and processed:
 |--------------------------------------|------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `filename`                           | `PathLike \| io.StringIO \| io.BytesIO` | —                      | The path to the CIF or PDB file. Supports various file formats, including `.cif`, `.cif.gz`, and `.pdb`. `.cif` files are strongly recommended for reliability. |
 | `assume_residues_all_resolved`       | `bool`                             | `False`                | Indicates whether all residues are assumed to be fully resolved in the structure. Required to be `True` for PDB files; should also be set to `True` for computationally predicted files. |
-| `add_missing_atoms`                  | `bool`                             | `True`                 | Determines whether missing atoms should be added to the structure. Useful for structures with unresolved residues. |
+| `add_missing_atoms`                  | `bool`                             | `True`                 | Determines whether missing atoms should be added to the structure. Useful for structures with unresolved residues. Not that when adding missing atoms, we also add intra- and inter-residue bonds (required to remove leaving groups).|
 | `add_id_and_entity_annotations`      | `bool`                             | `True`                 | Whether to add identifier and entity annotations to the structure.                                                                                               |
 | `add_bond_types_from_struct_conn`    | `list[str]`                        | `["covale"]`           | A list of bond types to add to the structure from the `struct_conn` category. This means that only covalent bonds will be added, excluding disulfide bonds.     |
 | `remove_ccds`                        | `list[str]`                        | `CRYSTALLIZATION_AIDS` | A list of CCD codes (e.g., `ALA`, `HEM`, ...) to remove from the structure. Exclusion of polymer residues and common multi-chain ligands must be done with care to avoid sequence gaps. |

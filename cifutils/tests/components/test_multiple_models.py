@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from tests.conftest import CIF_PARSER, get_pdb_path
+from cifutils.parser import parse
+from tests.conftest import get_pdb_path
 
 NMR_TEST_CASES = [
     {"pdb_id": "1l2y", "num_models": 38},
@@ -13,7 +14,7 @@ NMR_TEST_CASES = [
 def test_multiple_models(test_case: dict):
     pdb_id = test_case["pdb_id"]
     path = get_pdb_path(pdb_id)
-    result = CIF_PARSER.parse(
+    result = parse(
         filename=path,
         remove_waters=True,
         build_assembly="all",

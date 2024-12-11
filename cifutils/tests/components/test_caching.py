@@ -2,8 +2,9 @@ import time
 
 import pytest
 
+from cifutils.parser import parse
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import CIF_PARSER, get_pdb_path
+from tests.conftest import get_pdb_path
 
 TEST_CASES = [
     "1A7J",  # Contains an unusual operation expression for assembly building
@@ -16,7 +17,7 @@ def test_caching(pdb_id: str, tmp_path):
 
     # First, we load normally, tracking how long it takes...
     start_time = time.time()
-    normal_result = CIF_PARSER.parse(
+    normal_result = parse(
         # Caching arguments
         load_from_cache=False,
         save_to_cache=False,
@@ -31,7 +32,7 @@ def test_caching(pdb_id: str, tmp_path):
     assert normal_elapsed_time > 0  # Check if processing time is non-zero
 
     # ...then we load, saving to the cache
-    save_cache_result = CIF_PARSER.parse(
+    save_cache_result = parse(
         # Caching arguments
         load_from_cache=False,
         save_to_cache=True,
@@ -43,7 +44,7 @@ def test_caching(pdb_id: str, tmp_path):
 
     # ...then, we load from the cache, and keep track of how long it takes
     start_time = time.time()
-    cached_result = CIF_PARSER.parse(
+    cached_result = parse(
         # Caching arguments
         load_from_cache=True,
         save_to_cache=False,

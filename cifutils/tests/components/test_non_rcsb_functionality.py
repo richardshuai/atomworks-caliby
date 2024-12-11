@@ -4,9 +4,10 @@ import numpy as np
 import pytest
 
 from cifutils.enums import ChainType
+from cifutils.parser import parse
 from cifutils.utils.non_rcsb_utils import infer_chain_info_from_atom_array
 from tests.components.test_chain_types import CHAIN_TYPE_TEST_CASES
-from tests.conftest import CIF_PARSER, get_pdb_path
+from tests.conftest import get_pdb_path
 
 DIR = Path(__file__).parent.parent / "data"
 CIF_PATHS = [DIR / "example_distillation_output.cif"]
@@ -14,7 +15,7 @@ CIF_PATHS = [DIR / "example_distillation_output.cif"]
 
 @pytest.mark.parametrize("path", CIF_PATHS)
 def test_load_with_all_resolved(path: str):
-    result = CIF_PARSER.parse(
+    result = parse(
         filename=path,
         assume_residues_all_resolved=True,
         add_missing_atoms=True,
@@ -29,7 +30,7 @@ def test_load_with_all_resolved(path: str):
 
 
 def test_af2_predicted_pdb_example():
-    result = CIF_PARSER.parse(
+    result = parse(
         filename=DIR / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb",
         remove_waters=True,
         remove_ccds=[],
@@ -40,7 +41,7 @@ def test_af2_predicted_pdb_example():
 
 
 def test_bcif_example():
-    result = CIF_PARSER.parse(
+    result = parse(
         filename=DIR / "6lyz.bcif",
     )
     # Check if processing runs through
@@ -48,7 +49,7 @@ def test_bcif_example():
 
 
 def test_pdb_with_same_chain_poly_non_poly():
-    result = CIF_PARSER.parse(
+    result = parse(
         filename=DIR / "1qfe.pdb",
         remove_hydrogens=True,
         assume_residues_all_resolved=True,
@@ -74,7 +75,7 @@ def test_pdb_with_same_chain_poly_non_poly():
 @pytest.mark.parametrize("test_case", CHAIN_TYPE_TEST_CASES)
 def test_infer_chain_info_from_atom_array(test_case: dict):
     cif_path = get_pdb_path(test_case["pdb_id"])
-    atom_array = CIF_PARSER.parse(
+    atom_array = parse(
         filename=cif_path,
         add_missing_atoms=False,
         remove_waters=True,

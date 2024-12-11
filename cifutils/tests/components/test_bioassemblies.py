@@ -1,9 +1,10 @@
 import pytest
 
 from biotite.structure.io import pdbx
+from cifutils.parser import parse
 from cifutils.utils import io_utils
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import CIF_PARSER, get_pdb_path
+from tests.conftest import get_pdb_path
 
 MULTIPLE_ASSEMBLY_TEST_CASES = [
     {"pdbid": "1a7j", "n_assemblies": 3},
@@ -23,13 +24,13 @@ def test_assembly_counts(test_case: dict):
     filename = get_pdb_path(pdbid)
 
     # test the different build_assembly options
-    out_no_assembly = CIF_PARSER.parse(filename=filename, build_assembly=None, remove_ccds=[])
+    out_no_assembly = parse(filename=filename, build_assembly=None, remove_ccds=[])
     assert len(out_no_assembly["assemblies"]) == 0
 
-    out_first = CIF_PARSER.parse(filename=filename, build_assembly="first", remove_ccds=[])
+    out_first = parse(filename=filename, build_assembly="first", remove_ccds=[])
     assert len(out_first["assemblies"]) == 1
 
-    out_all = CIF_PARSER.parse(filename=filename, build_assembly="all", remove_ccds=[])
+    out_all = parse(filename=filename, build_assembly="all", remove_ccds=[])
     assert len(out_all["assemblies"]) == n_assemblies
 
 
@@ -53,7 +54,7 @@ def test_assembly_atom_coordinates(pdb_id: str):
     resolved_biotite_assembly = biotite_assembly[biotite_assembly.occupancy > 0]
 
     # CIFUtils
-    cifutils_assembly = CIF_PARSER.parse(
+    cifutils_assembly = parse(
         filename=path,
         build_assembly="first",
         fix_arginines=False,

@@ -12,8 +12,9 @@ from toolz import keymap
 
 from cifutils.constants import CRYSTALLIZATION_AIDS
 from cifutils.enums import ChainType
+from cifutils.parser import parse
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import CIF_PARSER, get_pdb_path
+from tests.conftest import get_pdb_path
 
 TEST_CASES = [
     "6mub",  # Symmetry center clash
@@ -27,7 +28,7 @@ TEST_CASES = [
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_regression_against_stored_result(pdb_id: str):
     path = get_pdb_path(pdb_id)
-    result = CIF_PARSER.parse(
+    result = parse(
         filename=path,
         add_missing_atoms=True,
         remove_waters=True,

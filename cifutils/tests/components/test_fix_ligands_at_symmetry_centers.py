@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from tests.conftest import CIF_PARSER, get_pdb_path
+from cifutils.parser import parse
+from tests.conftest import get_pdb_path
 
 LIGAND_AT_SYMMETRY_CENTER_TEST_CASES = [
     {
@@ -24,9 +25,7 @@ def test_patch_symmetry_centers(test_case: dict):
 
     # Parse the file
     filename = get_pdb_path(pdbid)
-    out = CIF_PARSER.parse(
-        filename=filename, build_assembly="first", remove_waters=True, fix_ligands_at_symmetry_centers=True
-    )
+    out = parse(filename=filename, build_assembly="first", remove_waters=True, fix_ligands_at_symmetry_centers=True)
     chain_iids = np.unique(out["assemblies"]["1"][0].chain_iid.astype(str)).tolist()
 
     # Ensure that we excluded clashing chains

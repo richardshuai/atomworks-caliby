@@ -1,6 +1,7 @@
 import pytest
 
-from tests.conftest import CIF_PARSER, get_pdb_path
+from cifutils.parser import parse
+from tests.conftest import get_pdb_path
 
 TEST_CASES = [
     "5e5j",  # Comes from more than 1 experimental method (X-ray & neutron scattering)
@@ -21,7 +22,7 @@ TEST_CASES = [
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_prior_bugs(pdb_id: str):
     path = get_pdb_path(pdb_id)
-    result = CIF_PARSER.parse(
+    result = parse(
         filename=path,
     )
     assert result is not None  # Check if processing runs through

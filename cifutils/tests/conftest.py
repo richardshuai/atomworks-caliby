@@ -5,10 +5,8 @@ import os
 from pathlib import Path
 
 from cifutils.constants import PDB_MIRROR_PATH
-from cifutils.parser import CIFParser
 
 TEST_DATA_DIR = Path(os.path.dirname(__file__)) / "data"
-CIF_PARSER = CIFParser()
 
 logger = logging.getLogger(__name__)
 

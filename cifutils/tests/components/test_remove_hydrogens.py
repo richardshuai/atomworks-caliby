@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
 
+from cifutils.parser import parse
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import CIF_PARSER, get_pdb_path
+from tests.conftest import get_pdb_path
 
 TEST_CASES = ["2w3o"]
 
@@ -12,7 +13,7 @@ def test_remove_hydrogens(pdb_id: str):
     path = get_pdb_path(pdb_id)
 
     # First, we load without hydrogens...
-    result_no_hydrogens = CIF_PARSER.parse(
+    result_no_hydrogens = parse(
         filename=path,
         build_assembly="all",
         remove_hydrogens=True,
@@ -23,7 +24,7 @@ def test_remove_hydrogens(pdb_id: str):
     assert np.any(atom_array_no_hydrogens.atomic_number != 1)
 
     # Then, we load with hydrogens...
-    result_with_hydrogens = CIF_PARSER.parse(
+    result_with_hydrogens = parse(
         filename=path,
         build_assembly="all",
         remove_hydrogens=False,

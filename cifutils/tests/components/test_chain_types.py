@@ -10,7 +10,8 @@ import numpy as np
 import pytest
 
 from cifutils.enums import ChainType
-from tests.conftest import CIF_PARSER, get_pdb_path
+from cifutils.parser import parse
+from tests.conftest import get_pdb_path
 
 # General Enum tests
 
@@ -116,7 +117,7 @@ CHAIN_TYPE_TEST_CASES = [
 @pytest.mark.parametrize("test_case", CHAIN_TYPE_TEST_CASES)
 def test_chain_types(test_case: dict[str, Any]):
     path = get_pdb_path(test_case["pdb_id"])
-    result = CIF_PARSER.parse(
+    result = parse(
         filename=path,
         build_assembly="all",
     )
