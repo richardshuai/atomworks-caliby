@@ -8,14 +8,14 @@ import os
 from pathlib import Path
 from typing import Literal
 
+import biotite.structure as struc
 import numpy as np
 import pandas as pd
-from toolz import keyfilter
-
-import biotite.structure as struc
-import cifutils.transforms.atom_array as ta
 from biotite.file import InvalidFileError
 from biotite.structure import AtomArrayStack
+from toolz import keyfilter
+
+import cifutils.transforms.atom_array as ta
 from cifutils import template
 from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS

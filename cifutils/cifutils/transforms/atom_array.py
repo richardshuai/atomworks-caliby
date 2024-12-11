@@ -6,12 +6,12 @@ These operations should take as input, and return, `AtomArray` objects.
 import logging
 from collections import Counter, defaultdict
 
+import biotite.structure as struc
 import networkx as nx
 import numpy as np
 import pandas as pd
-
-import biotite.structure as struc
 from biotite.structure import AtomArray, AtomArrayStack
+
 from cifutils.common import listmap, not_isin, sum_string_arrays
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
 from cifutils.utils.bond_utils import (

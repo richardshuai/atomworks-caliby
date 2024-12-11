@@ -6,10 +6,10 @@ __all__ = ["get_std_alt_atom_id_conversion"]
 
 from functools import cache
 
-import numpy as np
-
 import biotite.structure as struc
+import numpy as np
 from biotite.structure.atoms import AtomArray, AtomArrayStack
+
 from cifutils.common import exists
 
 

@@ -2,11 +2,11 @@ import logging
 import os
 from typing import Any, Final, Sequence
 
-import numpy as np
-
 import biotite.structure as struc
-import cifutils.transforms.atom_array as ta
+import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack, BondList
+
+import cifutils.transforms.atom_array as ta
 from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds, get_struct_conn_bonds

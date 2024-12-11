@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
-
 from biotite.structure import AtomArray
+
 from cifutils.common import not_isin
 from cifutils.transforms.atom_array import annotate_entities
 from tests.conftest import CIF_PARSER, get_pdb_path

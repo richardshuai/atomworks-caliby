@@ -1,6 +1,6 @@
+import biotite.structure as struc
 import numpy as np
 
-import biotite.structure as struc
 from cifutils.utils.selection_utils import get_residue_starts
 
 

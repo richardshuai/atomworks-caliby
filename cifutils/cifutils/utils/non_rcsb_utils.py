@@ -7,11 +7,11 @@ __all__ = ["load_monomer_sequence_information_from_atom_array", "infer_chain_inf
 
 import logging
 
-import numpy as np
-
 import biotite.structure as struc
+import numpy as np
 from biotite.structure import AtomArray
 from biotite.structure.io.pdbx import CIFCategory
+
 from cifutils.common import deduplicate_iterator
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
