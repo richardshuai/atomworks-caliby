@@ -2,16 +2,16 @@
 Utility functions for computing bioassemblies based on rototranslations of the asymmetric unit.
 """
 
-__all__ = ["process_assemblies"]
+__all__ = ["build_assemblies_from_asym_unit"]
 
 from typing import Literal
 
-import biotite.structure.io.pdbx as pdbx
 import numpy as np
+
+import biotite.structure.io.pdbx as pdbx
 from biotite.structure import AtomArrayStack
 from biotite.structure.atoms import repeat
 from biotite.structure.io.pdbx import CIFCategory
-
 from cifutils.transforms.atom_array import (
     add_iid_annotations_to_assemblies,
     maybe_fix_non_polymer_at_symmetry_center,
@@ -154,7 +154,7 @@ def _build_bioassembly_from_asym_unit(
     return assemblies
 
 
-def process_assemblies(
+def build_assemblies_from_asym_unit(
     assembly_gen_category: CIFCategory,
     struct_oper_category: CIFCategory,
     asym_unit_atom_array_stack: AtomArrayStack,
@@ -162,7 +162,7 @@ def process_assemblies(
     build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
 ) -> None:
     """
-    Processes the assemblies from the CIF file and updates the data_dict accordingly.
+    Builds and annotates the assemblies from asymmetric unit coordinates and related transformation operations.
 
     Args:
         assembly_gen_category (CIFCategory): The `pdbx_struct_assembly_gen` category from the CIF file.

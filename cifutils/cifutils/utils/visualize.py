@@ -5,11 +5,11 @@ __all__ = ["view"]
 import logging
 from itertools import cycle
 
-import biotite.structure as struc
 import numpy as np
 import py3Dmol
-from biotite.structure import AtomArray
 
+import biotite.structure as struc
+from biotite.structure import AtomArray
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, METAL_ELEMENTS
 from cifutils.utils.io_utils import to_cif_string
 

@@ -1,6 +1,6 @@
 import pytest
-from biotite.structure.io import pdbx
 
+from biotite.structure.io import pdbx
 from cifutils.utils import io_utils
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
 from tests.conftest import CIF_PARSER, get_pdb_path

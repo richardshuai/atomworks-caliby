@@ -3,6 +3,7 @@
 __all__ = ["annot_start_stop_idxs", "get_residue_starts"]
 
 import numpy as np
+
 from biotite.structure import AtomArray, AtomArrayStack
 
 

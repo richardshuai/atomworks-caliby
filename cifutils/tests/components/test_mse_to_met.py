@@ -34,7 +34,7 @@ def test_mse_to_met_pdb(pdb_id: str):
         add_missing_atoms=True,
         remove_waters=True,
         build_assembly="all",
-        fix_symmetry_centers=True,
+        fix_ligands_at_symmetry_centers=True,
         fix_arginines=True,
         convert_mse_to_met=True,
     )
