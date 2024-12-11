@@ -107,6 +107,7 @@ apptainer:
 test:
 	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml tests/
 
+## Run pytest in parallel with 4 cores
 parallel_test:
 	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=4 tests/
 
