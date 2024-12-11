@@ -58,7 +58,10 @@ def get_ccd_component_from_biotite(ccd_code: str) -> struc.AtomArray:
     Returns:
         - AtomArray: The atomic structure of the requested component.
     """
-    return struc.info.residue(ccd_code)
+    try:
+        return struc.info.residue(ccd_code)
+    except KeyError:
+        raise ValueError(f"No atom information found for residue '{ccd_code}' in Biotite's CCD")
 
 
 def check_ccd_codes_are_available(
