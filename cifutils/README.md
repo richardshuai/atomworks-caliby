@@ -138,7 +138,7 @@ result = parser.parse(
 ### Returned Dictionary
 The `parse` function returns a dictionary with keys:
 
--  **`chain_info`**: A dictionary mapping each chain ID to its *sequence*, *chain type*, *RCSB entity*, *EC number*, and other relevant information. 
+-  **`chain_info`**: A dictionary mapping each chain ID to its *sequence*, *chain type* (as an `IntEnum`), *RCSB entity*, *EC number*, and other relevant information. 
 -  **`ligand_info`**: A dictionary containing information about ligands of interest within the example; e.g., fit-to-density metrics.
 -  **`asym_unit`**: An `AtomArrayStack` instance representing the asymmetric unit of the structure. 
 -  **`assemblies`**: A dictionary mapping assembly IDs to `AtomArrayStack` instances. All assemblies are loaded, both computationally- and author-generated.
@@ -151,20 +151,21 @@ For more detail, see the documentation within the code.
 
 These arguments modify how the CIF or PDB file is parsed and processed:
 
-| Name                      | Type                               | Default | Description                                                                                                                                                      |
-|---------------------------|------------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `filename`                | `PathLike \| io.StringIO \| io.BytesIO` | —       | The path to the CIF or PDB file. Supports various file formats, including `.cif`, `.cif.gz`, and `.pdb`. `.cif` files are strongly recommended for reliability. |
-| `add_missing_atoms`       | `bool`                             | `True`  | Determines whether missing atoms should be added to the structure, useful for structures with unresolved residues.                                               |
-| `add_bonds`               | `bool`                             | `True`  | Specifies whether to add bonds to the structure. Includes intra-residue, standard inter-residue, and those in the `struct_conn` category. Cannot be `True` if `add_missing_atoms` is `False`. |
-| `remove_waters`           | `bool`                             | `True`  | Option to remove water molecules from the structure.                                                                                                             |
-| `residues_to_remove`      | `list[str]`                        | —       | A list of residue names to exclude from the structure, such as crystallization aids. Avoid removing polymer residues or multi-chain ligands to prevent sequence gaps. |
-| `patch_symmetry_centers`  | `bool`                             | `True`  | Whether to patch residues at symmetry centers that clash with themselves, important when building biological assemblies.                                         |
-| `build_assembly`          | `Literal["first", "all"] \| list[str] \| tuple[str, ...] \| None` | `"all"` | Specifies which assembly to build: `None` for the asymmetric unit, `"first"` for the first assembly, `"all"`, or a list or tuple of specific assembly IDs.                |
-| `fix_arginines`           | `bool`                             | `True`  | Resolves arginine naming ambiguities, as detailed in the AF-3 supplement.                                                                                        |
-| `convert_mse_to_met`      | `bool`                             | `False` | Converts selenomethionine (MSE) residues to methionine (MET) residues.                                                                                           |
-| `keep_hydrogens`          | `bool`                             | `True`  | Determines whether hydrogens should be kept in the structure.                                                                                                     |
-| `model`                   | `int \| None`                      | `None`  | The model number to parse for NMR entries. Defaults to parsing all models.                                                                                       |
-| `assume_residues_all_resolved` | `bool`                       | `False` | Indicates whether all residues are assumed to be fully resolved in the structure. Required to be `True` for PDB files.                                           |
+| Name                                 | Type                               | Default                | Description                                                                                                                                                      |
+|--------------------------------------|------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `filename`                           | `PathLike \| io.StringIO \| io.BytesIO` | —                      | The path to the CIF or PDB file. Supports various file formats, including `.cif`, `.cif.gz`, and `.pdb`. `.cif` files are strongly recommended for reliability. |
+| `assume_residues_all_resolved`       | `bool`                             | `False`                | Indicates whether all residues are assumed to be fully resolved in the structure. Required to be `True` for PDB files; should also be set to `True` for computationally predicted files. |
+| `add_missing_atoms`                  | `bool`                             | `True`                 | Determines whether missing atoms should be added to the structure. Useful for structures with unresolved residues. |
+| `add_id_and_entity_annotations`      | `bool`                             | `True`                 | Whether to add identifier and entity annotations to the structure.                                                                                               |
+| `add_bond_types_from_struct_conn`    | `list[str]`                        | `["covale"]`           | A list of bond types to add to the structure from the `struct_conn` category. This means that only covalent bonds will be added, excluding disulfide bonds.     |
+| `remove_ccds`                        | `list[str]`                        | `CRYSTALLIZATION_AIDS` | A list of CCD codes (e.g., `ALA`, `HEM`, ...) to remove from the structure. Exclusion of polymer residues and common multi-chain ligands must be done with care to avoid sequence gaps. |
+| `remove_waters`                      | `bool`                             | `True`                 | Option to remove water molecules from the structure.                                                                                                             |
+| `fix_ligands_at_symmetry_centers`    | `bool`                             | `True`                 | Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed, important when building biological assemblies.           |
+| `fix_arginines`                      | `bool`                             | `True`                 | Resolves arginine naming ambiguities, as detailed in the AF-3 supplement.                                                                                        |
+| `convert_mse_to_met`                 | `bool`                             | `False`                | Converts selenomethionine (MSE) residues to methionine (MET) residues.                                                                                           |
+| `remove_hydrogens`                     | `bool`                             | `False`                 | Determines whether hydrogens should be removed from structure.                                                                                                     |
+| `model`                              | `int \| None`                      | `None`                 | The model number to parse for NMR entries. Defaults to parsing all models.                                                                                       |
+| `build_assembly`                     | `Literal["first", "all"] \| list[str] \| tuple[str, ...] \| None` | `"all"` | Specifies which assembly to build: `None` for the asymmetric unit, `"first"` for the first assembly, `"all"`, or a list or tuple of specific assembly IDs.      |
 
 #### Caching Arguments
 
@@ -176,19 +177,6 @@ These arguments control the caching behavior of the parsing process:
 | `save_to_cache`   | `bool`              | `False` | Indicates whether to save the parsed results to cache, allowing for faster future retrievals of the same structure.             |
 | `cache_dir`       | `PathLike \| None`  | `None`  | The directory path where cached results are stored. Must be provided if either `load_from_cache` or `save_to_cache` is `True`. |
 
-#### Arguments Used for Training
-
-Within RF2-AA and RF-3, we use the following default arguments for parsing CIF files:
--  **`add_bonds`:** `True` - Required for structure prediction
--  **`add_missing_atoms`:** `True` - Required for structure prediction
--  **`remove_waters`:** `True` - Removes all water molecules (including biologically-relevant waters)
--  **`residues_to_remove`:: `CRYSTALLIZATION_AIDS`, imported from `cifutils/constants.py` _(be cautious removing residues at parsing time; look at `Datahub` for more thorough treatment of removing "non-biological" ligands)_ 
--  **`patch_symmetry_centers`:** `True` - Resolve clashes at symmetry centers to avoid clashing training data.
--  **`convert_mse_to_met`:** `True` - Converts MSE residues to MET, since MSE is a crystallographic artifact and usually non-biological.
--  **`fix_arginines`:** `True` - Resolves naming ambiguities for arginine residues, since the PDB does not enforce a uniform standard.
--  **`keep_hydrogens`:** `False` - Removes hydrogens.
--  **`model`:** `None` - Return all models (only one for most methods; NMR will return an `AtomArrayStack` of several models)
--  **`cache_dir`:** `None` - Do not cache by default (models that require greater data loading speed my change this variable)
 
 # Glossary
 > "The PDB is a scary place, don't go there." - Rohith Krishna, c. 2022
