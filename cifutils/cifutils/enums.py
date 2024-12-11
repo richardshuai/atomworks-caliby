@@ -17,24 +17,32 @@ from cifutils.constants import (
 
 
 class ChainType(IntEnum):
-    """
-    IntEnum representing the type of chain in a RCSB mmCIF file from the Protein Data Bank (PDB).
+    """IntEnum representing the type of chain in a RCSB mmCIF file from the Protein Data Bank (PDB).
 
     Useful constants relating to ChainType are defined in ChainTypeInfo.
+
+    Sources:
+        - https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity.type.html
+        - https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity_poly.type.html
+
+    NOTE: The chain type fields in the PDB are not stable; note the specific versions of the dictionaries used (updated November, 2024)
     """
 
-    CYCLIC_PSEUDO_PEPTIDE = 0
-    OTHER_POLYMER = 1
-    PEPTIDE_NUCLEIC_ACID = 2
-    DNA = 3
-    DNA_RNA_HYBRID = 4
-    POLYPEPTIDE_D = 5
-    POLYPEPTIDE_L = 6
-    RNA = 7
-    NON_POLYMER = 8
-    WATER = 9
-    BRANCHED = 10
-    MACROLIDE = 11
+    # Polymers
+    CYCLIC_PSEUDO_PEPTIDE = 0  # cyclic-pseudo-peptide, from `entity_poly.type`
+    OTHER_POLYMER = 1  # other, from `entity_poly.type`
+    PEPTIDE_NUCLEIC_ACID = 2  # peptide-nucleic-acid, from `entity_poly.type`
+    DNA = 3  # polydeoxyribonucleotide, from `entity_poly.type`
+    DNA_RNA_HYBRID = 4  # polydeoxyribonucleotide/polyribonucleotide hybrid, from `entity_poly.type`
+    POLYPEPTIDE_D = 5  # polypeptide(D), from `entity_poly.type`
+    POLYPEPTIDE_L = 6  # polypeptide(L), from `entity_poly.type`
+    RNA = 7  # polyribonucleotide, from `entity_poly.type`
+
+    # Non-polymers
+    BRANCHED = 10  # branched, from `entity.type`
+    MACROLIDE = 11  # macrolide, from `entity.type`
+    NON_POLYMER = 8  # non-polymer, from `entity.type`
+    WATER = 9  # water, from `entity.type`
 
     @classmethod
     def from_string(cls, str_value: str) -> "ChainType":
@@ -139,21 +147,21 @@ class ChainTypeInfo:
     """
 
     POLYMERS: Final[tuple[ChainType, ...]] = (
-        ChainType.POLYPEPTIDE_D,
-        ChainType.POLYPEPTIDE_L,
-        ChainType.DNA,
-        ChainType.DNA_RNA_HYBRID,
-        ChainType.RNA,
-        ChainType.PEPTIDE_NUCLEIC_ACID,
         ChainType.CYCLIC_PSEUDO_PEPTIDE,
         ChainType.OTHER_POLYMER,
+        ChainType.PEPTIDE_NUCLEIC_ACID,
+        ChainType.DNA,
+        ChainType.DNA_RNA_HYBRID,
+        ChainType.POLYPEPTIDE_D,
+        ChainType.POLYPEPTIDE_L,
+        ChainType.RNA,
     )
 
     NON_POLYMERS: Final[tuple[ChainType, ...]] = (
-        ChainType.NON_POLYMER,
-        ChainType.WATER,
         ChainType.BRANCHED,
         ChainType.MACROLIDE,
+        ChainType.NON_POLYMER,
+        ChainType.WATER,
     )
 
     PROTEINS: Final[tuple[ChainType, ...]] = (
@@ -165,24 +173,24 @@ class ChainTypeInfo:
     NUCLEIC_ACIDS: Final[tuple[ChainType, ...]] = (ChainType.DNA, ChainType.RNA, ChainType.DNA_RNA_HYBRID)
 
     # Define a mapping from chain_type strings to ChainType enums
-    # Entity types found at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_entity.type.html
-    # Polymer types found at: https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v5_next.dic/Items/_entity_poly.type.html
     STRING_TO_ENUM: Final[MappingProxyType[str, ChainType]] = MappingProxyType(
         keymap(
             str.upper,
             {
+                # Polymers
                 "CYCLIC-PSEUDO-PEPTIDE": ChainType.CYCLIC_PSEUDO_PEPTIDE,
+                "OTHER": ChainType.OTHER_POLYMER,  # WARNING! Paradoxically, "other" is a polymer type.
                 "PEPTIDE NUCLEIC ACID": ChainType.PEPTIDE_NUCLEIC_ACID,
                 "POLYDEOXYRIBONUCLEOTIDE": ChainType.DNA,
                 "POLYDEOXYRIBONUCLEOTIDE/POLYRIBONUCLEOTIDE HYBRID": ChainType.DNA_RNA_HYBRID,
                 "POLYPEPTIDE(D)": ChainType.POLYPEPTIDE_D,
                 "POLYPEPTIDE(L)": ChainType.POLYPEPTIDE_L,
                 "POLYRIBONUCLEOTIDE": ChainType.RNA,
-                "NON-POLYMER": ChainType.NON_POLYMER,
-                "WATER": ChainType.WATER,
+                # Non-polymers
                 "BRANCHED": ChainType.BRANCHED,
                 "MACROLIDE": ChainType.MACROLIDE,
-                "OTHER": ChainType.OTHER_POLYMER,  # WARNING! Paradoxically, "other" is a polymer type.
+                "NON-POLYMER": ChainType.NON_POLYMER,
+                "WATER": ChainType.WATER,
             },
         )
     )

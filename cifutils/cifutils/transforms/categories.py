@@ -90,16 +90,17 @@ def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> 
         else:
             ec_numbers = []
 
+        # First check if the chain is a polymer; if so, use the polymer type (which is more specific). Otherwise, use the entity type
+        chain_type = ChainType.as_enum(polymer_info.get("polymer_type", chain_info.get("entity_type", "non-polymer")))
+
         chain_info_dict[chain_id] = {
             "rcsb_entity": rscb_entity,
-            "chain_type": polymer_info.get(
-                "polymer_type", chain_info.get("entity_type", "non-polymer")
-            ).upper(),  # Convert to uppercase to match ChainType enum
+            "chain_type": chain_type,
             "unprocessed_entity_canonical_sequence": polymer_info.get("canonical_sequence", "").replace("\n", ""),
             "unprocessed_entity_non_canonical_sequence": polymer_info.get("non_canonical_sequence", "").replace(
                 "\n", ""
             ),
-            "is_polymer": chain_info.get("entity_type") == "polymer",
+            "is_polymer": chain_type.is_polymer(),
             "ec_numbers": ec_numbers,
         }
 
@@ -263,7 +264,7 @@ def load_monomer_sequence_information_from_category(
         if rcsb_entity in polymer_entity_id_to_res_names_and_ids:
             # For polymers, we use the stored entity residue list
             residue_names = polymer_entity_id_to_res_names_and_ids[rcsb_entity]["res_name"]
-            chain_type = ChainType.from_string(chain_info_dict[chain_id]["chain_type"])
+            chain_type = chain_info_dict[chain_id]["chain_type"]
             if residue_names:
                 chain_info_dict[chain_id]["res_name"] = residue_names
                 chain_info_dict[chain_id]["res_id"] = polymer_entity_id_to_res_names_and_ids[rcsb_entity]["res_id"]

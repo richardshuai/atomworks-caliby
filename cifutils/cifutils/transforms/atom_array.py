@@ -14,7 +14,6 @@ import biotite.structure as struc
 from biotite.structure import AtomArray, AtomArrayStack
 from cifutils.common import listmap, not_isin, sum_string_arrays
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
-from cifutils.enums import ChainType
 from cifutils.utils.bond_utils import (
     generate_inter_level_bond_hash,
     get_coarse_graph_as_nodes_and_edges,
@@ -95,9 +94,7 @@ def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
 
 
 def mse_to_met(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
-    """
-    Convert MSE to MET for arginine residues.
-    """
+    """Convert MSE residues (selenomethionine) to MET (methionine)."""
     mse_mask = atom_array.res_name == "MSE"
     if np.any(mse_mask):
         se_mask = (atom_array.atom_name == "SE") & mse_mask
@@ -108,7 +105,7 @@ def mse_to_met(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayS
         atom_array.hetero[mse_mask] = False
         atom_array.atom_name[se_mask] = "SD"
 
-        # ... handle cases for integer or string representatiosn of element
+        # ... handle cases for integer or string representations of element
         _elt_prev = atom_array.element[se_mask][0]
         if _elt_prev == "SE":
             atom_array.element[se_mask] = "S"
@@ -566,18 +563,17 @@ def add_chain_type_annotation(
 
     Args:
         - atom_array (AtomArray | AtomArrayStack): The full atom array.
-        - chain_info_dict (dict): A dictionary mapping chain IDs to chain information,
-            including the chain type (output of CIFUtils Biotite parser).
+        - chain_info_dict (dict): A dictionary mapping chain IDs to chain information.
 
     Returns:
-        - AtomArray | AtomArrayStack: The AtomArray with the chain_type annotation added.
+        - AtomArray | AtomArrayStack: The AtomArray with the chain_type annotation added as an integer.
     """
     # Add annotation for chain_type as an integer
     atom_array.add_annotation("chain_type", dtype=np.int8)
     for chain_id in np.unique(atom_array.chain_id):
         chain_type = chain_info_dict[chain_id]["chain_type"]
-        chain_type_enum = ChainType.from_string(chain_type)
-        atom_array.chain_type[atom_array.chain_id == chain_id] = chain_type_enum.value
+        # We use the integer representation of the ChainType enum for efficiency
+        atom_array.chain_type[atom_array.chain_id == chain_id] = chain_type.value
 
     # Return the modified atom array
     return atom_array

@@ -114,11 +114,10 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
             ]
         }
 
-        # ...infer the chain type based on each residue
+        # ... infer the chain type based on each residue
         for res_name in res_names:
             chem_comp = get_chem_comp_type(res_name)
             # Increment the count for the appropriate chain type category
-
             # (All amino acid-like chem types are considered "aa_like")
             if chem_comp in AA_LIKE_CHEM_TYPES:
                 chain_type_counts["aa_like"] += 1
@@ -136,52 +135,47 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
             else:
                 chain_type_counts[ChainType.NON_POLYMER] += 1
 
-        # Default to polymer
-        is_polymer = True
-
         # WARNING: The following logic is heuristic, and may fail in cases of multiple residues types within a chain.
 
-        # ...if we have both RNA and DNA, set the chain type to RNA/DNA hybrid
+        # ... if we have both RNA and DNA, set the chain type to RNA/DNA hybrid
         if chain_type_counts[ChainType.RNA] > 0 and chain_type_counts[ChainType.DNA] > 0:
-            inferred_chain_type_str = str(ChainType.DNA_RNA_HYBRID)
+            inferred_chain_type = ChainType.DNA_RNA_HYBRID
 
-        # ...if we have proteins, set to either L- or D-polypeptide, depending on the counts
+        # ... if we have proteins, set to either L- or D-polypeptide, depending on the counts
         elif chain_type_counts[ChainType.POLYPEPTIDE_L] > 0 or chain_type_counts[ChainType.POLYPEPTIDE_D] > 0:
-            # ...if we have equal or more L-polypeptides than D-polypeptides in the chain, set to L-polypeptide
+            # ... if we have equal or more L-polypeptides than D-polypeptides in the chain, set to L-polypeptide
             if chain_type_counts[ChainType.POLYPEPTIDE_L] >= chain_type_counts[ChainType.POLYPEPTIDE_D]:
-                inferred_chain_type_str = str(ChainType.POLYPEPTIDE_L)
+                inferred_chain_type = ChainType.POLYPEPTIDE_L
 
-            # ...if we have more D-polypeptides than L-polypeptides, set to D-polypeptide
+            # ... if we have more D-polypeptides than L-polypeptides, set to D-polypeptide
             elif chain_type_counts[ChainType.POLYPEPTIDE_L] < chain_type_counts[ChainType.POLYPEPTIDE_D]:
-                inferred_chain_type_str = str(ChainType.POLYPEPTIDE_D)
+                inferred_chain_type = ChainType.POLYPEPTIDE_D
 
-        # ...if we only have "aa_like", default to "polypeptide(L)"
+        # ... if we only have "aa_like", default to "polypeptide(L)"
         elif (
             chain_type_counts["aa_like"] > 0
             and chain_type_counts[ChainType.POLYPEPTIDE_L] == 0
             and chain_type_counts[ChainType.POLYPEPTIDE_D] == 0
         ):
-            inferred_chain_type_str = str(ChainType.POLYPEPTIDE_L)
+            inferred_chain_type = ChainType.POLYPEPTIDE_L
 
-        # ...if we have RNA, set to polyribonucleotide
+        # ... if we have RNA, set to polyribonucleotide
         elif chain_type_counts[ChainType.RNA] > 0:
-            inferred_chain_type_str = str(ChainType.RNA)
-        # ...if we have DNA, set to polydeoxyribonucleotide
+            inferred_chain_type = ChainType.RNA
+        # ... if we have DNA, set to polydeoxyribonucleotide
         elif chain_type_counts[ChainType.DNA] > 0:
-            inferred_chain_type_str = str(ChainType.DNA)
-        # ...otherwise set to non-polymer, if we have non-polymer residues
+            inferred_chain_type = ChainType.DNA
+        # ... otherwise set to non-polymer, if we have non-polymer residues
         elif chain_type_counts[ChainType.NON_POLYMER] > 0:
-            inferred_chain_type_str = str(ChainType.NON_POLYMER)
-            is_polymer = False
+            inferred_chain_type = ChainType.NON_POLYMER
         else:
             raise ValueError(f"Could not infer chain type for chain {chain_id}")
 
-        # ...if the all atoms are "hetatm", override the chain type to non-polymer
+        # ... EDGE CASE: If all atoms are "HETATM", override the chain type to non-polymer
         if np.all(chain_atom_array.hetero):
-            inferred_chain_type_str = str(ChainType.NON_POLYMER)
-            is_polymer = False
+            inferred_chain_type = ChainType.NON_POLYMER
 
-        chain_info_dict[chain_id] = {"is_polymer": is_polymer, "chain_type": inferred_chain_type_str}
+        chain_info_dict[chain_id] = {"is_polymer": inferred_chain_type.is_polymer(), "chain_type": inferred_chain_type}
 
     return chain_info_dict
 
