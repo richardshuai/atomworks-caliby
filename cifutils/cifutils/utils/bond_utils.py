@@ -13,16 +13,17 @@ __all__ = [
 
 import logging
 
+import biotite.structure as struc
 import networkx as nx
 import numpy as np
 import pandas as pd
-
-import biotite.structure as struc
 from biotite.structure import AtomArray
+
 from cifutils.common import exists, to_hashable
 from cifutils.constants import (
-    AA_OR_NA_CHEM_COMP_TYPES,
+    AA_LIKE_CHEM_TYPES,
     CHEM_TYPE_POLYMERIZATION_ATOMS,
+    NA_LIKE_CHEM_TYPES,
     STRUCT_CONN_BOND_ORDER_TO_INT,
     STRUCT_CONN_BOND_TYPES,
 )
@@ -120,7 +121,9 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
         next_link = get_chem_comp_type(res_names[next_res_start], mode="warn")
 
         # ... decide which bonds to form:
-        if (this_link in CHEM_TYPE_POLYMERIZATION_ATOMS) and (next_link in AA_OR_NA_CHEM_COMP_TYPES):
+        both_aa = (this_link in AA_LIKE_CHEM_TYPES) and (next_link in AA_LIKE_CHEM_TYPES)
+        both_na = (this_link in NA_LIKE_CHEM_TYPES) and (next_link in NA_LIKE_CHEM_TYPES)
+        if (this_link in CHEM_TYPE_POLYMERIZATION_ATOMS) and (both_aa or both_na):
             bonding_atoms = CHEM_TYPE_POLYMERIZATION_ATOMS[this_link]
 
         # ... add the bonds if we have bonding atoms
