@@ -51,7 +51,7 @@ def test_assembly_atom_coordinates(pdb_id: str):
         ],
         model=1,
     )
-    resolved_biotite_assembly = biotite_assembly[biotite_assembly.occupancy > 0]
+    resolved_biotite_assembly = biotite_assembly[(biotite_assembly.occupancy > 0) & (biotite_assembly.element != "H")]
 
     # CIFUtils
     cifutils_assembly = parse(
@@ -59,7 +59,9 @@ def test_assembly_atom_coordinates(pdb_id: str):
         build_assembly="first",
         fix_arginines=False,
         remove_waters=False,
+        remove_hydrogens=True,
         remove_ccds=[],  # Do not remove crystallization solvents
+        ccd_mirror_path=None,  # Use Biotite's CCD mirror
     )["assemblies"]["1"][0]
     resolved_cifutils_assembly = cifutils_assembly[cifutils_assembly.occupancy > 0]
 

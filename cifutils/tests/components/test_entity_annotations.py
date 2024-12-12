@@ -166,23 +166,23 @@ def test_regenerate_and_add_chain_entity_annotation(test_case):
     - Add the chain entity annotation to the atom array
     """
     path = get_pdb_path(test_case["pdb_id"])
-    result = parse(filename=path)
+    result = parse(filename=path, remove_hydrogens=True)
     atom_array = result["assemblies"]["1"][0]  # First model, first assembly
 
     for equivalent_chains in test_case["equivalent_chains"]:
         chain_entity_atom_array = atom_array[np.isin(atom_array.chain_id, equivalent_chains)]
         chain_entity = np.unique(chain_entity_atom_array.chain_entity)
 
-        # ...check that all equivalent chains have the same chain_entity
+        # ... check that all equivalent chains have the same chain_entity
         assert len(chain_entity) == 1, f"Chains {equivalent_chains} do not have the same chain_entity"
 
-        # ...that no other chains have the same chain_entity
+        # ... that no other chains have the same chain_entity
         other_chain_atom_array = atom_array[not_isin(atom_array.chain_id, equivalent_chains)]
         assert not np.any(
             other_chain_atom_array.chain_entity == chain_entity
         ), f"Chains {equivalent_chains} share chain_entity with other chains"
 
-        # ...and that all chains with the same chain_entity have the same sequence
+        # ... and that all chains with the same chain_entity have the same sequence
         sequences = [
             chain_entity_atom_array[chain_entity_atom_array.chain_id == chain_id].res_name
             for chain_id in equivalent_chains
