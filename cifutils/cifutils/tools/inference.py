@@ -4,10 +4,8 @@ import os
 from abc import ABC
 from collections import Counter
 from dataclasses import asdict, dataclass
-from itertools import product
 from pathlib import Path
-from string import ascii_uppercase
-from typing import Iterator, Literal
+from typing import Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -28,7 +26,7 @@ from cifutils.template import build_template_atom_array
 from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds
 from cifutils.utils.ccd import check_ccd_codes_are_available, get_chem_comp_type
-from cifutils.utils.io_utils import get_structure, read_any
+from cifutils.utils.chain_utils import create_chain_id_generator
 from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import get_1_from_3_letter_code
 
@@ -370,38 +368,6 @@ def sdf_to_atom_array(
     return array
 
 
-def cif_to_atom_array(cif: io.StringIO | os.PathLike) -> AtomArray:
-    return get_structure(read_any(cif), assume_residues_all_resolved=True, include_bonds=True, model=1)
-
-
-def get_next_chain_id_generator(occupied_chain_ids: list[str] = []) -> Iterator[str]:
-    """
-    Generate the next available chain ID that is not in the occupied_chain_ids list.
-
-    Args:
-        - occupied_chain_ids (list[str]): List of already occupied chain IDs.
-
-    Yields:
-        - str: The next available chain ID.
-
-    Example:
-        >>> occupied = ["A", "B", "C", "AA", "AB"]
-        >>> next_id = get_next_chain_id_generator(occupied)
-        >>> print(next(next_id), next(next_id), next(next_id))
-        D E F
-    """
-    occupied_set = set(occupied_chain_ids)
-
-    def chain_id_generator():
-        for length in range(1, 100):  # Adjust the upper limit if needed
-            for combo in product(ascii_uppercase, repeat=length):
-                yield "".join(combo)
-
-    for chain_id in chain_id_generator():
-        if chain_id not in occupied_set:
-            yield chain_id
-
-
 def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
     # ... annotate ids and entities
     atom_array = ta.add_id_and_entity_annotations(atom_array)
@@ -426,7 +392,7 @@ def components_to_atom_array(components: list[ChemicalComponent | dict]) -> Atom
 
     # Extract all chain ids
     chain_ids = [component.chain_id for component in components if exists(component.chain_id)]
-    chain_id_generator = get_next_chain_id_generator(chain_ids)
+    chain_id_generator = create_chain_id_generator(chain_ids)
 
     atom_arrays = []
     for component in components:
