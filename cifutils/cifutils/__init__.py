@@ -10,6 +10,7 @@ logger.setLevel(_log_level)
 
 # Monkey patch biotite
 import biotite.structure as struc  # noqa: E402
+
 from cifutils.utils.selection_utils import get_residue_starts  # noqa: E402
 
 struc.get_residue_starts = get_residue_starts

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
-
 from biotite.structure import AtomArray
+
 from cifutils.common import not_isin
 from cifutils.parser import parse
 from cifutils.transforms.atom_array import annotate_entities

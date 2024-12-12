@@ -345,7 +345,6 @@ def get_chem_comp_leaving_atom_names(
     for atom_idx in range(chem_comp.array_length()):
         # ... find the connected groups of atoms if the current atom were removed
         connected_groups = _find_connected_components_after_removal(bond_graph, atom_idx)
-        
 
         # ... check if all atoms in the connected group are flagged as leaving atoms
         #     by the CCD entry
