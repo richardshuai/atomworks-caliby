@@ -1,5 +1,6 @@
 import logging
 import os
+from collections import defaultdict
 from functools import cache
 from typing import Iterable, Literal
 
@@ -330,7 +331,7 @@ def get_chem_comp_leaving_atom_names(
         return {}
 
     # ... initialize output
-    leaving_atom_names = {}
+    leaving_atom_names = defaultdict(list)
 
     # ... get relevant annotations
     is_leaving_atom = chem_comp.get_annotation("is_leaving_atom")
@@ -352,7 +353,10 @@ def get_chem_comp_leaving_atom_names(
         for connected_group in connected_groups:
             heavy_atoms = list(filter(lambda x: element[x] != "H", connected_group))
             if all(is_leaving_atom[heavy_atoms]):
-                leaving_atom_names[atom_name[atom_idx]] = tuple(atom_name[idx] for idx in connected_group)
+                leaving_atom_names[atom_name[atom_idx]] += [atom_name[idx] for idx in connected_group]
+
+    # ... turn leaving_atom_names into a dictionary of tuples
+    leaving_atom_names = {k: tuple(v) for k, v in leaving_atom_names.items()}
 
     return leaving_atom_names
 
