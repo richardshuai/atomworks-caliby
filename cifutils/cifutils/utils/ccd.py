@@ -3,12 +3,12 @@ import os
 from functools import cache
 from typing import Iterable, Literal
 
+import biotite.structure as struc
+import biotite.structure.io.pdbx as pdbx
 import networkx as nx
 import numpy as np
 import toolz
 
-import biotite.structure as struc
-import biotite.structure.io.pdbx as pdbx
 from cifutils.common import exists, immutable_lru_cache
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,

@@ -409,34 +409,6 @@ def ccd_code_to_annotated_atom_array(
     return array
 
 
-def get_next_chain_id_generator(occupied_chain_ids: list[str] = []) -> Iterator[str]:
-    """
-    Generate the next available chain ID that is not in the occupied_chain_ids list.
-
-    Args:
-        - occupied_chain_ids (list[str]): List of already occupied chain IDs.
-
-    Yields:
-        - str: The next available chain ID.
-
-    Example:
-        >>> occupied = ["A", "B", "C", "AA", "AB"]
-        >>> next_id = get_next_chain_id_generator(occupied)
-        >>> print(next(next_id), next(next_id), next(next_id))
-        D E F
-    """
-    occupied_set = set(occupied_chain_ids)
-
-    def chain_id_generator():
-        for length in range(1, 100):  # Adjust the upper limit if needed
-            for combo in product(ascii_uppercase, repeat=length):
-                yield "".join(combo)
-
-    for chain_id in chain_id_generator():
-        if chain_id not in occupied_set:
-            yield chain_id
-
-
 def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
     # ... annotate ids and entities
     atom_array = ta.add_id_and_entity_annotations(atom_array)
