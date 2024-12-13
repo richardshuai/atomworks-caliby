@@ -363,13 +363,13 @@ def get_struct_conn_bonds(
             atom1_local_idx = np.where(atom_names[in_res1] == atom_name1)[0][0]
 
         if uses_alt_atom_id[in_res2_start]:
-            atom_2_local_idx = np.where(alt_atom_ids[in_res2] == atom_name2)[0][0]
+            atom2_local_idx = np.where(alt_atom_ids[in_res2] == atom_name2)[0][0]
         else:
-            atom_2_local_idx = np.where(atom_names[in_res2] == atom_name2)[0][0]
+            atom2_local_idx = np.where(atom_names[in_res2] == atom_name2)[0][0]
 
         # ... convert local atom indices to global indices
         atom1_global_idx = in_res1_start + atom1_local_idx
-        atom2_global_idx = in_res2_start + atom_2_local_idx
+        atom2_global_idx = in_res2_start + atom2_local_idx
 
         # ... add the bond
         bond_order = STRUCT_CONN_BOND_ORDER_TO_INT.get(row.get("pdbx_value_order"), 1)

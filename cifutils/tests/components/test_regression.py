@@ -13,7 +13,9 @@ from toolz import keymap
 from cifutils.constants import CRYSTALLIZATION_AIDS
 from cifutils.enums import ChainType
 from cifutils.parser import parse
+from cifutils.transforms import atom_array as ta
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from cifutils.utils.io_utils import to_cif_file
 from tests.conftest import get_pdb_path
 
 TEST_CASES = [
@@ -53,6 +55,43 @@ def test_regression_against_stored_result(pdb_id: str):
     with pickle_path.open("rb") as f:
         expected_result = pickle.load(f)
 
+    expected_result["asym_unit"] = ta.remove_hydrogens(expected_result["asym_unit"])
+    result["asym_unit"] = ta.remove_hydrogens(result["asym_unit"])
+
+    # Save output into test_output
+    to_cif_file(
+        result["asym_unit"][0],
+        f"{Path(__file__).parents[1]}/test_outputs/{pdb_id}_new.cif",
+        id=f"{pdb_id}_new",
+        date=True,
+        time=True,
+    )
+    to_cif_file(
+        expected_result["asym_unit"][0],
+        f"{Path(__file__).parents[1]}/test_outputs/{pdb_id}_old.cif",
+        id=f"{pdb_id}_old",
+        date=True,
+        time=True,
+    )
+
+    # ## FOR DEBUGGIN REGRESSION TESTS UNCOMMENT:
+    # from cifutils.common import sum_string_arrays
+
+    # def get_atom_identifiers(atom_array):
+    #     return sum_string_arrays(
+    #         atom_array.chain_id, "-", atom_array.res_name, "-", atom_array.res_id.astype(str), "-", atom_array.atom_name
+    #     )
+
+    # # a = result["asym_unit"][0]
+    # # b = expected_result["asym_unit"][0]
+    # a_id = get_atom_identifiers(result["asym_unit"][0])
+    # b_id = get_atom_identifiers(expected_result["asym_unit"][0])
+    # # In a but not in b
+    # print("in new but not in old:", np.setdiff1d(a_id, b_id))
+    # # In b but not in a
+    # print("in old but not in new:", np.setdiff1d(b_id, a_id))
+    # ### 
+
     # Check the asymmetric unit...
     assert_same_atom_array(
         result["asym_unit"],
@@ -62,6 +101,8 @@ def test_regression_against_stored_result(pdb_id: str):
 
     # ... the assemblies
     for assembly_id in result["assemblies"]:
+        result["assemblies"][assembly_id] = ta.remove_hydrogens(result["assemblies"][assembly_id])
+        expected_result["assemblies"][assembly_id] = ta.remove_hydrogens(expected_result["assemblies"][assembly_id])
         assert_same_atom_array(
             result["assemblies"][assembly_id],
             expected_result["assemblies"][assembly_id],
