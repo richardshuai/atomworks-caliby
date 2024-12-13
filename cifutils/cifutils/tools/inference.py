@@ -7,11 +7,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
-import numpy as np
-
 import biotite.structure as struc
-import cifutils.transforms.atom_array as ta
+import numpy as np
 from biotite.structure import AtomArray
+
+import cifutils.transforms.atom_array as ta
 from cifutils.common import exists
 from cifutils.constants import (
     CCD_MIRROR_PATH,

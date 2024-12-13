@@ -2,51 +2,11 @@
 Utility functions to support proper matching and resolution of residue atoms in a structure.
 """
 
-__all__ = ["get_std_alt_atom_id_conversion"]
-
-from functools import cache
-
-import numpy as np
+__all__ = ["assert_same_atom_array"]
 
 import biotite.structure as struc
+import numpy as np
 from biotite.structure.atoms import AtomArray, AtomArrayStack
-from cifutils.common import exists
-
-
-@cache
-def get_std_alt_atom_id_conversion(res_name: str) -> dict:
-    """
-    Get a mapping from standard atom IDs to alternative atom IDs for a given residue name.
-
-    NOTE:
-     - This is a cached function, so the biotite CCD database is only queried once per residue name.
-     - This function requires the IPD's 'in-house' version of biotite, since the `alt_atom_id` field
-       is not available in the standard biotite package (as of v0.41.0, date 2024-06-30)
-     - This function is used for backwards compatibility with older encodings (RF2AA_ATOM36_ENCODING),
-       where the alternative atom names were used instead of the standard atom names for hydrogens.
-       It should not be used for new code.
-
-    Args:
-        res_name (str): The 3-letter residue name (must be in the biotite CCD database).
-
-    Returns:
-        dict: A dictionary with the following keys:
-            - `std_to_alt`: A mapping from standard atom IDs to alternative atom IDs.
-            - `alt_to_std`: A mapping from alternative atom IDs to standard atom IDs.
-    """
-    std_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "atom_id")
-    alt_atom_ids = struc.info.ccd.get_from_ccd("chem_comp_atom", res_name, "alt_atom_id")
-
-    assert exists(std_atom_ids) and (
-        len(std_atom_ids) > 0
-    ), f"{res_name} info does not exist in biotite's CCD. Try to update it to fix this assertion."
-    assert len(std_atom_ids) == len(
-        alt_atom_ids
-    ), f"{res_name} has {len(std_atom_ids)} standard atom ids and {len(alt_atom_ids)} alternative atom ids"
-
-    mapping = {"std_to_alt": dict(zip(std_atom_ids, alt_atom_ids)), "alt_to_std": dict(zip(alt_atom_ids, std_atom_ids))}
-
-    return mapping
 
 
 def _get_atom_array_stats(arr: AtomArray) -> str:

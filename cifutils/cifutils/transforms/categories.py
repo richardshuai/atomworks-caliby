@@ -9,13 +9,13 @@ import logging
 import os
 from datetime import datetime
 
+import biotite.structure as struc
 import numpy as np
 import pandas as pd
 import toolz
-
-import biotite.structure as struc
 from biotite.structure import AtomArray
 from biotite.structure.io.pdbx import CIFBlock
+
 from cifutils.common import deduplicate_iterator, exists
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND
 from cifutils.enums import ChainType

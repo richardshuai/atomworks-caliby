@@ -12,8 +12,9 @@ from Bio.Data.PDBData import (
     protein_letters_1to3,
     protein_letters_3to1,
     protein_letters_3to1_extended,
-)  # TODO: Deprecate these in favour of the direct mappings from the CCD
+)
 
+# TODO: Deprecate these in favour of the direct mappings from the CCD
 from cifutils.constants import (
     GAP,
     STANDARD_AA,

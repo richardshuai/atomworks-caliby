@@ -4,12 +4,12 @@ from collections import defaultdict
 from functools import cache
 from typing import Iterable, Literal
 
+import biotite.structure as struc
+import biotite.structure.io.pdbx as pdbx
 import networkx as nx
 import numpy as np
 import toolz
 
-import biotite.structure as struc
-import biotite.structure.io.pdbx as pdbx
 from cifutils.common import exists, immutable_lru_cache
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
@@ -61,7 +61,8 @@ def get_ccd_component_from_biotite(ccd_code: str) -> struc.AtomArray:
         - AtomArray: The atomic structure of the requested component.
     """
     try:
-        return struc.info.residue(ccd_code)
+        atom_array = struc.info.residue(ccd_code)
+        return atom_array
     except KeyError:
         raise ValueError(f"No atom information found for residue '{ccd_code}' in Biotite's CCD")
 
@@ -244,7 +245,8 @@ def get_ccd_component_from_mirror(
         >>> atom_array = get_ccd_component_from_mirror("ALA", coords="ideal_pdbx")
     """
     cif = pdbx.CIFFile.read(_get_ccd_path(ccd_code, ccd_mirror_path))
-    return parse_ccd_cif(cif, **parse_ccd_cif_kwargs)
+    atom_array = parse_ccd_cif(cif, **parse_ccd_cif_kwargs)
+    return atom_array
 
 
 def atom_array_from_ccd_code(
