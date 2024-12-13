@@ -295,7 +295,11 @@ DEFAULT_VALENCE = {
     "I": 1,
     "B": 3,
 }
-"""Default valences of common elements in organic compounds."""
+"""Default valences of common elements in organic compounds.
+
+Reference:
+    - https://www.rdkit.org/docs/RDKit_Book.html#valence-calculation-and-allowed-valences
+"""
 
 CRYSTALLIZATION_AIDS: Final[list[str]] = [
     "SO4",
