@@ -2,12 +2,12 @@ import io
 import tempfile
 from contextlib import nullcontext
 
+import biotite.structure as struc
 import numpy as np
 import pytest
-
-import biotite.structure as struc
 from biotite.database import rcsb
 from biotite.structure import AtomArray, AtomArrayStack
+
 from cifutils.utils.io_utils import get_structure, load_any, read_any, to_cif_string, to_pdb_string
 
 

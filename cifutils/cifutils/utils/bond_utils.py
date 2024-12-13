@@ -648,26 +648,17 @@ def spoof_struct_conn_dict_from_string(bonds: list[tuple[str, str]]) -> dict[str
     return struct_conn_dict
 
 
-def _get_num_bonded_hydrogens_and_heavy_degree(atom_array: struc.AtomArray) -> tuple[np.ndarray, np.ndarray]:
+def _get_bond_degree_per_atom(atom_array: struc.AtomArray) -> np.ndarray:
     """
-    Assigns the number of hydrogens and the heavy degree to each atom.
-    Requires an AtomArray with hydrogens and bond-types annotated.
-
-    These annotations are useful for fixing the charges of atoms after bond formation.
+    Returns the total degree (= sum of bond orders) for each atom.
     """
-    num_bonded_hydrogens = np.zeros(atom_array.array_length(), dtype=np.int8)
-    heavy_degree = np.zeros(atom_array.array_length(), dtype=np.int8)
+    degree = np.zeros(atom_array.array_length(), dtype=np.int8)
 
-    bonds = atom_array.bonds.as_graph()
     for atom_idx in range(atom_array.array_length()):
-        bonded_atoms, bond_types = bonds.get_bonds(atom_idx)
-        is_hydrogen = np.isin(bonded_atoms, HYDROGEN_LIKE_SYMBOLS)
-        num_bonded_hydrogens[atom_idx] = np.sum(is_hydrogen)
-        heavy_degree[atom_idx] = np.sum(
-            [BIOTITE_BOND_TYPE_TO_BOND_ORDER[bond_type] for bond_type in bond_types[~is_hydrogen]]
-        )
+        _, bond_types = atom_array.bonds.get_bonds(atom_idx)
+        degree[atom_idx] = sum(map(BIOTITE_BOND_TYPE_TO_BOND_ORDER.get, bond_types))
 
-    return num_bonded_hydrogens, heavy_degree
+    return degree
 
 
 def fix_formal_charges(atom_array: struc.AtomArray, to_update: np.ndarray) -> struc.AtomArray:
@@ -683,21 +674,21 @@ def fix_formal_charges(atom_array: struc.AtomArray, to_update: np.ndarray) -> st
         AtomArray: The AtomArray with fixed formal charges.
     """
     # ... check that the AtomArray has hydrogens
-    if not np.isin(atom_array, HYDROGEN_LIKE_SYMBOLS).any():
-        logger.warning("Hydrogens not given. Canno")
+    if not np.isin(atom_array.element, HYDROGEN_LIKE_SYMBOLS).any():
+        logger.warning("Hydrogens not given. Cannot fix formal charges.")
         return atom_array
 
     # ... get (masked) valences)
     _INT_NAN = -10
-    default_valences = np.array([DEFAULT_VALENCE.get(elt, _INT_NAN) for elt in atom_array.element])
-    to_consider = default_valences != _INT_NAN
+    default_valence = np.array([DEFAULT_VALENCE.get(elt, _INT_NAN) for elt in atom_array.element])
+    valid = default_valence != _INT_NAN
 
-    # ... compute number of bonded hydrogens & heavy atom degree for each atom
-    num_bonded_hydrogens, heavy_degree = _get_num_bonded_hydrogens_and_heavy_degree(atom_array)
+    # ... compute total number of bonds per atom
+    degree = _get_bond_degree_per_atom(atom_array)
 
     # ... compute formal charge
-    formal_charge = default_valences - num_bonded_hydrogens - heavy_degree
+    formal_charge = degree - default_valence
 
     # ... update the relevant entreis
-    atom_array[to_update & to_consider] = formal_charge
+    atom_array.charge[to_update & valid] = formal_charge[to_update & valid]
     return atom_array

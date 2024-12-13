@@ -173,7 +173,8 @@ except ImportError:
 
 def get_empty_ccd_template(
     ccd_code: str,
-    ccd_mirror_path: os.PathLike,
+    *,
+    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
     remove_hydrogens: bool = True,
     **res_wise_annotations: int | float | str,
 ) -> AtomArray:
