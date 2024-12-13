@@ -6,12 +6,12 @@ __all__ = ["build_assemblies_from_asym_unit"]
 
 from typing import Literal
 
-import biotite.structure.io.pdbx as pdbx
 import numpy as np
+
+import biotite.structure.io.pdbx as pdbx
 from biotite.structure import AtomArrayStack
 from biotite.structure.atoms import repeat
 from biotite.structure.io.pdbx import CIFCategory
-
 from cifutils.transforms.atom_array import (
     add_iid_annotations_to_assemblies,
     maybe_fix_non_polymer_at_symmetry_center,

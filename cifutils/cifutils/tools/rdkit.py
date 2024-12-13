@@ -11,15 +11,15 @@ from os import PathLike
 from pathlib import Path
 from typing import Callable, Final
 
-import biotite.structure as struc
 import numpy as np
 import toolz
-from biotite.structure import AtomArray
 from rdkit import Chem
 from rdkit.Chem import Mol, rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.DataStructs import ExplicitBitVect
 
+import biotite.structure as struc
+from biotite.structure import AtomArray
 from cifutils.common import exists, not_isin
 from cifutils.constants import (
     BIOTITE_DEFAULT_ANNOTATIONS,
@@ -455,8 +455,7 @@ def atom_array_from_rdkit(
     remove_hydrogens: bool = True,
     remove_inferred_atoms: bool = False,
 ) -> AtomArray:
-    """
-    Convert an RDKit molecule to a Biotite AtomArray object.
+    """Convert an RDKit molecule to a Biotite AtomArray object.
 
     This function takes an RDKit Mol object and converts it into a Biotite AtomArray object,
     matching and preserving the (optional) atom-level annotations in `mol._annotations` and

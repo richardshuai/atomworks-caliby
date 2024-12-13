@@ -13,11 +13,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-import biotite.structure.io.pdb as biotite_pdb
 import numpy as np
+
+import biotite.structure.io.pdb as biotite_pdb
 from biotite.structure import AtomArray, AtomArrayStack
 from biotite.structure.io import pdbx
-
 from cifutils.common import default, exists
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
 

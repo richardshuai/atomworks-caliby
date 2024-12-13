@@ -7,11 +7,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
-import biotite.structure as struc
 import numpy as np
-from biotite.structure import AtomArray
 
+import biotite.structure as struc
 import cifutils.transforms.atom_array as ta
+from biotite.structure import AtomArray
 from cifutils.common import exists
 from cifutils.constants import (
     CCD_MIRROR_PATH,
@@ -514,4 +514,5 @@ def chain_info_from_atom_array(atom_array: AtomArray) -> dict[str, dict[str, str
                     get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=True) for residue in seq
                 ),
             )
+
     return chain_info

@@ -1,5 +1,4 @@
 # .gitignore
-cifutils_extended
 data
 biotite
 
@@ -143,8 +142,8 @@ cython_debug/
 .vscode/
 
 # Misc
-cifutils/pdbx/reader/__pycache__/__init__.cpython-39.pyc
-cifutils/pdbx/reader/__pycache__/PdbxContainers.cpython-39.pyc
-cifutils/pdbx/reader/__pycache__/PdbxReader.cpython-39.pyc
 *.sif
 *.pkl
+
+# Temporary test files
+tests/test_outputs

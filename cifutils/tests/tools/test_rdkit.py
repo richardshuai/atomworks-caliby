@@ -1,10 +1,10 @@
-import biotite.structure as struc
 import numpy as np
 import pytest
 from assertpy import assert_that
-from biotite.structure import AtomArray
 from rdkit import Chem
 
+import biotite.structure as struc
+from biotite.structure import AtomArray
 from cifutils.tools.rdkit import (
     atom_array_from_rdkit,
     atom_array_to_rdkit,

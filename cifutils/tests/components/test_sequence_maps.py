@@ -156,7 +156,3 @@ def test_get_3_from_1_letter_code(letter, chain_type, expected_three_letter):
 )
 def test_get_1_from_3_letter_code(three_letter_code, chain_type, expected_one_letter):
     assert get_1_from_3_letter_code(three_letter_code, ChainType.as_enum(chain_type)) == expected_one_letter
-
-
-if __name__ == "__main__":
-    test_parser_one_letter_sequence_outputs("155c")
