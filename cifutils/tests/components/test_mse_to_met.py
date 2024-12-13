@@ -8,7 +8,7 @@ from cifutils.constants import CCD_MIRROR_PATH, HYDROGEN_LIKE_SYMBOLS
 from cifutils.parser import parse
 from cifutils.transforms.atom_array import mse_to_met
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from cifutils.utils.ccd import get_ccd_component
+from cifutils.utils.ccd import atom_array_from_ccd_code
 from tests.conftest import get_pdb_path
 
 TEST_CASES = ["1aqc"]
@@ -17,8 +17,8 @@ TEST_CASES = ["1aqc"]
 @pytest.mark.parametrize("ccd_mirror_path", [CCD_MIRROR_PATH, None])
 def test_mse_to_met_residue(ccd_mirror_path: os.PathLike | None):
     # Test with local CCD data
-    mse = get_ccd_component("MSE", ccd_mirror_path=ccd_mirror_path)
-    met = get_ccd_component("MET", ccd_mirror_path=ccd_mirror_path)
+    mse = atom_array_from_ccd_code("MSE", ccd_mirror_path=ccd_mirror_path)
+    met = atom_array_from_ccd_code("MET", ccd_mirror_path=ccd_mirror_path)
     # Set coordinates to `nan` to avoid comparing coordinates
     mse.coord[:] = np.nan
     met.coord[:] = np.nan

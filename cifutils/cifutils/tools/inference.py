@@ -24,8 +24,17 @@ from cifutils.constants import (
 from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.template import build_template_atom_array
 from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
-from cifutils.utils.bond_utils import get_inferred_polymer_bonds
-from cifutils.utils.ccd import check_ccd_codes_are_available, get_chem_comp_type
+from cifutils.utils.bond_utils import (
+    get_inferred_polymer_bonds,
+    get_struct_conn_bonds,
+    spoof_struct_conn_dict_from_string,
+)
+from cifutils.utils.ccd import (
+    atom_array_from_ccd_code,
+    check_ccd_codes_are_available,
+    get_chain_type_from_ccd_code,
+    get_chem_comp_type,
+)
 from cifutils.utils.chain_utils import create_chain_id_generator
 from cifutils.utils.selection_utils import get_residue_starts
 from cifutils.utils.sequence_utils import get_1_from_3_letter_code
@@ -47,6 +56,8 @@ class ChemicalComponent(ABC):
             return SDFComponent(**args_dict)
         elif "path" in args_dict and args_dict["path"].endswith(".cif"):
             return CIFFileComponent(**args_dict)
+        elif "ccd_code" in args_dict:
+            return CCDComponent(**args_dict)
         else:
             raise ValueError(f"Unknown chemical component type: {args_dict=}")
 
@@ -154,6 +165,14 @@ class LigandComponent(ChemicalComponent):
 
 
 @dataclass
+class CCDComponent(LigandComponent):
+    ccd_code: str
+    chain_type: ChainType | str = "non-polymer"
+    is_polymer: bool = False
+    chain_id: str | None = None
+
+
+@dataclass
 class SmilesComponent(LigandComponent):
     smiles: str
     chain_type: ChainType | str = "non-polymer"
@@ -223,7 +242,7 @@ def read_chai_fasta(fasta_path: Path) -> list[ChemicalComponent]:
         if metadata.startswith("ligand"):
             components.append(SmilesComponent(smiles=content))
         elif metadata.endswith(".sdf"):
-            components.append(sdf_to_atom_array(sdf=content))
+            components.append(sdf_to_annotated_atom_array(sdf=content))
         else:
             if "protein" in metadata:
                 components.append(Protein(seq=content))
@@ -238,7 +257,7 @@ def read_chai_fasta(fasta_path: Path) -> list[ChemicalComponent]:
     return components
 
 
-def sequence_to_atom_array(
+def sequence_to_annotated_atom_array(
     seq: list[str],
     chain_id: str,
     *,
@@ -246,7 +265,7 @@ def sequence_to_atom_array(
     is_polymer: bool = None,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> AtomArray:
-    if isinstance(seq, str):
+    if isinstance(seq, str) and is_polymer:
         seq = one_letter_to_ccd_code(split_generalized_fasta_sequence(seq), chain_type=chain_type)
 
     # Turn the sequence into a numpy array
@@ -268,7 +287,9 @@ def sequence_to_atom_array(
     # ... create a list of atoms based on the reference CCD entries
     atom_array = build_template_atom_array(
         chain_info_dict={
-            chain_id: dict(res_name=seq, res_id=np.arange(len(seq)), chain_type=chain_type, is_polymer=is_polymer)
+            chain_id: dict(
+                res_name=seq, res_id=np.arange(1, len(seq) + 1), chain_type=chain_type, is_polymer=is_polymer
+            )
         },
         atom_array=None,
         remove_hydrogens=True,
@@ -304,7 +325,7 @@ def sequence_to_atom_array(
     return atom_array
 
 
-def smiles_to_atom_array(
+def smiles_to_annotated_atom_array(
     smiles: str,
     chain_id: str,
     *,
@@ -319,10 +340,6 @@ def smiles_to_atom_array(
         array = atom_array_from_rdkit(mol)
     elif backend == "openbabel":
         raise NotImplementedError("Openbabel backend not yet implemented.")
-        from cifutils.tools.obabel import atom_array_from_openbabel, smiles_to_openbabel
-
-        mol = smiles_to_openbabel(smiles)
-        array = atom_array_from_openbabel(mol)
     else:
         raise ValueError(f"Unknown backend: {backend=}")
 
@@ -336,7 +353,7 @@ def smiles_to_atom_array(
     return array
 
 
-def sdf_to_atom_array(
+def sdf_to_annotated_atom_array(
     sdf: io.StringIO | os.PathLike,
     chain_id: str,
     *,
@@ -351,10 +368,6 @@ def sdf_to_atom_array(
         array = atom_array_from_rdkit(mol)
     elif backend == "openbabel":
         raise NotImplementedError("Openbabel backend not yet implemented.")
-        from cifutils.tools.obabel import atom_array_from_openbabel, sdf_to_openbabel
-
-        mol = sdf_to_openbabel(sdf)
-        array = atom_array_from_openbabel(mol)
     else:
         raise ValueError(f"Unknown backend: {backend=}")
 
@@ -366,6 +379,62 @@ def sdf_to_atom_array(
     array.set_annotation("is_polymer", np.full(array.array_length(), is_polymer))
     array.set_annotation("chain_type", np.full(array.array_length(), ChainType.as_enum(chain_type)))
     return array
+
+
+def ccd_code_to_annotated_atom_array(
+    ccd_code: list[str],
+    chain_id: str,
+    *,
+    chain_type: ChainType | str = None,
+    is_polymer: bool = None,
+    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
+) -> AtomArray:
+    check_ccd_codes_are_available([ccd_code], ccd_mirror_path=ccd_mirror_path, mode="raise")
+
+    # ... build the atom array
+    array = atom_array_from_ccd_code(ccd_code)
+
+    # ... set or infer chain type
+    chain_type = chain_type or get_chain_type_from_ccd_code(ccd_code)
+    is_polymer = is_polymer or chain_type.is_polymer()
+
+    # ... update annotations
+    array.set_annotation("occupancy", np.ones(array.array_length()))
+    array.set_annotation("hetero", np.full(array.array_length(), True))
+    array.set_annotation("res_name", np.full(array.array_length(), ccd_code))
+    array.set_annotation("chain_id", np.full(array.array_length(), chain_id))
+    array.set_annotation("is_polymer", np.full(array.array_length(), is_polymer))
+    array.set_annotation("chain_type", np.full(array.array_length(), ChainType.as_enum(chain_type)))
+
+    return array
+
+
+def get_next_chain_id_generator(occupied_chain_ids: list[str] = []) -> Iterator[str]:
+    """
+    Generate the next available chain ID that is not in the occupied_chain_ids list.
+
+    Args:
+        - occupied_chain_ids (list[str]): List of already occupied chain IDs.
+
+    Yields:
+        - str: The next available chain ID.
+
+    Example:
+        >>> occupied = ["A", "B", "C", "AA", "AB"]
+        >>> next_id = get_next_chain_id_generator(occupied)
+        >>> print(next(next_id), next(next_id), next(next_id))
+        D E F
+    """
+    occupied_set = set(occupied_chain_ids)
+
+    def chain_id_generator():
+        for length in range(1, 100):  # Adjust the upper limit if needed
+            for combo in product(ascii_uppercase, repeat=length):
+                yield "".join(combo)
+
+    for chain_id in chain_id_generator():
+        if chain_id not in occupied_set:
+            yield chain_id
 
 
 def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
@@ -380,8 +449,26 @@ def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
     return atom_array
 
 
-def components_to_atom_array(components: list[ChemicalComponent | dict]) -> AtomArray:
-    # TODO: Add support for covalent bonds between components (including chirals specification)
+def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: list[str] | None = None) -> AtomArray:
+    """Build an AtomArray from a list of ChemicalComponent objects and, optionally, a list of bonds.
+
+    Args:
+        components (list[ChemicalComponent | dict]): List of ChemicalComponent objects or dictionaries that can be
+            converted to ChemicalComponent objects using ChemicalComponent.from_dict().
+        bonds (list[str]): List of tuples of atom ids to be bonded. We will add them like spoof `struct_conn` entries,
+            ensuring that we remove leaving groups as appropriate. Bonds tuples must be in the format (1-indexed!):
+            ```
+            (CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME, CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME)
+            ```
+            e.g., [("A:THR:4:CG", "D:UNL:0:O13"), ("A:CYS:5:SG",  "A:CYS:137:SG")]
+
+    NOTE: We recommend visualizing the AtomArray to ensure that the bonds are correctly added before using it for inference.
+    NOTE: The ResID numbering follows the RCSB convention and is 1-indexed!
+
+    Returns:
+        AtomArray: The assembled AtomArray, used for visualization or inference.
+    """
+    # TODO: Add support for chiral specifications
     # TODO: Add support for ligands inserted inside sequence polymer chains (e.g. non-CCD coded noncanonicals)
     # TODO: Add support for cif/pdb
 
@@ -398,16 +485,40 @@ def components_to_atom_array(components: list[ChemicalComponent | dict]) -> Atom
     for component in components:
         component.chain_id = component.chain_id or next(chain_id_generator)
 
+        # TODO: Can we add support for SDFComponent?
         if isinstance(component, SequenceComponent):
-            atom_arrays.append(sequence_to_atom_array(**component.as_dict()))
+            atom_arrays.append(sequence_to_annotated_atom_array(**component.as_dict()))
         elif isinstance(component, SmilesComponent):
-            atom_arrays.append(smiles_to_atom_array(**component.as_dict()))
+            atom_arrays.append(smiles_to_annotated_atom_array(**component.as_dict()))
+        elif isinstance(component, CCDComponent):
+            atom_arrays.append(ccd_code_to_annotated_atom_array(**component.as_dict()))
         else:
             raise ValueError(f"Unknown chemical component type: {type(component)}")
 
+    # TODO: Rewrite using Biotite's new `concatenate` method
     atom_array = atom_arrays[0]
     for arr in atom_arrays[1:]:
         atom_array += arr
+
+    if bonds:
+        # ... spoof the struct_conn CIFCategory
+        struct_conn_dict = spoof_struct_conn_dict_from_string(bonds)
+
+        # ... get the bonds and leaving atoms
+        struct_conn_bonds, struct_conn_leaving_atom_idxs = get_struct_conn_bonds(
+            atom_array=atom_array, struct_conn_dict=struct_conn_dict, add_bond_types=["covale"], raise_on_failure=True
+        )
+
+        # ... add the bonds to the AtomArray
+        atom_array.bonds = atom_array.bonds.merge(struc.BondList(atom_array.array_length(), struct_conn_bonds))
+
+        # ... and remove the leaving atoms
+        is_leaving = np.zeros(len(atom_array), dtype=bool)
+        is_leaving[struct_conn_leaving_atom_idxs] = True
+        atom_array = atom_array[~is_leaving]
+
+        # ... fix charges of bonded atoms
+        # TODO: Fix charges of bonded atoms
 
     atom_array = add_inference_iid_id_entity_annotations(atom_array)
 

@@ -172,7 +172,6 @@ class ChainTypeInfo:
 
     NUCLEIC_ACIDS: Final[tuple[ChainType, ...]] = (ChainType.DNA, ChainType.RNA, ChainType.DNA_RNA_HYBRID)
 
-    # Define a mapping from chain_type strings to ChainType enums
     STRING_TO_ENUM: Final[MappingProxyType[str, ChainType]] = MappingProxyType(
         keymap(
             str.upper,
@@ -194,11 +193,12 @@ class ChainTypeInfo:
             },
         )
     )
+    """Mapping from chain_type strings to ChainType enums."""
 
-    # Compute the reverse mapping, from ChainType enums to chain_type strings
     ENUM_TO_STRING: Final[MappingProxyType[ChainType, str]] = MappingProxyType(
         {v: k for k, v in STRING_TO_ENUM.items()}
     )
+    """Mapping from ChainType enums to chain_type strings."""
 
     VALID_CHEM_COMP_TYPES: Final[MappingProxyType[ChainType, set[str]]] = MappingProxyType(
         {
@@ -213,6 +213,16 @@ class ChainTypeInfo:
             ChainType.RNA: RNA_LIKE_CHEM_TYPES,
         }
     )
+    """Mapping from ChainType enums to valid chemical component types."""
+
+    CHEM_COMP_TYPE_TO_ENUM: Final[MappingProxyType[str, ChainType]] = MappingProxyType(
+        {
+            chem_comp_type: chain_type
+            for chain_type, chem_comp_types in VALID_CHEM_COMP_TYPES.items()
+            for chem_comp_type in chem_comp_types
+        }
+    )
+    """Mapping from chemical component types to ChainType enums."""
 
     ATOMS_AT_POLYMER_BOND: Final[MappingProxyType[ChainType, tuple[str, str]]] = MappingProxyType(
         {
@@ -226,4 +236,4 @@ class ChainTypeInfo:
             ChainType.DNA_RNA_HYBRID: ("O3'", "P"),
         }
     )
-    """A mapping of chain types to the atoms that they link when part of a polymer."""
+    """Mapping of chain types to the atoms that they link when part of a polymer."""

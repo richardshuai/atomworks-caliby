@@ -10,7 +10,7 @@ import cifutils.transforms.atom_array as ta
 from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
 from cifutils.utils.bond_utils import get_inferred_polymer_bonds, get_struct_conn_bonds
-from cifutils.utils.ccd import check_ccd_codes_are_available, get_ccd_component
+from cifutils.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_available
 
 logger = logging.getLogger(__file__)
 
@@ -177,7 +177,7 @@ def get_empty_ccd_template(
     remove_hydrogens: bool = True,
     **res_wise_annotations: int | float | str,
 ) -> AtomArray:
-    template_cc = get_ccd_component(ccd_code, ccd_mirror_path, coords=None)
+    template_cc = atom_array_from_ccd_code(ccd_code, ccd_mirror_path, coords=None)
 
     if remove_hydrogens:
         template_cc = ta.remove_hydrogens(template_cc)
@@ -392,6 +392,6 @@ def add_missing_atoms(
     atoms = atoms[~is_leaving]
 
     # ... fix charges of bonded atoms
-    # TODO:
+    # TODO: Fix charges of bonded atoms
 
     return atoms

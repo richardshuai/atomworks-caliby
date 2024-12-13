@@ -3,12 +3,12 @@ import os
 from functools import cache
 from typing import Iterable, Literal
 
-import biotite.structure as struc
-import biotite.structure.io.pdbx as pdbx
 import networkx as nx
 import numpy as np
 import toolz
 
+import biotite.structure as struc
+import biotite.structure.io.pdbx as pdbx
 from cifutils.common import exists, immutable_lru_cache
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
@@ -20,6 +20,7 @@ from cifutils.constants import (
     UNKNOWN_LIGAND,
     UNKNOWN_RNA,
 )
+from cifutils.enums import ChainType, ChainTypeInfo
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,7 @@ def parse_ccd_cif(
     atoms.set_annotation("is_backbone_atom", as_bool(atom_data.get("pdbx_backbone_atom_flag")))
     atoms.set_annotation("is_n_terminal_atom", as_bool(atom_data.get("pdbx_n_terminal_atom_flag")))
     atoms.set_annotation("is_c_terminal_atom", as_bool(atom_data.get("pdbx_c_terminal_atom_flag")))
+    atoms.set_annotation("res_id", np.full(len(atoms), 1))  # We 1-index residue IDs to be consistent with RCSB
 
     # Try setting hetero flag
     hetero = True
@@ -244,11 +246,10 @@ def get_ccd_component_from_mirror(
     return parse_ccd_cif(cif, **parse_ccd_cif_kwargs)
 
 
-def get_ccd_component(
+def atom_array_from_ccd_code(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, **parse_ccd_cif_kwargs
 ) -> struc.AtomArray:
-    """
-    Retrieves and parses a component from a local mirror of the Chemical Component Dictionary.
+    """Retrieves and parses a component from a local mirror of the Chemical Component Dictionary.
 
     If a mirror path is provided, it will be used to check the local mirror first.
     Otherwise, Biotite's built-in CCD will be used.
@@ -312,7 +313,7 @@ def get_chem_comp_leaving_atom_names(
         >>> get_chem_comp_leaving_atom_names("ALA")
         {'N': ('H2',), 'C': ('OXT', 'HXT'), 'OXT': ('HXT',)}
     """
-    chem_comp = get_ccd_component(ccd_code, ccd_mirror_path)
+    chem_comp = atom_array_from_ccd_code(ccd_code, ccd_mirror_path)
 
     if "is_leaving_atom" not in chem_comp.get_annotation_categories():
         if mode == "warn":
@@ -358,25 +359,22 @@ def get_chem_comp_leaving_atom_names(
 
 @cache
 def _chem_comp_type_dict() -> dict[str, str]:
-    """
-    Get a dictionary of all residue names and their corresponding chemical component types.
-    """
+    """Get a dictionary of all residue names and their corresponding chemical component types."""
     ccd = struc.info.ccd.get_ccd()  # NOTE: biotite caches this internally
     chem_comp_ids = np.char.upper(ccd["chem_comp"]["id"].as_array())
     chem_comp_types = np.char.upper(ccd["chem_comp"]["type"].as_array())
     return dict(zip(chem_comp_ids, chem_comp_types))
 
 
-def get_chem_comp_type(
-    ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, mode: Literal["warn", "raise"] = "warn"
-) -> str:
-    """
-    Get the chemical component type for a CCD code from the Chemical Component Dictionary (CCD).
+def get_chem_comp_type(ccd_code: str, mode: Literal["warn", "raise"] = "warn") -> str:
+    """Get the chemical component type for a CCD code from the Chemical Component Dictionary (CCD).
+
     Can be combined with CHEM_TYPES from `cifutils_biotite.constants` to determine if a component is a
     protein, nucleic acid, or carbohydrate.
 
     Args:
         ccd_code (str): The CCD code for the component. E.g. `ALA` for alanine, `NAP` for N-acetyl-D-glucosamine.
+        mode (Literal["warn", "raise"]): How to handle unknown chemical component types.
 
     Example:
         >>> get_chem_comp_type("ALA")
@@ -397,10 +395,18 @@ def get_chem_comp_type(
     return chem_comp_type
 
 
+def get_chain_type_from_chem_comp_type(chem_comp_type: str) -> ChainType:
+    """Get the ChainType enum corresponding to a chemical component type."""
+    return ChainTypeInfo.CHEM_COMP_TYPE_TO_ENUM.get(chem_comp_type, ChainType.OTHER_POLYMER)
+
+
+def get_chain_type_from_ccd_code(ccd_code: str) -> ChainType:
+    """Get the ChainType enum corresponding to a CCD code."""
+    return get_chain_type_from_chem_comp_type(get_chem_comp_type(ccd_code))
+
+
 def get_unknown_ccd_code_for_chem_comp_type(chem_comp_type: str) -> str:
-    """
-    Get the CCD code for an unknown chemical component type.
-    """
+    """Get the CCD code for an unknown chemical component type."""
     if chem_comp_type in AA_LIKE_CHEM_TYPES:
         return UNKNOWN_AA
     elif chem_comp_type in DNA_LIKE_CHEM_TYPES:

@@ -62,12 +62,37 @@ def dict_inputs():
         }
     ]
 
+    glycan_1 = [
+        {
+            "ccd_code": "NAG",
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "F",
+        }
+    ]
+    glycan_2 = [
+        {
+            "ccd_code": "NAG",
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "G",
+        }
+    ]
+
     return {
         "monomer": monomer,
         "dimer": dimer,
         "noncanonical": noncanonical,
         "ligand": ligand,
+        "glycan_1": glycan_1,
+        "glycan_2": glycan_2,
     }
+
+
+@pytest.fixture
+def bonds():
+    # Bond between the two NAG residues (O4 and C1 atoms) and NAG and the protein (ND2 on ASN and C1 on NAG)
+    return [("F:NAG:1:O4", "G:NAG:1:C1"), ("A:ASN:19:ND2", "F:NAG:1:C1")]
 
 
 @pytest.fixture
@@ -181,6 +206,24 @@ def test_components_to_atom_array_ligand(dict_inputs):
     assert np.all(atom_array.chain_type == ChainType.NON_POLYMER)
 
 
+def test_components_to_atom_array_glycan(dict_inputs, bonds):
+    """Test conversion of ligand components to AtomArray."""
+    components = dict_inputs["glycan_1"] + dict_inputs["glycan_2"] + dict_inputs["monomer"]
+    atom_array = components_to_atom_array(components, bonds=bonds)
+
+    assert isinstance(atom_array, AtomArray)
+
+    # Check only one molecule ID (e.g., all atoms are connected via bonds)
+    assert len(np.unique(atom_array.molecule_id)) == 1
+
+    # Check two PN units
+    assert len(np.unique(atom_array.pn_unit_id)) == 2
+
+    # Check chain IDs
+    chain_ids = np.unique(atom_array.chain_id)
+    assert len(chain_ids) == 3
+
+
 def test_chemical_component_from_dict():
     """Test creation of chemical components from dictionaries."""
     # Test sequence component
@@ -246,6 +289,6 @@ def test_full_components_input(dict_inputs):
     atom_array = components_to_atom_array(components)
 
     assert isinstance(atom_array, AtomArray)
-    assert np.unique(atom_array.chain_id).shape[0] == 5
-    assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E"}
+    assert np.unique(atom_array.chain_id).shape[0] == 7  # 1 monomer, 2 dimers, 1 noncanonical, 1 ligand, 2 glycans
+    assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E", "F", "G"}
     assert set(np.unique(atom_array.chain_type)) == {ChainType.POLYPEPTIDE_L, ChainType.NON_POLYMER}

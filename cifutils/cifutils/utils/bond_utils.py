@@ -13,13 +13,13 @@ __all__ = [
 
 import logging
 
-import biotite.structure as struc
 import networkx as nx
 import numpy as np
 import pandas as pd
-from biotite.structure import AtomArray
 
-from cifutils.common import exists, to_hashable
+import biotite.structure as struc
+from biotite.structure import AtomArray
+from cifutils.common import to_hashable
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
     CHEM_TYPE_POLYMERIZATION_ATOMS,
@@ -176,8 +176,6 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
             # ... optionally add `is_polymer` annotation to the atom array
             is_polymer[this_res_start:next_res_stop] = True
 
-            # Fix charges (TODO: Implement)
-
     if set_is_polymer:
         # ... if polymer annotation was not present before, we set it here based on the inferred bonds
         atom_array.set_annotation("is_polymer", is_polymer)
@@ -189,6 +187,7 @@ def get_struct_conn_bonds(
     atom_array: AtomArray,
     struct_conn_dict: dict[str, np.ndarray],
     add_bond_types: list[str] = ["covale"],
+    raise_on_failure: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Adds bonds from the 'struct_conn' category of a CIF block to an atom array. Only covalent bonds are considered.
@@ -196,7 +195,7 @@ def get_struct_conn_bonds(
     Args:
         atom_array (AtomArray): The atom array used to get atom indices.
         struct_conn_dict (dict[str, np.ndarray]): The struct_conn category of a CIF block as a dictionary.
-            E.g. (Only mandatory fields are shown)
+            E.g. (Only mandatory fields, as defined by the RCSB, are shown)
             ```
                 {
                 'conn_type_id': array(['disulf', ...]),
@@ -212,10 +211,23 @@ def get_struct_conn_bonds(
                 'ptnr2_symmetry': array(['1_555', ...]),
                 }
             ```
+            However, in this function, we only require the following fields:
+                - conn_type_id (e.g., "covale")
+                - ptnr1_label_asym_id (chain_id, e.g., "A")
+                - ptnr1_label_comp_id (residue name in the CCD, e.g., "CYS")
+                - ptnr1_label_seq_id (residue ID, e.g., "6")
+                - ptnr1_label_atom_id (atom name, e.g., "SG")
+                - ptnr2_label_asym_id
+                - ptnr2_label_comp_id
+                - ptnr2_label_seq_id
+                - ptnr2_label_atom_id
+
         add_bond_types (list[str]): A list of bond types that should be added. Valid bond types
             are: ["covale", "disulf", "metalc", "hydrog"]. Defaults to ["covale"], which is
             the use-case in structure-prediction, where we would a-priori know covalent bonds
             (except for disulfides).
+        raise_on_failure(bool): If True, raise an error if specified bonds cannot be made (e.g.,
+            if the atoms are missing). Defaults to False.
 
     Returns:
         bonds (np.array[[int, int, struc.BondType]]): A List of bonds to be added to the atom array.
@@ -268,6 +280,8 @@ def get_struct_conn_bonds(
         res_name2 = row["ptnr2_label_comp_id"]
         if (res_name1 not in all_res_names) or (res_name2 not in all_res_names):
             # ... skip if the residues were removed from the structure
+            if raise_on_failure:
+                raise ValueError(f"Residue {res_name1} or {res_name2} not found in the atom array!")
             continue
 
         chain_id1 = row["ptnr1_label_asym_id"]
@@ -280,10 +294,13 @@ def get_struct_conn_bonds(
                 "residue that is not in the local CCD. This should automatically be resolved once you "
                 "update your CCD, unless you are working with an outdated structure file."
             )
+            if raise_on_failure:
+                raise ValueError(f"Chain {chain_id1} or {chain_id2} not found in the atom array!")
             continue
 
-        # For non-polymers, we use the auth_seq_id, otherwise we use the label_seq_id
-        # NOTE: For non-polymers within PDB files, we may not have the auth_seq_id; we use the label_seq_id in such cases
+        # For non-polymers, we use the auth_seq_id if available; otherwise we use the label_seq_id
+        # (Required to avoid ambiguity, since if using `label` only we may have multiple residue within a
+        # chain with the same label_seq_id and the same res_name; see: 6MUB)
         res_id1 = int(
             row["ptnr1_label_seq_id"]
             if (chain_id1 in polymer_chain_ids) or ("ptnr1_auth_seq_id" not in row)
@@ -302,6 +319,12 @@ def get_struct_conn_bonds(
         # ... get masks for the residues to which atoms 1 & 2 belong
         in_res1 = (chain_ids == chain_id1) & (res_ids == res_id1) & (res_names == res_name1) & (ins_codes == ins_code1)
         in_res2 = (chain_ids == chain_id2) & (res_ids == res_id2) & (res_names == res_name2) & (ins_codes == ins_code2)
+
+        if not in_res1.any() or not in_res2.any() and raise_on_failure:
+            raise ValueError(
+                f"Residue {chain_id1}:{res_id1}:{res_name1} or {chain_id2}:{res_id2}:{res_name2} "
+                "not found in the atom array!"
+            )
         in_res1_start = global_atom_idx[in_res1][0]
         in_res2_start = global_atom_idx[in_res2][0]
 
@@ -321,6 +344,11 @@ def get_struct_conn_bonds(
                 f"residues are not present in the atom array. This is likely due to "
                 f"resolved sequence heterogeneity which removed one of the residues."
             )
+            if raise_on_failure:
+                raise ValueError(
+                    f"Residue {chain_id1}:{res_id1}:{res_name1} or {chain_id2}:{res_id2}:{res_name2} "
+                    "not found in the atom array!"
+                )
             continue
 
         # If all residues are present, we can proceed with identifying the global indices of the
@@ -344,7 +372,7 @@ def get_struct_conn_bonds(
         atom2_global_idx = in_res2_start + atom_2_local_idx
 
         # ... add the bond
-        bond_order = STRUCT_CONN_BOND_ORDER_TO_INT.get(row["pdbx_value_order"], 1)
+        bond_order = STRUCT_CONN_BOND_ORDER_TO_INT.get(row.get("pdbx_value_order"), 1)
         bonds.append([atom1_global_idx, atom2_global_idx, struc.BondType(bond_order)])
 
         # ... and identify the leaving atoms
@@ -362,19 +390,6 @@ def get_struct_conn_bonds(
         )
         leaving.append(leaving_res1) if len(leaving_res1) > 0 else None
         leaving.append(leaving_res2) if len(leaving_res2) > 0 else None
-
-        # ... verify leaving group computation
-        leaving_flag = {
-            "one": True,
-            "both": True,
-            "none": False,
-        }.get(row.get("pdbx_leaving_atom_flag"), None)
-        found_leaving = len(leaving_res1) > 0 or len(leaving_res2) > 0
-        if exists(leaving_flag) and (leaving_flag != found_leaving):
-            logger.warning(
-                f"Leaving group for bond {chain_id1}:{res_id1}:{atom_name1} and {chain_id2}:{res_id2}:{atom_name2} "
-                "was not computed correctly! Please report this issue to the developers."
-            )
 
         # Fix charges (TODO: Implement)
 
@@ -549,6 +564,85 @@ def generate_inter_level_bond_hash(
         return str(hash(tuple(sorted(bond_tuples))))
     else:
         return ""
+
+
+def spoof_struct_conn_dict_from_string(bonds: list[tuple[str, str]]) -> dict[str, list[str]]:
+    """Spoof a struct_conn_dict from a list of bond strings.
+
+    NOTE: For SMILES, atoms are named with their element type and the order that they
+    appear in the SMILES string. For example, the first carbon atom in a SMILES string
+    would be named "C1", the second "C2", and so on.
+
+    NOTE: We only support covalent bonds.
+
+    Args:
+        bonds (list[tuple[str, str]]): A list of bond strings.
+            Each bond string should be in the format:
+            "CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME, CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME"
+
+    Returns:
+        dict[str, list[str]]: A dictionary in struct_conn format.
+
+    Example:
+        ```
+        >>> bonds = [
+        ...     ("A:THR:4:CG", "D:UNL:1:C5"),
+        ...     ("A:CYS:5:SG", "A:CYS:137:SG")
+        ... ]
+        >>> struct_conn_dict = spoof_struct_conn_dict_from_string(bonds)
+        >>> print(struct_conn_dict)
+        {
+            'conn_type_id': ['covale', 'covale'],
+            'ptnr1_label_asym_id': ['A', 'A'],
+            'ptnr1_label_comp_id': ['THR', 'CYS'],
+            'ptnr1_label_seq_id': ['4', '5'],
+            'ptnr1_label_atom_id': ['CG', 'SG'],
+            'ptnr2_label_asym_id': ['D', 'A'],
+            'ptnr2_label_comp_id': ['UNL', 'CYS'],
+            'ptnr2_label_seq_id': ['1', '137'],
+            'ptnr2_label_atom_id': ['C5', 'SG'],
+        }
+        ```
+
+    """
+    struct_conn_dict = {
+        "conn_type_id": [],
+        "ptnr1_label_asym_id": [],
+        "ptnr1_label_comp_id": [],
+        "ptnr1_label_seq_id": [],
+        "ptnr1_label_atom_id": [],
+        "ptnr2_label_asym_id": [],
+        "ptnr2_label_comp_id": [],
+        "ptnr2_label_seq_id": [],
+        "ptnr2_label_atom_id": [],
+    }
+
+    for bond in bonds:
+        try:
+            # Split the bond string into two parts
+            ptnr1, ptnr2 = bond
+
+            # Parse the first partner
+            ptnr1_chain_id, ptnr1_res_name, ptnr1_res_id, ptnr1_atom_name = ptnr1.split(":")
+            struct_conn_dict["ptnr1_label_asym_id"].append(ptnr1_chain_id)
+            struct_conn_dict["ptnr1_label_comp_id"].append(ptnr1_res_name)
+            struct_conn_dict["ptnr1_label_seq_id"].append(ptnr1_res_id)
+            struct_conn_dict["ptnr1_label_atom_id"].append(ptnr1_atom_name)
+
+            # Parse the second partner
+            ptnr2_chain_id, ptnr2_res_name, ptnr2_res_id, ptnr2_atom_name = ptnr2.split(":")
+            struct_conn_dict["ptnr2_label_asym_id"].append(ptnr2_chain_id)
+            struct_conn_dict["ptnr2_label_comp_id"].append(ptnr2_res_name)
+            struct_conn_dict["ptnr2_label_seq_id"].append(ptnr2_res_id)
+            struct_conn_dict["ptnr2_label_atom_id"].append(ptnr2_atom_name)
+
+            # Assuming all bonds are covalent for simplicity; adjust as needed
+            struct_conn_dict["conn_type_id"].append("covale")
+
+        except ValueError as e:
+            raise ValueError(f"Error parsing bond string '{bond}': {e}")
+
+    return struct_conn_dict
 
 
 # TODO: Reimplement with improved tools
