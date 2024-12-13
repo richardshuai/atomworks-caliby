@@ -6,6 +6,7 @@ import sys
 from types import MappingProxyType
 from typing import Final
 
+from biotite.structure.bonds import BondType
 from dotenv import load_dotenv
 from toolz import keymap
 
@@ -265,6 +266,36 @@ Mapping from `struct_conn.pdbx_value_order` to integer bond orders.
 References:
     - https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_struct_conn.pdbx_value_order.html
 """
+
+BIOTITE_BOND_TYPE_TO_BOND_ORDER: Final[MappingProxyType[BondType, int]] = MappingProxyType(
+    {
+        # biotite bond type -> (rdkit bond type, is_aromatic)
+        BondType.ANY: 1,
+        BondType.SINGLE: 1,
+        BondType.DOUBLE: 2,
+        BondType.TRIPLE: 3,
+        BondType.QUADRUPLE: 4,
+        BondType.AROMATIC_SINGLE: 1,
+        BondType.AROMATIC_DOUBLE: 2,
+        BondType.AROMATIC_TRIPLE: 3,
+    }
+)
+"""Mapping from Biotite bond types to bond orders."""
+
+DEFAULT_VALENCE = {
+    "H": 1,
+    "C": 4,
+    "N": 3,
+    "O": 2,
+    "S": 2,  # or 4 or 6 in higher oxidation states
+    "P": 3,  # or 5 in higher oxidation states
+    "F": 1,
+    "Cl": 1,
+    "Br": 1,
+    "I": 1,
+    "B": 3,
+}
+"""Default valences of common elements in organic compounds."""
 
 CRYSTALLIZATION_AIDS: Final[list[str]] = [
     "SO4",

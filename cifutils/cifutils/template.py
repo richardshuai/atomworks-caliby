@@ -2,14 +2,14 @@ import logging
 import os
 from typing import Any, Final, Sequence
 
-import numpy as np
-
 import biotite.structure as struc
-import cifutils.transforms.atom_array as ta
+import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack, BondList
+
+import cifutils.transforms.atom_array as ta
 from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
-from cifutils.utils.bond_utils import get_inferred_polymer_bonds, get_struct_conn_bonds
+from cifutils.utils.bond_utils import fix_formal_charges, get_inferred_polymer_bonds, get_struct_conn_bonds
 from cifutils.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_available
 
 logger = logging.getLogger(__file__)
@@ -391,7 +391,8 @@ def add_missing_atoms(
     #     and remove them from the atom array
     atoms = atoms[~is_leaving]
 
-    # ... fix charges of bonded atoms
-    # TODO: Fix charges of bonded atoms
+    # ... fix charges of newly bonded atoms, where needed
+    atoms_involved_in_bonds = np.unique(atoms.bonds.as_array()[:, :2])
+    atoms = fix_formal_charges(atoms, to_update=atoms_involved_in_bonds)
 
     return atoms

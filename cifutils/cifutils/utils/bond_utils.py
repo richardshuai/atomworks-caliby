@@ -13,16 +13,19 @@ __all__ = [
 
 import logging
 
+import biotite.structure as struc
 import networkx as nx
 import numpy as np
 import pandas as pd
-
-import biotite.structure as struc
 from biotite.structure import AtomArray
+
 from cifutils.common import to_hashable
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
+    BIOTITE_BOND_TYPE_TO_BOND_ORDER,
     CHEM_TYPE_POLYMERIZATION_ATOMS,
+    DEFAULT_VALENCE,
+    HYDROGEN_LIKE_SYMBOLS,
     NA_LIKE_CHEM_TYPES,
     STRUCT_CONN_BOND_ORDER_TO_INT,
     STRUCT_CONN_BOND_TYPES,
@@ -645,37 +648,56 @@ def spoof_struct_conn_dict_from_string(bonds: list[tuple[str, str]]) -> dict[str
     return struct_conn_dict
 
 
-# TODO: Reimplement with improved tools
-# def fix_bonded_atom_charges(atom):
-#     """
-#     Fix charges and hydrogen counts for cases when
-#     charged a atom is connected by an inter-residue bond.
+def _get_num_bonded_hydrogens_and_heavy_degree(atom_array: struc.AtomArray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Assigns the number of hydrogens and the heavy degree to each atom.
+    Requires an AtomArray with hydrogens and bond-types annotated.
 
-#     Args:
-#         atom (Atom): The atom object to be modified.
+    These annotations are useful for fixing the charges of atoms after bond formation.
+    """
+    num_bonded_hydrogens = np.zeros(atom_array.array_length(), dtype=np.int8)
+    heavy_degree = np.zeros(atom_array.array_length(), dtype=np.int8)
 
-#     Returns:
-#         dict: A dictionary with updated 'charge', 'hyb', and 'nhyd' values.
-#     """
-#     # TODO(smathis): Obsolete.
-#     # ...convert to int for comparison
-#     element = atom.element.astype(int)
-#     charge = atom.charge.astype(int)
-#     nhyd = atom.nhyd.astype(int)
-#     hyb = atom.hyb.astype(int)
-#     hvydeg = atom.hvydeg.astype(int)
+    bonds = atom_array.bonds.as_graph()
+    for atom_idx in range(atom_array.array_length()):
+        bonded_atoms, bond_types = bonds.get_bonds(atom_idx)
+        is_hydrogen = np.isin(bonded_atoms, HYDROGEN_LIKE_SYMBOLS)
+        num_bonded_hydrogens[atom_idx] = np.sum(is_hydrogen)
+        heavy_degree[atom_idx] = np.sum(
+            [BIOTITE_BOND_TYPE_TO_BOND_ORDER[bond_type] for bond_type in bond_types[~is_hydrogen]]
+        )
 
-#     # ...manually fix charges and hydrogen counts for certain cases
-#     #    for nitrogen
-#     if element == 7 and charge == 1 and hyb == 3 and nhyd == 2 and hvydeg == 2:  # -(NH2+)-
-#         return {"charge": 0, "hyb": 2, "nhyd": 0}
-#     elif element == 7 and charge == 1 and hyb == 3 and nhyd == 3 and hvydeg == 0:  # free NH3+ group
-#         return {"charge": 0, "hyb": 2, "nhyd": 2}
-#     #    for oxygen
-#     elif element == 8 and charge == -1 and hyb == 3 and nhyd == 0:
-#         return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
-#     elif element == 8 and charge == -1 and hyb == 2 and nhyd == 0:  # O-linked connections
-#         return {"charge": 0, "hyb": hyb, "nhyd": nhyd}
+    return num_bonded_hydrogens, heavy_degree
 
-#     # ...default (no change)
-#     return {"charge": charge, "hyb": hyb, "nhyd": nhyd}
+
+def fix_formal_charges(atom_array: struc.AtomArray, to_update: np.ndarray) -> struc.AtomArray:
+    """
+    Fix formal charges for atoms in an AtomArray after forming bonds between CCD components.
+
+    Args:
+        atom_array (AtomArray): The AtomArray to fix.
+        to_update (np.ndarray): A boolean mask of atoms whose formal charges should be fixed.
+            These are normally the atoms for which bonds were modified.
+
+    Returns:
+        AtomArray: The AtomArray with fixed formal charges.
+    """
+    # ... check that the AtomArray has hydrogens
+    if not np.isin(atom_array, HYDROGEN_LIKE_SYMBOLS).any():
+        logger.warning("Hydrogens not given. Canno")
+        return atom_array
+
+    # ... get (masked) valences)
+    _INT_NAN = -10
+    default_valences = np.array([DEFAULT_VALENCE.get(elt, _INT_NAN) for elt in atom_array.element])
+    to_consider = default_valences != _INT_NAN
+
+    # ... compute number of bonded hydrogens & heavy atom degree for each atom
+    num_bonded_hydrogens, heavy_degree = _get_num_bonded_hydrogens_and_heavy_degree(atom_array)
+
+    # ... compute formal charge
+    formal_charge = default_valences - num_bonded_hydrogens - heavy_degree
+
+    # ... update the relevant entreis
+    atom_array[to_update & to_consider] = formal_charge
+    return atom_array
