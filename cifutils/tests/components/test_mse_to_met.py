@@ -40,3 +40,15 @@ def test_mse_to_met_pdb(pdb_id: str):
         convert_mse_to_met=True,
     )
     assert result is not None  # Check if processing runs through
+    assert "MSE" not in result["asym_unit"].res_name
+
+    result_unconverted = parse(
+        filename=path,
+        add_missing_atoms=True,
+        remove_waters=True,
+        build_assembly="all",
+        fix_ligands_at_symmetry_centers=True,
+        fix_arginines=True,
+        convert_mse_to_met=False,
+    )
+    assert "MSE" in result_unconverted["asym_unit"].res_name

@@ -93,7 +93,7 @@ def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
     return atom_array
 
 
-def mse_to_met(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+def mse_to_met(atom_array: AtomArray) -> AtomArray:
     """Convert MSE residues (selenomethionine) to MET (methionine)."""
     mse_mask = atom_array.res_name == "MSE"
     if np.any(mse_mask):
@@ -115,16 +115,9 @@ def mse_to_met(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayS
             atom_array.element[se_mask] = str(ELEMENT_NAME_TO_ATOMIC_NUMBER["S"])
 
         # Reorder atoms for canonical MET ordering
-        if isinstance(atom_array, AtomArray):
-            atom_array_mse = atom_array[mse_mask]
-            atom_array_mse = atom_array_mse[struc.info.standardize_order(atom_array_mse)]
-            atom_array[mse_mask] = atom_array_mse
-        elif isinstance(atom_array, AtomArrayStack):
-            atom_array_mse = atom_array[:, mse_mask]
-            atom_array_mse = atom_array_mse[:, struc.info.standardize_order(atom_array_mse[0])]
-            atom_array[:, mse_mask] = atom_array_mse
-        else:
-            raise ValueError(f"Unsupported atom array type: {type(atom_array)}")
+        atom_array_mse = atom_array[mse_mask]
+        atom_array_mse = atom_array_mse[struc.info.standardize_order(atom_array_mse)]
+        atom_array[mse_mask] = atom_array_mse
 
     return atom_array
 
@@ -578,7 +571,7 @@ def add_chain_type_annotation(
     return atom_array
 
 
-def add_atomic_number_annotation(atom_array: AtomArray) -> AtomArray:
+def add_atomic_number_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
     """Adds the atomic number (atomic_number) annotation to the AtomArray."""
     atom_array.add_annotation("atomic_number", dtype=np.int8)
     atom_array.set_annotation("atomic_number", listmap(ELEMENT_NAME_TO_ATOMIC_NUMBER.get, atom_array.element))

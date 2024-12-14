@@ -179,7 +179,7 @@ def preserve_annotations(func: Callable[[Mol, ...], Mol]) -> Callable[[Mol, ...]
     @wraps(func)
     def wrapped(*args, **kwargs) -> Mol:
         # Find the first RDKit molecule in the arguments or keyword arguments
-        if "mol" in kwargs:  # noqa: SIM108
+        if "mol" in kwargs:
             mol = kwargs["mol"]
         else:
             mol = next(arg for arg in args if isinstance(arg, Mol))
