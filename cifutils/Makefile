@@ -111,7 +111,7 @@ test:
 
 ## Run pytest in parallel with `PARALLEL_JOBS` (default =4) cores
 parallel_test:
-	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=$(PARALLEL_JOBS) tests/
+	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=$(PARALLEL_JOBS) --dist=worksteal tests/
 
 #################################################################################
 # Self Documenting Commands                                                     #
