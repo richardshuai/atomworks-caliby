@@ -34,7 +34,7 @@ dependencies:
     - biotite==1.0.1  # TODO: Swap to public biotite on 1.0.2 release
 
     # Formatting & linting
-    - ruff==0.6.2  # python linter & formatter
+    - ruff==0.8.3  # python linter & formatter
     - pre-commit==3.7.1  # pre-commit hooks for formatting & linting
 
     # Debugger & interactive tools

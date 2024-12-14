@@ -110,8 +110,6 @@ ignore = [
     "D100",  # Missing docstring in public module
     "NPY002",  # replacing legacy np.random.rand wih np.random.Generator
     "E501",  # line too long
-    "ANN101",  # missing annotation for `self` in method
-    "ANN102",  # missing annotation for `cls` in method
     "ANN002",  # missing annotation for `*args`
     "ANN003",  # missing annotation for `**kwargs`
     "ANN204",  # missing return type annotation for special method `__init__`
