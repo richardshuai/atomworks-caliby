@@ -6,7 +6,7 @@ import io
 import logging
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -62,7 +62,7 @@ def parse(
     remove_hydrogens: bool = False,
     model: int | None = None,
     build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
-):
+) -> dict[str, Any]:
     """Entrypoint for general parsing of atomic-level structure files.
 
     Can either:
@@ -236,7 +236,7 @@ def parse(
     return result
 
 
-def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) -> dict:
+def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) -> dict[str, Any]:
     """Parse the CIF file.
 
     Return chain information, residue information, atom array, and metadata.
@@ -441,7 +441,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
     return keyfilter(lambda k: k in _keep_keys, data_dict)
 
 
-def _parse_from_pdb(filename: os.PathLike, **parse_from_cif_kwargs):
+def _parse_from_pdb(filename: os.PathLike, **parse_from_cif_kwargs) -> dict[str, Any]:
     """Parse a PDB file and return chain information, residue information, atom array, metadata, and legacy data.
 
     WARNING: We require that a single chain contains either polymer or non-polymer residues, but not both. Thus, if

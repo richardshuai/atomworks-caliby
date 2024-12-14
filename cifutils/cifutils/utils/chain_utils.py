@@ -26,7 +26,7 @@ def create_chain_id_generator(unavailable_chain_ids: Sequence[str] = []) -> Iter
     """
     unavailable_set = set(unavailable_chain_ids)
 
-    def chain_id_generator():
+    def chain_id_generator() -> Iterator[str]:
         length = 1
         while True:
             for combo in product(ascii_uppercase, repeat=length):

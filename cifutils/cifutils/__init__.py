@@ -19,7 +19,7 @@ struc.get_residue_starts = get_residue_starts
 
 
 # TODO: Remove this patch with biotite 1.0.2 if #714 gets merged
-def equal_annotations(self, item, equal_nan: bool = True):
+def equal_annotations(self, item, equal_nan: bool = True) -> bool:  # noqa: ANN001
     """
     Check, if this object shares equal annotation arrays with the
     given :class:`AtomArray` or :class:`AtomArrayStack`.

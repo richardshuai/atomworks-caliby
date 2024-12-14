@@ -8,7 +8,7 @@ from biotite.structure import AtomArray, AtomArrayStack
 
 def annot_start_stop_idxs(
     atom_array: AtomArray | AtomArrayStack, annots: str | list[str], add_exclusive_stop: bool = False
-):
+) -> np.ndarray:
     """
     Computes the start and stop indices for segments in an AtomArray where any of the specified annotation(s) change.
 
@@ -46,7 +46,7 @@ def annot_start_stop_idxs(
     return np.concatenate(([0], start_stop_idxs))
 
 
-def get_residue_starts(atom_array: AtomArray | AtomArrayStack, add_exclusive_stop: bool = False):
+def get_residue_starts(atom_array: AtomArray | AtomArrayStack, add_exclusive_stop: bool = False) -> np.ndarray:
     """Get the start (and optionally stop) indices of residues in an AtomArray.
 
     More robust version of `biotite.structure.residues.get_residue_starts` that also

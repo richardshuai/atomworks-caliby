@@ -23,7 +23,7 @@ def assert_same_atom_array(
     arr2: AtomArray | AtomArrayStack,
     annotations_to_compare: list[str] = ["chain_id", "res_name", "res_id", "atom_name", "element"],
     max_print_length: int = 10,
-):
+) -> None:
     # If the input is a stack, only compare the first array
     if isinstance(arr1, AtomArrayStack):
         arr1 = arr1[0]

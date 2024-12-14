@@ -12,6 +12,7 @@ __all__ = [
 ]
 
 import logging
+from typing import Any
 
 import biotite.structure as struc
 import networkx as nx
@@ -400,7 +401,9 @@ def get_struct_conn_bonds(
     return np.array(bonds).reshape(-1, 3), np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
 
 
-def get_coarse_graph_as_nodes_and_edges(atom_array: AtomArray, annotations: str | tuple[str]):
+def get_coarse_graph_as_nodes_and_edges(
+    atom_array: AtomArray, annotations: str | tuple[str]
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Returns the coarse-grained nodes and edges at the given annotation level based on the atom array's bond connectivity.
 
@@ -459,8 +462,16 @@ def get_coarse_graph_as_nodes_and_edges(atom_array: AtomArray, annotations: str 
     return nodes, edges
 
 
-def get_connected_nodes(nodes: np.ndarray, edges: np.ndarray):
-    """Returns connected nodes as a mapped list given corresponding arrays of nodes and edges."""
+def get_connected_nodes(nodes: np.ndarray, edges: np.ndarray) -> list[list[Any]]:
+    """Returns connected nodes as a mapped list given corresponding arrays of nodes and edges.
+
+    Example:
+        >>> nodes = np.array([("A", "1"), ("B", "1"), ("C", "1"), ("D", "1")])
+        >>> edges = np.array([[0, 1], [0, 2], [1, 2]])
+        >>> connected_nodes = get_connected_nodes(nodes, edges)
+        >>> print(connected_nodes)
+        [[("A", "1"), ("B", "1"), ("C", "1")], [("D", "1")]]
+    """
     # ...make the graph
     graph = nx.Graph()
     graph.add_edges_from(edges)

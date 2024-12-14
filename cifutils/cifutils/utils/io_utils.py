@@ -24,7 +24,7 @@ from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
 logger = logging.getLogger("cifutils")
 
 
-def _get_logged_in_user():
+def _get_logged_in_user() -> str:
     """
     Get the logged in user.
     """

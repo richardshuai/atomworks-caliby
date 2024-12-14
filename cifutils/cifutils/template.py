@@ -29,7 +29,7 @@ try:
 except ImportError:
     # TODO: Replace through biotite import after upgrade to 1.0.2
     @staticmethod
-    def _bond_list_concatenate(bonds_lists):
+    def _bond_list_concatenate(bonds_lists):  # noqa: ANN001, ANN202
         """
         Concatenate multiple :class:`BondList` objects into a single
         :class:`BondList`, respectively.
@@ -80,7 +80,7 @@ except ImportError:
 
     BondList.concatenate = _bond_list_concatenate
 
-    def concatenate(atoms):
+    def concatenate(atoms):  # noqa: ANN001, ANN201
         """
         Concatenate multiple :class:`AtomArray` or :class:`AtomArrayStack` objects into
         a single :class:`AtomArray` or :class:`AtomArrayStack`, respectively.

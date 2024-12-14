@@ -46,14 +46,14 @@ def listmap(func: Callable, *iterables) -> list:
     return compose(list, map)(func, *iterables)
 
 
-def immutable_lru_cache(maxsize: int = 128, typed: bool = False):
+def immutable_lru_cache(maxsize: int = 128, typed: bool = False) -> Callable:
     """An immutable version of `lru_cache` for caching functions that return mutable objects."""
 
-    def decorator(func):
+    def decorator(func: Callable) -> Callable:
         cached_func = lru_cache(maxsize=maxsize, typed=typed)(func)
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> Any:
             return copy.deepcopy(cached_func(*args, **kwargs))
 
         return wrapper

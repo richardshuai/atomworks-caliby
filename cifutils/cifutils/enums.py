@@ -74,7 +74,7 @@ class ChainType(IntEnum):
         """Get a list of all nucleic acid chain types."""
         return ChainTypeInfo.NUCLEIC_ACIDS
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: "ChainType" | int | str) -> bool:
         """Check if two ChainType enums are equal."""
         if isinstance(other, ChainType):
             return self.value == other.value
