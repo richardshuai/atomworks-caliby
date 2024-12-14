@@ -20,9 +20,11 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["cifutils"]
+package-data = {"cifutils" = ["tools/*.smirks"]}
 
 [tool.hatch.build.targets.wheel.force-include]
 # to include data files in the wheel when `pip install`-ing (if we want to give some test cases)
+"cifutils/tools/chembl_transformations.smirks" = "cifutils/tools/chembl_transformations.smirks"
 
 [tool.ruff]
 line-length = 120
@@ -96,6 +98,8 @@ select = [
     "SIM", # flake8-simplify
     "NPY", # fix deprecated numpy functions / types
     "RUF", # Ruff-specific rules
+    "T10", # catch accidental debugger breakpoints in code
+    "ANN"
 ]
 
 # Ignore specific rules that might conflict with our style or are too strict
@@ -106,6 +110,12 @@ ignore = [
     "D100",  # Missing docstring in public module
     "NPY002",  # replacing legacy np.random.rand wih np.random.Generator
     "E501",  # line too long
+    "ANN101",  # missing annotation for `self` in method
+    "ANN102",  # missing annotation for `cls` in method
+    "ANN002",  # missing annotation for `*args`
+    "ANN003",  # missing annotation for `**kwargs`
+    "ANN204",  # missing return type annotation for special method `__init__`
+    "ANN401",  # disallow `Any` type
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -114,7 +124,7 @@ convention = "google"
 # Add per-file-ignores for specific cases
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Ignore unused imports in __init__.py files
-"tests/*" = ["D", "E", "RUF"]         # Ignore docstring rules in tests
+"tests/*" = ["D", "E", "RUF", "ANN"]         # Ignore docstring rules in tests
 
 [tool.pytest]
 testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
