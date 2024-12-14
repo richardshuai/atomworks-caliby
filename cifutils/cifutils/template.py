@@ -492,7 +492,7 @@ def add_missing_atoms(
     atoms = atoms[~is_leaving]
 
     # ... fix charges of newly bonded atoms, where needed
-    atoms_with_inter_bonds = np.unique(atoms.bonds.as_array()[:, :2])
+    atoms_with_inter_bonds = np.unique(inter_bonds.as_array()[:, :2])
     makes_inter_bond = np.zeros(len(atoms), dtype=bool)
     makes_inter_bond[atoms_with_inter_bonds] = True
     atoms = fix_formal_charges(atoms, to_update=makes_inter_bond)

@@ -25,6 +25,7 @@ from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.template import build_template_atom_array
 from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
 from cifutils.utils.bond_utils import (
+    fix_formal_charges,
     get_inferred_polymer_bonds,
     get_struct_conn_bonds,
     spoof_struct_conn_dict_from_string,
@@ -299,22 +300,20 @@ def sequence_to_annotated_atom_array(
     )
 
     # Compute bonds and leaving groups
+    n_atoms = atom_array.array_length()
     polymer_bonds, polymer_bonds_leaving_atoms = get_inferred_polymer_bonds(atom_array)
+    polymer_bonds = struc.BondList(n_atoms, polymer_bonds)
     # ... add bonds to the atom array
-    atom_array.bonds = atom_array.bonds.merge(struc.BondList(atom_array.array_length(), polymer_bonds))
+    atom_array.bonds = atom_array.bonds.merge(polymer_bonds)
     # ... remove the leaving groups
-    atom_array = atom_array[np.setdiff1d(np.arange(atom_array.array_length()), polymer_bonds_leaving_atoms)]
-    # TODO: Add functionality to support custom `struct_conn` bonds
+    atom_array = atom_array[np.setdiff1d(np.arange(n_atoms), polymer_bonds_leaving_atoms)]
 
     # ... remove index annotation and leaving group annotations
-    _annotations_to_remove = [
-        "alt_atom_id",
-        "charge",
-        "is_leaving_atom",
+    _annotations_to_remove = (
         "is_backbone_atom",
         "is_n_terminal_atom",
         "is_c_terminal_atom",
-    ]
+    )
     for annotation in _annotations_to_remove:
         atom_array.del_annotation(annotation)
 
@@ -481,17 +480,21 @@ def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: 
         struct_conn_bonds, struct_conn_leaving_atom_idxs = get_struct_conn_bonds(
             atom_array=atom_array, struct_conn_dict=struct_conn_dict, add_bond_types=["covale"], raise_on_failure=True
         )
+        struct_conn_bonds = struc.BondList(atom_array.array_length(), struct_conn_bonds)
 
         # ... add the bonds to the AtomArray
-        atom_array.bonds = atom_array.bonds.merge(struc.BondList(atom_array.array_length(), struct_conn_bonds))
+        atom_array.bonds = atom_array.bonds.merge(struct_conn_bonds)
 
         # ... and remove the leaving atoms
         is_leaving = np.zeros(len(atom_array), dtype=bool)
         is_leaving[struct_conn_leaving_atom_idxs] = True
         atom_array = atom_array[~is_leaving]
 
-        # ... fix charges of bonded atoms
-        # TODO: Fix charges of bonded atoms
+        # ... fix charges of newly bonded atoms, where needed
+        atoms_with_inter_bonds = np.unique(struct_conn_bonds.as_array()[:, :2])
+        makes_inter_bond = np.zeros(len(atom_array), dtype=bool)
+        makes_inter_bond[atoms_with_inter_bonds] = True
+        atom_array = fix_formal_charges(atom_array, to_update=makes_inter_bond)
 
     atom_array = add_inference_iid_id_entity_annotations(atom_array)
 
