@@ -24,6 +24,27 @@ def assert_same_atom_array(
     annotations_to_compare: list[str] = ["chain_id", "res_name", "res_id", "atom_name", "element"],
     max_print_length: int = 10,
 ) -> None:
+    """Asserts that two AtomArray objects are equal.
+
+    Args:
+        arr1 (AtomArray): The first AtomArray to compare.
+        arr2 (AtomArray): The second AtomArray to compare.
+        compare_coords (bool, optional): Whether to compare coordinates. Defaults to True.
+        compare_bonds (bool, optional): Whether to compare bonds. Defaults to True.
+        annotations_to_compare (list[str] | None, optional): List of annotation categories to compare.
+            Defaults to None, in which case all annotations are compared.
+        _n_mismatches_to_show (int, optional): Number of mismatches to show. Defaults to 20.
+
+    Raises:
+        AssertionError: If the AtomArray objects are not equal.
+    """
+    assert isinstance(
+        arr1, AtomArray | AtomArrayStack
+    ), f"arr1 is not an AtomArray or AtomArrayStack but has type {type(arr1)}"
+    assert isinstance(
+        arr2, AtomArray | AtomArrayStack
+    ), f"arr2 is not an AtomArray or AtomArrayStack but has type {type(arr2)}"
+
     # If the input is a stack, only compare the first array
     if isinstance(arr1, AtomArrayStack):
         arr1 = arr1[0]

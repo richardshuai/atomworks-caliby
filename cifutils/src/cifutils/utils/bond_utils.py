@@ -396,8 +396,6 @@ def get_struct_conn_bonds(
         leaving.append(leaving_res1) if len(leaving_res1) > 0 else None
         leaving.append(leaving_res2) if len(leaving_res2) > 0 else None
 
-        # Fix charges (TODO: Implement)
-
     return np.array(bonds).reshape(-1, 3), np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
 
 

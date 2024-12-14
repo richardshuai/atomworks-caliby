@@ -421,3 +421,9 @@ def get_unknown_ccd_code_for_chem_comp_type(chem_comp_type: str) -> str:
         return UNKNOWN_RNA
     else:
         return UNKNOWN_LIGAND
+
+
+def get_std_to_alt_atom_name_map(ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH) -> dict[str, str]:
+    """Get a map from standard atom names to alternative atom names."""
+    chem_comp = atom_array_from_ccd_code(ccd_code, ccd_mirror_path)
+    return dict(zip(chem_comp.atom_name, chem_comp.alt_atom_id, strict=True))

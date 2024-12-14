@@ -19,12 +19,12 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["cifutils"]
-package-data = {"cifutils" = ["tools/*.smirks"]}
+packages = ["src/cifutils"]
+package-data = {"src/cifutils" = ["tools/*.smirks"]}
 
 [tool.hatch.build.targets.wheel.force-include]
 # to include data files in the wheel when `pip install`-ing (if we want to give some test cases)
-"cifutils/tools/chembl_transformations.smirks" = "cifutils/tools/chembl_transformations.smirks"
+"src/cifutils/tools/chembl_transformations.smirks" = "cifutils/tools/chembl_transformations.smirks"
 
 [tool.ruff]
 line-length = 120
@@ -131,4 +131,4 @@ convention = "google"
 testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
 norecursedirs = "docs *.egg-info .git .tox htmlcov"
 conftest = "tests/conftest.py"
-addopts = "--testmon-forceselect"
+addopts = "--import-mode=importlib --testmon-forceselect"
