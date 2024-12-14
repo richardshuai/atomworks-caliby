@@ -3,12 +3,12 @@ Utility functions for the detection, and creation, of bonds in a structure.
 """
 
 __all__ = [
-    "get_struct_conn_bonds",
-    "get_inferred_polymer_bonds",
+    "generate_inter_level_bond_hash",
     "get_coarse_graph_as_nodes_and_edges",
     "get_connected_nodes",
+    "get_inferred_polymer_bonds",
+    "get_struct_conn_bonds",
     "hash_graph",
-    "generate_inter_level_bond_hash",
 ]
 
 import logging
@@ -325,7 +325,7 @@ def get_struct_conn_bonds(
         in_res1 = (chain_ids == chain_id1) & (res_ids == res_id1) & (res_names == res_name1) & (ins_codes == ins_code1)
         in_res2 = (chain_ids == chain_id2) & (res_ids == res_id2) & (res_names == res_name2) & (ins_codes == ins_code2)
 
-        if not in_res1.any() or not in_res2.any() and raise_on_failure:
+        if ((not in_res1.any()) or (not in_res2.any())) and raise_on_failure:
             raise ValueError(
                 f"Residue {chain_id1}:{res_id1}:{res_name1} or {chain_id2}:{res_id2}:{res_name2} "
                 "not found in the atom array!"

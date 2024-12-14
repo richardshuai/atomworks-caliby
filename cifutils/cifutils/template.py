@@ -484,17 +484,19 @@ def add_missing_atoms(
     )
     #    and add them to the atom array
     atoms.bonds = atoms.bonds.merge(inter_bonds)
+    #    and record which atoms make inter-residue bonds
+    atoms_with_inter_bonds = np.unique(inter_bonds.as_array()[:, :2])
+    makes_inter_bond = np.zeros(atoms.array_length(), dtype=bool)
+    makes_inter_bond[atoms_with_inter_bonds] = True
 
     # ... merge all leaving group indices
     is_leaving = np.zeros(len(atoms), dtype=bool)
     is_leaving[np.concatenate((polymer_bond_leaving_atom_idxs, struct_conn_leaving_atom_idxs), axis=0)] = True
     #     and remove them from the atom array
     atoms = atoms[~is_leaving]
+    makes_inter_bond = makes_inter_bond[~is_leaving]
 
     # ... fix charges of newly bonded atoms, where needed
-    atoms_with_inter_bonds = np.unique(inter_bonds.as_array()[:, :2])
-    makes_inter_bond = np.zeros(len(atoms), dtype=bool)
-    makes_inter_bond[atoms_with_inter_bonds] = True
     atoms = fix_formal_charges(atoms, to_update=makes_inter_bond)
 
     return atoms

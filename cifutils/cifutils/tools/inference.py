@@ -484,16 +484,18 @@ def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: 
 
         # ... add the bonds to the AtomArray
         atom_array.bonds = atom_array.bonds.merge(struct_conn_bonds)
+        # ... record which atoms make inter-residue bonds
+        atoms_with_inter_bonds = np.unique(struct_conn_bonds.as_array()[:, :2])
+        makes_inter_bond = np.zeros(len(atom_array), dtype=bool)
+        makes_inter_bond[atoms_with_inter_bonds] = True
 
         # ... and remove the leaving atoms
         is_leaving = np.zeros(len(atom_array), dtype=bool)
         is_leaving[struct_conn_leaving_atom_idxs] = True
         atom_array = atom_array[~is_leaving]
+        makes_inter_bond = makes_inter_bond[~is_leaving]
 
         # ... fix charges of newly bonded atoms, where needed
-        atoms_with_inter_bonds = np.unique(struct_conn_bonds.as_array()[:, :2])
-        makes_inter_bond = np.zeros(len(atom_array), dtype=bool)
-        makes_inter_bond[atoms_with_inter_bonds] = True
         atom_array = fix_formal_charges(atom_array, to_update=makes_inter_bond)
 
     atom_array = add_inference_iid_id_entity_annotations(atom_array)
