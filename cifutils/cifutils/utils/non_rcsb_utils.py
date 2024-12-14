@@ -3,7 +3,12 @@ Utility functions for handling non-RCSB CIF files.
 Such files do not follow the standard CIF format and thus may require special handling.
 """
 
-__all__ = ["load_monomer_sequence_information_from_atom_array", "infer_chain_info_from_atom_array"]
+__all__ = [
+    "get_identity_assembly_gen_category",
+    "get_identity_op_expr_category",
+    "infer_chain_info_from_atom_array",
+    "load_monomer_sequence_information_from_atom_array",
+]
 
 import logging
 

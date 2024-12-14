@@ -2,13 +2,12 @@
 General utility functions for working with CIF files in Biotite.
 """
 
-__all__ = ["load_any", "get_structure", "read_any", "to_cif_buffer", "to_cif_string", "to_cif_file"]
+__all__ = ["get_structure", "load_any", "read_any", "to_cif_buffer", "to_cif_file", "to_cif_string"]
 
 import gzip
 import io
 import logging
 import os
-from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -186,7 +185,6 @@ def read_any(
     # Determine file type and open context
     if isinstance(path_or_buffer, io.BytesIO):
         inferred_file_type = "bcif"
-        open_context = nullcontext(path_or_buffer)
     elif isinstance(path_or_buffer, io.StringIO):
         # ... if second line starts with '#', it is very likely a cif file
         path_or_buffer.seek(0)
@@ -194,13 +192,13 @@ def read_any(
         second_line = path_or_buffer.readline().strip()
         path_or_buffer.seek(0)
         inferred_file_type = "cif" if second_line.startswith("#") else "pdb"
-        open_context = nullcontext(path_or_buffer)
     elif isinstance(path_or_buffer, Path):
         if path_or_buffer.suffix in (".gz", ".gzip"):
-            open_context = gzip.open(path_or_buffer, "rt")
             inferred_file_type = Path(path_or_buffer.stem).suffix.lstrip(".")
+            with gzip.open(path_or_buffer, "rt") as f:
+                path_or_buffer = io.StringIO(f.read())
+
         else:
-            open_context = nullcontext(path_or_buffer)
             inferred_file_type = path_or_buffer.suffix.lstrip(".")
     else:
         raise ValueError(f"Unsupported path_or_buffer type: {type(path_or_buffer)}")
@@ -217,8 +215,7 @@ def read_any(
         raise ValueError(f"Unsupported file type: {file_type}")
 
     # Load the structure
-    with open_context as f:
-        file_obj = file_cls.read(f)
+    file_obj = file_cls.read(path_or_buffer)
 
     return file_obj
 
