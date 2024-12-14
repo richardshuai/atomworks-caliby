@@ -82,12 +82,39 @@ docstring-code-line-length = 88
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-# Avoid linting notebooks
+# Enable a comprehensive set of rules for better code quality
 select = [
-    "I", # ... sort imports
-    "F",  # ... remove unused imports
-    "W",  # ... fix warnings
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "N",   # pep8-naming
+    #"D",   # pydocstyle
+    "UP",  # pyupgrade -- use the latest supported python syntax
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "NPY", # fix deprecated numpy functions / types
+    "RUF", # Ruff-specific rules
 ]
+
+# Ignore specific rules that might conflict with our style or are too strict
+ignore = [
+    "B006",  # do not use mutable data structures for argument defaults
+    "D203",  # 1 blank line required before class docstring
+    "D212",  # Multi-line docstring summary should start at the first line
+    "D100",  # Missing docstring in public module
+    "NPY002",  # replacing legacy np.random.rand wih np.random.Generator
+    "E501",  # line too long
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# Add per-file-ignores for specific cases
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Ignore unused imports in __init__.py files
+"tests/*" = ["D", "E", "RUF"]         # Ignore docstring rules in tests
 
 [tool.pytest]
 testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)

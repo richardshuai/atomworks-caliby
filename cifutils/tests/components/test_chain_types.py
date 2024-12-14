@@ -37,7 +37,7 @@ def test_chain_type_get_chain_type_strings():
 
 
 def test_chain_type_equality():
-    assert ChainType.DNA == ChainType(3)
+    assert ChainType(3) == ChainType.DNA
     assert ChainType.DNA == 3
     assert ChainType.DNA == "POLYDEOXYRIBONUCLEOTIDE"
 

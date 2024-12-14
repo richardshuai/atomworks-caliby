@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import copy
 from collections import OrderedDict
+from collections.abc import Callable, Iterable, Iterator
 from functools import lru_cache, wraps
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 from toolz.curried import compose, reduce
@@ -17,14 +18,14 @@ def default(obj: Any, default: Any) -> Any:
     return obj if exists(obj) else default
 
 
-def deduplicate_iterator(iterator):
+def deduplicate_iterator(iterator: Iterable) -> Iterator:
     """Deduplicate an iterator while preserving order."""
     return iter(OrderedDict.fromkeys(iterator))
 
 
-def to_hashable(element):
+def to_hashable(element: Any) -> Any:
     """Convert an element to a hashable type."""
-    return element if isinstance(element, (int, str, np.integer, np.str_)) else tuple(element)
+    return element if isinstance(element, int | str | np.integer | np.str_) else tuple(element)
 
 
 def sum_string_arrays(*objs: np.ndarray | str) -> np.ndarray:

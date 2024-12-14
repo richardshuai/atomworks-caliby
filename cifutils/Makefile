@@ -12,6 +12,8 @@ CONDA_BINARY := $(shell command -v mamba || command -v conda)
 
 APPTAINER_BINARY := $(shell command -v apptainer || command -v singularity)
 
+PARALLEL_JOBS ?= 4
+
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
@@ -107,9 +109,9 @@ apptainer:
 test:
 	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml tests/
 
-## Run pytest in parallel with 4 cores
+## Run pytest in parallel with `PARALLEL_JOBS` (default =4) cores
 parallel_test:
-	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=4 tests/
+	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=$(PARALLEL_JOBS) tests/
 
 #################################################################################
 # Self Documenting Commands                                                     #

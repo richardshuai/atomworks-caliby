@@ -1,6 +1,7 @@
 import logging
 import os
-from typing import Any, Final, Sequence
+from collections.abc import Sequence
+from typing import Any, Final
 
 import biotite.structure as struc
 import numpy as np
@@ -15,7 +16,7 @@ from cifutils.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_ava
 logger = logging.getLogger(__file__)
 
 
-DO_NOT_MATCH_CCD: Final[frozenset[str]] = frozenset(WATER_LIKE_CCDS + (UNKNOWN_LIGAND,))
+DO_NOT_MATCH_CCD: Final[frozenset[str]] = frozenset((*WATER_LIKE_CCDS, UNKNOWN_LIGAND))
 """
 CCDs that should not be matched to a template for the
 purpose of adding missing atoms.
@@ -36,11 +37,13 @@ except ImportError:
         ----------
         bonds_lists : iterable object of BondList
             The bond lists to be concatenated.
-        Returns
+
+        Returns:
         -------
         concatenated_bonds : BondList
             The concatenated bond lists.
-        Examples
+
+        Examples:
         --------
         >>> bonds1 = BondList(2, np.array([(0, 1)]))
         >>> bonds2 = BondList(3, np.array([(0, 1), (0, 2)]))
@@ -75,7 +78,7 @@ except ImportError:
         merged_bond_list._max_bonds_per_atom = max([bond_list._max_bonds_per_atom for bond_list in bonds_lists])
         return merged_bond_list
 
-    setattr(BondList, "concatenate", _bond_list_concatenate)
+    BondList.concatenate = _bond_list_concatenate
 
     def concatenate(atoms):
         """
@@ -86,19 +89,22 @@ except ImportError:
         atoms : iterable object of AtomArray or AtomArrayStack
             The atoms to be concatenated.
             :class:`AtomArray` cannot be mixed with :class:`AtomArrayStack`.
-        Returns
+
+        Returns:
         -------
         concatenated_atoms : AtomArray or AtomArrayStack
             The concatenated atoms, i.e. its ``array_length()`` is the sum of the
             ``array_length()`` of the input ``atoms``.
-        Notes
+
+        Notes:
         -----
         The following rules apply:
         - Only the annotation categories that exist in all elements are transferred.
         - The box of the first element that has a box is transferred, if any.
         - The bonds of all elements are concatenated, if any element has associated bonds.
         For elements without a :class:`BondList` an empty :class:`BondList` is assumed.
-        Examples
+
+        Examples:
         --------
         >>> atoms1 = array(
         ...     [
@@ -357,7 +363,9 @@ def build_template_atom_array(
 
         assert len(chain_res_ids) == len(chain_res_names), "Lenght mismatch between chain_res_ids, chain_res_names!"
 
-        for res_id, (res_id_original, ccd_code) in enumerate(zip(chain_res_ids, chain_res_names), start=1):
+        for res_id, (res_id_original, ccd_code) in enumerate(
+            zip(chain_res_ids, chain_res_names, strict=False), start=1
+        ):
             res_id_original = int(res_id_original)
             # ... and corresponding mask
             res_mask = (chain_ids == chain_id) & (res_names == ccd_code) & (res_ids == res_id_original)

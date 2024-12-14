@@ -6,10 +6,11 @@ import copy
 import io
 import logging
 from collections import Counter
+from collections.abc import Callable
 from functools import cache, lru_cache, wraps
 from os import PathLike
 from pathlib import Path
-from typing import Callable, Final
+from typing import Final
 
 import biotite.structure as struc
 import numpy as np
@@ -104,7 +105,7 @@ class ChEMBLNormalizer:
     """
 
     def __init__(self):
-        with open(Path(__file__).parent / "chembl_transformations.smirks", "r") as f:
+        with open(Path(__file__).parent / "chembl_transformations.smirks") as f:
             self._normalization_transforms = f.read()
         self._normalizer_params = rdMolStandardize.CleanupParameters()
         self._normalizer = rdMolStandardize.NormalizerFromData(
@@ -178,7 +179,7 @@ def preserve_annotations(func: Callable[[Mol, ...], Mol]) -> Callable[[Mol, ...]
     @wraps(func)
     def wrapped(*args, **kwargs):
         # Find the first RDKit molecule in the arguments or keyword arguments
-        if "mol" in kwargs:
+        if "mol" in kwargs:  # noqa: SIM108
             mol = kwargs["mol"]
         else:
             mol = next(arg for arg in args if isinstance(arg, Mol))
@@ -428,7 +429,7 @@ def sdf_to_rdkit(sdf_path_or_buffer: io.StringIO | PathLike, *, sanitize: bool =
         - ValueError: If no valid molecule could be parsed from the input
         - TypeError: If the input is neither a StringIO buffer nor a valid path
     """
-    if isinstance(sdf_path_or_buffer, (str, PathLike)):
+    if isinstance(sdf_path_or_buffer, str | PathLike):
         supplier = Chem.SDMolSupplier(str(sdf_path_or_buffer), sanitize=sanitize)
     elif isinstance(sdf_path_or_buffer, io.StringIO):
         supplier = Chem.SDMolSupplier(sdf_path_or_buffer, sanitize=sanitize)
@@ -438,10 +439,10 @@ def sdf_to_rdkit(sdf_path_or_buffer: io.StringIO | PathLike, *, sanitize: bool =
     try:
         mol = next(supplier)
     except StopIteration:
-        raise ValueError("No valid molecule found in SDF input")
+        raise ValueError("No valid molecule found in SDF input") from None
 
     if mol is None:
-        raise ValueError("Failed to parse molecule from SDF input")
+        raise ValueError("Failed to parse molecule from SDF input") from None
 
     return mol
 
@@ -755,7 +756,7 @@ def ccd_code_to_rdkit(
     if ccd_path.exists():
         # ...use the local CCD directory, which we assume is sharded by the first character of the res_name (as it should be, since we're using `rsync`)
         path = ccd_path / ccd_code[0] / ccd_code / f"{ccd_code}.cif"
-        with open(path, "r", encoding="utf-8") as file:
+        with open(path, encoding="utf-8") as file:
             cif_file = struc.io.pdbx.CIFFile.read(file)
 
         return atom_array_to_rdkit(

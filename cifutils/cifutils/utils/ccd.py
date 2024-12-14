@@ -1,8 +1,10 @@
 import logging
 import os
 from collections import defaultdict
+from collections.abc import Iterable
+from contextlib import suppress
 from functools import cache
-from typing import Iterable, Literal
+from typing import Literal
 
 import biotite.structure as struc
 import biotite.structure.io.pdbx as pdbx
@@ -64,7 +66,7 @@ def get_ccd_component_from_biotite(ccd_code: str) -> struc.AtomArray:
         atom_array = struc.info.residue(ccd_code)
         return atom_array
     except KeyError:
-        raise ValueError(f"No atom information found for residue '{ccd_code}' in Biotite's CCD")
+        raise ValueError(f"No atom information found for residue '{ccd_code}' in Biotite's CCD") from None
 
 
 def check_ccd_codes_are_available(
@@ -166,10 +168,8 @@ def parse_ccd_cif(
 
     # Try setting hetero flag
     hetero = True
-    try:
+    with suppress(ValueError):
         hetero = get_ccd_component_from_biotite(ccd_code).hetero[0]
-    except ValueError:
-        pass
     atoms.set_annotation("hetero", [hetero] * len(atoms))
 
     # Fill in the coordinates
@@ -190,7 +190,7 @@ def parse_ccd_cif(
             for i, name in enumerate(["Cartn_x_rdkit", "Cartn_y_rdkit", "Cartn_z_rdkit"]):
                 atoms.coord[:, i] = rdkit_data[name].as_array(np.float32)
     except KeyError:
-        raise ValueError(f"No coordinate data found for `{coords}` coordinates. Coords will be `nan`.")
+        raise ValueError(f"No coordinate data found for `{coords}` coordinates. Coords will be `nan`.") from None
 
     # Extract bond data
     try:
@@ -213,7 +213,7 @@ def parse_ccd_cif(
     if add_mapping:
         try:
             mapping = block.get("pdbe_chem_comp_external_mappings")
-            atoms.mapping = {k: v for k, v in zip(mapping["resource"], mapping["resource_id"])}
+            atoms.mapping = dict(zip(mapping["resource"], mapping["resource_id"], strict=True))
         except KeyError:
             atoms.mapping = None
             logger.warning(f"No mapping data found for `{ccd_code}`. Mapping will be `None`.")
@@ -369,7 +369,7 @@ def _chem_comp_type_dict() -> dict[str, str]:
     ccd = struc.info.ccd.get_ccd()  # NOTE: biotite caches this internally
     chem_comp_ids = np.char.upper(ccd["chem_comp"]["id"].as_array())
     chem_comp_types = np.char.upper(ccd["chem_comp"]["type"].as_array())
-    return dict(zip(chem_comp_ids, chem_comp_types))
+    return dict(zip(chem_comp_ids, chem_comp_types, strict=False))
 
 
 def get_chem_comp_type(ccd_code: str, mode: Literal["warn", "raise"] = "warn") -> str:

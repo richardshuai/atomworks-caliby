@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import suppress
 from datetime import datetime
 
 import biotite.structure as struc
@@ -30,7 +31,7 @@ logger = logging.getLogger("cifutils")
 
 def category_to_df(cif_block: CIFBlock, category: str) -> pd.DataFrame | None:
     """Convert a CIF block to a pandas DataFrame."""
-    return pd.DataFrame(category_to_dict(cif_block, category)) if category in cif_block.keys() else None
+    return pd.DataFrame(category_to_dict(cif_block, category)) if category in cif_block else None
 
 
 def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
@@ -57,7 +58,7 @@ def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> 
     # Step 1: Build a mapping of chain id to entity id from the `atom_site`
     chain_ids = atom_array.get_annotation("chain_id")
     rcsb_entities = atom_array.get_annotation("label_entity_id").astype(str)
-    unique_chain_entity_map = {chain_id: rcsb_entity for chain_id, rcsb_entity in zip(chain_ids, rcsb_entities)}
+    unique_chain_entity_map = dict(zip(chain_ids, rcsb_entities, strict=True))
 
     # Step 2: Load additional chain information
     rcsb_entity_df = category_to_df(cif_block, "entity")
@@ -107,7 +108,7 @@ def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> 
     return chain_info_dict
 
 
-def get_metadata_from_category(cif_block: CIFBlock, fallback_id: str = None) -> dict:
+def get_metadata_from_category(cif_block: CIFBlock, fallback_id: str | None = None) -> dict:
     """
     Extract metadata from the CIF block.
     If the `entry.id` field is not present in the CIF block, the `fallback_id` is used instead (e.g., the filename of the CIF).
@@ -130,29 +131,24 @@ def get_metadata_from_category(cif_block: CIFBlock, fallback_id: str = None) -> 
 
     # Assert that if the "entry.id" field is NOT present, a fallback ID is provided
     assert (
-        "entry" in cif_block.keys() and "id" in cif_block["entry"].keys()
+        "entry" in cif_block and "id" in cif_block["entry"]
     ) or fallback_id is not None, "No ID found in CIF block or provided as fallback."
 
     # Set the ID field, using the fallback if necessary
     metadata["id"] = (
         cif_block["entry"]["id"].as_item().lower()
-        if "entry" in cif_block.keys() and "id" in cif_block["entry"].keys()
+        if "entry" in cif_block and "id" in cif_block["entry"]
         else fallback_id.lower()
     )
 
     # +---------------- Look for standard RCSB metadata categories, default to None if not found ----------------+
-    exptl = cif_block["exptl"] if "exptl" in cif_block.keys() else None
-
-    status = cif_block["pdbx_database_status"] if "pdbx_database_status" in cif_block.keys() else None
-
-    refine = cif_block["refine"] if "refine" in cif_block.keys() else None
-
-    em_reconstruction = cif_block["em_3d_reconstruction"] if "em_3d_reconstruction" in cif_block.keys() else None
+    exptl = cif_block.get("exptl", None)
+    status = cif_block.get("pdbx_database_status", None)
+    refine = cif_block.get("refine", None)
+    em_reconstruction = cif_block.get("em_3d_reconstruction", None)
 
     # Method
-    metadata["method"] = (
-        ",".join(exptl["method"].as_array()).replace(" ", "_") if exptl and "method" in exptl.keys() else None
-    )
+    metadata["method"] = ",".join(exptl["method"].as_array()).replace(" ", "_") if exptl and "method" in exptl else None
 
     # Initial deposition date and release date to the PDB
     metadata["deposition_date"] = (
@@ -162,10 +158,7 @@ def get_metadata_from_category(cif_block: CIFBlock, fallback_id: str = None) -> 
     )
 
     # The relevant release date is the smallest `pdbx_audit_revision_history.revision_date` entry
-    if (
-        "pdbx_audit_revision_history" in cif_block.keys()
-        and "revision_date" in cif_block["pdbx_audit_revision_history"]
-    ):
+    if "pdbx_audit_revision_history" in cif_block and "revision_date" in cif_block["pdbx_audit_revision_history"]:
         revision_dates = cif_block["pdbx_audit_revision_history"]["revision_date"].as_array()
     else:
         revision_dates = None
@@ -182,21 +175,15 @@ def get_metadata_from_category(cif_block: CIFBlock, fallback_id: str = None) -> 
     # Resolution
     metadata["resolution"] = None
     if refine:
-        try:
+        with suppress(KeyError, ValueError):
             metadata["resolution"] = float(refine["ls_d_res_high"].as_item())
-        except (KeyError, ValueError):
-            pass
 
     if metadata["resolution"] is None and em_reconstruction:
-        try:
+        with suppress(KeyError, ValueError):
             metadata["resolution"] = float(em_reconstruction["resolution"].as_item())
-        except (KeyError, ValueError):
-            pass
 
     # Serialize the catch-all metadata cateogry, if it exists (we can later load with CIFCategory.deserialize() at will)
-    metadata["extra_metadata"] = (
-        cif_block["extra_metadata"].serialize() if "extra_metadata" in cif_block.keys() else None
-    )
+    metadata["extra_metadata"] = cif_block["extra_metadata"].serialize() if "extra_metadata" in cif_block else None
 
     return metadata
 
@@ -222,9 +209,8 @@ def load_monomer_sequence_information_from_category(
     Returns:
         The updated chain_info_dict with monomer sequence information.
     """
-
     # Assert that entity_poly_seq category is present
-    assert "entity_poly_seq" in cif_block.keys(), "entity_poly_seq category not found in CIF block."
+    assert "entity_poly_seq" in cif_block, "entity_poly_seq category not found in CIF block."
     available_ccd_codes = get_available_ccd_codes(ccd_mirror_path)
 
     # Handle polymers by using `entity_poly_seq`
@@ -316,7 +302,6 @@ def get_ligand_of_interest_info(cif_block: CIFBlock) -> dict:
     Reference:
         - https://pdb101.rcsb.org/learn/guide-to-understanding-pdb-data/small-molecule-ligands
     """
-
     # Extract binary flag for whether the ligand of interest is specified
     # NOTE: This is being used in addition to the below as it has slightly higher coverage across the PDB
     # https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_pdbx_entry_details.has_ligand_of_interest.html

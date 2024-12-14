@@ -22,7 +22,7 @@ def test_mse_to_met_residue(ccd_mirror_path: os.PathLike | None):
     # Set coordinates to `nan` to avoid comparing coordinates
     mse.coord[:] = np.nan
     met.coord[:] = np.nan
-    is_heavy = lambda x: not_isin(x.element, HYDROGEN_LIKE_SYMBOLS)  # noqa
+    is_heavy = lambda x: not_isin(x.element, HYDROGEN_LIKE_SYMBOLS)
     mse_converted = mse_to_met(mse)
     assert_same_atom_array(mse_converted[is_heavy(mse_converted)], met[is_heavy(met)])
 

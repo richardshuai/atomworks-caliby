@@ -516,6 +516,9 @@ UNKNOWN_DNA: Final[str] = sys.intern("DX")
 GAP: Final[str] = sys.intern("<G>")
 """The (non-standard) code for a gap token."""
 
+GAP_ONE_LETTER: Final[str] = sys.intern("-")
+"""The one-letter code for a gap token."""
+
 
 STANDARD_AA: Final[tuple[str, ...]] = tuple(
     sorted(

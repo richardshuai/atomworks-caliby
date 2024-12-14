@@ -153,7 +153,7 @@ def parse(
         cache_dir.mkdir(parents=True, exist_ok=True)
 
         # Build the cache file path
-        assembly_info = ",".join(build_assembly) if isinstance(build_assembly, (list, tuple)) else build_assembly
+        assembly_info = ",".join(build_assembly) if isinstance(build_assembly, list | tuple) else build_assembly
         cache_file_path = cache_dir / f"{Path(filename).stem}_assembly_{assembly_info}.pkl.gz"
 
     # If we are loading from cache, try to load the result from the cache
@@ -225,14 +225,13 @@ def parse(
     else:
         raise ValueError(f"Unsupported file type: {filename.suffix}. Please use a .cif, .cif.gz, or .pdb file.")
 
-    if save_to_cache and cache_dir:
+    if save_to_cache and cache_dir and (not cache_file_path.exists()):
         # We want our cache to include:
         #   (1) All keys in `result` excep the assemblies and
         #   (2) The information needed to rebuild the assembly(s), which is stored in `result["extra_info"]`
-        if not cache_file_path.exists():
-            # Save the result to the cache, excluding the assemblies
-            result_to_cache = {k: v for k, v in result.items() if k != "assemblies"}
-            pd.to_pickle(result_to_cache, cache_file_path)
+        # Save the result to the cache, excluding the assemblies
+        result_to_cache = {k: v for k, v in result.items() if k != "assemblies"}
+        pd.to_pickle(result_to_cache, cache_file_path)
 
     return result
 
@@ -257,8 +256,8 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
     data_dict["cif_block"] = cif_file.block
 
     # ...load metadata into "metadata" key (either from RCSB standard fields, or from the custom `extra_metadata` field)
-    if isinstance(filename, (io.StringIO, io.BytesIO)):
-        fallback_filename = list(cif_file.keys())[0]
+    if isinstance(filename, io.StringIO | io.BytesIO):
+        fallback_filename = next(iter(cif_file.keys()))
     else:
         fallback_filename = Path(filename).stem
     data_dict["metadata"] = get_metadata_from_category(cif_file.block, fallback_id=fallback_filename)
@@ -394,10 +393,10 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
     if exists(kwargs["build_assembly"]):
         # ...assert that `build_assembly` is a valid option
         assert kwargs["build_assembly"] in ["first", "all"] or isinstance(
-            kwargs["build_assembly"], (list, tuple)
+            kwargs["build_assembly"], list | tuple
         ), "Invalid `build_assembly` option. Must be 'first', 'all', or a list/tuple of assembly IDs as strings."
 
-        if "pdbx_struct_assembly" in data_dict["cif_block"].keys():
+        if "pdbx_struct_assembly" in data_dict["cif_block"]:
             # ...build the assemblies from the CIF file, adding the `iid` annotations as we do so
             assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
             struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]

@@ -52,7 +52,7 @@ class ChainType(IntEnum):
         except KeyError:
             raise ValueError(
                 f"Invalid chain type: {str_value=}. Allowed values: {set(ChainTypeInfo.STRING_TO_ENUM.keys())}"
-            )
+            ) from None
 
     @staticmethod
     def get_chain_type_strings() -> list[str]:
@@ -133,7 +133,7 @@ class ChainType(IntEnum):
             return value
         elif isinstance(value, str):
             return ChainType.from_string(value)
-        elif isinstance(value, (int, np.integer)):
+        elif isinstance(value, int | np.integer):
             return ChainType(value)
         else:
             raise ValueError(f"Invalid value: {value}")

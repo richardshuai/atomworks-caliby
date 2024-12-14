@@ -36,13 +36,11 @@ from cifutils.utils.ccd import (
     get_chem_comp_type,
 )
 from cifutils.utils.chain_utils import create_chain_id_generator
-from cifutils.utils.selection_utils import get_residue_starts
-from cifutils.utils.sequence_utils import get_1_from_3_letter_code
 
 logger = logging.getLogger("cifutils")
 
 
-class ChemicalComponent(ABC):
+class ChemicalComponent(ABC):  # noqa: B024
     def as_dict(self) -> dict:
         return asdict(self)
 
@@ -108,7 +106,7 @@ class SequenceComponent(ChemicalComponent):
     @staticmethod
     def assert_valid_chain_type(seq: list[str], chain_type: ChainType) -> bool:
         ccd_codes = set(seq)
-        chem_comp_types = set(get_chem_comp_type(ccd_code) for ccd_code in ccd_codes)
+        chem_comp_types = {get_chem_comp_type(ccd_code) for ccd_code in ccd_codes}
 
         valid_chem_comp_types = ChainTypeInfo.VALID_CHEM_COMP_TYPES.get(chain_type, chem_comp_types)
         if not chem_comp_types.issubset(valid_chem_comp_types):
@@ -116,7 +114,7 @@ class SequenceComponent(ChemicalComponent):
 
     @staticmethod
     def from_seq(
-        seq: str | list[str], *, chain_type: ChainType | str = None, is_polymer: bool = None
+        seq: str | list[str], *, chain_type: ChainType | str = None, is_polymer: bool | None = None
     ) -> "SequenceComponent":
         chain_type = chain_type or SequenceComponent.infer_chain_type(seq)
         is_polymer = is_polymer or SequenceComponent.infer_is_polymer(seq)
@@ -262,7 +260,7 @@ def sequence_to_annotated_atom_array(
     chain_id: str,
     *,
     chain_type: ChainType | str = None,
-    is_polymer: bool = None,
+    is_polymer: bool | None = None,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> AtomArray:
     if isinstance(seq, str) and is_polymer:
@@ -287,9 +285,12 @@ def sequence_to_annotated_atom_array(
     # ... create a list of atoms based on the reference CCD entries
     atom_array = build_template_atom_array(
         chain_info_dict={
-            chain_id: dict(
-                res_name=seq, res_id=np.arange(1, len(seq) + 1), chain_type=chain_type, is_polymer=is_polymer
-            )
+            chain_id: {
+                "res_name": seq,
+                "res_id": np.arange(1, len(seq) + 1),
+                "chain_type": chain_type,
+                "is_polymer": is_polymer,
+            }
         },
         atom_array=None,
         remove_hydrogens=True,
@@ -386,7 +387,7 @@ def ccd_code_to_annotated_atom_array(
     chain_id: str,
     *,
     chain_type: ChainType | str = None,
-    is_polymer: bool = None,
+    is_polymer: bool | None = None,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> AtomArray:
     check_ccd_codes_are_available([ccd_code], ccd_mirror_path=ccd_mirror_path, mode="raise")
@@ -495,24 +496,3 @@ def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: 
     atom_array = add_inference_iid_id_entity_annotations(atom_array)
 
     return atom_array
-
-
-def chain_info_from_atom_array(atom_array: AtomArray) -> dict[str, dict[str, str]]:
-    chain_ids = np.unique(atom_array.chain_id)
-    chain_info = {}
-    for chain_id in chain_ids:
-        chain = atom_array[atom_array.chain_id == chain_id]
-        seq = chain.res_name[get_residue_starts(chain)]
-        chain_type = ChainType.as_enum(chain.chain_type[0])
-        chain_info[chain_id] = dict(type=chain_type.to_string())
-        if chain_type.is_polymer():
-            chain_info[chain_id] |= dict(
-                processed_entity_non_canonical_sequence="".join(
-                    get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=False) for residue in seq
-                ),
-                processed_entity_canonical_sequence="".join(
-                    get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=True) for residue in seq
-                ),
-            )
-
-    return chain_info

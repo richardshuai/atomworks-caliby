@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-from cifutils.parser import parse  # noqa: F401
+from cifutils.parser import parse
 
 # Set global logging level to `WARNING` if not set by user
 logger = logging.getLogger("cifutils")
@@ -31,7 +31,7 @@ def equal_annotations(self, item, equal_nan: bool = True):
     equal_nan: bool
         Whether to count `nan` values as equal. Default: True.
 
-    Returns
+    Returns:
     -------
     equality : bool
         True, if the annotation arrays are equal.
@@ -52,4 +52,4 @@ def equal_annotations(self, item, equal_nan: bool = True):
     return True
 
 
-setattr(struc.atoms._AtomArrayBase, "equal_annotations", equal_annotations)
+struc.atoms._AtomArrayBase.equal_annotations = equal_annotations

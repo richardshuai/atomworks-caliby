@@ -77,7 +77,6 @@ def view(
     Returns:
         py3Dmol.view: The py3Dmol view object for the structure visualization.
     """
-
     # Initialize the py3Dmol view with specified width and height
     view = py3Dmol.view(width=width, height=height)
 

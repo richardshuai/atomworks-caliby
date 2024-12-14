@@ -22,7 +22,7 @@ def _matrix_rotate(v: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     """
     Perform a rotation using a rotation matrix.
 
-    Args
+    Args:
         v (ndarray): The coordinates to rotate.
         matrix (ndarray): The rotation matrix.
 
@@ -90,20 +90,25 @@ def _build_bioassembly_from_asym_unit(
     asym_unit_atom_array_stack: AtomArrayStack,
     assembly_ids: Literal["all", "first"] | list[str] = "first",
 ) -> AtomArrayStack:
-    """
-    Build the first biological assembly found within the mmCIF file and update the `transformation_id` annotation.
+    """Builds one or more biological assemblies by applying transformation operations to the asymmetric unit coordinates.
 
     Code modified from: https://github.com/biotite-dev/biotite/blob/v0.40.0/src/biotite/structure/io/pdbx/convert.py#L1318
-
     Args:
-        cif_block (CIFBlock): The CIF block containing the structure data.
-        asym_unit_atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied (the asymmetric unit).
-        assembly_id (int, optional): The ID of the assembly to build. Defaults to None, which means the first assembly will be built.
+        - assembly_gen_category (CIFCategory): The pdbx_struct_assembly_gen category containing assembly generation
+            instructions.
+        - struct_oper_category (CIFCategory): The pdbx_struct_oper_list category containing transformation matrices.
+        - asym_unit_atom_array_stack (AtomArrayStack): The atom array stack to which the transformations will be applied
+            (the asymmetric unit).
+        - assembly_ids (Literal["all", "first"] | list[str], optional): Which assemblies to build. Can be "first" (build
+            only first assembly), "all" (build all assemblies), or a list of specific assembly IDs. Defaults to "first".
 
     Returns:
-        AtomArray: The atom array with the biological assembly built and transformation_id annotations updated.
-    """
+        - dict[str, AtomArrayStack]: Dictionary mapping assembly IDs to their corresponding built assemblies, with
+            transformation_id annotations added.
 
+    Raises:
+        - ValueError: If any requested assembly ID is not found in the assembly generation instructions.
+    """
     # Parse CIF blocks and select assembly (either by passed assembly_id or the first assembly)
     available_assembly_ids = assembly_gen_category["assembly_id"].as_array(str)
 
@@ -114,7 +119,7 @@ def _build_bioassembly_from_asym_unit(
         to_build = available_assembly_ids
     else:
         # Assert that the given `assembly_ids` are valid
-        assert isinstance(assembly_ids, (list, tuple)) and all(
+        assert isinstance(assembly_ids, list | tuple) and all(
             isinstance(_id, str) for _id in assembly_ids
         ), "Invalid `build_assembly` option. Must be 'first', 'all', or a list/tuple of assembly IDs as strings."
         to_build = assembly_ids
@@ -132,6 +137,7 @@ def _build_bioassembly_from_asym_unit(
         assembly_gen_category["assembly_id"].as_array(str),
         assembly_gen_category["oper_expression"].as_array(str),
         assembly_gen_category["asym_id_list"].as_array(str),
+        strict=False,
     ):
         # Find the operation expressions for given assembly ID
         if _id in to_build:

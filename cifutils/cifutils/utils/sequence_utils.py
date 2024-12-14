@@ -17,6 +17,7 @@ from Bio.Data.PDBData import (
 # TODO: Deprecate these in favour of the direct mappings from the CCD
 from cifutils.constants import (
     GAP,
+    GAP_ONE_LETTER,
     STANDARD_AA,
     STANDARD_PURINE_RESIDUES,
     STANDARD_PYRAMIDINE_RESIDUES,
@@ -33,10 +34,11 @@ def get_1_from_3_letter_code(
     chain_type: ChainType,
     use_closest_canonical: bool = False,
     gap_three_letter: str = GAP,
-    gap_one_letter: str = "-",
+    gap_one_letter: str = GAP_ONE_LETTER,
 ) -> str:
     """
     Converts a 3-letter residue name to its 1-letter code based on the chain type.
+
     Optionally, the closest canonical mapping can be used.
 
     Args:
@@ -89,7 +91,7 @@ dna_letters_1to3 = {
 def get_3_from_1_letter_code(
     letter: str,
     chain_type: ChainType,
-    gap_one_letter: str = "-",
+    gap_one_letter: str = GAP_ONE_LETTER,
     gap_three_letter: str = GAP,
     unknown_aa: str = UNKNOWN_AA,
     unknown_rna: str = UNKNOWN_RNA,
@@ -97,11 +99,14 @@ def get_3_from_1_letter_code(
 ) -> str:
     """
     Converts a 1-letter residue name to its 3-letter code based on the chain type.
-    NOTE: Converting from a three-letter, to a one-letter, back to a three-letter code is not invertible (i.e., 1:1) and may result in a different three-letter sequence.
+
+    Note:
+        Converting from a three-letter, to a one-letter, back to a three-letter
+        code is not invertible (i.e., 1:1) and may result in a different three-letter sequence.
 
     Args:
         letter (str): The 1-letter residue name.
-        chain_type (str): The type of chain, using the ChainType enum.
+        chain_type (ChainType): The type of chain, using the ChainType enum.
         gap_one_letter (str): The one-letter code for a gap. Defaults to "-" (as is standard within MSAs).
         gap_three_letter (str): The three-letter code for a gap. Defaults to "<G>".
         unknown_aa (str): The three-letter code for an unknown protein residue. Defaults to "UNK_PROT".
@@ -153,8 +158,8 @@ def is_glycine(ccd_code_array: np.ndarray) -> np.ndarray:
 
 
 def is_standard_aa_not_glycine(ccd_code_array: np.ndarray) -> np.ndarray:
-    _PROTEIN_NOT_GLYCINE_RESIDUES = [res for res in STANDARD_AA if res != "GLY"]
-    return np.isin(ccd_code_array, _PROTEIN_NOT_GLYCINE_RESIDUES)
+    _aa_not_gly = [res for res in STANDARD_AA if res != "GLY"]
+    return np.isin(ccd_code_array, _aa_not_gly)
 
 
 def is_protein_unknown(ccd_code_array: np.ndarray) -> np.ndarray:

@@ -276,8 +276,8 @@ def to_cif_buffer(
         structure.altloc_id = ["."] * structure.array_length()
 
     block = pdbx.convert._get_or_create_block(cif_file, block_name=id)
-    Category = block.subcomponent_class()
-    Column = Category.subcomponent_class()
+    Category = block.subcomponent_class()  # noqa: N806
+    Column = Category.subcomponent_class()  # noqa: N806
 
     block["entry"] = Category(
         {

@@ -82,7 +82,6 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
         ... )  # Shows leaving OXT from C and H2 from N (other hydrogen atom names not shown for simplicity)
         [array([3]), array([9])]
     """
-
     # ... initialize return values
     bonds: list[tuple[int, int, struc.BondType]] = []
     leaving: list[np.ndarray] = []
@@ -103,7 +102,9 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
     next_res_stops = residue_starts[2:]
 
     # ... loop over the residues and add the bonds
-    for this_res_start, next_res_start, next_res_stop in zip(this_res_starts, next_res_starts, next_res_stops):
+    for this_res_start, next_res_start, next_res_stop in zip(
+        this_res_starts, next_res_starts, next_res_stops, strict=False
+    ):
         # ... skip if residues are not on the same chain
         if chain_ids[this_res_start] != chain_ids[next_res_start]:
             continue
@@ -465,7 +466,7 @@ def get_connected_nodes(nodes: np.ndarray, edges: np.ndarray):
     graph.add_edges_from(edges)
 
     # ...return lists of connected chains
-    return list(map(lambda xs: [nodes[x] for x in xs], nx.connected_components(graph)))
+    return [[nodes[x] for x in component] for component in nx.connected_components(graph)]
 
 
 def hash_graph(
@@ -507,7 +508,10 @@ def hash_graph(
         # ... add number of unique node attributes with counts to hash
         node_attr_dict = nx.get_node_attributes(graph, node_attr)
         hash += "_" + ",".join(
-            [f"{elt}:{count}" for elt, count in zip(*np.unique(list(node_attr_dict.values()), return_counts=True))]
+            [
+                f"{elt}:{count}"
+                for elt, count in zip(*np.unique(list(node_attr_dict.values()), return_counts=True), strict=False)
+            ]
         )
     if edge_attr is not None:
         # ... add number of unique edges to hash
@@ -530,7 +534,6 @@ def generate_inter_level_bond_hash(
     Returns:
         str: A hash string representing the inter-level bonds.
     """
-
     # ...find the inter-level bonds
     bond_a = atom_array.get_annotation(lower_level_id)[atom_array.bonds.as_array()[:, 0]]
     bond_b = atom_array.get_annotation(lower_level_id)[atom_array.bonds.as_array()[:, 1]]
@@ -643,7 +646,7 @@ def spoof_struct_conn_dict_from_string(bonds: list[tuple[str, str]]) -> dict[str
             struct_conn_dict["conn_type_id"].append("covale")
 
         except ValueError as e:
-            raise ValueError(f"Error parsing bond string '{bond}': {e}")
+            raise ValueError(f"Error parsing bond string '{bond}': {e}") from None
 
     return struct_conn_dict
 
@@ -679,9 +682,9 @@ def fix_formal_charges(atom_array: struc.AtomArray, to_update: np.ndarray) -> st
         return atom_array
 
     # ... get (masked) valences)
-    _INT_NAN = -10
-    default_valence = np.array([DEFAULT_VALENCE.get(elt, _INT_NAN) for elt in atom_array.element])
-    valid = default_valence != _INT_NAN
+    _invalid = -10
+    default_valence = np.array([DEFAULT_VALENCE.get(elt, _invalid) for elt in atom_array.element])
+    valid = default_valence != _invalid
 
     # ... compute total number of bonds per atom
     degree = _get_bond_degree_per_atom(atom_array)

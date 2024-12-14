@@ -542,7 +542,7 @@ def add_id_and_entity_annotations(atom_array: AtomArray) -> AtomArray:
     lower_level_ids = ["res_id", "chain_id", "pn_unit_id"]
     lower_level_entities = ["res_name", "chain_entity", "pn_unit_entity"]
 
-    for level, lower_level_id, lower_level_entity in zip(levels, lower_level_ids, lower_level_entities):
+    for level, lower_level_id, lower_level_entity in zip(levels, lower_level_ids, lower_level_entities, strict=False):
         # ...annotate entities at appropriate level
         atom_array, _ = annotate_entities(
             atom_array=atom_array,

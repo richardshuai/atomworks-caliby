@@ -31,7 +31,7 @@ def assert_same_atom_array(
         arr2 = arr2[0]
 
     # Compare lengths, down to the residue-level if necessary
-    if not len(arr1) == len(arr2):
+    if len(arr1) != len(arr2):
         msg = "AtomArrays are not the same length!\n"
 
         # Find the chains that are different lengths
@@ -47,7 +47,7 @@ def assert_same_atom_array(
                     arr2_res_aa = arr2_chain_aa[arr2_chain_aa.res_id == res_id]
 
                     # Give an informative error message
-                    if not len(arr1_res_aa) == len(arr2_res_aa):
+                    if len(arr1_res_aa) != len(arr2_res_aa):
                         msg += f"Mismatch at residue {res_id}:\n"
                         msg += f"\tarr1: {_get_atom_array_stats(arr1_res_aa)}\n"
                         msg += f"\tarr2: {_get_atom_array_stats(arr2_res_aa)}\n"

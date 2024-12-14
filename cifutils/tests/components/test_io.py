@@ -26,7 +26,7 @@ def test_load_any(pdb_id, file_type, directory):
     with tempfile.TemporaryDirectory() if directory else nullcontext() as tmp_dir:
         # Test loading from a buffer or file
         loaded_structure = load_any(rcsb.fetch(pdb_id, file_type, tmp_dir), file_type=file_type)
-        assert isinstance(loaded_structure, (AtomArray, AtomArrayStack))
+        assert isinstance(loaded_structure, AtomArray | AtomArrayStack)
         assert loaded_structure.array_length() > 0
 
 
@@ -56,7 +56,7 @@ def test_get_structure_configurations(extra_fields, assume_residues_all_resolved
         model=model,
     )
 
-    assert isinstance(structure, (AtomArray, AtomArrayStack))
+    assert isinstance(structure, AtomArray | AtomArrayStack)
     assert structure.array_length() > 0
 
     # Check if extra fields are present

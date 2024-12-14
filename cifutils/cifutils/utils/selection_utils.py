@@ -28,7 +28,6 @@ def annot_start_stop_idxs(
         >>> print(start_stop_idxs)
         [0, 5, 10, 15]
     """
-
     if len(atom_array) == 0:
         return np.array([], dtype=int)
 
@@ -48,7 +47,8 @@ def annot_start_stop_idxs(
 
 
 def get_residue_starts(atom_array: AtomArray | AtomArrayStack, add_exclusive_stop: bool = False):
-    """
+    """Get the start (and optionally stop) indices of residues in an AtomArray.
+
     More robust version of `biotite.structure.residues.get_residue_starts` that also
     differentiates between residues resulting from different transformation ids.
 
