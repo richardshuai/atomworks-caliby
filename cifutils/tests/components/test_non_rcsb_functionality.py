@@ -7,7 +7,7 @@ from conftest import get_pdb_path
 
 from cifutils.enums import ChainType
 from cifutils.parser import parse
-from cifutils.utils.non_rcsb_utils import infer_chain_info_from_atom_array
+from cifutils.utils.non_rcsb import infer_chain_info_from_atom_array
 
 DIR = Path(__file__).parent.parent / "data"
 CIF_PATHS = [DIR / "example_distillation_output.cif"]

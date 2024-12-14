@@ -10,7 +10,7 @@ from biotite.structure import AtomArray, AtomArrayStack, BondList
 import cifutils.transforms.atom_array as ta
 from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
-from cifutils.utils.bond_utils import fix_formal_charges, get_inferred_polymer_bonds, get_struct_conn_bonds
+from cifutils.utils.bonds import fix_formal_charges, get_inferred_polymer_bonds, get_struct_conn_bonds
 from cifutils.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_available
 
 logger = logging.getLogger(__file__)

@@ -6,7 +6,7 @@ from conftest import get_pdb_path
 
 from cifutils.enums import ChainType
 from cifutils.parser import parse
-from cifutils.utils.sequence_utils import (
+from cifutils.utils.sequence import (
     get_1_from_3_letter_code,
     get_3_from_1_letter_code,
 )

@@ -14,13 +14,13 @@ from biotite.structure import AtomArray, AtomArrayStack
 
 from cifutils.common import listmap, not_isin, sum_string_arrays
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
-from cifutils.utils.bond_utils import (
+from cifutils.utils.bonds import (
     generate_inter_level_bond_hash,
     get_coarse_graph_as_nodes_and_edges,
     get_connected_nodes,
     hash_graph,
 )
-from cifutils.utils.selection_utils import annot_start_stop_idxs
+from cifutils.utils.selection import annot_start_stop_idxs
 
 logger = logging.getLogger("cifutils")
 

@@ -26,11 +26,11 @@ from cifutils.transforms.categories import (
     get_metadata_from_category,
     load_monomer_sequence_information_from_category,
 )
-from cifutils.utils.assembly_utils import build_assemblies_from_asym_unit
+from cifutils.utils.assembly import build_assemblies_from_asym_unit
 from cifutils.utils.ccd import check_ccd_codes_are_available
-from cifutils.utils.chain_utils import create_chain_id_generator
+from cifutils.utils.chain import create_chain_id_generator
 from cifutils.utils.io_utils import get_structure, read_any, to_cif_buffer
-from cifutils.utils.non_rcsb_utils import (
+from cifutils.utils.non_rcsb import (
     get_identity_assembly_gen_category,
     get_identity_op_expr_category,
     infer_chain_info_from_atom_array,

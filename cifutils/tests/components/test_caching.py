@@ -4,7 +4,7 @@ import pytest
 from conftest import get_pdb_path
 
 from cifutils.parser import parse
-from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from cifutils.utils.testing import assert_same_atom_array
 
 TEST_CASES = [
     "1A7J",  # Contains an unusual operation expression for assembly building

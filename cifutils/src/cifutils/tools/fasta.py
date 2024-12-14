@@ -11,7 +11,7 @@ from cifutils.enums import ChainType
 from cifutils.utils.ccd import (
     check_ccd_codes_are_available,
 )
-from cifutils.utils.sequence_utils import get_3_from_1_letter_code
+from cifutils.utils.sequence import get_3_from_1_letter_code
 
 logger = logging.getLogger("cifutils")
 

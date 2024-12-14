@@ -1,6 +1,6 @@
 import numpy as np
 
-from cifutils.utils.sequence_utils import (
+from cifutils.utils.sequence import (
     is_glycine,
     is_protein_unknown,
     is_purine,

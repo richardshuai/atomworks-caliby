@@ -1,7 +1,7 @@
 import numpy as np
 
 from cifutils.template import get_empty_ccd_template
-from cifutils.utils.bond_utils import fix_formal_charges
+from cifutils.utils.bonds import fix_formal_charges
 
 
 def test_fix_formal_charges():

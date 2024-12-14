@@ -33,7 +33,7 @@ from cifutils.constants import (
 )
 from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.utils.ccd import get_chem_comp_leaving_atom_names, get_chem_comp_type
-from cifutils.utils.selection_utils import get_residue_starts
+from cifutils.utils.selection import get_residue_starts
 
 logger = logging.getLogger("cifutils")
 

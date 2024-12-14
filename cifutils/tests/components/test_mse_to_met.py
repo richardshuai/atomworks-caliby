@@ -8,8 +8,8 @@ from cifutils.common import not_isin
 from cifutils.constants import CCD_MIRROR_PATH, HYDROGEN_LIKE_SYMBOLS
 from cifutils.parser import parse
 from cifutils.transforms.atom_array import mse_to_met
-from cifutils.utils.atom_matching_utils import assert_same_atom_array
 from cifutils.utils.ccd import atom_array_from_ccd_code
+from cifutils.utils.testing import assert_same_atom_array
 
 TEST_CASES = ["1aqc"]
 

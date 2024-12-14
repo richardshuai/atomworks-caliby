@@ -24,7 +24,7 @@ from cifutils.constants import (
 from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.template import build_template_atom_array
 from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
-from cifutils.utils.bond_utils import (
+from cifutils.utils.bonds import (
     fix_formal_charges,
     get_inferred_polymer_bonds,
     get_struct_conn_bonds,
@@ -36,7 +36,7 @@ from cifutils.utils.ccd import (
     get_chain_type_from_ccd_code,
     get_chem_comp_type,
 )
-from cifutils.utils.chain_utils import create_chain_id_generator
+from cifutils.utils.chain import create_chain_id_generator
 
 logger = logging.getLogger("cifutils")
 
