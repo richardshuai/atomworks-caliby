@@ -7,17 +7,15 @@ __all__ = [
     "get_identity_assembly_gen_category",
     "get_identity_op_expr_category",
     "infer_chain_info_from_atom_array",
-    "load_monomer_sequence_information_from_atom_array",
 ]
 
 import logging
+from collections.abc import Sequence
 
-import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
 from biotite.structure.io.pdbx import CIFCategory
 
-from cifutils.common import deduplicate_iterator
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
     DNA_LIKE_CHEM_TYPES,
@@ -33,52 +31,77 @@ from cifutils.utils.sequence_utils import get_1_from_3_letter_code
 logger = logging.getLogger("cifutils")
 
 
-def load_monomer_sequence_information_from_atom_array(chain_info_dict: dict, atom_array: AtomArray) -> dict:
-    """
-    Load monomer sequence information into a chain_info_dict using the AtomArray as the ground-truth for
-    both polymers and non-polymers.
-
-    Assumes that there are no fully unresolved residues in the AtomArray; otherwise, the sequence will be incomplete.
-    """
-    res_starts = get_residue_starts(atom_array)
-    for chain_id in np.unique(atom_array.chain_id):
-        res_starts_in_chain = res_starts[atom_array.chain_id[res_starts] == chain_id]
-        residue_id_list = atom_array.res_id[res_starts_in_chain]
-        residue_name_list = atom_array.res_name[res_starts_in_chain]
-
-        if chain_id not in chain_info_dict:
-            chain_info_dict[chain_id] = {}
-        chain_info_dict[chain_id]["res_name"] = list(residue_name_list)
-        chain_info_dict[chain_id]["res_id"] = list(residue_id_list)
-
-    return chain_info_dict
-
-
-def infer_processed_entity_sequences_from_atom_array(chain_info: dict, atom_array: AtomArray) -> dict:
-    """
-    Infer processed entity sequences from an AtomArray.
-    """
-    for chain_id in np.unique(atom_array.chain_id):
-        chain_atom_array = atom_array[atom_array.chain_id == chain_id]
-        _, residue_name_list = struc.get_residues(chain_atom_array)
-        chain_type = ChainType.as_enum(chain_atom_array.chain_type[0])
-
-        if chain_id not in chain_info:
-            chain_info[chain_id] = {}
-
-        # Create the processed single-letter sequence representations
-        processed_entity_non_canonical_sequence = [
-            get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=False) for residue in residue_name_list
+def infer_chain_type_from_ccd_codes(ccd_code_seq: Sequence[str]) -> ChainType:
+    chain_type_counts = {
+        key: 0
+        for key in [
+            "aa_like",
+            ChainType.POLYPEPTIDE_D,
+            ChainType.POLYPEPTIDE_L,
+            ChainType.DNA,
+            ChainType.RNA,
+            ChainType.NON_POLYMER,
         ]
-        processed_entity_canonical_sequence = [
-            get_1_from_3_letter_code(residue, chain_type, use_closest_canonical=True) for residue in residue_name_list
-        ]
-        chain_info[chain_id]["processed_entity_non_canonical_sequence"] = "".join(
-            processed_entity_non_canonical_sequence
-        )
-        chain_info[chain_id]["processed_entity_canonical_sequence"] = "".join(processed_entity_canonical_sequence)
+    }
 
-    return chain_info
+    # ... infer the chain type based on each residue
+    for res_name in ccd_code_seq:
+        chem_comp = get_chem_comp_type(res_name, mode="warn")
+        # Increment the count for the appropriate chain type category
+        # (All amino acid-like chem types are considered "aa_like")
+        if chem_comp in AA_LIKE_CHEM_TYPES:
+            chain_type_counts["aa_like"] += 1
+            # (We further differentiate between L- and D-polypeptides)
+            if chem_comp in POLYPEPTIDE_D_CHEM_TYPES:
+                chain_type_counts[ChainType.POLYPEPTIDE_D] += 1
+            elif chem_comp in POLYPEPTIDE_L_CHEM_TYPES:
+                chain_type_counts[ChainType.POLYPEPTIDE_L] += 1
+        # (We differentiate between RNA and DNA)
+        elif chem_comp in RNA_LIKE_CHEM_TYPES:
+            chain_type_counts[ChainType.RNA] += 1
+        elif chem_comp in DNA_LIKE_CHEM_TYPES:
+            chain_type_counts[ChainType.DNA] += 1
+        # (All other chem types are considered non-polymer)
+        else:
+            chain_type_counts[ChainType.NON_POLYMER] += 1
+
+    # WARNING: The following logic is heuristic, and may fail in cases of multiple residues types within a chain.
+
+    # ... if we have both RNA and DNA, set the chain type to RNA/DNA hybrid
+    if chain_type_counts[ChainType.RNA] > 0 and chain_type_counts[ChainType.DNA] > 0:
+        chain_type = ChainType.DNA_RNA_HYBRID
+
+    # ... if we have proteins, set to either L- or D-polypeptide, depending on the counts
+    elif chain_type_counts[ChainType.POLYPEPTIDE_L] > 0 or chain_type_counts[ChainType.POLYPEPTIDE_D] > 0:
+        # ... if we have equal or more L-polypeptides than D-polypeptides in the chain, set to L-polypeptide
+        if chain_type_counts[ChainType.POLYPEPTIDE_L] >= chain_type_counts[ChainType.POLYPEPTIDE_D]:
+            chain_type = ChainType.POLYPEPTIDE_L
+
+        # ... if we have more D-polypeptides than L-polypeptides, set to D-polypeptide
+        elif chain_type_counts[ChainType.POLYPEPTIDE_L] < chain_type_counts[ChainType.POLYPEPTIDE_D]:
+            chain_type = ChainType.POLYPEPTIDE_D
+
+    # ... if we only have "aa_like", default to "polypeptide(L)"
+    elif (
+        chain_type_counts["aa_like"] > 0
+        and chain_type_counts[ChainType.POLYPEPTIDE_L] == 0
+        and chain_type_counts[ChainType.POLYPEPTIDE_D] == 0
+    ):
+        chain_type = ChainType.POLYPEPTIDE_L
+
+    # ... if we have RNA, set to polyribonucleotide
+    elif chain_type_counts[ChainType.RNA] > 0:
+        chain_type = ChainType.RNA
+    # ... if we have DNA, set to polydeoxyribonucleotide
+    elif chain_type_counts[ChainType.DNA] > 0:
+        chain_type = ChainType.DNA
+    # ... otherwise set to non-polymer, if we have non-polymer residues
+    elif chain_type_counts[ChainType.NON_POLYMER] > 0:
+        chain_type = ChainType.NON_POLYMER
+    else:
+        raise ValueError(f"Could not infer chain type from residue names: {ccd_code_seq}")
+
+    return chain_type
 
 
 def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
@@ -100,87 +123,38 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
     )
     chain_info_dict = {}
 
+    _res_starts = get_residue_starts(atom_array)
+    chain_ids = atom_array.chain_id[_res_starts]
+    res_ids = atom_array.res_id[_res_starts]
+    res_names = atom_array.res_name[_res_starts]
+    hetero = atom_array.hetero[_res_starts]
+
     # Loop through chains
-    for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
-        chain_atom_array = atom_array[atom_array.chain_id == chain_id]
-
-        # ...get a list of the residue names
-        _, res_names = struc.get_residues(chain_atom_array)
-
-        chain_type_counts = {
-            key: 0
-            for key in [
-                "aa_like",
-                ChainType.POLYPEPTIDE_D,
-                ChainType.POLYPEPTIDE_L,
-                ChainType.DNA,
-                ChainType.RNA,
-                ChainType.NON_POLYMER,
-            ]
-        }
-
-        # ... infer the chain type based on each residue
-        for res_name in res_names:
-            chem_comp = get_chem_comp_type(res_name)
-            # Increment the count for the appropriate chain type category
-            # (All amino acid-like chem types are considered "aa_like")
-            if chem_comp in AA_LIKE_CHEM_TYPES:
-                chain_type_counts["aa_like"] += 1
-                # (We further differentiate between L- and D-polypeptides)
-                if chem_comp in POLYPEPTIDE_D_CHEM_TYPES:
-                    chain_type_counts[ChainType.POLYPEPTIDE_D] += 1
-                elif chem_comp in POLYPEPTIDE_L_CHEM_TYPES:
-                    chain_type_counts[ChainType.POLYPEPTIDE_L] += 1
-            # (We differentiate between RNA and DNA)
-            elif chem_comp in RNA_LIKE_CHEM_TYPES:
-                chain_type_counts[ChainType.RNA] += 1
-            elif chem_comp in DNA_LIKE_CHEM_TYPES:
-                chain_type_counts[ChainType.DNA] += 1
-            # (All other chem types are considered non-polymer)
-            else:
-                chain_type_counts[ChainType.NON_POLYMER] += 1
-
-        # WARNING: The following logic is heuristic, and may fail in cases of multiple residues types within a chain.
-
-        # ... if we have both RNA and DNA, set the chain type to RNA/DNA hybrid
-        if chain_type_counts[ChainType.RNA] > 0 and chain_type_counts[ChainType.DNA] > 0:
-            inferred_chain_type = ChainType.DNA_RNA_HYBRID
-
-        # ... if we have proteins, set to either L- or D-polypeptide, depending on the counts
-        elif chain_type_counts[ChainType.POLYPEPTIDE_L] > 0 or chain_type_counts[ChainType.POLYPEPTIDE_D] > 0:
-            # ... if we have equal or more L-polypeptides than D-polypeptides in the chain, set to L-polypeptide
-            if chain_type_counts[ChainType.POLYPEPTIDE_L] >= chain_type_counts[ChainType.POLYPEPTIDE_D]:
-                inferred_chain_type = ChainType.POLYPEPTIDE_L
-
-            # ... if we have more D-polypeptides than L-polypeptides, set to D-polypeptide
-            elif chain_type_counts[ChainType.POLYPEPTIDE_L] < chain_type_counts[ChainType.POLYPEPTIDE_D]:
-                inferred_chain_type = ChainType.POLYPEPTIDE_D
-
-        # ... if we only have "aa_like", default to "polypeptide(L)"
-        elif (
-            chain_type_counts["aa_like"] > 0
-            and chain_type_counts[ChainType.POLYPEPTIDE_L] == 0
-            and chain_type_counts[ChainType.POLYPEPTIDE_D] == 0
-        ):
-            inferred_chain_type = ChainType.POLYPEPTIDE_L
-
-        # ... if we have RNA, set to polyribonucleotide
-        elif chain_type_counts[ChainType.RNA] > 0:
-            inferred_chain_type = ChainType.RNA
-        # ... if we have DNA, set to polydeoxyribonucleotide
-        elif chain_type_counts[ChainType.DNA] > 0:
-            inferred_chain_type = ChainType.DNA
-        # ... otherwise set to non-polymer, if we have non-polymer residues
-        elif chain_type_counts[ChainType.NON_POLYMER] > 0:
-            inferred_chain_type = ChainType.NON_POLYMER
-        else:
-            raise ValueError(f"Could not infer chain type for chain {chain_id}")
+    for chain_id in np.unique(chain_ids):
+        is_in_chain = chain_ids == chain_id
+        seq = res_names[is_in_chain]
 
         # ... EDGE CASE: If all atoms are "HETATM", override the chain type to non-polymer
-        if np.all(chain_atom_array.hetero):
-            inferred_chain_type = ChainType.NON_POLYMER
+        if np.all(hetero[is_in_chain]):
+            chain_type = ChainType.NON_POLYMER
+        else:
+            chain_type = infer_chain_type_from_ccd_codes(seq)
 
-        chain_info_dict[chain_id] = {"is_polymer": inferred_chain_type.is_polymer(), "chain_type": inferred_chain_type}
+        processed_entity_non_canonical_sequence = "".join(
+            get_1_from_3_letter_code(ccd_code, chain_type, use_closest_canonical=False) for ccd_code in seq
+        )
+        processed_entity_canonical_sequence = "".join(
+            get_1_from_3_letter_code(ccd_code, chain_type, use_closest_canonical=True) for ccd_code in seq
+        )
+
+        chain_info_dict[chain_id] = {
+            "res_id": list(res_ids[is_in_chain]),
+            "res_name": list(res_names[is_in_chain]),
+            "is_polymer": chain_type.is_polymer(),
+            "chain_type": chain_type,
+            "processed_entity_non_canonical_sequence": processed_entity_non_canonical_sequence,
+            "processed_entity_canonical_sequence": processed_entity_canonical_sequence,
+        }
 
     return chain_info_dict
 

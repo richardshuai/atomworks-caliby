@@ -34,8 +34,6 @@ from cifutils.utils.non_rcsb_utils import (
     get_identity_assembly_gen_category,
     get_identity_op_expr_category,
     infer_chain_info_from_atom_array,
-    infer_processed_entity_sequences_from_atom_array,
-    load_monomer_sequence_information_from_atom_array,
 )
 
 logger = logging.getLogger("cifutils")
@@ -329,12 +327,6 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
             atom_array=asym_unit_stack,
             ccd_mirror_path=kwargs["ccd_mirror_path"],
         )
-    else:
-        # Use the AtomArray as ground-truth for all residues (e.g., distillation sets)
-        data_dict["chain_info"] = load_monomer_sequence_information_from_atom_array(
-            chain_info_dict=data_dict["chain_info"],
-            atom_array=asym_unit_stack,
-        )
 
     # ...handle sequence heterogeneity by selecting the residue that appears last
     asym_unit_stack = ta.keep_last_residue(asym_unit_stack)
@@ -362,13 +354,6 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
                 use_ccd_charges=True,
             )
 
-        if kwargs["assume_residues_all_resolved"]:
-            is_nan = ~np.isfinite(atom_array.coord).any(axis=1)
-            atom_array = atom_array[~is_nan]
-            data_dict["chain_info"] = infer_processed_entity_sequences_from_atom_array(
-                data_dict["chain_info"], atom_array
-            )
-
         # ...resolve arginine naming ambiguity
         if kwargs["fix_arginines"]:
             atom_array = ta.resolve_arginine_naming_ambiguity(atom_array)
@@ -381,13 +366,13 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         if kwargs["add_id_and_entity_annotations"]:
             atom_array = ta.add_id_and_entity_annotations(atom_array)
 
-        # ... add the atomic number annotation (vs. element, which is a string)
-        atom_array = ta.add_atomic_number_annotation(atom_array)
-
         models.append(atom_array)
 
     # ...create an AtomArrayStack from the list of AtomArrays
-    data_dict["asym_unit"] = struc.stack(models)
+    asym_unit_stack = struc.stack(models)
+
+    # ... add the atomic number annotation (vs. element, which is a string)
+    asym_unit_stack = ta.add_atomic_number_annotation(asym_unit_stack)
 
     # ...optionally, build assemblies and add assembly-specifc annotation (instance IDs)
     if exists(kwargs["build_assembly"]):
@@ -408,7 +393,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         data_dict["assemblies"] = build_assemblies_from_asym_unit(
             assembly_gen_category=assembly_gen_category,
             struct_oper_category=struct_oper_category,
-            asym_unit_atom_array_stack=data_dict["asym_unit"],
+            asym_unit_atom_array_stack=asym_unit_stack,
             build_assembly=kwargs["build_assembly"],
             fix_symmetry_centers=kwargs["fix_ligands_at_symmetry_centers"],
         )
@@ -431,10 +416,11 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         "index",
     }
     for annotation in _remove_annotations:
-        _remove_annotation_if_exists(data_dict["asym_unit"], annotation)
+        _remove_annotation_if_exists(asym_unit_stack, annotation)
         if "assemblies" in data_dict:
             for assembly in data_dict["assemblies"].values():
                 _remove_annotation_if_exists(assembly, annotation)
+    data_dict["asym_unit"] = asym_unit_stack
 
     # ...and subset to only the keys we want to return, verbosely for clarity
     _keep_keys = {"chain_info", "ligand_info", "asym_unit", "assemblies", "metadata", "extra_info"}
