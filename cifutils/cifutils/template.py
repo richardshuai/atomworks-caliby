@@ -178,6 +178,24 @@ def get_empty_ccd_template(
     remove_hydrogens: bool = True,
     **res_wise_annotations: int | float | str,
 ) -> AtomArray:
+    """
+    Creates an empty template AtomArray from a Chemical Component Dictionary (CCD) entry with optional residue-wise
+    annotations.
+
+    Args:
+        - ccd_code (str): The three-letter code of the chemical component to create a template for.
+        - ccd_mirror_path (os.PathLike, optional): Path to the local CCD mirror directory. Defaults to CCD_MIRROR_PATH.
+        - remove_hydrogens (bool, optional): Whether to remove hydrogen atoms from the template. Defaults to True.
+        - **res_wise_annotations: Additional residue-wise annotations to add to the template. Values can be int, float,
+            or str and will be broadcast to all atoms in the template.
+
+    Returns:
+        - AtomArray: An empty template structure with nan coordinates but with bonds and annotations from the CCD entry,
+            plus any additional specified annotations.
+
+    Example:
+        >>> template = get_empty_ccd_template("ALA", chain_id="A", res_id=1, occupancy=1.0)
+    """
     template_cc = atom_array_from_ccd_code(ccd_code, ccd_mirror_path, coords=None)
 
     if remove_hydrogens:
@@ -195,7 +213,31 @@ def match_residue_to_template(
     template: AtomArray,
     real: AtomArray,
     use_ccd_charges: bool,
-):
+) -> AtomArray:
+    """
+    Matches atoms from a real structure to a template structure, copying over coordinates and annotations while preserving
+    the template's topology.
+
+    The function attempts to match atoms first by standard atom names, then by alternative atom IDs if available and if
+    they provide better matching. Coordinates and annotations from matched atoms in the real structure are copied to the
+    template. Unmatched atoms in the real structure are dropped with a warning.
+
+    Args:
+        - template (AtomArray): Template structure containing the reference topology and complete set of atoms.
+        - real (AtomArray): Real structure containing the atoms to be matched to the template.
+        - use_ccd_charges (bool): Whether to keep template charges (True) or copy charges from real structure (False).
+
+    Returns:
+        - AtomArray: Template structure with coordinates and annotations copied from matched atoms in the real structure.
+
+    Raises:
+        - ValueError: If multiple atoms in the real structure have the same name.
+
+    Notes:
+        - Atoms in real structure not found in template are dropped (with warning)
+        - If multiple template atoms match a real atom, only first match is used (with warning)
+        - Records whether alternative atom IDs were used for matching in 'uses_alt_atom_id' annotation
+    """
     # ... get information about the residue
     ccd_code = real.res_name[0]
     annotations = set(real.get_annotation_categories())
@@ -257,6 +299,33 @@ def build_template_atom_array(
     use_ccd_charges: bool = True,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
 ) -> AtomArray:
+    """
+    Builds a template AtomArray by matching residues to CCD templates and copying coordinates/annotations from an existing
+    structure.
+
+    For each residue in chain_info_dict, creates a template from the Chemical Component Dictionary (CCD) and either:
+    1. Copies coordinates and annotations from matching atoms in atom_array, or
+    2. Leaves coordinates as NaN if no matching atoms exist, or
+    3. Copies atoms verbatim from atom_array if no CCD template exists (e.g., for UNL) or for CCD codes that are not available
+        we want to ignore for matching (e.g., for water molecules)
+
+    Args:
+        - chain_info_dict (dict): Dictionary mapping chain IDs to dicts containing residue information with keys:
+            - 'res_id': List of residue IDs
+            - 'res_name': List of residue names (CCD codes)
+            - 'is_polymer': Boolean indicating if chain is polymeric
+            - 'chain_type': Chain type enum value
+        - atom_array (AtomArray, optional): Structure containing coordinates and annotations to copy. Defaults to None.
+        - remove_hydrogens (bool, optional): Whether to remove hydrogens from CCD templates. Defaults to True.
+        - use_ccd_charges (bool, optional): Whether to use charges from CCD (True) or atom_array (False). Defaults to True.
+        - ccd_mirror_path (os.PathLike, optional): Path to local CCD mirror. Defaults to CCD_MIRROR_PATH.
+
+    Returns:
+        AtomArray: Template structure with coordinates and annotations copied from atom_array where available.
+
+    Raises:
+        ValueError: If chains in atom_array don't match chains in chain_info_dict.
+    """
     # ... check if the chain_to_sequence_map is consistent with the atom_array
     if exists(atom_array) and (not set(struc.get_chains(atom_array)) == set(chain_info_dict)):
         raise ValueError(
@@ -277,10 +346,6 @@ def build_template_atom_array(
     chain_ids = atom_array.chain_id if exists(atom_array) else all_false(0)
     res_ids = atom_array.res_id if exists(atom_array) else all_false(0)
     res_names = atom_array.res_name if exists(atom_array) else all_false(0)
-
-    # Add a file sink to the logger
-    # TODO: I assume we don't want this in production
-    logger.setLevel(logging.DEBUG)
 
     # ... create a list of atoms based on the reference CCD entries
     template_residues = []
@@ -357,6 +422,32 @@ def add_missing_atoms(
     remove_hydrogens: bool = True,
     use_ccd_charges: bool = True,
 ) -> AtomArray:
+    """
+    Adds missing atoms to an AtomArray by matching residues to CCD templates and handling inter-residue bonds.
+
+    This function performs several steps:
+    1. Matches residues to CCD templates to add missing atoms and intra-residue bonds
+    2. Infers and adds polymer bonds between residues
+    3. Adds additional inter-residue bonds from struct_conn records
+    4. Removes leaving atoms from bond formation
+    5. Fixes formal charges on atoms involved in inter-residue bonds
+
+    Args:
+        - atom_array (AtomArray): Input structure containing atoms to be completed.
+        - chain_info_dict (dict): Dictionary mapping chain IDs to dicts containing 'res_id', 'res_name', 'is_polymer', and
+            'chain_type' info.
+        - struct_conn_dict (dict, optional): Dictionary containing structural connectivity information. Defaults to {}.
+        - add_bond_types_from_struct_conn (list[str], optional): Types of bonds to add from struct_conn. Defaults to
+            ["covale"].
+        - remove_hydrogens (bool, optional): Whether to remove hydrogen atoms from templates. Defaults to True.
+        - use_ccd_charges (bool, optional): Whether to use charges from CCD or input structure. Defaults to True.
+
+    Returns:
+        AtomArray: Completed structure with missing atoms added and proper bonding.
+
+    Raises:
+        ValueError: If chain_info_dict is inconsistent with atom_array chains.
+    """
     # ... match all residues to a CCD template
     #     (unless no CCD template esits, in which case we copy over)
     #     this also creates the intra-residue bonds from the CCD
