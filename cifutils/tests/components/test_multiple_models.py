@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
+from conftest import get_pdb_path
 
 from cifutils.parser import parse
-from tests.conftest import get_pdb_path
 
 NMR_TEST_CASES = [
     {"pdb_id": "1l2y", "num_models": 38},

@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
+from conftest import get_pdb_path
 
 from cifutils.parser import parse
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import get_pdb_path
 
 TEST_CASES = ["2w3o"]
 

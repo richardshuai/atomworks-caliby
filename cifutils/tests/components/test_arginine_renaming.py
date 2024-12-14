@@ -1,6 +1,7 @@
+from conftest import TEST_DATA_DIR, get_pdb_path
+
 from cifutils.parser import parse
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from tests.conftest import TEST_DATA_DIR, get_pdb_path
 
 
 def test_arginine_renaming():

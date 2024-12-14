@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from conftest import get_pdb_path
 
 from cifutils.constants import CRYSTALLIZATION_AIDS
 from cifutils.parser import parse
-from tests.conftest import get_pdb_path
 
 CRYSTALLIZATION_AIDS_PDB_IDS_TO_TEST = ["101M", "1AH8", "1ATG", "1ARX"]
 

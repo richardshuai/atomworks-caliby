@@ -6,13 +6,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 from assertpy import assert_that
+from conftest import get_pdb_path
 
 from cifutils.constants import CRYSTALLIZATION_AIDS
 from cifutils.parser import parse
 from cifutils.transforms import atom_array as ta
 from cifutils.utils.atom_matching_utils import assert_same_atom_array
 from cifutils.utils.io_utils import to_cif_file
-from tests.conftest import get_pdb_path
 
 TEST_CASES = [
     "6mub",  # Symmetry center clash

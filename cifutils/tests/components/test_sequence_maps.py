@@ -2,6 +2,7 @@ import re
 
 import numpy as np
 import pytest
+from conftest import get_pdb_path
 
 from cifutils.enums import ChainType
 from cifutils.parser import parse
@@ -9,7 +10,6 @@ from cifutils.utils.sequence_utils import (
     get_1_from_3_letter_code,
     get_3_from_1_letter_code,
 )
-from tests.conftest import get_pdb_path
 
 SEQUENCE_TEST_CASES = ["155c", "2e2h", "4cpa", "1en2", "1aqc", "1ivo", "3k4a", "1cbn", "133d", "1l2y", "3nez"]
 

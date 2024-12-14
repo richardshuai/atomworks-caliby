@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
+from conftest import get_pdb_path
 
 from cifutils.parser import parse
-from tests.conftest import get_pdb_path
 
 LIGAND_AT_SYMMETRY_CENTER_TEST_CASES = [
     {

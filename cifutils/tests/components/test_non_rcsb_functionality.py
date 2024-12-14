@@ -2,12 +2,12 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from components.test_chain_types import CHAIN_TYPE_TEST_CASES
+from conftest import get_pdb_path
 
 from cifutils.enums import ChainType
 from cifutils.parser import parse
 from cifutils.utils.non_rcsb_utils import infer_chain_info_from_atom_array
-from tests.components.test_chain_types import CHAIN_TYPE_TEST_CASES
-from tests.conftest import get_pdb_path
 
 DIR = Path(__file__).parent.parent / "data"
 CIF_PATHS = [DIR / "example_distillation_output.cif"]

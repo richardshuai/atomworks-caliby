@@ -8,10 +8,10 @@ from typing import Any
 
 import numpy as np
 import pytest
+from conftest import get_pdb_path
 
 from cifutils.enums import ChainType
 from cifutils.parser import parse
-from tests.conftest import get_pdb_path
 
 # General Enum tests
 

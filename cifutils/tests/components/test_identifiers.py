@@ -2,9 +2,9 @@
 
 import numpy as np
 import pytest
+from conftest import get_pdb_path
 
 from cifutils.parser import parse
-from tests.conftest import get_pdb_path
 
 PN_UNIT_IID_TEST_CASES = [
     {

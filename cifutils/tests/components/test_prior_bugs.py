@@ -1,7 +1,7 @@
 import pytest
+from conftest import get_pdb_path
 
 from cifutils.parser import parse
-from tests.conftest import get_pdb_path
 
 TEST_CASES = [
     "5e5j",  # Comes from more than 1 experimental method (X-ray & neutron scattering)

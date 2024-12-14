@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
+from conftest import get_pdb_path
 
 from cifutils.common import not_isin
 from cifutils.parser import parse
 from cifutils.transforms.atom_array import annotate_entities
-from tests.conftest import get_pdb_path
 
 # fmt: off
 MOLECULE_ENTITY_TEST_CASES = [
