@@ -145,6 +145,10 @@ IncludeCmd: yes
    # Add conda environment to PATH
    export PATH=/usr/envs/cifutils-apptainer/bin:$PATH
 
+   # Default paths for the DIGS
+   export CCD_MIRROR_PATH=/projects/ml/frozen_pdb_copies/2024_12_11_ccd
+   export PDB_MIRROR_PATH=/projects/ml/frozen_pdb_copies/2024_12_01_pdb
+
    ## CLEANUP
    # Unset the `GITLAB_USER` and `GITLAB_TOKEN` environment variables to avoid possibly
    # leaking them in the container

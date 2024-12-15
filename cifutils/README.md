@@ -14,7 +14,7 @@
 - [Contributing Guidelines](#contributing-guidelines)
 
 # CIFUtils
-We introduce `CIFUtils` — a full-featured toolkit for converting arbitrary biological inputs (e.g., `mmCIF`, `SMILES`, `MOL`, `FASTA`, etc.) into Biotite's common `AtomArray` API, performing structural and chemical operations, and ultimately passing over the `AtomArray` to a deep-learning model (see: [`datahub`](https://github.com/baker-laboratory/datahub), or saving back out to arbitrary formats.
+We introduce `CIFUtils` — a full-featured toolkit for converting arbitrary biological inputs (e.g., `mmCIF`, `pdb`, `SMILES`, `MOL`, `FASTA`, etc.) into Biotite's general `AtomArray` API, performing structural and chemical operations, and ultimately passing over the `AtomArray` to a deep-learning model (see: [`datahub`](https://github.com/baker-laboratory/datahub) or saving back out to arbitrary formats.
 
 We leverage the open-source [`biotite` library](https://www.biotite-python.org/) for our core parsing operations due to the library's speed and flexibility. 
 
@@ -69,6 +69,8 @@ cd cifutils
 make install
 ```
 
+You will then need to create a `.env` file (see: `.env.sample`) with a path to the CCD that you wish to use.
+
 **Option 2: Install into a fresh environment**
 You can use this simplified workflow below to install `cifutils` into a fresh conda environment that
 will be called `cifutils`. Alternatively, you can manually install from the [environment.yaml](./environment.yaml) file.
@@ -92,6 +94,8 @@ make env
 ## Step 4. Test Installation
 pytest tests
 ```
+
+You will then need to create a `.env` file (see: `.env.sample`) with a path to the CCD that you wish to use.
 
 ## 3. Using `cifutils` in your apptainer environment
 This is recommended if you are developing a project that will use `cifutils` as a dependency 
