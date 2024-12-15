@@ -54,7 +54,7 @@ and can be found at:
 export PYTHONPATH=$PYTHONPATH:/path/to/cifutils
 
 # Path to latest development & production apptainer for cifutils on `digs`
-/projects/ml/RF2_allatom/spec_files/cifutils_latest.sif
+/projects/ml/cifutils/apptainer/cifutils_latest.sif
 ```
 
 ## 2. Using `cifutils` with a local conda version
@@ -69,11 +69,10 @@ cd cifutils
 make install
 ```
 
-You will then need to create a `.env` file (see: `.env.sample`) with a path to the CCD that you wish to use.
+You will then need to create a `.env` file (see: `.env.sample`) with a path to the CCD that you wish to use and, optionally, the PDB path (required for tests).
 
 **Option 2: Install into a fresh environment**
-You can use this simplified workflow below to install `cifutils` into a fresh conda environment that
-will be called `cifutils`. Alternatively, you can manually install from the [environment.yaml](./environment.yaml) file.
+You can use this simplified workflow below to install `cifutils` into a fresh conda environment that will be called `cifutils-dev`. Alternatively, you can manually install from the [environment.yaml](./environment.yaml) file.
 ```bash
 ## Step 1. Clone git repo
 git clone git@git.ipd.uw.edu:ai/cifutils.git
@@ -95,7 +94,7 @@ make env
 pytest tests
 ```
 
-You will then need to create a `.env` file (see: `.env.sample`) with a path to the CCD that you wish to use.
+Like in (1), you will then need to create a `.env` file (see: `.env.sample`) with a path to the CCD that you wish to use.
 
 ## 3. Using `cifutils` in your apptainer environment
 This is recommended if you are developing a project that will use `cifutils` as a dependency 
@@ -156,14 +155,14 @@ These arguments modify how the CIF or PDB file is parsed and processed:
 
 | Name                                 | Type                               | Default                | Description                                                                                                                                                      |
 |--------------------------------------|------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `filename`                           | `PathLike \| io.StringIO \| io.BytesIO` | —                      | The path to the CIF or PDB file. Supports various file formats, including `.cif`, `.cif.gz`, and `.pdb`. `.cif` files are strongly recommended for reliability. |
+| `filename`                           | `PathLike \| io.StringIO \| io.BytesIO` | —                      | The path to the structural file. Supports various file formats, including `.cif`, `.cif.gz`, and `.pdb`. `.cif` files are strongly recommended for reliability. |
 | `assume_residues_all_resolved`       | `bool`                             | `False`                | Indicates whether all residues are assumed to be fully resolved in the structure. Required to be `True` for PDB files; should also be set to `True` for computationally predicted files. |
-| `add_missing_atoms`                  | `bool`                             | `True`                 | Determines whether missing atoms should be added to the structure. Useful for structures with unresolved residues. Not that when adding missing atoms, we also add intra- and inter-residue bonds (required to remove leaving groups).|
-| `add_id_and_entity_annotations`      | `bool`                             | `True`                 | Whether to add identifier and entity annotations to the structure.                                                                                               |
-| `add_bond_types_from_struct_conn`    | `list[str]`                        | `["covale"]`           | A list of bond types to add to the structure from the `struct_conn` category. This means that only covalent bonds will be added, excluding disulfide bonds.     |
-| `remove_ccds`                        | `list[str]`                        | `CRYSTALLIZATION_AIDS` | A list of CCD codes (e.g., `ALA`, `HEM`, ...) to remove from the structure. Exclusion of polymer residues and common multi-chain ligands must be done with care to avoid sequence gaps. |
+| `add_missing_atoms`                  | `bool`                             | `True`                 | Determines whether missing atoms should be added to the structure. Useful for structures with unresolved residues (e.g., those coming from the PDB). Not that when adding missing atoms, we also add intra- and inter-residue bonds (required to remove leaving groups).|
+| `add_id_and_entity_annotations`      | `bool`                             | `True`                 | Whether to add `id` and `entity` annotations at the `chain`, `pn-unit`, and `molecule`-level to the `AtomArray`.                                                                 |
+| `add_bond_types_from_struct_conn`    | `list[str]`                        | `["covale"]`           | A list of bond types to add to the structure from the `struct_conn` category. For example, "covale" means that only covalent bonds will be added, no disulfide bonds, metal coordination bonds, etc..     |
+| `remove_ccds`                        | `list[str]`                        | `CRYSTALLIZATION_AIDS` | A list of CCD codes (e.g., `DMO`, ...) to remove from the structure. Exclusion of polymer residues and common multi-chain ligands must be done with care to avoid sequence gaps. |
 | `remove_waters`                      | `bool`                             | `True`                 | Option to remove water molecules from the structure.                                                                                                             |
-| `fix_ligands_at_symmetry_centers`    | `bool`                             | `True`                 | Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed, important when building biological assemblies.           |
+| `fix_ligands_at_symmetry_centers`    | `bool`                             | `True`                 | Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed; important when building biological assemblies.           |
 | `fix_arginines`                      | `bool`                             | `True`                 | Resolves arginine naming ambiguities, as detailed in the AF-3 supplement.                                                                                        |
 | `convert_mse_to_met`                 | `bool`                             | `False`                | Converts selenomethionine (MSE) residues to methionine (MET) residues.                                                                                           |
 | `remove_hydrogens`                     | `bool`                             | `False`                 | Determines whether hydrogens should be removed from structure.                                                                                                     |
