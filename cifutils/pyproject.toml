@@ -131,4 +131,4 @@ convention = "google"
 testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
 norecursedirs = "docs *.egg-info .git .tox htmlcov"
 conftest = "tests/conftest.py"
-addopts = "--import-mode=importlib --testmon-forceselect"
+addopts = "--import-mode=importlib"

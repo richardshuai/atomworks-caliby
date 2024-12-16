@@ -1,5 +1,10 @@
 set -e  # Exit on error
 
+echo "Running from $PWD"
+
+# Source IPD setup script 
+source $PWD/.ipd/setup.sh
+
 DATE=$(date +%Y-%m-%d)
 echo "Building apptainer image for $DATE"
 

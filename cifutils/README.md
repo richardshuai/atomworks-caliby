@@ -43,18 +43,19 @@ Below is a bit more in-depth information on the different ways to use `cifutils`
 ## 1. (⭐️ Recommended) Using `cifutils` via the standalone cifutils apptainer
 This option is recommended for dataset parsing and generation if you save a static
 version of your dataset that you then use with your own project's apptainer and do not 
-require `cifutils` in your project's environment.
+require `cifutils` in your project's environment. It will only work if you are at the IPD.
 
 We built a standalone apptainer for `cifutils` that includes all the dependencies needed to 
 run or develop with `cifutils`. The apptainer is based on the [apptainer.spec](./apptainer.spec) file
 and can be found at:
 
 ```bash
-# To use cifutils with the apptainer, add it to the python path
-export PYTHONPATH=$PYTHONPATH:/path/to/cifutils
+# set up the IPD-specific environment variables
+source ./.ipd/setup.sh
 
 # Path to latest development & production apptainer for cifutils on `digs`
-/projects/ml/cifutils/apptainer/cifutils_latest.sif
+# ... you can use this one to execute any files
+./.ipd/cifutils_latest.sif
 ```
 
 ## 2. Using `cifutils` with a local conda version
@@ -66,7 +67,12 @@ This option is recommended for development and testing of the `cifutils` package
 # If you just want to use the project
 git clone git@git.ipd.uw.edu:ai/cifutils.git
 cd cifutils
-make install
+make install  # (or alternatively `pip install -e "."` if you don't need to also update the dependencies)
+
+# NOTE: It is important that you `pip install` the package, since we use a src-layout. If for some reason you
+#  do not want to pip install into your conda environment, you will need to add the src folder to your python
+#  path: 
+#  export PYTHONPATH=$PWD/src:$PYTHONPATH
 ```
 
 You will then need to create a `.env` file (see: `.env.sample`) with a path to the CCD that you wish to use and, optionally, the PDB path (required for tests).
@@ -101,6 +107,20 @@ This is recommended if you are developing a project that will use `cifutils` as 
 and you want to use tools from `cifutils` within your project's code. This option will
 be the preferred option for code developers.
 
+**For existing apptainers**:
+You need to add `cifutils/src` to your apptainer environment's PYTHONPATH. You can do this by
+running the following command in your apptainer environment:
+```bash
+export PYTHONPATH=$PWD/src:$PYTHONPATH
+```
+
+Or if you are at the IPD, you can use the following command:
+```bash
+source ./.ipd/setup.sh
+```
+which automatically also sets up the correct CCD & PDB mirror paths on digs.
+
+**For new apptainers**:
 For more information, see the `apptainer.spec` file in the root of the repo, which builds the
 standalone `cifutils` apptainer. You can copy the sections from there to your project's apptainer
 spec file, add your project dependencies and then build your project's apptainer.

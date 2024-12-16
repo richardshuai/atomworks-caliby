@@ -12,8 +12,6 @@ CONDA_BINARY := $(shell command -v mamba || command -v conda)
 
 APPTAINER_BINARY := $(shell command -v apptainer || command -v singularity)
 
-PARALLEL_JOBS ?= 4
-
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
@@ -105,13 +103,17 @@ apptainer:
 	@echo "Building apptainer image $(IMAGE_NAME)"
 	$(APPTAINER_BINARY) build --bind $(PWD):/cifutils_host --bind /projects:/projects,/net:/net,/squash:/squash cifutils_$(DATE).sif apptainer.spec
 
+## Run pytest on the latest IPD cifutils apptainer
+test_ipd:
+	source ./.ipd/setup.sh && apptainer exec ./.ipd/cifutils_latest.sif pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=auto --maxprocesses=24 --dist=worksteal tests/
+
 ## Run pytest and generate coverage report
 test:
 	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml tests/
 
-## Run pytest in parallel with `PARALLEL_JOBS` (default =4) cores
+## Run pytest in parallel
 parallel_test:
-	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=$(PARALLEL_JOBS) --dist=worksteal tests/
+	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=auto --maxprocesses=24 --dist=worksteal tests/
 
 #################################################################################
 # Self Documenting Commands                                                     #

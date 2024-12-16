@@ -206,7 +206,7 @@ IncludeCmd: yes
 
    # Run make test
    # ... add the `cifutils_host` path to the PYTHONPATH environment variable
-   export PYTHONPATH=/cifutils_host:$PYTHONPATH
+   export PYTHONPATH=/cifutils_host/src:$PYTHONPATH
    echo "Running make test"
    cd /cifutils_host && make test
 

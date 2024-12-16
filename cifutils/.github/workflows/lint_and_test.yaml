@@ -46,7 +46,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: Run tests
       run: |
-        srun -p cpu --cpus-per-task=1 --mem=32G bash ./.github/ci/run_tests.sh
+        srun --chdir=$PWD -p cpu --cpus-per-task=1 --mem=32G bash ./.github/ci/run_tests.sh
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       with:
