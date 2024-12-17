@@ -55,7 +55,7 @@ source ./.ipd/setup.sh
 
 # Path to latest development & production apptainer for cifutils on `digs`
 # ... you can use this one to execute any files
-./.ipd/cifutils_latest.sif
+./.ipd/cifutils.sif
 ```
 
 ## 2. Using `cifutils` with a local conda version

@@ -1,16 +1,25 @@
 set -e  # Exit on error
 
-# cd to the cifutils directory
 echo "Running from $PWD"
 
-# Source IPD setup script
-source $PWD/.ipd/setup.sh
+source ./.ipd/setup.sh
+
+export OPENBLAS_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+
+# Get max processes from environment variable, default to 24 if not set
+N_CPU=${N_CPU:-24}
+echo "Running tests with max $N_CPU CPUs"
 
 # Ensure we can collect all tests (i.e. imports succeed)
-$PWD/.ipd/cifutils_latest.sif pytest --collect-only tests/
+echo "Testing imports by trying to collect all tests"
+apptainer exec ./.ipd/cifutils.sif pytest --collect-only tests/
 
 # Run the tests in coverage mode
-$PWD/.ipd/cifutils_latest.sif pytest --cov=cifutils --cov-report=xml --cov-report=term-missing tests/
+apptainer exec ./.ipd/cifutils.sif pytest --cov=cifutils --cov-report=xml --cov-report=term-missing -n=auto --maxprocesses=$N_CPU --dist=worksteal tests/
+
+# Require at least 85% coverage
+apptainer exec ./.ipd/cifutils.sif coverage report --fail-under=85
 
 # Output the coverage in a format GitLab can parse
-$PWD/.ipd/cifutils_latest.sif coverage report | tail -n 1 | awk '{print "TOTAL", $NF}'
+apptainer exec ./.ipd/cifutils.sif coverage report | tail -n 1 | awk '{print "TOTAL", $NF}'

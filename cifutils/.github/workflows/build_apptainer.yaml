@@ -9,6 +9,10 @@ on:
       - 'environment.yaml'
       - 'apptainer.spec'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-apptainer:
     runs-on: [digs]

@@ -10,6 +10,10 @@ on:
   pull_request_target:
     types: [ready_for_review]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+  
 jobs:
   lint:
     name: ruff (check code style)
@@ -45,8 +49,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Run tests
+      timeout-minutes: 30
       run: |
-        srun --chdir=$PWD -p cpu --cpus-per-task=1 --mem=32G bash ./.github/ci/run_tests.sh
+        export N_CPU=4
+        srun --chdir=$PWD -p cpu -c $N_CPU -t 00:30:00 --mem=32G bash ./.github/ci/run_tests.sh
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       with:
