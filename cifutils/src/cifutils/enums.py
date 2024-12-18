@@ -65,6 +65,11 @@ class ChainType(IntEnum):
         return ChainTypeInfo.POLYMERS
 
     @staticmethod
+    def get_non_polymers() -> list["ChainType"]:
+        """Get a list of all non-polymer chain types."""
+        return ChainTypeInfo.NON_POLYMERS
+
+    @staticmethod
     def get_proteins() -> list["ChainType"]:
         """Get a list of all protein chain types."""
         return ChainTypeInfo.PROTEINS
