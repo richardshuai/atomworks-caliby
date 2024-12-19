@@ -182,7 +182,7 @@ def maybe_fix_non_polymer_at_symmetry_center(
     atom_array = atom_array_stack[0]
 
     # Filter to only atoms with coordinates to avoid non-physical clashes at the origin
-    resolved_atom_array = atom_array[atom_array.occupancy > 0]
+    resolved_atom_array = atom_array[(atom_array.occupancy > 0) & (~np.isnan(atom_array.coord).any(axis=-1))]
 
     if not np.any(~resolved_atom_array.is_polymer):
         return atom_array_stack  # Early exit
