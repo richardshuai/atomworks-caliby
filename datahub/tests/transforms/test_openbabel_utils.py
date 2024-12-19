@@ -36,7 +36,7 @@ def test_with_explicit_hydrogens(atom_array):
 
 @pytest.mark.parametrize("atom_array", TEST_CASES)
 def test_with_implicit_hydrogens_explicit_removed(atom_array):
-    atom_array_no_hydrogens = atom_array[atom_array.element != "1"]
+    atom_array_no_hydrogens = atom_array[atom_array.atomic_number != 1]
     obmol = atom_array_to_openbabel(atom_array, infer_hydrogens=True, infer_aromaticity=False)
     array_reconstructed = atom_array_from_openbabel(obmol)
     assert_equal_atom_arrays(
@@ -50,7 +50,7 @@ def test_with_implicit_hydrogens_explicit_removed(atom_array):
 
 @pytest.mark.parametrize("atom_array", TEST_CASES)
 def test_with_implicit_hydrogens_no_explicit(atom_array):
-    atom_array_no_hydrogens = atom_array[atom_array.element != "1"]
+    atom_array_no_hydrogens = atom_array[atom_array.atomic_number != 1]
     obmol = atom_array_to_openbabel(atom_array, infer_hydrogens=True, infer_aromaticity=False)
     array_reconstructed = atom_array_from_openbabel(obmol)
     assert_equal_atom_arrays(
@@ -64,7 +64,7 @@ def test_with_implicit_hydrogens_no_explicit(atom_array):
 
 @pytest.mark.parametrize("atom_array", TEST_CASES)
 def test_ignoring_hydrogens(atom_array):
-    atom_array_no_hydrogens = atom_array[atom_array.element != "1"]
+    atom_array_no_hydrogens = atom_array[atom_array.atomic_number != 1]
     obmol = atom_array_to_openbabel(atom_array_no_hydrogens, infer_hydrogens=False, infer_aromaticity=False)
     array_reconstructed = atom_array_from_openbabel(obmol)
     assert_equal_atom_arrays(
@@ -74,3 +74,7 @@ def test_ignoring_hydrogens(atom_array):
         compare_bonds=True,
         annotations_to_compare=ANNOTATIONS_TO_COMPARE,
     )
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

@@ -4,7 +4,7 @@ import pytest
 from biotite.structure import AtomArray
 
 from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
-from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES
+from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES
 from datahub.transforms.base import Compose
 from datahub.transforms.filters import (
     FilterToSpecifiedPNUnits,
@@ -15,7 +15,7 @@ from datahub.transforms.filters import (
     RemoveUnresolvedPNUnits,
     RemoveUnsupportedChainTypes,
 )
-from tests.conftest import CIF_PARSER, PN_UNITS_DF, cached_parse
+from tests.conftest import PN_UNITS_DF, cached_parse
 
 
 @pytest.mark.parametrize("test_case", [{"pdb_id": "1s2k"}])
@@ -109,16 +109,16 @@ def test_remove_hydrogens_original_pdb():
 
 @pytest.mark.parametrize("pdb_id", ["5ocm", "1b4y", "1tqn"])
 def test_remove_hydrogens_parsed_pdb(pdb_id: str):
-    data = cached_parse(pdb_id, keep_hydrogens=True)
+    data = cached_parse(pdb_id, remove_hydrogens=False)
     atom_array = data["atom_array"]
-    assert "1" in atom_array.element
+    assert 1 in atom_array.atomic_number
 
     transform = RemoveHydrogens()
     data = transform(data)
 
     atom_array_new = data["atom_array"]
-    assert "1" not in atom_array_new.element
-    assert len(atom_array_new) == len(atom_array[atom_array.element != "1"])
+    assert 1 not in atom_array_new.atomic_number
+    assert len(atom_array_new) == len(atom_array[atom_array.element != "H"])
 
 
 UNSUPPORTED_CHAIN_TYPE_TEST_CASES = [
@@ -136,8 +136,8 @@ def test_remove_unsupported_chain_types(pdb_id: str):
     assert not rows.empty
 
     for _, row in rows.iterrows():
-        data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
-        is_unsupported_type = row["q_pn_unit_type"] not in SUPPORTED_CHAIN_TYPES
+        data = load_example_from_metadata_row(row, PNUnitsDFParser())
+        is_unsupported_type = row["q_pn_unit_type"] not in TRAINING_SUPPORTED_CHAIN_TYPES
         original_atom_array = data["atom_array"].copy()
 
         # Apply transforms
@@ -159,7 +159,9 @@ def test_remove_unsupported_chain_types(pdb_id: str):
             num_unsupported_atoms = len(original_atom_array) - len(atom_array)
             assert num_unsupported_atoms > 0, "There should be some atoms removed"
             chain_types = np.unique(atom_array.chain_type)
-            assert np.all(np.isin(chain_types, SUPPORTED_CHAIN_TYPES)), "All remaining chain types should be supported"
+            assert np.all(
+                np.isin(chain_types, TRAINING_SUPPORTED_CHAIN_TYPES)
+            ), "All remaining chain types should be supported"
 
 
 def test_handle_undesired_res_single():
@@ -237,7 +239,7 @@ def test_handle_undesired_res_single():
     assert len(res_out) == 0
 
 
-CLASHING_PN_UNITS_TEST_CASES = [{"pdb_id": "5a21", "assembly_id": "1"}]
+CLASHING_PN_UNITS_TEST_CASES = [{"pdb_id": "1gt3", "assembly_id": "1"}]
 
 
 @pytest.mark.parametrize("test_case", CLASHING_PN_UNITS_TEST_CASES)
@@ -249,11 +251,11 @@ def test_filter_to_specified_pn_units(test_case: str):
 
     assert not rows.empty
 
-    # ...choose the first row, for speed
+    # ... choose the first row, for speed (any row with the same PDB ID and assembly ID will do)
     rows = rows.iloc[:1]
 
     for _, row in rows.iterrows():
-        data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+        data = load_example_from_metadata_row(row, PNUnitsDFParser())
 
         # Apply transforms
         # fmt: off

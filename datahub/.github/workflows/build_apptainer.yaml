@@ -9,10 +9,14 @@ on:
       - 'environment.yaml'
       - 'apptainer.spec'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-apptainer:
     runs-on: [digs]
-    timeout-minutes: 60
+    timeout-minutes: 120
     if: github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +27,6 @@ jobs:
           GITHUB_USER: ${{ secrets.IPD_BOT_USER }}
           GITHUB_TOKEN: ${{ secrets.IPD_BOT_ACCESS_TOKEN }}
         run: |
-          srun -p cpu --cpus-per-task=1 --mem=32G \
+          srun --chdir=$PWD -p cpu --cpus-per-task=1 -t 02:00:00 --mem=32G \
             --export=ALL,GITLAB_USER="${GITLAB_USER}",GITLAB_TOKEN="${GITLAB_TOKEN}",GITHUB_USER="${GITHUB_USER}",GITHUB_TOKEN="${GITHUB_TOKEN}" \
             bash ./.github/ci/build_apptainer.sh

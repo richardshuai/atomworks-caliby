@@ -12,7 +12,6 @@ from datahub.datasets.datasets import (
 from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from tests.conftest import (
-    CIF_PARSER,
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,
 )
@@ -33,7 +32,6 @@ def full_pdb_dataset_af3():
     # Create PN_UNITS_DATASET_AF3
     pn_units_dataset_af3 = StructuralDatasetWrapper(
         dataset_parser=PNUnitsDFParser(),
-        cif_parser=CIF_PARSER,
         transform=build_af3_transform_pipeline(
             protein_msa_dirs=PROTEIN_MSA_DIRS,
             rna_msa_dirs=RNA_MSA_DIRS,
@@ -52,7 +50,6 @@ def full_pdb_dataset_af3():
     # Create INTERFACES_DATASET_AF3
     interfaces_dataset_af3 = StructuralDatasetWrapper(
         dataset_parser=InterfacesDFParser(),
-        cif_parser=CIF_PARSER,
         transform=build_af3_transform_pipeline(
             protein_msa_dirs=PROTEIN_MSA_DIRS,
             rna_msa_dirs=RNA_MSA_DIRS,

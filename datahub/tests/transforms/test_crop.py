@@ -4,7 +4,7 @@ from functools import cache
 import biotite.structure as struc
 import numpy as np
 import pytest
-from cifutils.utils.atom_matching_utils import assert_same_atom_array
+from cifutils.utils.testing import assert_same_atom_array
 
 from datahub.datasets.datasets import get_row_and_index_by_example_id
 from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser, load_example_from_metadata_row
@@ -23,7 +23,7 @@ from datahub.transforms.crop import (
 from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.token import apply_and_spread_token_wise, get_token_count, get_token_starts
-from tests.conftest import CIF_PARSER, cached_parse
+from tests.conftest import cached_parse
 from tests.datasets.conftest import RF2AA_PDB_DATASET
 
 # fmt: off
@@ -124,7 +124,7 @@ BENCHMARK_EXAMPLE_IDS = [example["id"] for example in BENCHMARK_EXAMPLES]
 def _get_example(example_id: str) -> dict:
     row = get_row_and_index_by_example_id(RF2AA_PDB_DATASET, example_id)["row"]
     dataset_parser = PNUnitsDFParser() if "pn_units" in example_id else InterfacesDFParser()
-    return load_example_from_metadata_row(metadata_row=row, metadata_row_parser=dataset_parser, cif_parser=CIF_PARSER)
+    return load_example_from_metadata_row(metadata_row=row, metadata_row_parser=dataset_parser)
 
 
 def get_example(example_id: str) -> dict:

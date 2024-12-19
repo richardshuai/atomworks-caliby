@@ -2,7 +2,7 @@
 
 This README provides an overview of the pipeline used for processing structure files, generating pn_units dataframes, clustering sequences, and generating interfaces dataframes.
 
-This pipeline can be used for structures from the PDB or for distillation structures, as long as the `from_pdb` argument for `get_csvs_from_structures` is modified accordingly.
+This pipeline can be used for structures from the PDB or for distillation structures, as long as the `from_rcsb` argument for `get_csvs_from_structures` is modified accordingly.
 
 **Note:** This functionality can be accessed either by importing python functions (see Example A) or by running the associated files as scripts (see Example B).
 
@@ -22,7 +22,7 @@ This pipeline can be used for structures from the PDB or for distillation struct
    STRUCTURE_FILE_EXTENSION=".pdb" 
 
    # Get csv files for each structure
-   get_csvs_from_structures.run_pipeline(base_dir=INPUT_DIR, out_dir = OUTPUT_DIR, from_pdb = False, file_extension=STRUCTURE_FILE_EXTENSION)
+   get_csvs_from_structures.run_pipeline(base_dir=INPUT_DIR, out_dir = OUTPUT_DIR, from_rcsb = False, file_extension=STRUCTURE_FILE_EXTENSION)
    ```
 
 2. **Concatenate the CSV files into the PN Units DataFrame**
@@ -67,7 +67,7 @@ This pipeline can be used for structures from the PDB or for distillation struct
    - **Resources:** ~300 nodes
    - **Duration:** Approximately ~6 hours, depending on how many nodes are allocated
    - **Tip:** Launch ~100 nodes with `64g` with `SLURM` priority (`cpu`), and ~200 nodes with `32g` on backfill (`cpu-bf`)
-   - **Example:** `sbatch get_csvs_from_structures.sh --from_pdb True --file_extension .cif.gz --base_dir /databases/rcsb/cif --out_dir /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_05`
+   - **Example:** `sbatch get_csvs_from_structures.sh --from_rcsb True --file_extension .cif.gz --base_dir /databases/rcsb/cif --out_dir /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_05`
 
 2. **Concatenate the CSV files into the PN Units DataFrame**
    - **Script:** `generate_pn_units_df.py`

@@ -28,7 +28,7 @@ FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES = ["6wtf", "7rcu"]
 
 @pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
 def test_mask_residues_with_unresolved_backbone_atoms(pdb_id):
-    data = cached_parse(pdb_id, base="mirror")
+    data = cached_parse(pdb_id)
     atom_array = data["atom_array"]
 
     # ...manually set the occupancy of a CA atom to zero
@@ -54,7 +54,7 @@ def test_mask_residues_with_unresolved_backbone_atoms(pdb_id):
 
 @pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
 def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
-    data = cached_parse(pdb_id, base="mirror")
+    data = cached_parse(pdb_id)
     atom_array = data["atom_array"]
 
     # ...check for unresolved polymer atoms (there will be lots of unresolved hydrogens, so we leave them in  as a test case)
@@ -116,7 +116,7 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
 
 @pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
 def test_place_unresolved_token_on_closest_resolved_token_in_sequence(pdb_id):
-    data = cached_parse(pdb_id, base="mirror")
+    data = cached_parse(pdb_id)
 
     encoding = RF2AA_ATOM36_ENCODING
     pipe = Compose(

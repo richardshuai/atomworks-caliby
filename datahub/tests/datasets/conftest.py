@@ -9,11 +9,10 @@ from datahub.datasets.parsers import (
 )
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
-from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
+from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES_INTS
 from tests.conftest import (
     AF2_DISTILLATION_FACEBOOK_DF,
     AF3_VALIDATION_DF,
-    CIF_PARSER,
     INTERFACES_DF,
     PN_UNITS_DF,
     PROTEIN_MSA_DIRS,
@@ -29,13 +28,13 @@ SHARED_TEST_FILTERS = [
 ]
 
 TEST_PN_UNITS_FILTERS = [
-    f"q_pn_unit_type in {SUPPORTED_CHAIN_TYPES_INTS}",
+    f"q_pn_unit_type in {TRAINING_SUPPORTED_CHAIN_TYPES_INTS}",
     f"~(q_pn_unit_non_polymer_res_names.notnull() and q_pn_unit_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
 ]
 
 TEST_INTERFACES_FILTERS = [
-    f"pn_unit_1_type in {SUPPORTED_CHAIN_TYPES_INTS}",
-    f"pn_unit_2_type in {SUPPORTED_CHAIN_TYPES_INTS}",
+    f"pn_unit_1_type in {TRAINING_SUPPORTED_CHAIN_TYPES_INTS}",
+    f"pn_unit_2_type in {TRAINING_SUPPORTED_CHAIN_TYPES_INTS}",
     f"~(pn_unit_1_non_polymer_res_names.notnull() and pn_unit_1_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
     f"~(pn_unit_2_non_polymer_res_names.notnull() and pn_unit_2_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
 ]
@@ -47,7 +46,6 @@ TEST_INTERFACES_FILTERS = [
 # Define the PDB datasets with their respective parsers...
 RF2AA_PN_UNITS_DATASET = StructuralDatasetWrapper(
     dataset_parser=PNUnitsDFParser(),
-    cif_parser=CIF_PARSER,
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -72,7 +70,6 @@ RF2AA_PN_UNITS_DATASET = StructuralDatasetWrapper(
 TEST_DIFFUSION_BATCH_SIZE = 32  # NOTE: setting to a value other than the default for testing purposes
 AF3_PN_UNITS_DATASET = StructuralDatasetWrapper(
     dataset_parser=PNUnitsDFParser(),
-    cif_parser=CIF_PARSER,
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -95,7 +92,6 @@ AF3_PN_UNITS_DATASET = StructuralDatasetWrapper(
 
 RF2AA_INTERFACES_DATASET = StructuralDatasetWrapper(
     dataset_parser=InterfacesDFParser(),
-    cif_parser=CIF_PARSER,
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -119,7 +115,6 @@ RF2AA_INTERFACES_DATASET = StructuralDatasetWrapper(
 
 AF3_INTERFACES_DATASET = StructuralDatasetWrapper(
     dataset_parser=InterfacesDFParser(),
-    cif_parser=CIF_PARSER,
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -141,7 +136,7 @@ AF3_INTERFACES_DATASET = StructuralDatasetWrapper(
     save_failed_examples_to_dir=None,
 )
 
-# ...build the ConcatDataset
+# ... build the ConcatDataset
 RF2AA_PDB_DATASET = ConcatDatasetWithID(
     datasets=[RF2AA_PN_UNITS_DATASET, RF2AA_INTERFACES_DATASET]
 )  # NOTE: Order matters!
@@ -159,7 +154,6 @@ AF3_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
         columns_to_load=["example_id", "sequence_hash"],
     ),
     dataset_parser=AF2FB_DistillationParser(),
-    cif_parser=CIF_PARSER,
     cif_parser_args={"assume_residues_all_resolved": True},
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=[{"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}],
@@ -178,7 +172,6 @@ RF2AA_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
         columns_to_load=["example_id", "sequence_hash"],
     ),
     dataset_parser=AF2FB_DistillationParser(),
-    cif_parser=CIF_PARSER,
     cif_parser_args={"assume_residues_all_resolved": True},
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=[{"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}],
@@ -190,10 +183,9 @@ RF2AA_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
 # Validation datasets (tests inference as well)
 # +--------------------------------------------------------------------------+
 
-# ...for RF2AA
+# ... for RF2AA
 RF2AA_VALIDATION_DATASET = StructuralDatasetWrapper(
     dataset_parser=ValidationDFParserLikeAF3(),
-    cif_parser=CIF_PARSER,
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -213,10 +205,9 @@ RF2AA_VALIDATION_DATASET = StructuralDatasetWrapper(
     save_failed_examples_to_dir=None,
 )
 
-# ...for AF3
+# ... for AF3
 AF3_VALIDATION_DATASET = StructuralDatasetWrapper(
     dataset_parser=ValidationDFParserLikeAF3(),
-    cif_parser=CIF_PARSER,
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -224,7 +215,7 @@ AF3_VALIDATION_DATASET = StructuralDatasetWrapper(
         n_recycles=5,
         crop_size=256,
         crop_spatial_probability=0.0,  # NOTE: Zero probability for cropping; we don't crop during validation
-        crop_contiguous_probability=0.0,  # NOTE: Zero probability for cropping ; we don't crop during validation
+        crop_contiguous_probability=0.0,  # NOTE: Zero probability for cropping; we don't crop during validation
     ),
     dataset=PandasDataset(
         name="validation",

@@ -1,7 +1,5 @@
-import copy
 import logging
 import os
-import time
 from multiprocessing import Pool
 from typing import Any
 
@@ -11,13 +9,12 @@ import torch
 from cifutils.enums import ChainType
 from tqdm import tqdm
 
-from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.transforms.base import Compose
 from datahub.transforms.esm.esm import LoadPolymerESMs
 from datahub.transforms.filters import RemoveHydrogens, RemoveUnsupportedChainTypes
 from datahub.utils.io import get_sharded_file_path
 from datahub.utils.misc import hash_sequence
-from tests.conftest import CIF_PARSER, PN_UNITS_DF
+from tests.conftest import PN_UNITS_DF, cached_parse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -68,17 +65,8 @@ def test_load_esms(test_case: dict[str, Any]):
     Test the LoadPolymerESMs class to ensure that ESM embeddings are loaded correctly,
     and that the padding behavior works as expected when embeddings are missing.
     """
-    # Load a row from the pn_units dataframe with the given PDB ID and chain ID
-    pdb_id = test_case["pdb_id"]
     chain_id = test_case["chain_id"]
-
-    # Ensure PDB ID is lowercase in the dataframe
-    row = PN_UNITS_DF[(PN_UNITS_DF["pdb_id"] == pdb_id.lower()) & (PN_UNITS_DF["q_pn_unit_id"] == chain_id)].iloc[0]
-
-    assert row is not None
-
-    # Process the row
-    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = cached_parse(test_case["pdb_id"])
 
     # Apply transforms
     pipeline = Compose(
@@ -91,7 +79,9 @@ def test_load_esms(test_case: dict[str, Any]):
     )
 
     output = pipeline(data)
+
     polymer_esms_by_chain_id = output["polymer_esms_by_chain_id"]
+
     result = polymer_esms_by_chain_id.get(chain_id)
 
     sequence_length = len(test_case["sequence"])
@@ -113,70 +103,6 @@ def test_load_esms(test_case: dict[str, Any]):
     else:
         # Mixed padding mask is unexpected
         assert False, f"Unexpected esm_is_padded_mask for chain {chain_id}"
-
-
-@pytest.mark.skip
-@pytest.mark.parametrize("test_case", ESM_TEST_CASES)
-def test_cache_esms(test_case: dict[str, Any], tmp_path: str):
-    """
-    Tests the ESM caching functionality by loading the same ESM embedding with and without caching and comparing the results.
-    """
-    pdb_id = test_case["pdb_id"]
-    chain_id = test_case["chain_id"]
-    row = PN_UNITS_DF[(PN_UNITS_DF["pdb_id"] == pdb_id.lower()) & (PN_UNITS_DF["q_pn_unit_id"] == chain_id)].iloc[0]
-
-    assert row is not None
-
-    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
-
-    # Perform setup
-    common_pipeline = Compose(
-        [
-            RemoveHydrogens(),
-            RemoveUnsupportedChainTypes(),
-        ]
-    )
-    result_before_esm_loading = common_pipeline(data)
-
-    # Load with caching turned off
-    no_cache_pipeline = Compose(
-        [
-            LoadPolymerESMs(esm_embedding_dirs=ESM_EMBEDDING_DIRS, esm_cache_dir=None),
-        ],
-        track_rng_state=False,
-    )
-    start_time = time.time()
-    out_without_cache = no_cache_pipeline(copy.deepcopy(result_before_esm_loading))
-    first_run_time = time.time() - start_time
-
-    # Load with caching turned on
-    cache_pipeline = Compose(
-        [
-            LoadPolymerESMs(esm_embedding_dirs=ESM_EMBEDDING_DIRS, esm_cache_dir=tmp_path / "esm_cache"),
-        ],
-        track_rng_state=False,
-    )
-    out_with_cache_1 = cache_pipeline(copy.deepcopy(result_before_esm_loading))
-
-    # Load again to test caching speed
-    start_time = time.time()
-    out_with_cache_2 = cache_pipeline(copy.deepcopy(result_before_esm_loading))
-    last_run_time = time.time() - start_time
-
-    # Check that the results are the same
-    for key in out_without_cache["polymer_esms_by_chain_id"][chain_id]:
-        assert np.array_equal(
-            out_without_cache["polymer_esms_by_chain_id"][chain_id][key],
-            out_with_cache_1["polymer_esms_by_chain_id"][chain_id][key],
-        )
-        assert np.array_equal(
-            out_with_cache_1["polymer_esms_by_chain_id"][chain_id][key],
-            out_with_cache_2["polymer_esms_by_chain_id"][chain_id][key],
-        )
-
-    # Check that the second run was faster by at least 10%
-    if first_run_time > 1:
-        assert last_run_time < first_run_time * 0.9
 
 
 def get_esm_coverage_for_pdb_id(pdb_id):
@@ -222,7 +148,6 @@ def get_esm_coverage_for_pdb_id(pdb_id):
 
 # Build up a filtered pn_units dataframe (used in the ESM coverage tests)
 FILTERED_PN_UNITS_DF = PN_UNITS_DF.copy()
-FILTERED_PN_UNITS_DF["q_pn_unit_type"] = FILTERED_PN_UNITS_DF["q_pn_unit_type"].apply(lambda x: ChainType(x))
 FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[
     FILTERED_PN_UNITS_DF["q_pn_unit_type"].isin([ChainType.POLYPEPTIDE_D, ChainType.POLYPEPTIDE_L])
 ]
@@ -282,16 +207,8 @@ def test_esm_homology(test_cases_homo: list):
     # Load esm embeddings
     esm_data = []
     for test_case in test_cases_homo:
-        pdb_id = test_case["pdb_id"]
         chain_id = test_case["chain_id"]
-
-        # Ensure PDB ID is lowercase in the dataframe
-        row = PN_UNITS_DF[(PN_UNITS_DF["pdb_id"] == pdb_id.lower()) & (PN_UNITS_DF["q_pn_unit_id"] == chain_id)].iloc[0]
-
-        assert row is not None
-
-        # Process the row
-        data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+        data = cached_parse(test_case["pdb_id"])
 
         # Apply transforms
         pipeline = Compose(

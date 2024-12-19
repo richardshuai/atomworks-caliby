@@ -14,7 +14,7 @@ from datahub.transforms.msa.msa import (
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
 )
-from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS
+from tests.conftest import PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 PAIR_MSA_TEST_CASES = [
     {
@@ -386,7 +386,7 @@ MSA_PAIRING_PIPELINE_TEST_CASES = ["3ejj", "1mna", "1hge"]
 def test_msa_pairing_pipline(pdb_id: str):
     row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
 
-    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = load_example_from_metadata_row(row, PNUnitsDFParser())
 
     # Apply initial transforms
     # fmt: off

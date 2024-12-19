@@ -20,7 +20,7 @@ from datahub.transforms.msa._msa_constants import (
 from datahub.transforms.msa.msa import LoadPolymerMSAs
 from datahub.utils.io import get_sharded_file_path
 from datahub.utils.misc import hash_sequence
-from tests.conftest import CIF_PARSER, PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS
+from tests.conftest import PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ def test_load_msas(test_case: dict[str, Any]):
     assert row is not None
 
     # Process the row
-    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = load_example_from_metadata_row(row, PNUnitsDFParser())
 
     # Apply transforms
     # fmt: off
@@ -127,7 +127,7 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str):
     chain_id = test_case["chain_id"]
     row = PN_UNITS_DF[(PN_UNITS_DF["pdb_id"] == pdb_id.lower()) & (PN_UNITS_DF["q_pn_unit_id"] == chain_id)].iloc[0]
     assert row is not None
-    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser=CIF_PARSER)
+    data = load_example_from_metadata_row(row, PNUnitsDFParser())
 
     # ...perform setup
     common_pipeline = Compose(

@@ -14,11 +14,11 @@ python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_prepro
 python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/interfaces_df.parquet 4 af3
 To run silently in the background:
 sbatch -c 4 --mem=32g --time=08:00:00 --output=test_pipeline_$(date +%Y%m%d).log \
-    --wrap='export PYTHONPATH="${PYTHONPATH}:${PWD}"; python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/interfaces_df.parquet 4 rf2aa'
+    --wrap='export PYTHONPATH="${PYTHONPATH}:${PWD}/src"; python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/interfaces_df.parquet 4 rf2aa'
 
 # Or for AF3:
 sbatch -c 4 --mem=32g --time=08:00:00 --output=test_pipeline_af3_$(date +%Y%m%d).log \
-    --wrap='export PYTHONPATH="${PYTHONPATH}:${PWD}"; python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/interfaces_df.parquet 4 af3'
+    --wrap='export PYTHONPATH="${PYTHONPATH}:${PWD}/src"; python scripts/loading/pipeline_test.py /mnt/projects/ml/RF2_allatom/data_preprocessing/PDB_2024_08_16/interfaces_df.parquet 4 af3'
 
 Adjust paths and resource requirements as needed.
 """
@@ -33,7 +33,6 @@ from typing import Literal
 
 import fire
 import pandas as pd
-from cifutils import CIFParser
 from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 from toolz.curried import assoc, compose, keyfilter, map
 from torch.utils.data import DataLoader
@@ -41,7 +40,7 @@ from tqdm import tqdm
 
 from datahub.datasets.datasets import StructuralDatasetWrapper
 from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser
-from datahub.preprocessing.constants import SUPPORTED_CHAIN_TYPES_INTS
+from datahub.preprocessing.constants import PREPROCESSING_SUPPORTED_CHAIN_TYPES_INTS
 from datahub.utils.rng import (
     capture_rng_states,
     create_rng_state_from_seeds,
@@ -77,13 +76,13 @@ _SHARED_FILTERS = [
 ]
 
 PN_UNITS_FILTERS = _SHARED_FILTERS + [
-    f"q_pn_unit_type in {SUPPORTED_CHAIN_TYPES_INTS}",
+    f"q_pn_unit_type in {PREPROCESSING_SUPPORTED_CHAIN_TYPES_INTS}",
     f"~(q_pn_unit_non_polymer_res_names.notnull() and q_pn_unit_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
 ]
 
 INTERFACES_FILTERS = _SHARED_FILTERS + [
-    f"pn_unit_1_type in {SUPPORTED_CHAIN_TYPES_INTS}",
-    f"pn_unit_2_type in {SUPPORTED_CHAIN_TYPES_INTS}",
+    f"pn_unit_1_type in {PREPROCESSING_SUPPORTED_CHAIN_TYPES_INTS}",
+    f"pn_unit_2_type in {PREPROCESSING_SUPPORTED_CHAIN_TYPES_INTS}",
     f"~(pn_unit_1_non_polymer_res_names.notnull() and pn_unit_1_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
     f"~(pn_unit_2_non_polymer_res_names.notnull() and pn_unit_2_non_polymer_res_names.str.contains('{AF3_EXCLUDED_LIGANDS_REGEX}', regex=True))",
 ]
@@ -99,7 +98,6 @@ def _get_rf2aa_dataset_from_path(dataset_path: Path) -> StructuralDatasetWrapper
     pdb_dataset = StructuralDatasetWrapper(
         name="dataset",
         dataset_path=dataset_path,
-        cif_parser=CIFParser(),
         filters=(PN_UNITS_FILTERS if "pn_unit" in dataset_path.name else INTERFACES_FILTERS),
         columns_to_load=PN_UNITS_COLUMNS_TO_LOAD if "pn_unit" in dataset_path.name else INTERFACES_COLUMNS_TO_LOAD,
         dataset_parser=PNUnitsDFParser() if "pn_unit" in dataset_path.name else InterfacesDFParser(),
@@ -129,7 +127,6 @@ def _get_af3_dataset_from_path(dataset_path: Path) -> StructuralDatasetWrapper:
     pdb_dataset = StructuralDatasetWrapper(
         name="dataset",
         dataset_path=dataset_path,
-        cif_parser=CIFParser(),
         filters=PN_UNITS_FILTERS if "pn_unit" in dataset_path.name else INTERFACES_FILTERS,
         columns_to_load=PN_UNITS_COLUMNS_TO_LOAD if "pn_unit" in dataset_path.name else INTERFACES_COLUMNS_TO_LOAD,
         dataset_parser=PNUnitsDFParser() if "pn_unit" in dataset_path.name else InterfacesDFParser(),

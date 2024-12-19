@@ -1,6 +1,6 @@
 [project]
 name = "datahub"
-version = "1.0.0"
+version = "2.0.0"
 readme = "README.md"
 requires-python = ">= 3.8"
 authors = [
@@ -16,7 +16,7 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["datahub"]
+packages = ["src/datahub"]
 
 [tool.hatch.build.targets.wheel.force-include]
 # to include data files in the wheel when `pip install`-ing (if we want to give some test cases)
@@ -94,4 +94,4 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "very_slow: marks tests as very slow (deselect with '-m \"not very_slow\"')",
 ]
-addopts = "-m \"not slow and not very_slow\" --testmon-forceselect"
+addopts = "-m \"not slow and not very_slow\""

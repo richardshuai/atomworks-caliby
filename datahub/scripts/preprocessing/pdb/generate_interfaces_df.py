@@ -8,6 +8,7 @@ from multiprocessing import Pool, cpu_count
 from pathlib import Path
 
 import fire
+import numpy as np  # noqa: F401 (needed for `eval` statements)
 import pandas as pd
 from tqdm import tqdm
 
@@ -119,6 +120,8 @@ def process_structure_group(group: pd.DataFrame) -> list[dict]:
                 "pn_unit_2_non_polymer_res_names": pn_unit_2_data["q_pn_unit_non_polymer_res_names"],
                 "pn_unit_1_type": pn_unit_1_data["q_pn_unit_type"],
                 "pn_unit_2_type": pn_unit_2_data["q_pn_unit_type"],
+                "pn_unit_1_is_polymer": pn_unit_1_data["q_pn_unit_is_polymer"],
+                "pn_unit_2_is_polymer": pn_unit_2_data["q_pn_unit_is_polymer"],
                 "pn_unit_1_num_resolved_atoms": pn_unit_1_data["q_pn_unit_num_resolved_atoms"],
                 "pn_unit_2_num_resolved_atoms": pn_unit_2_data["q_pn_unit_num_resolved_atoms"],
                 "pn_unit_1_is_multichain": pn_unit_1_data["q_pn_unit_is_multichain"],
@@ -129,9 +132,11 @@ def process_structure_group(group: pd.DataFrame) -> list[dict]:
                 "pn_unit_2_sequence_length": pn_unit_2_data["q_pn_unit_sequence_length"],
                 "pn_unit_1_num_resolved_residues": pn_unit_1_data["q_pn_unit_num_resolved_residues"],
                 "pn_unit_2_num_resolved_residues": pn_unit_2_data["q_pn_unit_num_resolved_residues"],
+                "pn_unit_1_is_metal": pn_unit_1_data["q_pn_unit_is_metal"],
+                "pn_unit_2_is_metal": pn_unit_2_data["q_pn_unit_is_metal"],
 
-                # ...partners
-                # (Must meet minimum number of sub-5A contacts to be considered a partner)
+                # ... partners
+                # (Must meet have at least one sub-5A contacts to be considered a partner)
                 "contacting_pn_unit_iids": json.dumps(
                     list(
                         set(
@@ -144,7 +149,7 @@ def process_structure_group(group: pd.DataFrame) -> list[dict]:
                 "pn_unit_1_primary_polymer_partner": pn_unit_1_data["q_pn_unit_primary_polymer_partner"],
                 "pn_unit_2_primary_polymer_partner": pn_unit_2_data["q_pn_unit_primary_polymer_partner"],
 
-                # ...add interface indicators
+                # ... add interface indicators
                 "involves_covalent_modification": involves_covalent_modification,
                 "is_inter_molecule": is_inter_molecule,
                 "involves_loi": pn_unit_1_data["q_pn_unit_is_loi"] or pn_unit_2_data["q_pn_unit_is_loi"],
@@ -153,7 +158,7 @@ def process_structure_group(group: pd.DataFrame) -> list[dict]:
             }
             # fmt: on
 
-            # ...add columns with dynamic names (from clustering)
+            # ... add columns with dynamic names (from clustering)
             pattern = re.compile(r".*(protein_cluster|nucleic_acid_cluster).*")
             cluster_columns = [col for col in pn_unit_1_data.index if pattern.match(col)]
             for col in cluster_columns:
@@ -161,13 +166,13 @@ def process_structure_group(group: pd.DataFrame) -> list[dict]:
                 interface[f"pn_unit_1_{col_without_prefix}"] = pn_unit_1_data[col]
                 interface[f"pn_unit_2_{col_without_prefix}"] = pn_unit_2_data[col]
 
-            # ...existing cluster columns, if present
+            # ... existing cluster columns, if present
             if "cluster" in pn_unit_1_data.index:
                 interface["pn_unit_1_cluster"] = pn_unit_1_data["cluster"]
             if "cluster" in pn_unit_2_data.index:
                 interface["pn_unit_2_cluster"] = pn_unit_2_data["cluster"]
 
-            # ...if both are present, add the joint cluster column
+            # ... if both are present, add the joint cluster column
             if "cluster" in pn_unit_1_data.index and "cluster" in pn_unit_2_data.index:
                 # If either is None, set to None (we will exclude with a dataset filter)
                 if pn_unit_1_data["cluster"] is None or pn_unit_2_data["cluster"] is None:
@@ -175,7 +180,7 @@ def process_structure_group(group: pd.DataFrame) -> list[dict]:
                 else:
                     interface["cluster"] = f"{pn_unit_1_data['cluster']}+{pn_unit_2_data['cluster']}"
 
-            # ...and finally, add the interface to the list
+            # ... and finally, add the interface to the list
             interfaces_list.append(interface)
         elif (
             pn_unit_2 in contacting_pn_units_info_dict[pn_unit_1]
@@ -186,9 +191,9 @@ def process_structure_group(group: pd.DataFrame) -> list[dict]:
     return interfaces_list
 
 
-def generate_interfaces_df(df: pd.DataFrame) -> pd.DataFrame:
+def generate_interfaces_df(df: pd.DataFrame, num_workers: int = float("inf")) -> pd.DataFrame:
     entries_by_path_and_assembly_id = [group for _, group in df.groupby(["path", "assembly_id"])]
-    num_workers = min(cpu_count(), 14)  # Adjust based on your system
+    num_workers = min(cpu_count(), num_workers)  # Adjust based on your system
     chunksize = min(
         2000, max(1, len(entries_by_path_and_assembly_id) // num_workers), len(entries_by_path_and_assembly_id)
     )
@@ -208,28 +213,28 @@ def generate_interfaces_df(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(interfaces_list)
 
 
-def generate_and_save_interfaces_df(input_path: str, output_path: str):
-    # ...load the query PN unit DataFrame
+def generate_and_save_interfaces_df(input_path: str, output_path: str, num_workers: int = 1):
+    # ... load the query PN unit DataFrame
     logger.info("Loading query PN unit dataframe...")
     query_pn_units_df = pd.read_parquet(input_path)
 
-    # ...create the interfaces DataFrame
+    # ... create the interfaces DataFrame
     logger.info("Generating interfaces dataframe...")
-    interfaces_df = generate_interfaces_df(query_pn_units_df)
+    interfaces_df = generate_interfaces_df(query_pn_units_df, num_workers=num_workers)
 
     output_path = Path(output_path)
-    # ...ensure the output file has a .parquet suffix
+    # ... ensure the output file has a .parquet suffix
     if output_path.suffix != ".parquet":
         output_path = output_path.with_suffix(".parquet")
 
-    # ...check for duplicate rows
+    # ... check for duplicate rows
     num_duplicates = interfaces_df.duplicated().sum()
     if num_duplicates > 0:
         logger.warning(f"Found {num_duplicates} duplicate rows in the interfaces DataFrame")
-        # ...deduplicate (paranoia)
+        # ... deduplicate (paranoia)
         interfaces_df = interfaces_df.drop_duplicates()
 
-    # ...save the interfaces DataFrame to the specified location as a parquet (requires pyarrow)
+    # ... save the interfaces DataFrame to the specified location as a parquet (requires pyarrow)
     interfaces_df.to_parquet(output_path, index=False)
     logger.info(f"Interfaces DataFrame saved to {output_path}")
 

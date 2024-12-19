@@ -1,5 +1,5 @@
-"""
-Script to generate the test datasets for data loading and pre-processing.
+"""Script to generate the test datasets for data loading and pre-processing.
+
 These test datasets are a subset of the PDB, containing both (a) a set of diverse/difficult examples and (b) a set of random examples.
 
 Example usage: python create_test_datasets.py --pn_units_df_path /projects/ml/RF2_allatom/data_preprocessing/PDB_2024_07_01/pn_units_df.parquet
@@ -13,11 +13,7 @@ from pathlib import Path
 import fire
 import pandas as pd
 
-from scripts.preprocessing.clustering.cluster_sequences import (
-    AF3_CLUSTER_CHOICE_SUFFIXES,
-    add_pn_unit_cluster_column,
-    cluster_all_sequences,
-)
+from scripts.preprocessing.clustering.cluster_sequences import cluster_and_annotate_clusters
 from scripts.preprocessing.pdb.confscript import get_all_files_in_dir
 from scripts.preprocessing.pdb.generate_interfaces_df import generate_and_save_interfaces_df
 from scripts.preprocessing.pdb.generate_pn_units_df import generate_pn_units_df
@@ -30,10 +26,6 @@ DEFAULT_TEST_DATA_DIR = Path(os.path.dirname(__file__)).parent.parent.parent / "
 DEFAULT_BASE_CIF_DIR = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb")
 
 # fmt: off
-"""
-PDB IDs that we will always include when building test datasets.
-If we use a PDB ID in a Transforms test case, we should add it here.
-"""
 PDB_IDS_TO_INCLUDE_IN_TEST_DATASETS = [
     "1A80", "1IVO", "3K4A", "3KFA", "6WJC", "1EN2", "1CBN", "133D", "4JS1", 
     "1L2Y", "2K0A", "4CPA", "1ZY8", "6DMH", "1FU2", "6DMG", "1Y1W", "5XNL", 
@@ -47,7 +39,12 @@ PDB_IDS_TO_INCLUDE_IN_TEST_DATASETS = [
     "6Z3R", # Causes NaN's to enter the network
     "2G37", # Leads to "RuntimeWarning: All-NaN slice encountered" from Biotite
     "5B2T", # INF within the t1d features
+    "1GT3", # Contains clash
 ]
+"""
+PDB IDs that we will always include when building test datasets.
+If we use a PDB ID in a Transforms test case, we should add it here.
+"""
 # fmt: on
 
 
@@ -122,25 +119,9 @@ def create_test_datasets(
 
     # Add the cluster columns to the PN units dataframe, overwriting the existing PN units dataframe in-place
     # Cluster at 40% (for proteins) and 100% (for nucleic acids) identity, with 80% coverage
-    cluster_modes = [
-        {
-            "cluster_identity": 0.4,
-            "coverage": 0.8,
-            "coverage_mode": 0,
-        },
-        {
-            "cluster_identity": 1.0,
-            "coverage": 0.8,
-            "coverage_mode": 0,
-        },
-    ]
-    cluster_all_sequences(
-        pn_units_df=new_pn_units_df_path, output_path=new_pn_units_df_path, cluster_modes=cluster_modes
-    )
-
-    # Add the cluster column to the PN units dataframe
-    add_pn_unit_cluster_column(
-        new_pn_units_df_path, cluster_choice_suffixes=AF3_CLUSTER_CHOICE_SUFFIXES, replace_df=True
+    cluster_and_annotate_clusters(
+        pn_units_df=new_pn_units_df_path,
+        output_path=new_pn_units_df_path,
     )
 
     # Generate interfaces dataframe

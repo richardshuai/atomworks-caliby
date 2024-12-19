@@ -88,7 +88,7 @@ def test_find_automorphisms_within_entire_structure(pdb_id: str):
     Test the find_automorphisms_with_networkx function on an entire structure.
     Important to ensure that atoms are indexed correctly.
     """
-    inputs = cached_parse(pdb_id, keep_hydrogens=False)  # Example with covalent modifications, small molecules
+    inputs = cached_parse(pdb_id, remove_hydrogens=True)  # Example with covalent modifications, small molecules
     atomize_transform = AtomizeByCCDName(
         atomize_by_default=True,
         res_names_to_ignore=AF3_TOKENS,
@@ -116,17 +116,17 @@ def test_find_automorphisms_within_entire_structure(pdb_id: str):
         if residue_name == "ARG":
             assert len(automorphism) == 2, "Arginine should have 2 automorphisms."
             changing_column_indices = get_indices_of_non_constant_columns(automorphism)
-            n_element = str(ELEMENT_NAME_TO_ATOMIC_NUMBER["N"])
+            n_element = ELEMENT_NAME_TO_ATOMIC_NUMBER["N"]
             assert np.all(
-                residue.element[changing_column_indices] == n_element
+                residue.atomic_number[changing_column_indices] == n_element
             ), "All automorphisms of Arginine should involve nitrogens."
         # ...if it's a tyrosine, there should be 2 automorphisms, all involving carbons
         if residue_name == "TYR":
             assert len(automorphism) == 2, "Tyrosine should have 2 automorphisms (carbons must swap together)"
             changing_column_indices = get_indices_of_non_constant_columns(automorphism)
-            n_element = str(ELEMENT_NAME_TO_ATOMIC_NUMBER["C"])
+            n_element = ELEMENT_NAME_TO_ATOMIC_NUMBER["C"]
             assert np.all(
-                residue.element[changing_column_indices] == n_element
+                residue.atomic_number[changing_column_indices] == n_element
             ), "All automorphisms of Tyrosine should involve carbons."
         # ...isoleucine should have no automorphisms
         if residue_name == "ILE":
@@ -155,7 +155,7 @@ def benchmark_find_automorphisms_with_networkx(benchmark):
     Benchmark the find_automorphisms_with_networkx function.
     With current implementation, runs in negligible time for moderate-sized structures (<100ms).
     """
-    inputs = cached_parse("6wtf", keep_hydrogens=False)  # As of 11/5/2024, reports a mean time of 99.0154ms
+    inputs = cached_parse("6wtf")  # As of 11/5/2024, reports a mean time of 99.0154ms
     atomize_transform = AtomizeByCCDName(
         atomize_by_default=True,
         res_names_to_ignore=AF3_TOKENS,

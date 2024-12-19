@@ -11,11 +11,12 @@ from pathlib import Path
 import fire
 import pandas as pd
 from biotite.structure import AtomArray
+from cifutils import parse
 from cifutils.constants import AF3_EXCLUDED_LIGANDS, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
-from cifutils.parser import CIFParser
 from tqdm import tqdm
 
 from datahub.common import exists
+from datahub.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
 from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
@@ -78,15 +79,13 @@ def count_af3_style_tokens_from_atom_array(atom_array: AtomArray) -> dict:
 
 
 def count_af3_style_tokens_in_atom_array_from_file(
-    file_path: PathLike, assembly_ids: list[str], parser: CIFParser, cache_dir: PathLike | None = None
+    file_path: PathLike, assembly_ids: list[str], cache_dir: PathLike | None = None
 ) -> dict[str, dict[str, int]]:
-    """
-    Counts AF3-style tokens in assemblies from an atom array parsed from a file.
+    """Counts AF3-style tokens in assemblies from an atom array parsed from a file.
 
     Args:
         file_path (PathLike): Path to the file containing atom array data.
         assembly_ids (list[str]): List of assembly IDs to process.
-        parser (CIFParser): Parser to use for reading the file.
         cache_dir (PathLike | None, optional): Directory for loading cached parsing data. Defaults to None.
 
     Returns:
@@ -94,22 +93,20 @@ def count_af3_style_tokens_in_atom_array_from_file(
         keys 'n_atomized_tokens' and 'n_non_atomized_tokens' (see `count_af3_style_tokens_from_atom_array`).
     """
 
+    # Merge DEFAULT_CIF_PARSER_ARGS with cif_parser_args, overriding with the keys present in cif_parser_args
+    cif_parser_args = {
+        "build_assembly": assembly_ids,
+        "load_from_cache": exists(cache_dir),
+        "save_to_cache": False,  # we don't want to save the cache here
+        "cache_dir": cache_dir,
+    }
+    cif_parser_args = {**DEFAULT_CIF_PARSER_ARGS, **cif_parser_args}
+
     try:
         # ...load the file
-        result_dict = parser.parse(
+        result_dict = parse(
             filename=file_path,
-            build_assembly=assembly_ids,
-            add_bonds=True,
-            add_missing_atoms=True,
-            remove_waters=True,
-            patch_symmetry_centers=True,
-            convert_mse_to_met=True,
-            fix_arginines=True,
-            keep_hydrogens=False,
-            model=1,  # First model
-            load_from_cache=exists(cache_dir),
-            save_to_cache=False,  # we don't want to save the cache here
-            cache_dir=cache_dir,
+            **cif_parser_args,
         )
 
         # ...loop through the assemblies and count tokens
@@ -124,22 +121,21 @@ def count_af3_style_tokens_in_atom_array_from_file(
         return {}
 
 
-def process_pdb_id(row: pd.Series, parser: CIFParser, cache_dir: PathLike) -> list[dict]:
+def count_tokens_for_pdb_id(row: pd.Series, cache_dir: PathLike) -> list[dict]:
     """
     Process a single pdb_id and its associated assembly_ids to count AF3-style tokens.
 
     Args:
         row (pd.Series): A row of the DataFrame containing 'pdb_id' and 'assembly_id'.
-        parser (CIFParser): The CIFParser instance to use for parsing files.
         cache_dir (PathLike): The directory to use for caching parsed data.
 
     Returns:
         list[dict]: A list of dictionaries with token counts for each assembly_id.
     """
     pdb_id = row["pdb_id"]
-    file_path = get_digs_path(pdb_id, base="mirror")
+    file_path = get_digs_path(pdb_id)
     assembly_ids = row["assembly_id"]
-    counts = count_af3_style_tokens_in_atom_array_from_file(file_path, assembly_ids, parser, cache_dir=cache_dir)
+    counts = count_af3_style_tokens_in_atom_array_from_file(file_path, assembly_ids, cache_dir=cache_dir)
     results = []
     for assembly_id in assembly_ids:
         try:
@@ -222,9 +218,6 @@ def generate_af3_token_counts_df(
     grouped = grouped[start_index:end_index]
     logger.info(f"Processing rows {start_index} to {end_index} of {total_rows}...")
 
-    # Initialize the CIFParser
-    parser = CIFParser()
-
     # Determine the chunk size for multiprocessing
     chunksize = min(100, max(1, len(grouped) // num_workers), len(grouped))
 
@@ -232,7 +225,7 @@ def generate_af3_token_counts_df(
 
     # Process each pdb_id and count tokens
     aggregated_results = []
-    partial_process_pdb_id = partial(process_pdb_id, parser=parser, cache_dir=cache_dir)
+    partial_process_pdb_id = partial(count_tokens_for_pdb_id, cache_dir=cache_dir)
 
     with Pool(processes=num_workers) as pool:
         results_generator = pool.imap(partial_process_pdb_id, grouped, chunksize=chunksize)

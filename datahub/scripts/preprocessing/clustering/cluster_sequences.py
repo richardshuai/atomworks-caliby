@@ -1,5 +1,4 @@
-"""
-Functions to cluster protein and nucleic acid sequences using MMseqs2.
+"""Functions to cluster protein and nucleic acid sequences using MMseqs2.
 
 NOTE: Not able to be run interactively due to `mmseqs` instability; must be run via command line.
 NOTE: See `https://github.com/soedinglab/MMseqs2` for MMseqs2 installation instructions (`conda` recommended).
@@ -44,10 +43,9 @@ def cluster_proteins_and_nucleic_acids(
     sequence_col_name: str = "q_pn_unit_processed_entity_canonical_sequence",
     sequence_hash_col_name: str = "q_pn_unit_processed_entity_canonical_sequence_hash",
 ) -> pd.DataFrame | None:
-    """
-    Clusters protein and nucleic acid sequences using MMseqs2.
+    """Clusters protein and nucleic acid sequences using MMseqs2.
 
-    Parameters:
+    Args:
         pn_units_df (PathLike | str | pd.DataFrame): Path to the input DataFrame or the DataFrame itself.
         output_path (str | None): Path to save the output DataFrame. If None, the modified DataFrame is returned.
         sequence_col_name (str): Name of the column containing the sequences to be clustered.
@@ -55,7 +53,7 @@ def cluster_proteins_and_nucleic_acids(
         clustering_configs (list[MMSeqs2Config]): List of MMSeqs2Config objects specifying the clustering configurations to run.
 
     Returns:
-        (pd.DataFrame | None): The modified DataFrame if `output_path` is None, otherwise returns None.
+        pd.DataFrame | None: The modified DataFrame if `output_path` is None, otherwise returns None.
     """
 
     # Get input DataFrame
@@ -121,8 +119,8 @@ def add_pn_unit_cluster_column(
     cluster_choice_suffixes: dict = AF3_CLUSTER_CHOICE_SUFFIXES,
     replace_df: bool = False,
 ) -> pd.DataFrame:
-    """
-    Add a cluster column to the PN units dataframe based on the query PN unit type.
+    """Add a cluster column to the PN units dataframe based on the query PN unit type.
+
     Note that the cluster column for interfaces is handled by `generate_interfaces_df.py`.
 
     Args:
@@ -175,8 +173,7 @@ def cluster_and_annotate_clusters(
     sequence_hash_col_name: str = "q_pn_unit_processed_entity_canonical_sequence_hash",
     output_path: PathLike | None = None,
 ):
-    """
-    Main entry point for AF3-like clustering and annotation of clusters. The resulting DataFrame is either returned or saved to disk.
+    """Main entry point for AF3-like clustering and annotation of clusters. The resulting DataFrame is either returned or saved to disk.
 
     Args:
         pn_units_df (PathLike | str | pd.DataFrame): Path to the input DataFrame stored as a Parquet file, or the DataFrame directly.

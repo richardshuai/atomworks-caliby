@@ -2,8 +2,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 import torch
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
-from cifutils.utils.selection_utils import get_residue_starts
+from cifutils.utils.selection import get_residue_starts
 
 from datahub.transforms.af3_reference_molecule import (
     _map_reference_conformer_to_residue,
@@ -113,10 +112,13 @@ def test_get_af3_reference_molecule_features_res(res_name):
     atom_array = atom_array[atom_array.atom_name != "OXT"]
     atom_array = atom_array[atom_array.element != "H"]
     atom_array = add_global_token_id_annotation(atom_array)
-    # ... turn element into atomic number
-    atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.upper()] for el in atom_array.element])
+
     n_atom = len(atom_array)
-    features = get_af3_reference_molecule_features(atom_array)
+
+    seed = 42
+    with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
+        features = get_af3_reference_molecule_features(atom_array)
+
     assert "ref_pos" in features
     assert "ref_mask" in features
     assert "ref_element" in features
@@ -155,8 +157,6 @@ def test_get_af3_reference_molecule_features_chain():
     atom_array = atom_array[atom_array.element != "H"]
     atom_array = add_global_token_id_annotation(atom_array)
 
-    # ... turn element into atomic number
-    atom_array.element = np.array([ELEMENT_NAME_TO_ATOMIC_NUMBER[el.upper()] for el in atom_array.element])
     n_atoms = len(atom_array)
 
     seed = 42
@@ -198,22 +198,22 @@ def test_get_af3_reference_molecule_features_chain():
 def test_reference_conformer_generation_for_two_molecules_only_differing_by_transformation_id():
     # fmt: off
     atom_array = struc.array([
-        struc.Atom(np.array([44.869,     8.188,    36.104 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="N",  element="7",  charge=0,  transformation_id="1"),
-        struc.Atom(np.array([45.024,     7.456,    34.948 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CN", element="6",  charge=0,  transformation_id="1"),
-        struc.Atom(np.array([44.142,     6.714,    34.487 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="O1", element="8",  charge=0,  transformation_id="1"),
-        struc.Atom(np.array([43.669,     8.171,    36.897 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CA", element="6",  charge=0,  transformation_id="1"),
-        struc.Atom(np.array([43.812,     8.982,    38.2   ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CB", element="6",  charge=0,  transformation_id="1"),
-        struc.Atom(np.array([43.152,     8.296,    39.368 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CG", element="6",  charge=0,  transformation_id="1"),
-        struc.Atom(np.array([43.479,     9.3  ,    40.792 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="SD", element="16", charge=0,  transformation_id="1"),
-        struc.Atom(np.array([43.232,     8.184,    42.102 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CE", element="6",  charge=0,  transformation_id="1"),
-        struc.Atom(np.array([42.46 ,     8.724,    36.151 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="C",  element="6",  charge=0,  transformation_id="1"),
-        struc.Atom(np.array([42.339,     9.907,    35.831 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="O",  element="8",  charge=0,  transformation_id="1"),
-        struc.Atom(np.array([58.656483, 34.763695, 36.104 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="N",  element="7",  charge=0,  transformation_id="2"),
-        struc.Atom(np.array([59.212917, 35.263927, 34.948 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CN", element="6",  charge=0,  transformation_id="2"),
-        struc.Atom(np.array([60.296505, 34.87109 , 34.487 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="O1", element="8",  charge=0,  transformation_id="2"),
-        struc.Atom(np.array([59.271206, 33.732964, 36.897 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CA", element="6",  charge=0,  transformation_id="2"),
-        struc.Atom(np.array([58.49736 , 33.451305, 38.2   ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CB", element="6",  charge=0,  transformation_id="2"),
-        struc.Atom(np.array([59.42145 , 33.22273 , 39.368 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CG", element="6",  charge=0,  transformation_id="2"),
+        struc.Atom(np.array([44.869,     8.188,    36.104 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="N",  atomic_number=7,  charge=0,  transformation_id="1"),
+        struc.Atom(np.array([45.024,     7.456,    34.948 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CN", atomic_number=6,  charge=0,  transformation_id="1"),
+        struc.Atom(np.array([44.142,     6.714,    34.487 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="O1", atomic_number=8,  charge=0,  transformation_id="1"),
+        struc.Atom(np.array([43.669,     8.171,    36.897 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CA", atomic_number=6,  charge=0,  transformation_id="1"),
+        struc.Atom(np.array([43.812,     8.982,    38.2   ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CB", atomic_number=6,  charge=0,  transformation_id="1"),
+        struc.Atom(np.array([43.152,     8.296,    39.368 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CG", atomic_number=6,  charge=0,  transformation_id="1"),
+        struc.Atom(np.array([43.479,     9.3  ,    40.792 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="SD", atomic_number=16, charge=0,  transformation_id="1"),
+        struc.Atom(np.array([43.232,     8.184,    42.102 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CE", atomic_number=6,  charge=0,  transformation_id="1"),
+        struc.Atom(np.array([42.46 ,     8.724,    36.151 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="C",  atomic_number=6,  charge=0,  transformation_id="1"),
+        struc.Atom(np.array([42.339,     9.907,    35.831 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="O",  atomic_number=8,  charge=0,  transformation_id="1"),
+        struc.Atom(np.array([58.656483, 34.763695, 36.104 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="N",  atomic_number=7,  charge=0,  transformation_id="2"),
+        struc.Atom(np.array([59.212917, 35.263927, 34.948 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CN", atomic_number=6,  charge=0,  transformation_id="2"),
+        struc.Atom(np.array([60.296505, 34.87109 , 34.487 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="O1", atomic_number=8,  charge=0,  transformation_id="2"),
+        struc.Atom(np.array([59.271206, 33.732964, 36.897 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CA", atomic_number=6,  charge=0,  transformation_id="2"),
+        struc.Atom(np.array([58.49736 , 33.451305, 38.2   ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CB", atomic_number=6,  charge=0,  transformation_id="2"),
+        struc.Atom(np.array([59.42145 , 33.22273 , 39.368 ]), chain_id="A", res_id=1, ins_code="", res_name="FME", hetero=False, atom_name="CG", atomic_number=6,  charge=0,  transformation_id="2"),
     ])
     # fmt: on
 

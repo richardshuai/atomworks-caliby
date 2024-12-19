@@ -1,0 +1,65 @@
+name: lint_and_test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  pull_request_target:
+    types: [ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ruff (check code style)
+    # NOTE: We use an ubuntu runner to not be dependent on possibly limited digs infra
+    #   for this tiny linting job. This means we can have many lint jobs accross repos in parallel.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+      - name: Extract ruff version from environment.yaml
+        run: |
+          echo "RUFF_VERSION=$(grep 'ruff==' environment.yaml | sed 's/.*ruff==\(.*\)/\1/')" >> $GITHUB_ENV
+      - name: Install ruff
+        run: pip install ruff==${{ env.RUFF_VERSION }}
+      - name: Ruff format
+        run: ruff format --diff
+      - name: Ruff check
+        run: ruff check
+
+  test:
+    name: pytest (run tests)
+    runs-on: [digs]
+    timeout-minutes: 60  # Increased to account for both fast and slow tests
+    needs: lint
+    # ... only run on non-draft PRs to `main` to avoid unnecessary CI runs
+    if: |
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      (github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run unit tests
+        timeout-minutes: 60
+        run: |
+          export N_CPU=4
+          srun --chdir=$PWD -p cpu -c $N_CPU -t 01:00:00 --mem=32G bash ./.github/ci/run_tests.sh
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+      - name: Report Status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            exit 0
+          else
+            exit 1
+          fi

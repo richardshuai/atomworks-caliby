@@ -53,7 +53,7 @@ def test_loi_extraction(test_case: dict[str, Any]):
     loi_set = set(parsed["ligand_info"]["ligand_of_interest"])
     assert loi_set == test_case["loi"]
 
-    # Check that the LOI exmples give the correct molecule
+    # Check that the LOI examples give the correct molecule
     rows = DATA_PREPROCESSOR.get_rows(path)
     df = pd.DataFrame(rows)
 
@@ -80,3 +80,7 @@ def test_loi_extraction(test_case: dict[str, Any]):
 
     # Check that all LOI molecules have been extracted
     assert all(count > 0 for count in loi_seen.values()), f"Some LOI molecules have not been extracted: {loi_seen}"
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

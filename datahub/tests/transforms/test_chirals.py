@@ -23,7 +23,7 @@ from datahub.transforms.openbabel_utils import (
     smiles_to_openbabel,
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from tests.conftest import CIF_PARSER, PN_UNITS_DF, cached_parse
+from tests.conftest import PN_UNITS_DF, cached_parse
 
 
 # NOTE: The following section is copied directly from rf2aa to ensure repeatability
@@ -201,10 +201,9 @@ TEST_CASES_WITH_COVALENT_MODIFICATION = [
         "expected_chiral_count": 50,
         # 3 * 50 = 150 plane-pairs to compare (since all chirals here are with an implicit hydrogen there's 3 plane-pairs per chiral center)
         "expected_chiral_feats_shape": (150, 5),
-        "spotcheck_openbabel_molecule": {"atom_id": 996, "pn_unit_iid": "B_1"},
+        "spotcheck_openbabel_molecule": {"atom_id": 940, "pn_unit_iid": "B_1"},
     },
 ]
-test_case = TEST_CASES_WITH_COVALENT_MODIFICATION[0]
 
 
 @pytest.mark.parametrize("test_case", TEST_CASES_WITH_COVALENT_MODIFICATION)
@@ -215,9 +214,7 @@ def test_chiral_featurization_with_covalent_modification(test_case: dict):
         & (PN_UNITS_DF["q_pn_unit_iid"] == test_case["residues_to_be_atomized"][0]["polymer_pn_unit_iid"])
     ].iloc[0]  # Get the first row with the given pdb_id and q_pn_unit_iid
 
-    data = load_example_from_metadata_row(
-        row, PNUnitsDFParser(), cif_parser=CIF_PARSER, cif_parser_args={"keep_hydrogens": True}
-    )
+    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser_args={"remove_hydrogens": False})
 
     pipe = Compose(
         [
@@ -279,3 +276,7 @@ def test_chiral_featurize_after_cropping():
 
     assert data["chiral_feats"].shape == (3, 5)
     assert torch.allclose(data["chiral_feats"], expected, atol=1e-3)
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

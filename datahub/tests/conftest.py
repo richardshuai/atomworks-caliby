@@ -4,12 +4,11 @@ import os
 from copy import deepcopy
 from functools import cache
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
-from cifutils import CIFParser
+from cifutils import parse
 
 # Directory containing pn_units_df and interfaces_df
 TEST_DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -39,16 +38,12 @@ RNA_MSA_DIRS = [
     {"dir": "/projects/msa/rf2aa_af3/rf2aa_paper_model_rna_msas", "extension": ".afa", "directory_depth": 0}
 ]
 
-CIF_PARSER = CIFParser()
 
+def get_digs_path(pdbid: str, base_dir: str = "/projects/ml/frozen_pdb_copies/2024_12_01_pdb") -> str:
+    # Assert that the base directory exists
+    assert os.path.exists(base_dir), f"Base directory {base_dir} does not exist"
 
-def get_digs_path(pdbid: str, base: Literal["trrosetta", "mirror"] = "mirror") -> str:
-    if base == "trrosetta":
-        base_dir = Path("/databases/TrRosetta/cif")
-    elif base == "mirror":
-        base_dir = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb")
-    else:
-        raise ValueError(f"Invalid base: {base}")
+    # Build the path to the file
     pdbid = pdbid.lower()
     filename = f"{base_dir}/{pdbid[1:3]}/{pdbid}.cif.gz"
     if not os.path.exists(filename):
@@ -59,24 +54,11 @@ def get_digs_path(pdbid: str, base: Literal["trrosetta", "mirror"] = "mirror") -
 @cache
 def _cached_parse(
     pdb_id: str,
-    base: Literal["trrosetta", "mirror"] = "trrosetta",
-    convert_mse_to_met: bool = True,
-    remove_waters: bool = True,
-    build_assembly: str = "first",
-    keep_hydrogens: bool = True,
-    fix_arginines: bool = True,
-    patch_symmetry_centers: bool = True,
+    **kwargs,
 ) -> AtomArray:
-    data = CIF_PARSER.parse(
-        filename=get_digs_path(pdb_id, base),
-        convert_mse_to_met=convert_mse_to_met,
-        remove_waters=remove_waters,
-        build_assembly=build_assembly,
-        keep_hydrogens=keep_hydrogens,
-        fix_arginines=fix_arginines,
-        patch_symmetry_centers=patch_symmetry_centers,
-        save_to_cache=False,
-        cache_dir=None,
+    data = parse(
+        filename=get_digs_path(pdb_id),
+        **kwargs,
     )
     if "atom_array" not in data:
         assembly_ids = list(data["assemblies"].keys())

@@ -15,16 +15,16 @@ logger = logging.getLogger(__name__)
 
 
 def run_pipeline(
+    out_dir: str,
     base_dir: PathLike = "/databases/rcsb/cif",
     # If a list or comma-separated string, selection should contain full file paths
     selection: Union[int, str, List[PathLike]] = "all",
-    out_dir: str = "/projects/ml/RF2_allatom/data_preprocessing",
     task_id: int = 0,
     num_tasks: int = 1,
     log_errors: bool = True,
     print_progress: bool = True,
     timeout_seconds: int = 30 * 60,  # Timeout parameter in seconds (default 30 minutes)
-    from_pdb: bool = True,
+    from_rcsb: bool = True,
     file_extension: str = ".cif.gz",
     **kwargs,
 ):
@@ -46,7 +46,7 @@ def run_pipeline(
         example_paths_to_process = [Path(structure_path) for structure_path in selection.split(",")]
 
     # Initialize the DataPreprocessor with remaining kwargs
-    preprocessor = DataPreprocessor(from_pdb=from_pdb, **kwargs)
+    preprocessor = DataPreprocessor(from_rcsb=from_rcsb, **kwargs)
 
     # Create the output directory, if it doesn't already exist
     out_dir_path = Path(out_dir)

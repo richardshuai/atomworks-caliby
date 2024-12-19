@@ -127,9 +127,22 @@ apptainer:
 	@echo "Building apptainer image $(IMAGE_NAME)"
 	$(APPTAINER_BINARY) build --bind $(PWD):/datahub_host --bind /projects:/projects,/net:/net,/squash:/squash datahub_$(DATE).sif apptainer.spec
 
+test_ipd:
+	source ./.ipd/setup.sh && \
+	OPENBLAS_NUM_THREADS=1 \
+	OMP_NUM_THREADS=1 \
+	apptainer exec ./.ipd/datahub.sif \
+	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml -n=auto --maxprocesses=24 --dist=worksteal tests/ -m "not very_slow"
+
 ## Run pytest and generate coverage report
 test:
-	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml tests -m "not very_slow"
+	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml --testmon-forceselect tests -m "not very_slow"
+
+## Run pytest in parallel
+parallel_test:
+	OPENBLAS_NUM_THREADS=1 \
+	OMP_NUM_THREADS=1 \
+	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml -n=auto --maxprocesses=24 --dist=worksteal tests/ -m "not very_slow"
 
 #################################################################################
 # Self Documenting Commands                                                     #

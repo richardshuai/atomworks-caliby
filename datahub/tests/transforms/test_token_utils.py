@@ -2,8 +2,8 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
-from cifutils.utils.atom_matching_utils import assert_same_atom_array
-from cifutils.utils.sequence_utils import STANDARD_PURINE_RESIDUES, STANDARD_PYRAMIDINE_RESIDUES
+from cifutils.utils.sequence import STANDARD_PURINE_RESIDUES, STANDARD_PYRAMIDINE_RESIDUES
+from cifutils.utils.testing import assert_same_atom_array
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, AddGlobalTokenIdAnnotation
