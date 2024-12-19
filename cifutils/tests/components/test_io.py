@@ -12,6 +12,7 @@ from cifutils import parse
 from cifutils.utils.io_utils import get_structure, load_any, read_any, to_cif_string, to_pdb_string, to_cif_file
 from cifutils.tools.inference import components_to_atom_array
 
+
 @pytest.mark.parametrize(
     "pdb_id, file_type, directory",
     [
@@ -177,6 +178,7 @@ def test_to_pdb_string():
     assert np.all(pdb_structure.b_factor == pdb_structure2.b_factor)
     assert np.all(pdb_structure.occupancy == pdb_structure2.occupancy)
 
+
 def test_parse_with_no_resolved_atoms(tmpdir):
     # Spoof the input data using the inference pipeline
     smiles = "C[C@]12CC[C@@H](C[C@H]1CC[C@@H]3[C@@H]2C[C@H]([C@]4([C@@]3(CC[C@@H]4C5=CC(=O)OC5)O)C)O)O"
@@ -202,6 +204,7 @@ def test_parse_with_no_resolved_atoms(tmpdir):
 
     # Smoke test
     assert out is not None
+
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
