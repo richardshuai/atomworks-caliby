@@ -9,8 +9,8 @@ from biotite.database import rcsb
 from biotite.structure import AtomArray, AtomArrayStack
 
 from cifutils import parse
-from cifutils.utils.io_utils import get_structure, load_any, read_any, to_cif_string, to_pdb_string, to_cif_file
 from cifutils.tools.inference import components_to_atom_array
+from cifutils.utils.io_utils import get_structure, load_any, read_any, to_cif_file, to_cif_string, to_pdb_string
 
 
 @pytest.mark.parametrize(
