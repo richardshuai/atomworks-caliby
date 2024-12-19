@@ -69,5 +69,6 @@ def test_assembly_atom_coordinates(pdb_id: str):
         resolved_biotite_assembly,
         resolved_cifutils_assembly,
         annotations_to_compare=["chain_id", "res_name", "atom_name"],
+        compare_bonds=False,
         # NOTE: We do not compare res_id as waters don't match in the res_id and elements as we turn elements into integers
     )

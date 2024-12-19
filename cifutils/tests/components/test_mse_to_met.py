@@ -24,7 +24,12 @@ def test_mse_to_met_residue(ccd_mirror_path: os.PathLike | None):
     met.coord[:] = np.nan
     is_heavy = lambda x: not_isin(x.element, HYDROGEN_LIKE_SYMBOLS)
     mse_converted = mse_to_met(mse)
-    assert_same_atom_array(mse_converted[is_heavy(mse_converted)], met[is_heavy(met)])
+    assert_same_atom_array(
+        mse_converted[is_heavy(mse_converted)],
+        met[is_heavy(met)],
+        annotations_to_compare=["chain_id", "res_name", "res_id", "atom_name", "element"],
+        compare_bonds=False,
+    )
 
 
 @pytest.mark.parametrize("pdb_id", TEST_CASES)

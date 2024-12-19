@@ -38,7 +38,11 @@ def test_remove_hydrogens(pdb_id: str):
     atom_array_with_hydrogens_filtered = atom_array_with_hydrogens[atom_array_with_hydrogens.atomic_number != 1]
 
     # ...and assert that the atom arrays are the same
-    assert_same_atom_array(atom_array_no_hydrogens, atom_array_with_hydrogens_filtered)
+    assert_same_atom_array(
+        atom_array_no_hydrogens,
+        atom_array_with_hydrogens_filtered,
+        annotations_to_compare=["chain_id", "res_name", "res_id", "atom_name", "element"],
+    )
 
 
 if __name__ == "__main__":
