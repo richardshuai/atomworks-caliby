@@ -26,22 +26,6 @@ format:
 	ruff format .
 	ruff check --fix .
 
-_token_access_error:
-	@echo "==============================================================================="; \
-	echo "Error: Environment variables GITLAB_USER and GITLAB_TOKEN must be set."; \
-	echo ""; \
-	echo "You need to set the environment variables GITLAB_USER and GITLAB_TOKEN."; \
-	echo "You can create a personal access token on GitLab at:"; \
-	echo "   https://git.ipd.uw.edu/-/user_settings/personal_access_tokens"; \
-	echo ""; \
-	echo "To expose these variables, you can use:"; \
-	echo "export GITLAB_USER=<gitlab-username>"; \
-	echo "export GITLAB_TOKEN=<gitlab-token>"; \
-	echo ""; \
-	echo "It is recommended that you set these tokens in your .bashrc or .zshrc file for future use."; \
-	echo "===============================================================================";
-	exit 1;
-
 _check_conda:
 	@echo "... checking if conda/mamba is installed"
 	@command -v $(CONDA_BINARY) >/dev/null 2>&1 || { \
@@ -49,13 +33,6 @@ _check_conda:
 		exit 1; \
 	}
 	@echo "... found conda executable: $(CONDA_BINARY)"
-
-_check_tokens:
-	@echo "... checking if GITLAB_USER and GITLAB_TOKEN are set"
-	@if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
-		$(MAKE) _token_access_error; \
-	fi
-	@echo "... found GITLAB_USER ($(GITLAB_USER)) and GITLAB_TOKEN."
 
 _check_apptainer:
 	@echo "... checking if apptainer is installed"
@@ -69,7 +46,6 @@ _check_apptainer:
 env:
 	@echo "Creating cifutils conda environment: `cifutils`"
 
-	@$(MAKE) --no-print-directory _check_tokens
 	@$(MAKE) --no-print-directory _check_conda
 
 	$(CONDA_BINARY) env create -n cifutils --file environment.yaml
@@ -81,7 +57,6 @@ env:
 install:
 	@echo "Installing cifutils"
 
-	@$(MAKE) --no-print-directory _check_tokens
 	@$(MAKE) --no-print-directory _check_conda
 
 	@echo "Installing the conda requirements in the current activated environment"
@@ -95,7 +70,6 @@ apptainer:
 	@echo "Building apptainer image"
 
 	@$(MAKE) --no-print-directory _check_apptainer
-	@$(MAKE) --no-print-directory _check_tokens
 
 	$(eval DATE := $(shell date +%Y-%m-%d))
 	$(eval IMAGE_NAME := cifutils_$(DATE).sif)

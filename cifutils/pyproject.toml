@@ -3,7 +3,7 @@ name = "cifutils"
 version = "2.0.1"
 description = "Convert arbitrary biological inputs into an AtomArray, modify them, and then perform downstream actions like training machine learning models."
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.10"
 authors = [
     { name = "Nate Corley", email = "ncorley@uw.edu" },
     { name = "Simon Mathis", email = "smathis@uw.edu" },

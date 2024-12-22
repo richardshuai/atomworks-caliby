@@ -6,22 +6,6 @@ IncludeCmd: yes
 #     apptainer build --bind $PWD:/cifutils_host cifutils_apptainer.sif apptainer.spec
 
 %setup
-   # NOTE: This is executed on the host, not the container
-   # Ensure the `GITLAB_USER` and `GITLAB_TOKEN` environment variables are set
-   for var in GITLAB_USER GITLAB_TOKEN; do
-      if [ -z "$(eval echo \$$var)" ]; then
-         echo "ERROR: $var is not set. Please create a personal access token at https://git.ipd.uw.edu/-/user_settings/personal_access_tokens and set the GITLAB_USER and GITLAB_TOKEN environment variables."
-         exit 1
-      fi
-   done
-
-   # Create temporary `secrets.txt` file from host's environment variables in the container
-   # (which are otherwise not available in the %post section)
-   echo "Creating temporary secrets.txt file with GITLAB_USER and GITLAB_TOKEN in the container"
-   touch ${APPTAINER_ROOTFS}/secrets.txt
-   echo "GITLAB_USER=${GITLAB_USER}" > ${APPTAINER_ROOTFS}/secrets.txt
-   echo "GITLAB_TOKEN=${GITLAB_TOKEN}" >> ${APPTAINER_ROOTFS}/secrets.txt
-
    # Create a directory in the container to bind the host's current working directory
    mkdir ${APPTAINER_ROOTFS}/cifutils_host
    # ... for mounting `/projects` with --bind
@@ -78,36 +62,6 @@ IncludeCmd: yes
    # get os version
    echo "... in OS version $(lsb_release -r | awk '{ print $2 }')"
 
-   ## SECRETS FILE
-   # Deal with secrets file
-   # ... verify that the secrets file is present on the container
-   if [ ! -e /secrets.txt ]; then
-      echo "ERROR: secrets.txt is not present on the container"
-      exit 1
-   fi
-   # ... temporarily set the `GITLAB_USER` and `GITLAB_TOKEN` environment variables
-   #     from the secrets file
-   echo "Exporting GITLAB_USER and GITLAB_TOKEN from secrets.txt"
-   export GITLAB_USER=$(grep GITLAB_USER /secrets.txt | cut -d '=' -f2)
-   export GITLAB_TOKEN=$(grep GITLAB_TOKEN /secrets.txt | cut -d '=' -f2)
-   # ... remove secrets file
-   rm secrets.txt
-   # ... verify that the secrets file is not present on the container
-   if [ -e /secrets.txt ]; then
-      echo "ERROR: secrets.txt is still present on the container"
-      exit 1
-   else
-      echo "Verified that secrets.txt is not present on the container"
-   fi
-   # ... verify that the `GITLAB_USER` and `GITLAB_TOKEN` environment variables are set
-   for var in GITLAB_USER GITLAB_TOKEN; do
-      if [ -z "$(eval echo \$$var)" ]; then
-         echo "ERROR: $var is not set"
-         exit 1
-      fi
-   done
-   echo "Verified that GITLAB_USER and GITLAB_TOKEN are set"
-
    ## GENERAL SETUP
    # Switch shell to bash
    ln -sf /bin/bash /bin/sh
@@ -150,19 +104,6 @@ IncludeCmd: yes
    export PDB_MIRROR_PATH=/projects/ml/frozen_pdb_copies/2024_12_01_pdb
 
    ## CLEANUP
-   # Unset the `GITLAB_USER` and `GITLAB_TOKEN` environment variables to avoid possibly
-   # leaking them in the container
-   unset GITLAB_USER
-   unset GITLAB_TOKEN
-   # ... verify that the `GITLAB_USER` and `GITLAB_TOKEN` environment variables are unset
-   for var in GITLAB_USER GITLAB_TOKEN; do
-      if [ -n "$(eval echo \$$var)" ]; then
-         echo "ERROR: $var is still set"
-         exit 1
-      fi
-   done
-   echo "Verified that GITLAB_USER and GITLAB_TOKEN are unset."
-
    # clean up files to reduce size
    # ... remove conda
    conda clean -a -y
@@ -182,13 +123,6 @@ IncludeCmd: yes
    echo "... running the $(readlink /proc/$$/exe) shell."
    echo "... conda at $(which conda)"
 
-   # Verify that `secrets.txt` is not present on the container
-   if [ -e /secrets.txt ]; then
-      echo "ERROR: secrets.txt is still present on the container"
-      exit 1
-   fi
-   echo "Verified that secrets.txt is not present in the container"
-   
    # activate environment (the .bashrc in the container is at `/root/.bashrc`)
    source /usr/etc/profile.d/conda.sh
    conda activate cifutils-apptainer
@@ -239,5 +173,5 @@ IncludeCmd: yes
 
 %labels
     Authors simon.mathis@gmail.com, ncorley@uw.edu
-    Version v0.0.2
+    Version v1.0.0
     ApptainerVersion 1.1.6+2-g6808b5172-ipd
