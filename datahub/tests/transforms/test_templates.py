@@ -18,7 +18,7 @@ from datahub.transforms.template import (
     RF2AATemplate,
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from tests.conftest import cached_parse
+from datahub.utils.testing import cached_parse
 
 TEST_CASES = [
     {

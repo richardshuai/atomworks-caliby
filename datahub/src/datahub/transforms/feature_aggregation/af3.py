@@ -108,6 +108,9 @@ class AggregateFeaturesLikeAF3(Transform):
         # NOTE: the ref element is one-hot encoded by element number up to 128 (more than the known number of elements)
         data["feats"]["ref_element"] = F.one_hot(data["feats"]["ref_element"].long(), num_classes=128)
 
+        # handle case where reference conformer was not able to be made and is currently nan
+        data["feats"]["ref_pos"] = torch.nan_to_num(data["feats"]["ref_pos"], nan=0.0)
+
         # Process ground truth structure
         atom_array = data["atom_array"]
         coord_atom_lvl = atom_array.coord

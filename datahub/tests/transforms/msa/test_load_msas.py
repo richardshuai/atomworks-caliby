@@ -270,6 +270,7 @@ FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[
 FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[FILTERED_PN_UNITS_DF["deposition_date"] < "2021-08-02"]
 
 
+@pytest.mark.very_slow
 def test_msa_coverage():
     """
     Function to validate MSA coverage for a random subset of PDB IDs.

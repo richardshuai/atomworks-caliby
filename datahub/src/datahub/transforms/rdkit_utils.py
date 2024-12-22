@@ -330,13 +330,16 @@ def find_automorphisms_with_rdkit(
 
 
 @timeout_decorator(strategy="subprocess")
-def sample_rdkit_conformer_for_atom_array(atom_array: AtomArray, seed: int | None = None) -> AtomArray:
-    """
-    Sample a conformer for a Biotite AtomArray using RDKit.
+def sample_rdkit_conformer_for_atom_array(
+    atom_array: AtomArray,
+    n_conformers: int = 1,
+    timeout_seconds: float = 2.0,
+    **generate_conformers_kwargs,
+) -> AtomArray:
+    """Sample a conformer for a Biotite AtomArray using RDKit.
 
     Args:
         - atom_array (AtomArray): The Biotite AtomArray to sample a conformer for.
-        - seed (int | None): Random seed for reproducibility.
 
     Returns:
         - AtomArray: The AtomArray with updated coordinates from the sampled conformer.
@@ -345,17 +348,28 @@ def sample_rdkit_conformer_for_atom_array(atom_array: AtomArray, seed: int | Non
         This function preserves the original atom order and properties of the input AtomArray.
     """
     atom_array = atom_array.copy()
-    mol = atom_array_to_rdkit(atom_array, infer_hydrogens=False)
-    mol = generate_conformers(mol, seed=seed, n_conformers=1)
+    mol = atom_array_to_rdkit(atom_array, infer_hydrogens=True)
+
+    set_coord_if_available = True
+    try:
+        mol = generate_conformers(mol, n_conformers=n_conformers, timeout=timeout_seconds, **generate_conformers_kwargs)
+    except (TimeoutError, RuntimeError):
+        set_coord_if_available = False
+        logger.warning(f"Failed to generate conformers for {atom_array.res_name[0]}. Falling back to zeros.")
+
     new_atom_array = atom_array_from_rdkit(
-        mol, set_coord_if_available=True, elements_as_int=True, remove_inferred_atoms=True, remove_hydrogens=False
+        mol,
+        set_coord_if_available=set_coord_if_available,
+        elements_as_int=True,
+        remove_inferred_atoms=True,
+        remove_hydrogens=False,
     )
+
     assert new_atom_array.array_length() == atom_array.array_length()
     assert np.all(new_atom_array.atom_name == atom_array.atom_name)
     assert np.all(new_atom_array.res_id == atom_array.res_id)
     assert np.all(new_atom_array.res_name == atom_array.res_name)
     atom_array.coord = new_atom_array.coord
-
     return atom_array
 
 
@@ -392,7 +406,7 @@ def ccd_code_to_rdkit_with_conformers(
         mol = generate_conformers(mol, n_conformers=n_conformers, timeout=timeout_seconds, **generate_conformers_kwargs)
     except (TimeoutError, RuntimeError) as e:
         logger.warning(
-            f"Failed to generate conformers for {ccd_code=}. Falling back to idealized conformer. Error message: {e}"
+            f"Failed to generate conformers for {ccd_code=}. Falling back to idealized conformer from the CCD. Error message: {e}"
         )
 
     # ... if conformer generation fails or is incomplete, return the idealized conformer (set `count` conformers)

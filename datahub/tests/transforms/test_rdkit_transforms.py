@@ -13,7 +13,7 @@ from datahub.transforms.rdkit_utils import (
     GenerateRDKitConformers,
     atom_array_from_rdkit,
 )
-from tests.conftest import cached_parse
+from datahub.utils.testing import cached_parse
 
 try:
     # Settings for debugging & interactive tests

@@ -9,6 +9,7 @@ from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, AddGlobalTokenIdAnnotation
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
+from datahub.utils.testing import cached_parse
 from datahub.utils.token import (
     apply_segment_wise_2d,
     get_af3_token_center_masks,
@@ -17,7 +18,6 @@ from datahub.utils.token import (
     get_token_starts,
     token_iter,
 )
-from tests.conftest import cached_parse
 
 
 @pytest.mark.parametrize("pdb_id", ["6lyz", "5ocm"])

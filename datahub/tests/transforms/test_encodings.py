@@ -19,7 +19,7 @@ from datahub.transforms.filters import (
     RemoveHydrogens,
     RemoveTerminalOxygen,
 )
-from tests.conftest import cached_parse
+from datahub.utils.testing import cached_parse
 
 
 @pytest.mark.parametrize("pdb_id", ["5ocm", "5ocn"])

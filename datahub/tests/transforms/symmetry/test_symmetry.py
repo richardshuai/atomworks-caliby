@@ -22,7 +22,7 @@ from datahub.transforms.symmetry import (
     identify_isomorphic_chains_based_on_molecule_entity,
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from tests.conftest import cached_parse
+from datahub.utils.testing import cached_parse
 
 
 def test_create_instance_to_entity_map():

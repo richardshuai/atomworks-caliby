@@ -15,7 +15,8 @@ from datahub.transforms.filters import (
     RemoveUnresolvedPNUnits,
     RemoveUnsupportedChainTypes,
 )
-from tests.conftest import PN_UNITS_DF, cached_parse
+from datahub.utils.testing import cached_parse
+from tests.conftest import PN_UNITS_DF
 
 
 @pytest.mark.parametrize("test_case", [{"pdb_id": "1s2k"}])

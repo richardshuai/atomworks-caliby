@@ -37,7 +37,7 @@ dependencies:
 
     # Local packages
     - git+https://${GITLAB_USER}:${GITLAB_TOKEN}@git.ipd.uw.edu/ai/biotite.git@v1.0.1
-    - git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/baker-laboratory/cifutils.git@v2.0.1
+    - git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/baker-laboratory/cifutils.git
 
     # Formatting & linting
     - ruff==0.8.3 # python linter & formatter

@@ -4,7 +4,7 @@ import pytest
 from cifutils.constants import STANDARD_AA
 
 from datahub.transforms.atomize import AtomizeByCCDName
-from tests.conftest import cached_parse
+from datahub.utils.testing import cached_parse
 
 
 def test_fail_on_invalid_init():

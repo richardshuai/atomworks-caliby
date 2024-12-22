@@ -4,7 +4,8 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
-from cifutils.tools.rdkit import atom_array_from_rdkit, smiles_to_rdkit
+from cifutils.tools.inference import components_to_atom_array
+from cifutils.tools.rdkit import atom_array_from_rdkit, atom_array_to_rdkit, smiles_to_rdkit
 from rdkit import Chem
 
 from datahub.transforms.rdkit_utils import (
@@ -30,6 +31,7 @@ TEST_SMILES = [
     "C1=NC(=C2C(=N1)N(C=N2)C3C(C(C(O3)COP(=O)(O)O)O)O)N",  # Adenosine
     "C1=CC=CC=C1",  # Benzene
     "c1cc(c[n+](c1)[C@H]2[C@@H]([C@@H]([C@H](O2)CO[P@@](=O)([O-])O[P@@](=O)(O)OC[C@@H]3[C@H]([C@H]([C@@H](O3)n4cnc5c4ncnc5N)O)O)O)O)C(=O)N",  # NAD
+    "C[C@]12CC[C@@H](C[C@H]1CC[C@@H]3[C@@H]2C[C@H]([C@]4([C@@]3(CC[C@@H]4C5=CC(=O)OC5)O)C)O)O",
 ]
 TEST_ATOM_ARRAYS = [struc.info.residue("ALA"), struc.info.residue("NAD")]
 
@@ -53,6 +55,31 @@ def test_smiles_to_rdkit_with_conformer_to_atom_array(smiles):
 
     assert isinstance(atom_array, AtomArray)
     assert atom_array.array_length() == mol.GetNumAtoms()
+
+
+@pytest.mark.parametrize("smiles", TEST_SMILES)
+def test_smiles_to_atom_array_to_conformer(smiles):
+    inputs = []
+    inputs.append(
+        {
+            "smiles": smiles,
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "A",
+        }
+    )
+    atom_array = components_to_atom_array(inputs)
+    mol = atom_array_to_rdkit(atom_array, infer_hydrogens=True)
+    mol = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize=True)
+    new_atom_array = atom_array_from_rdkit(
+        mol, set_coord_if_available=True, elements_as_int=False, remove_hydrogens=True
+    )
+
+    # Ensure we didn't drop any atoms
+    assert len(atom_array) == len(new_atom_array)
+
+    # Assert no NaN coordinates
+    assert not np.any(np.isnan(new_atom_array.coord))
 
 
 @pytest.mark.parametrize("smiles", TEST_SMILES)

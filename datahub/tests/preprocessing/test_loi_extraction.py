@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tests.conftest import get_digs_path
+from datahub.utils.testing import get_digs_path
 from tests.preprocessing.conftest import DATA_PREPROCESSOR
 
 LOI_EXTRACTION_TEST_CASES = [

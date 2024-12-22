@@ -1,7 +1,12 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
+import torch
+from cifutils import parse
+from cifutils.tools.inference import components_to_atom_array
+from cifutils.utils.io_utils import to_cif_file
 
+from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
 from datahub.transforms.atom_array import (
     AddGlobalTokenIdAnnotation,
     AddMoleculeSymmetricIdAnnotation,
@@ -12,10 +17,13 @@ from datahub.transforms.atom_array import (
     chain_instance_iter,
     sort_poly_then_non_poly,
 )
-from datahub.transforms.base import Compose
+from datahub.transforms.base import (
+    Compose,
+)
 from datahub.transforms.msa._msa_constants import THREE_LETTER_TO_MSA_INTEGER
 from datahub.transforms.msa.msa import LoadPolymerMSAs
-from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, cached_parse
+from datahub.utils.testing import cached_parse
+from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 from tests.transforms.msa.test_pair_and_merge_polymer_msas import MSA_PAIRING_PIPELINE_TEST_CASES
 
 
@@ -233,6 +241,109 @@ def test_compute_atom_to_token_map(pdb_id):
 
     # sequence to token map contains which token every atom came from
     assert n_atoms == result["feats"]["atom_to_token_map"].shape[0]
+
+
+def test_make_reference_conformer_for_UNL(tmp_path):
+    # Spoof the input data using the inference pipeline
+    smiles = "C[C@]12CC[C@@H](C[C@H]1CC[C@@H]3[C@@H]2C[C@H]([C@]4([C@@]3(CC[C@@H]4C5=CC(=O)OC5)O)C)O)O"
+    inputs = [
+        {
+            "smiles": smiles,
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "A",
+        }
+    ]
+    atom_array = components_to_atom_array(inputs)
+
+    # Use tmp_path to create a temporary file path
+    cif_path = tmp_path / "test.cif"
+    to_cif_file(atom_array, cif_path)
+
+    # ... parse the atom array
+    out = parse(
+        cif_path,
+        assume_residues_all_resolved=True,
+    )
+
+    # ... assemble the pipeline input in a format compatible with the DataHub pipeline
+    pipeline_input = {
+        "example_id": "test_make_reference_conformer_for_UNL",
+        "atom_array": out["assemblies"]["1"][0],  # first model
+    }
+
+    # Ensure that parsing didn't drop any bonds
+    assert len(atom_array.bonds.as_array()) == pipeline_input["atom_array"].bonds.as_array().shape[0]
+
+    transforms = [
+        AddGlobalTokenIdAnnotation(),  # required for reference molecule features and TokenToAtomMap
+        GetAF3ReferenceMoleculeFeatures(
+            conformer_generation_timeout=10,
+            should_generate_automorphisms_with_rdkit=False,  # We use NetworkX for automorphisms instead of RDKit
+        ),
+    ]
+    pipe = Compose(transforms)
+
+    # ... run the pipeline
+    data = pipe(pipeline_input)
+
+    assert "feats" in data
+    assert "ref_pos" in data["feats"]
+    assert data["feats"]["ref_pos"].shape[0] == len(data["atom_array"])
+    assert data["feats"]["ref_pos"].shape[1] == 3
+
+    # Ensure all `ref_pos` are not zero and not NaN
+    ref_pos = data["feats"]["ref_pos"]
+    assert np.all(ref_pos != 0), "There are zero elements in ref_pos"
+    assert np.all(~np.isnan(ref_pos)), "There are NaN elements in ref_pos"
+
+
+def test_make_reference_conformer_for_UNL_failure_case(tmp_path):
+    # Spoof the input data using the inference pipeline
+    smiles = "C1=CC=C(C=C1)C(=O)O"
+    inputs = [
+        {
+            "smiles": smiles,
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "A",
+        }
+    ]
+    atom_array = components_to_atom_array(inputs)
+
+    # Use tmp_path to create a temporary file path
+    cif_path = tmp_path / "test.cif"
+    to_cif_file(atom_array, cif_path)
+
+    # ... parse the atom array
+    out = parse(
+        cif_path,
+        assume_residues_all_resolved=True,
+    )
+
+    # ... assemble the pipeline input in a format compatible with the DataHub pipeline
+    pipeline_input = {
+        "example_id": "test_make_reference_conformer_for_UNL",
+        "atom_array": out["assemblies"]["1"][0],  # first model
+    }
+
+    transforms = [
+        AddGlobalTokenIdAnnotation(),  # required for reference molecule features and TokenToAtomMap
+        GetAF3ReferenceMoleculeFeatures(
+            conformer_generation_timeout=0,  # Set timeout to 0 to force failure
+            should_generate_automorphisms_with_rdkit=False,  # We use NetworkX for automorphisms instead of RDKit
+        ),
+    ]
+    pipe = Compose(transforms)
+
+    data = pipe(pipeline_input)
+
+    assert "feats" in data
+    assert "ref_pos" in data["feats"]
+    assert data["feats"]["ref_pos"].shape[0] == len(data["atom_array"])
+    assert data["feats"]["ref_pos"].shape[1] == 3
+    assert torch.tensor(data["feats"]["ref_pos"]).isnan().all()  # not populated
+    assert not data["feats"]["ref_mask"].all()  # not populated
 
 
 if __name__ == "__main__":

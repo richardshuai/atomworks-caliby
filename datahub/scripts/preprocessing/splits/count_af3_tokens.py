@@ -25,8 +25,8 @@ from datahub.transforms.filters import (
     RemoveHydrogens,
     RemoveUnresolvedPNUnits,
 )
+from datahub.utils.testing import get_digs_path
 from datahub.utils.token import get_token_starts
-from tests.conftest import get_digs_path
 
 logging.basicConfig(
     level=logging.INFO,

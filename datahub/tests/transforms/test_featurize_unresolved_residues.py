@@ -2,6 +2,7 @@ import copy
 
 import numpy as np
 import pytest
+from cifutils.utils.testing import assert_same_atom_array
 
 from datahub.encoding_definitions import (
     RF2AA_ATOM36_ENCODING,
@@ -15,13 +16,13 @@ from datahub.transforms.featurize_unresolved_residues import (
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
     mask_residues_with_unresolved_backbone_atoms,
 )
+from datahub.utils.testing import cached_parse
 from datahub.utils.token import (
     apply_and_spread_token_wise,
     get_af3_token_representative_coords,
     get_af3_token_representative_masks,
     token_iter,
 )
-from tests.conftest import assert_equal_atom_arrays, cached_parse
 
 FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES = ["6wtf", "7rcu"]
 
@@ -111,7 +112,7 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
     for chain_id in np.unique(unresolved_non_polymer_atoms.chain_id):
         output_chain_atom_array = output_atom_array[output_atom_array.chain_id == chain_id]
         input_chain_atom_array = atom_array[atom_array.chain_id == chain_id]
-        assert_equal_atom_arrays(output_chain_atom_array, input_chain_atom_array)
+        assert_same_atom_array(output_chain_atom_array, input_chain_atom_array)
 
 
 @pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)

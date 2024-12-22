@@ -20,8 +20,8 @@ from datahub.transforms.bonds import (
 )
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
+from datahub.utils.testing import cached_parse
 from datahub.utils.token import get_token_starts
-from tests.conftest import cached_parse
 
 
 # NOTE: This is a helper function to visualize the adjacency matrix and reduction

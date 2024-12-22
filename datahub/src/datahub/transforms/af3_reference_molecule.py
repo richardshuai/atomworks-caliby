@@ -5,16 +5,17 @@ import numpy as np
 import toolz
 import torch
 from biotite.structure import AtomArray
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
+from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
+from cifutils.tools.rdkit import atom_array_from_rdkit
 from cifutils.utils.selection import get_residue_starts
 from rdkit import Chem
 
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
 from datahub.transforms.base import Transform
 from datahub.transforms.rdkit_utils import (
-    atom_array_from_rdkit,
     ccd_code_to_rdkit_with_conformers,
     find_automorphisms_with_rdkit,
+    sample_rdkit_conformer_for_atom_array,
 )
 from datahub.utils.geometry import random_rigid_augmentation
 
@@ -24,8 +25,7 @@ logger = logging.getLogger("datahub")
 def _get_rdkit_mols_with_conformers(
     res_stochiometry: dict[str, int], timeout_seconds: float = 10.0, **generate_conformers_kwargs
 ) -> dict[str, Chem.Mol]:
-    """
-    Generate RDKit molecules with conformers for each residue (given the counts in `res_stochiometry`).
+    """Generate RDKit molecules with conformers for each residue (given the counts in `res_stochiometry`).
 
     Args:
         res_stochiometry (dict[str, int]): A dictionary mapping residue names to their count.
@@ -47,12 +47,26 @@ def _get_rdkit_mols_with_conformers(
     """
     ref_mols = {}
     for res_name, count in res_stochiometry.items():
+        if res_name == UNKNOWN_LIGAND:
+            ref_mols[res_name] = None  # placeholder so that the UNL is still counted later on
+            continue
         mol = ccd_code_to_rdkit_with_conformers(
             ccd_code=res_name, n_conformers=count, timeout_seconds=timeout_seconds, **generate_conformers_kwargs
         )
         ref_mols[res_name] = mol
 
     return ref_mols
+
+
+def generate_conformer_for_UNL(
+    atom_array: AtomArray,
+    timeout_seconds: float = 10.0,
+    **generate_conformers_kwargs,
+):
+    atom_array = sample_rdkit_conformer_for_atom_array(
+        atom_array, timeout_seconds=timeout_seconds, **generate_conformers_kwargs
+    )
+    return atom_array
 
 
 def _encode_atom_names_like_af3(atom_names: np.ndarray) -> np.ndarray:
@@ -182,11 +196,25 @@ def get_af3_reference_molecule_features(
     res_stochiometry = dict(zip(*np.unique(_res_names, return_counts=True)))
 
     # ... get reference molecules with conformers for each residue
+    # (We do not generate conformers for UNL here, as we will do that later)
     ref_mols = _get_rdkit_mols_with_conformers(
         res_stochiometry=res_stochiometry, timeout_seconds=conformer_generation_timeout, **generate_conformers_kwargs
     )
 
-    # ...initialize automorpshm-related variables (which we may or may not be needed)
+    # ... generate conformers for unknown ligands (UNL), if present
+    unknown_ligand_conformers = []
+    if UNKNOWN_LIGAND in res_stochiometry:
+        res_indices_with_unknown = np.where(_res_names == UNKNOWN_LIGAND)[0]
+        for res_index in res_indices_with_unknown:
+            unknown_ligand_conformers.append(
+                generate_conformer_for_UNL(
+                    atom_array[_res_starts[res_index] : _res_ends[res_index]],
+                    timeout_seconds=conformer_generation_timeout,
+                    **generate_conformers_kwargs,
+                )
+            )
+
+    # ...initialize automorphism-related variables (which we may or may not be needed)
     ref_mol_automorphs = None
     ref_automorphs = None
     ref_automorphs_mask = None
@@ -214,11 +242,15 @@ def get_af3_reference_molecule_features(
         res_name = atom_array.res_name[res_start]
 
         # ... turn conformer into an atom array
-        conformer = atom_array_from_rdkit(
-            ref_mols[res_name],
-            conformer_id=_next_conf_idx[res_name],
-            remove_hydrogens=True,
-        )
+        if res_name == UNKNOWN_LIGAND:
+            # (UNL conformers are already atom arrays, since we generated them directly)
+            conformer = unknown_ligand_conformers[_next_conf_idx[res_name]]
+        else:
+            conformer = atom_array_from_rdkit(
+                ref_mols[res_name],
+                conformer_id=_next_conf_idx[res_name],
+                remove_hydrogens=True,
+            )
 
         # ... map the reference conformer information to the given residue
         _ref_pos, _ref_mask, _ref_automorphs = _map_reference_conformer_to_residue(
@@ -328,7 +360,6 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
-
         # Generate reference features
         reference_features = get_af3_reference_molecule_features(
             atom_array,

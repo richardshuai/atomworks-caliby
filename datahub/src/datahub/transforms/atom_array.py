@@ -470,7 +470,9 @@ class AddGlobalAtomIdAnnotation(Transform):
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
-        check_atom_array_annotation(data, required=[], forbidden=["atom_id"])
+
+        if "atom_id" in data["atom_array"].get_annotation_categories():
+            logger.warning("AtomArray already contains 'atom_id' annotation! It will be overwritten.")
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]

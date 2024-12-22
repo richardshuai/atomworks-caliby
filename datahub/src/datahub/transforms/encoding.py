@@ -1,5 +1,4 @@
-"""
-Transforms and helper functions to convert from `AtomArray` objects to various encoding schemes.
+"""Transforms and helper functions to convert from `AtomArray` objects to various encoding schemes.
 
 During encoding, sequences of tokens are converted to sequences of integers, and the
 AtomArray of coordinates is converted to a (N_token, N_atoms_per_token, 3) tensor.

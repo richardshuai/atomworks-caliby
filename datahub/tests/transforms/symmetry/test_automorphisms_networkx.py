@@ -11,7 +11,7 @@ from datahub.transforms.symmetry import (
     generate_automorphisms_from_atom_array_with_networkx,
 )
 from datahub.utils.numpy import get_indices_of_non_constant_columns
-from tests.conftest import cached_parse
+from datahub.utils.testing import cached_parse
 
 TEST_CASES = [
     {

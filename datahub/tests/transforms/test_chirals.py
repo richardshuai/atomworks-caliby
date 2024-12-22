@@ -23,7 +23,8 @@ from datahub.transforms.openbabel_utils import (
     smiles_to_openbabel,
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from tests.conftest import PN_UNITS_DF, cached_parse
+from datahub.utils.testing import cached_parse
+from tests.conftest import PN_UNITS_DF
 
 
 # NOTE: The following section is copied directly from rf2aa to ensure repeatability

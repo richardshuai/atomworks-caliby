@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from tests.conftest import get_digs_path
+from datahub.utils.testing import get_digs_path
 from tests.preprocessing.conftest import DATA_PREPROCESSOR
 
 FILTERING_CRITERIA_TEST_CASES = [

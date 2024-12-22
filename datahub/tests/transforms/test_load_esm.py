@@ -14,7 +14,8 @@ from datahub.transforms.esm.esm import LoadPolymerESMs
 from datahub.transforms.filters import RemoveHydrogens, RemoveUnsupportedChainTypes
 from datahub.utils.io import get_sharded_file_path
 from datahub.utils.misc import hash_sequence
-from tests.conftest import PN_UNITS_DF, cached_parse
+from datahub.utils.testing import cached_parse
+from tests.conftest import PN_UNITS_DF
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -156,7 +157,7 @@ FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[
 FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[FILTERED_PN_UNITS_DF["deposition_date"] < "2021-08-02"]
 
 
-@pytest.mark.slow
+@pytest.mark.very_slow
 def test_esm_coverage():
     """
     Function to validate ESM embedding coverage for a set of PDB IDs.

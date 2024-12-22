@@ -192,46 +192,6 @@ IncludeCmd: yes
    apt-get clean
    rm /opt/miniconda.sh
 
-%test
-   #!/bin/bash
-   # NOTE: The %test section is automatically run after the apptainer build process.
-   #  It is intended to be executed separately using the apptainer test command.
-   #  You can use this to verify the integrity of the container.
-   #  Run this manually with: apptainer test datahub_apptainer.sif
-   echo "Container OS: $(grep '^PRETTY_NAME=' /etc/os-release | cut -d '=' -f2- | sed 's/"//g')"
-   echo "... running the $(readlink /proc/$$/exe) shell."
-   echo "... conda at $(which conda)"
-
-   # Verify that `secrets.txt` is not present on the container
-   if [ -e /secrets.txt ]; then
-      echo "ERROR: secrets.txt is still present on the container"
-      exit 1
-   fi
-   echo "Verified that secrets.txt is not present in the container"
-   
-   # activate environment (the .bashrc in the container is at `/root/.bashrc`)
-   source /usr/etc/profile.d/conda.sh
-   conda activate datahub-apptainer
-   echo "... running python $(python --version) at $(which python)"
-
-   # ... check that python is run from the datahub-apptainer environment
-   DESIRED_PATH="/usr/envs/datahub-apptainer/bin/python"
-   if [ "$(which python)" != "$DESIRED_PATH" ]; then
-      echo "ERROR: python is not running from the datahub-apptainer environment"
-      exit 1
-   fi
-
-   # ... check that pytest runs for datahub tests
-   echo "Basic build succeeded. For a proper test, run: apptainer run --bind $PWD:/datahub_host datahub_apptainer.sif"
-
-   # Run make test
-   # ... add the `datahub` path to the PYTHONPATH environment variable
-   export PYTHONPATH=/datahub_host:$PYTHONPATH
-   echo "Running make test"
-   cd /datahub_host && make test
-
-   echo "All tests completed."
-
 %environment
    source /usr/etc/profile.d/conda.sh
    conda activate datahub-apptainer

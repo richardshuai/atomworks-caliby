@@ -22,8 +22,8 @@ from datahub.transforms.crop import (
 )
 from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
+from datahub.utils.testing import cached_parse
 from datahub.utils.token import apply_and_spread_token_wise, get_token_count, get_token_starts
-from tests.conftest import cached_parse
 from tests.datasets.conftest import RF2AA_PDB_DATASET
 
 # fmt: off
