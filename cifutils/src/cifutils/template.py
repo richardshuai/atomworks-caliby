@@ -1,11 +1,10 @@
 import logging
 import os
-from collections.abc import Sequence
 from typing import Any, Final
 
 import biotite.structure as struc
 import numpy as np
-from biotite.structure import AtomArray, AtomArrayStack, BondList
+from biotite.structure import AtomArray, BondList, concatenate
 
 import cifutils.transforms.atom_array as ta
 from cifutils.common import exists
@@ -21,160 +20,6 @@ DO_NOT_MATCH_CCD: Final[frozenset[str]] = frozenset((*WATER_LIKE_CCDS, UNKNOWN_L
 CCDs that should not be matched to a template for the
 purpose of adding missing atoms.
 """
-
-try:
-    from biotite.structure import concatenate
-
-    logger.info("Biotite updated. Please remove the below definition.")
-except ImportError:
-    # TODO: Replace through biotite import after upgrade to 1.0.2
-    @staticmethod
-    def _bond_list_concatenate(bonds_lists):  # noqa: ANN001, ANN202
-        """
-        Concatenate multiple :class:`BondList` objects into a single
-        :class:`BondList`, respectively.
-        Parameters
-        ----------
-        bonds_lists : iterable object of BondList
-            The bond lists to be concatenated.
-
-        Returns:
-        -------
-        concatenated_bonds : BondList
-            The concatenated bond lists.
-
-        Examples:
-        --------
-        >>> bonds1 = BondList(2, np.array([(0, 1)]))
-        >>> bonds2 = BondList(3, np.array([(0, 1), (0, 2)]))
-        >>> merged_bonds = BondList.concatenate([bonds1, bonds2])
-        >>> print(merged_bonds.get_atom_count())
-        5
-        >>> print(merged_bonds.as_array()[:, :2])
-        [[0 1]
-         [2 3]
-         [2 4]]
-        """
-        # Ensure that the bonds_lists can be iterated over multiple times
-        if not isinstance(bonds_lists, Sequence):
-            bonds_lists = list(bonds_lists)
-
-        merged_bonds = np.concatenate([bond_list._bonds for bond_list in bonds_lists])
-        # Offset the indices of appended bonds list
-        # (consistent with addition of AtomArray)
-        start = 0
-        stop = 0
-        cum_atom_count = 0
-        for bond_list in bonds_lists:
-            stop = start + bond_list._bonds.shape[0]
-            merged_bonds[start:stop, :2] += cum_atom_count
-            cum_atom_count += bond_list._atom_count
-            start = stop
-
-        merged_bond_list = BondList(cum_atom_count)
-        # Array is not used in constructor to prevent unnecessary
-        # maximum and redundant bond calculation
-        merged_bond_list._bonds = merged_bonds
-        merged_bond_list._max_bonds_per_atom = max([bond_list._max_bonds_per_atom for bond_list in bonds_lists])
-        return merged_bond_list
-
-    BondList.concatenate = _bond_list_concatenate
-
-    def concatenate(atoms):  # noqa: ANN001, ANN201
-        """
-        Concatenate multiple :class:`AtomArray` or :class:`AtomArrayStack` objects into
-        a single :class:`AtomArray` or :class:`AtomArrayStack`, respectively.
-        Parameters
-        ----------
-        atoms : iterable object of AtomArray or AtomArrayStack
-            The atoms to be concatenated.
-            :class:`AtomArray` cannot be mixed with :class:`AtomArrayStack`.
-
-        Returns:
-        -------
-        concatenated_atoms : AtomArray or AtomArrayStack
-            The concatenated atoms, i.e. its ``array_length()`` is the sum of the
-            ``array_length()`` of the input ``atoms``.
-
-        Notes:
-        -----
-        The following rules apply:
-        - Only the annotation categories that exist in all elements are transferred.
-        - The box of the first element that has a box is transferred, if any.
-        - The bonds of all elements are concatenated, if any element has associated bonds.
-        For elements without a :class:`BondList` an empty :class:`BondList` is assumed.
-
-        Examples:
-        --------
-        >>> atoms1 = array(
-        ...     [
-        ...         Atom([1, 2, 3], res_id=1, atom_name="N"),
-        ...         Atom([4, 5, 6], res_id=1, atom_name="CA"),
-        ...         Atom([7, 8, 9], res_id=1, atom_name="C"),
-        ...     ]
-        ... )
-        >>> atoms2 = array(
-        ...     [
-        ...         Atom([1, 2, 3], res_id=2, atom_name="N"),
-        ...         Atom([4, 5, 6], res_id=2, atom_name="CA"),
-        ...         Atom([7, 8, 9], res_id=2, atom_name="C"),
-        ...     ]
-        ... )
-        >>> print(concatenate([atoms1, atoms2]))
-                    1      N                1.000    2.000    3.000
-                    1      CA               4.000    5.000    6.000
-                    1      C                7.000    8.000    9.000
-                    2      N                1.000    2.000    3.000
-                    2      CA               4.000    5.000    6.000
-                    2      C                7.000    8.000    9.000
-        """
-        # Ensure that the atoms can be iterated over multiple times
-        if not isinstance(atoms, Sequence):
-            atoms = list(atoms)
-
-        length = 0
-        depth = None
-        element_type = None
-        common_categories = set(atoms[0].get_annotation_categories())
-        box = None
-        has_bonds = False
-        for element in atoms:
-            if element_type is None:
-                element_type = type(element)
-            else:
-                if not isinstance(element, element_type):
-                    raise TypeError(f"Cannot concatenate '{type(element).__name__}' " f"with '{element_type.__name__}'")
-            length += element.array_length()
-            if isinstance(element, AtomArrayStack):
-                if depth is None:
-                    depth = element.stack_depth()
-                else:
-                    if element.stack_depth() != depth:
-                        raise IndexError("The stack depths are not equal")
-            common_categories &= set(element.get_annotation_categories())
-            if element.box is not None and box is None:
-                box = element.box
-            if element.bonds is not None:
-                has_bonds = True
-
-        if element_type == AtomArray:
-            concat_atoms = AtomArray(length)
-        elif element_type == AtomArrayStack:
-            concat_atoms = AtomArrayStack(depth, length)
-        concat_atoms.coord = np.concatenate([element.coord for element in atoms], axis=-2)
-        for category in common_categories:
-            concat_atoms.set_annotation(
-                category,
-                np.concatenate([element.get_annotation(category) for element in atoms], axis=0),
-            )
-        concat_atoms.box = box
-        if has_bonds:
-            # Concatenate bonds of all elements
-            concat_atoms.bonds = BondList.concatenate(
-                [element.bonds if element.bonds is not None else BondList(element.array_length()) for element in atoms]
-            )
-
-        return concat_atoms
 
 
 def get_empty_ccd_template(
