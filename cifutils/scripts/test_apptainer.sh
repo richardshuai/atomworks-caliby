@@ -13,14 +13,14 @@ fi
 echo "Using apptainer at: $APPTAINER_BINARY"
 
 # Get the image name from command line argument or use latest
-IMAGE_NAME=${1:-cifutils_latest.sif}
+IMAGE_NAME=${1:-./ipd/cifutils.sif}
 if [ ! -f "$IMAGE_NAME" ]; then
     echo "Error: Container image not found: $IMAGE_NAME"
     exit 1
 fi
 
 # Initialize BIND_MOUNTS with the base mount
-BIND_MOUNTS="$PWD:/cifutils_host"
+BIND_MOUNTS="$PWD"
 
 # Check for standard directories and add them if they exist
 echo "Checking for standard directories to mount"
@@ -56,7 +56,13 @@ if [ -n "$PDB_MIRROR_PATH" ]; then
     fi
 fi
 
-echo "Testing container '$IMAGE_NAME' with bind mounts: '$BIND_MOUNTS'"
+if [ -z "$PYTHONPATH" ]; then
+    export PYTHONPATH="$PWD/src"
+else
+    export PYTHONPATH="$PWD/src:$PYTHONPATH"
+fi
+
+echo "Testing container '$IMAGE_NAME' with bind mounts: '$BIND_MOUNTS' and PYTHONPATH: '$PYTHONPATH'"
 echo "Running: $APPTAINER_BINARY test --bind '$BIND_MOUNTS' '$IMAGE_NAME'"
 echo "----------------------------------------"
 $APPTAINER_BINARY test \

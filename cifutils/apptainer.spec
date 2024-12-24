@@ -89,14 +89,9 @@ IncludeCmd: yes
       exit 1
    fi
 
-   # ... check that pytest runs for cifutils tests
-   echo "Basic build succeeded. For a proper test, run: apptainer run --bind $PWD:/cifutils_host cifutils_apptainer.sif"
-
    # Run make test
-   # ... add the `cifutils_host` path to the PYTHONPATH environment variable
-   export PYTHONPATH=/cifutils_host/src:$PYTHONPATH
    echo "Running make test"
-   cd /cifutils_host && make test
+   make test   
 
    echo "All tests completed."
 

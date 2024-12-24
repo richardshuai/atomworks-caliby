@@ -20,11 +20,10 @@ echo "Building apptainer image: $IMAGE_NAME"
 # Build Phase
 echo
 echo "=== Starting Build Phase ==="
-echo "Running: $APPTAINER_BINARY build --notest --bind '$PWD':/cifutils_host '$IMAGE_NAME' apptainer.spec"
+echo "Running: $APPTAINER_BINARY build --notest '$IMAGE_NAME' apptainer.spec"
 echo "----------------------------------------"
 $APPTAINER_BINARY build \
     --notest \
-    --bind "$PWD":/cifutils_host \
     "$IMAGE_NAME" apptainer.spec
 echo "----------------------------------------"
 
