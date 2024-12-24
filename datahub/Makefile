@@ -10,8 +10,6 @@ PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 # Set conda/mamba binary, mamba if available, conda otherwise
 CONDA_BINARY := $(shell command -v mamba || command -v conda)
 
-APPTAINER_BINARY := $(shell command -v apptainer || command -v singularity)
-
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
@@ -25,22 +23,6 @@ clean:
 format:
 	ruff format .
 	ruff check --fix .
-
-_gitlab_token_error:
-	@echo "==============================================================================="; \
-	echo "Error: Environment variables GITLAB_USER and GITLAB_TOKEN must be set."; \
-	echo ""; \
-	echo "You need to set the environment variables GITLAB_USER and GITLAB_TOKEN."; \
-	echo "You can create a personal access token on GitLab at:"; \
-	echo "   https://git.ipd.uw.edu/-/user_settings/personal_access_tokens"; \
-	echo ""; \
-	echo "To expose these variables, you can use:"; \
-	echo "export GITLAB_USER=<gitlab-username>"; \
-	echo "export GITLAB_TOKEN=<gitlab-token>"; \
-	echo ""; \
-	echo "It is recommended that you set these tokens in your .bashrc or .zshrc file for future use."; \
-	echo "===============================================================================";
-	exit 1;
 
 _github_token_error:
 	@echo "==============================================================================="; \
@@ -69,25 +51,11 @@ _check_conda:
 	@echo "... found conda executable: $(CONDA_BINARY)"
 
 _check_tokens:
-	@echo "... checking if GITLAB_USER and GITLAB_TOKEN are set"
-	@if [ -z "$(GITLAB_USER)" ] || [ -z "$(GITLAB_TOKEN)" ]; then \
-		$(MAKE) _gitlab_token_error; \
-	fi
-	@echo "... found GITLAB_USER ($(GITLAB_USER)) and GITLAB_TOKEN."
-
 	@echo "... checking if GITHUB_USER and GITHUB_TOKEN are set"
 	@if [ -z "$(GITHUB_USER)" ] || [ -z "$(GITHUB_TOKEN)" ]; then \
 		$(MAKE) _github_token_error; \
 	fi
 	@echo "... found GITHUB_USER ($(GITHUB_USER)) and GITHUB_TOKEN."
-
-_check_apptainer:
-	@echo "... checking if apptainer is installed"
-	@command -v $(APPTAINER_BINARY) >/dev/null 2>&1 || { \
-		echo "Error: Apptainer is not installed or not found in PATH" >&2; \
-		exit 1; \
-	}
-	@echo "... found apptainer executable: $(APPTAINER_BINARY)"
 
 ## Create a new conda environment and install datahub
 env:
@@ -116,16 +84,10 @@ install:
 
 ## Build the apptainer image
 apptainer:
-	@echo "Building apptainer image"
-
-	@$(MAKE) --no-print-directory _check_apptainer
-	@$(MAKE) --no-print-directory _check_tokens
-
 	$(eval DATE := $(shell date +%Y-%m-%d))
-	$(eval IMAGE_NAME := datahub_$(DATE).sif)
-
-	@echo "Building apptainer image $(IMAGE_NAME)"
-	$(APPTAINER_BINARY) build --bind $(PWD):/datahub_host --bind /projects:/projects,/net:/net,/squash:/squash datahub_$(DATE).sif apptainer.spec
+	$(eval IMAGE := datahub_$(DATE).sif)
+	bash ./scripts/build_apptainer.sh && \
+	bash ./scripts/test_apptainer.sh $(IMAGE)
 
 test_ipd:
 	source ./.ipd/setup.sh && \
