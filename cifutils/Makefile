@@ -10,8 +10,6 @@ PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 # Set conda/mamba binary, mamba if available, conda otherwise
 CONDA_BINARY := $(shell command -v mamba || command -v conda)
 
-APPTAINER_BINARY := $(shell command -v apptainer || command -v singularity)
-
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
@@ -33,14 +31,6 @@ _check_conda:
 		exit 1; \
 	}
 	@echo "... found conda executable: $(CONDA_BINARY)"
-
-_check_apptainer:
-	@echo "... checking if apptainer is installed"
-	@command -v $(APPTAINER_BINARY) >/dev/null 2>&1 || { \
-		echo "Error: Apptainer is not installed or not found in PATH" >&2; \
-		exit 1; \
-	}
-	@echo "... found apptainer executable: $(APPTAINER_BINARY)"
 
 ## Create a new conda environment and install cifutils
 env:
@@ -67,15 +57,10 @@ install:
 
 ## Build the apptainer image
 apptainer:
-	@echo "Building apptainer image"
-
-	@$(MAKE) --no-print-directory _check_apptainer
-
 	$(eval DATE := $(shell date +%Y-%m-%d))
-	$(eval IMAGE_NAME := cifutils_$(DATE).sif)
-
-	@echo "Building apptainer image $(IMAGE_NAME)"
-	$(APPTAINER_BINARY) build --bind $(PWD):/cifutils_host --bind /projects:/projects,/net:/net,/squash:/squash cifutils_$(DATE).sif apptainer.spec
+	$(eval IMAGE := cifutils_$(DATE).sif)
+	bash ./scripts/build_apptainer.sh && \
+	bash ./scripts/test_apptainer.sh $(IMAGE)
 
 ## Run pytest on the latest IPD cifutils apptainer
 test_ipd:
