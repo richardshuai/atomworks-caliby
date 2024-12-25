@@ -2,7 +2,6 @@ import logging
 import os
 from collections import defaultdict
 from collections.abc import Iterable
-from contextlib import suppress
 from functools import cache
 from typing import Literal
 
@@ -52,7 +51,7 @@ def get_available_ccd_codes(ccd_mirror_path: os.PathLike | None = CCD_MIRROR_PAT
     )
 
 
-def get_ccd_component_from_biotite(ccd_code: str) -> struc.AtomArray:
+def get_ccd_component_from_biotite(ccd_code: str, **parse_ccd_cif_kwargs) -> struc.AtomArray:
     """
     Retrieves a component from the Chemical Component Dictionary using Biotite's built-in functionality.
 
@@ -63,7 +62,8 @@ def get_ccd_component_from_biotite(ccd_code: str) -> struc.AtomArray:
         - AtomArray: The atomic structure of the requested component.
     """
     try:
-        atom_array = struc.info.residue(ccd_code)
+        block = _filter_biotite_ccd_for_ccd_code(ccd_code)
+        atom_array = parse_ccd_cif(block, **parse_ccd_cif_kwargs)
         return atom_array
     except KeyError:
         raise ValueError(f"No atom information found for residue '{ccd_code}' in Biotite's CCD") from None
@@ -98,10 +98,38 @@ def _get_ccd_path(ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH)
     return os.path.join(ccd_mirror_path, ccd_code[0], ccd_code, ccd_code + ".cif")
 
 
+def _filter_biotite_ccd_for_ccd_code(ccd_code: str) -> pdbx.CIFBlock:
+    """Filter the Biotite CCD for a given CCD code."""
+    if ccd_code not in get_available_ccd_codes_in_biotite():
+        raise KeyError(f"CCD code `{ccd_code}` not found in Biotite's CCD")
+
+    ccd = struc.info.get_ccd()
+
+    # Chem comp
+    chem_comp = ccd.get("chem_comp")
+    chem_comp = pdbx.convert._filter(chem_comp, chem_comp["id"].as_array() == ccd_code)
+
+    # Chem comp atom
+    chem_comp_atom = ccd.get("chem_comp_atom")
+    chem_comp_atom = pdbx.convert._filter(chem_comp_atom, chem_comp_atom["comp_id"].as_array() == ccd_code)
+
+    # Chem comp bond
+    chem_comp_bond = ccd.get("chem_comp_bond")
+    chem_comp_bond = pdbx.convert._filter(chem_comp_bond, chem_comp_bond["comp_id"].as_array() == ccd_code)
+
+    return pdbx.CIFBlock(
+        {
+            "chem_comp": chem_comp,
+            "chem_comp_atom": chem_comp_atom,
+            "chem_comp_bond": chem_comp_bond,
+        }
+    )
+
+
 def parse_ccd_cif(
     cif: pdbx.CIFFile,
     coords: Literal["model", "ideal_pdbx", "ideal_rdkit"] | None = "ideal_pdbx",
-    add_properties: bool = True,
+    add_properties: bool = False,
     add_mapping: bool = False,
 ) -> struc.AtomArray:
     """
@@ -167,9 +195,7 @@ def parse_ccd_cif(
     atoms.set_annotation("res_id", np.full(len(atoms), 1))  # We 1-index residue IDs to be consistent with RCSB
 
     # Try setting hetero flag
-    hetero = True
-    with suppress(ValueError):
-        hetero = get_ccd_component_from_biotite(ccd_code).hetero[0]
+    hetero = ccd_code not in struc.info.atoms.NON_HETERO_RESIDUES
     atoms.set_annotation("hetero", [hetero] * len(atoms))
 
     # Fill in the coordinates
@@ -221,7 +247,7 @@ def parse_ccd_cif(
     return atoms
 
 
-@immutable_lru_cache(maxsize=2000)
+@immutable_lru_cache(maxsize=20000)
 def get_ccd_component_from_mirror(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, **parse_ccd_cif_kwargs
 ) -> struc.AtomArray:
@@ -262,7 +288,7 @@ def atom_array_from_ccd_code(
     if ccd_mirror_path and ccd_code in get_available_ccd_codes_in_mirror(ccd_mirror_path):
         return get_ccd_component_from_mirror(ccd_code, ccd_mirror_path, **parse_ccd_cif_kwargs)
     else:
-        return get_ccd_component_from_biotite(ccd_code)
+        return get_ccd_component_from_biotite(ccd_code, **parse_ccd_cif_kwargs)
 
 
 def _find_connected_components_after_removal(graph: nx.Graph, node_to_remove: int) -> list[list[int]]:
@@ -369,7 +395,7 @@ def _chem_comp_type_dict() -> dict[str, str]:
     ccd = struc.info.ccd.get_ccd()  # NOTE: biotite caches this internally
     chem_comp_ids = np.char.upper(ccd["chem_comp"]["id"].as_array())
     chem_comp_types = np.char.upper(ccd["chem_comp"]["type"].as_array())
-    return dict(zip(chem_comp_ids, chem_comp_types, strict=False))
+    return dict(zip(chem_comp_ids, chem_comp_types, strict=True))
 
 
 def get_chem_comp_type(ccd_code: str, mode: Literal["warn", "raise"] = "warn") -> str:
