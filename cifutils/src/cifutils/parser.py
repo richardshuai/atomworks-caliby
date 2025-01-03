@@ -246,8 +246,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
     remove_ccds = [] if kwargs["remove_ccds"] is None else kwargs["remove_ccds"].copy()
 
     # ...default running dictionary, which we will populate through a series of Transforms
-    data_dict = {}
-    data_dict["extra_info"] = {}
+    data_dict = {"extra_info": {}}
 
     # ...read the CIF file into the dictionary (we will clean up the dictionary before returning)
     cif_file = read_any(filename)

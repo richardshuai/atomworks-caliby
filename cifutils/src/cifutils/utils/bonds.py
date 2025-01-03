@@ -33,7 +33,7 @@ from cifutils.constants import (
 )
 from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.utils.ccd import get_chem_comp_leaving_atom_names, get_chem_comp_type
-from cifutils.utils.selection import get_residue_starts
+from cifutils.utils.selection import get_annotation, get_residue_starts
 
 logger = logging.getLogger("cifutils")
 
@@ -92,9 +92,9 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
     res_ids = atom_array.res_id
     res_names = atom_array.res_name
     atom_names = atom_array.atom_name
-    chain_types = atom_array.chain_type if "chain_type" in atom_array.get_annotation_categories() else None
-    set_is_polymer = "is_polymer" in atom_array.get_annotation_categories()
-    is_polymer = atom_array.is_polymer if set_is_polymer else np.zeros(atom_array.array_length(), dtype=bool)
+    chain_types = get_annotation(atom_array, "chain_type", default=None)
+    is_polymer = get_annotation(atom_array, "is_polymer", default=np.zeros(atom_array.array_length(), dtype=bool))
+    had_is_polymer_annot = "is_polymer" in atom_array.get_annotation_categories()
 
     # ... get iterators over the residues
     residue_starts = get_residue_starts(atom_array, add_exclusive_stop=True)
@@ -181,7 +181,7 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
             # ... optionally add `is_polymer` annotation to the atom array
             is_polymer[this_res_start:next_res_stop] = True
 
-    if set_is_polymer:
+    if not had_is_polymer_annot:
         # ... if polymer annotation was not present before, we set it here based on the inferred bonds
         atom_array.set_annotation("is_polymer", is_polymer)
 
@@ -266,12 +266,9 @@ def get_struct_conn_bonds(
     atom_names = atom_array.atom_name
     is_polymer = atom_array.is_polymer
     global_atom_idx = np.arange(atom_array.array_length())
-    alt_atom_ids = atom_array.alt_atom_id if "alt_atom_id" in atom_array.get_annotation_categories() else atom_names
-    uses_alt_atom_id = (
-        atom_array.uses_alt_atom_id
-        if "uses_alt_atom_id" in atom_array.get_annotation_categories()
-        else np.zeros(len(atom_array), dtype=bool)
-    )
+    alt_atom_ids = get_annotation(atom_array, "alt_atom_id", default=atom_names)
+    uses_alt_atom_id = get_annotation(atom_array, "uses_alt_atom_id", default=np.zeros(len(atom_array), dtype=bool))
+
     all_res_names = np.unique(res_names)
     all_chain_ids = np.unique(chain_ids)
     polymer_chain_ids = np.unique(chain_ids[is_polymer])
@@ -690,10 +687,9 @@ def fix_formal_charges(atom_array: struc.AtomArray, to_update: np.ndarray) -> st
         logger.warning("Hydrogens not given. Cannot fix formal charges.")
         return atom_array
 
-    # ... get (masked) valences)
+    # ... get valences (masked for elements with no default valence)
     _invalid = -10
     default_valence = np.array([DEFAULT_VALENCE.get(elt, _invalid) for elt in atom_array.element])
-    valid = default_valence != _invalid
 
     # ... compute total number of bonds per atom
     degree = _get_bond_degree_per_atom(atom_array)
@@ -701,6 +697,7 @@ def fix_formal_charges(atom_array: struc.AtomArray, to_update: np.ndarray) -> st
     # ... compute formal charge
     formal_charge = degree - default_valence
 
-    # ... update the relevant entreis
+    # ... update the relevant entries
+    valid = default_valence != _invalid
     atom_array.charge[to_update & valid] = formal_charge[to_update & valid]
     return atom_array

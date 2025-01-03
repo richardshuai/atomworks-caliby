@@ -4,13 +4,14 @@ from typing import Any, Final
 
 import biotite.structure as struc
 import numpy as np
-from biotite.structure import AtomArray, BondList, concatenate
+from biotite.structure import AtomArray, BondList
 
 import cifutils.transforms.atom_array as ta
 from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
 from cifutils.utils.bonds import fix_formal_charges, get_inferred_polymer_bonds, get_struct_conn_bonds
 from cifutils.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_available
+from cifutils.utils.selection import get_annotation
 
 logger = logging.getLogger(__file__)
 
@@ -192,7 +193,7 @@ def build_template_atom_array(
     chain_id_to_types = {chain_id: chain_info_dict[chain_id]["chain_type"] for chain_id in chain_info_dict}
     annotations = set(atom_array.get_annotation_categories()) if exists(atom_array) else set()
 
-    # ... extreact the relevant entries from the atom_array if it exists
+    # ... extract the relevant entries from the atom_array if it exists
     all_false = lambda n: np.zeros(n, dtype=bool)  # noqa: E731, convenience function
     chain_ids = atom_array.chain_id if exists(atom_array) else all_false(0)
     res_ids = atom_array.res_id if exists(atom_array) else all_false(0)
@@ -262,7 +263,8 @@ def build_template_atom_array(
 
             template_residues.append(tmpl)
 
-    template_array = concatenate(template_residues)
+    # ... concatenate all template residues into a single AtomArray
+    template_array = struc.concatenate(template_residues)
 
     return template_array
 

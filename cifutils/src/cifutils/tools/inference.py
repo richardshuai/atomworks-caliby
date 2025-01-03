@@ -467,10 +467,8 @@ def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: 
         else:
             raise ValueError(f"Unknown chemical component type: {type(component)}")
 
-    # TODO: Rewrite using Biotite's new `concatenate` method
-    atom_array = atom_arrays[0]
-    for arr in atom_arrays[1:]:
-        atom_array += arr
+    # ... concatenate all atom arrays into a single AtomArray
+    atom_array = struc.concatenate(atom_arrays)
 
     if bonds:
         # ... spoof the struct_conn CIFCategory

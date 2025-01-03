@@ -1,6 +1,8 @@
 """Utility functions for selecting segments of an AtomArray"""
 
-__all__ = ["annot_start_stop_idxs", "get_residue_starts"]
+__all__ = ["annot_start_stop_idxs", "get_annotation", "get_residue_starts"]
+
+from typing import Any
 
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
@@ -62,3 +64,10 @@ def get_residue_starts(atom_array: AtomArray | AtomArrayStack, add_exclusive_sto
     existing_annots = atom_array.get_annotation_categories()
     annots_to_check = [annot for annot in _annots_to_check if annot in existing_annots]
     return annot_start_stop_idxs(atom_array, annots=annots_to_check, add_exclusive_stop=add_exclusive_stop)
+
+
+def get_annotation(atom_array: AtomArray | AtomArrayStack, annot: str, default: Any = None) -> np.ndarray:
+    """Get the annotation for an AtomArray or AtomArrayStack if it exists, otherwise return the default value."""
+    if annot in atom_array.get_annotation_categories():
+        return atom_array.get_annotation(annot)
+    return default
