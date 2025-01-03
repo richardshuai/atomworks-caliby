@@ -67,7 +67,7 @@ test_ipd:
 	source ./.ipd/setup.sh && \
 	OPENBLAS_NUM_THREADS=1 \
 	OMP_NUM_THREADS=1 \
-	apptainer exec ./.ipd/cifutils_latest.sif \
+	apptainer exec ./.ipd/cifutils.sif \
 	pytest --cov=cifutils \
 		--cov-report=term-missing \
 		--cov-report=html \
