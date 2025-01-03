@@ -237,6 +237,7 @@ def build_template_atom_array(
                 real.set_annotation("is_c_terminal_atom", all_false(n_atoms))
                 real.set_annotation("uses_alt_atom_id", all_false(n_atoms))
                 real.set_annotation("chain_type", [chain_type] * n_atoms)
+                real.set_annotation("charge", get_annotation(real, "charge", default=np.zeros(n_atoms)))
                 real.set_annotation("is_polymer", [chain_is_polymer] * n_atoms)
                 template_residues.append(real)
                 continue
@@ -310,7 +311,7 @@ def add_missing_atoms(
         chain_info_dict=chain_info_dict,
         atom_array=atom_array,
         use_ccd_charges=use_ccd_charges,
-        remove_hydrogens=remove_hydrogens,
+        remove_hydrogens=False,  # we keep hydrogens here, to allow fixing formal charges
     )
 
     # ... infer inter-residue polymer bonds
@@ -345,5 +346,9 @@ def add_missing_atoms(
 
     # ... fix charges of newly bonded atoms, where needed
     atoms = fix_formal_charges(atoms, to_update=makes_inter_bond)
+
+    # ... remove hydrogens
+    if remove_hydrogens:
+        atoms = ta.remove_hydrogens(atoms)
 
     return atoms

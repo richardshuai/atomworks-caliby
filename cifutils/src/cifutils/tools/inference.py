@@ -294,7 +294,7 @@ def sequence_to_annotated_atom_array(
             }
         },
         atom_array=None,
-        remove_hydrogens=True,
+        remove_hydrogens=False,  # we keep hydrogens here, to allow fixing formal charges
         use_ccd_charges=True,
         ccd_mirror_path=ccd_mirror_path,
     )
@@ -496,6 +496,10 @@ def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: 
         # ... fix charges of newly bonded atoms, where needed
         atom_array = fix_formal_charges(atom_array, to_update=makes_inter_bond)
 
+    # ... remove hydrogens
+    atom_array = ta.remove_hydrogens(atom_array)
+
+    # ... add iid, id, entity annotations
     atom_array = add_inference_iid_id_entity_annotations(atom_array)
 
     return atom_array
