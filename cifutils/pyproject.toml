@@ -59,7 +59,8 @@ exclude = [
     "env",
     ".venv",
     "venv",
-    "data"
+    "data",
+    "dev.py"
 ]
 
 [tool.ruff.format]

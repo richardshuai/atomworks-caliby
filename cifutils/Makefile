@@ -64,7 +64,19 @@ apptainer:
 
 ## Run pytest on the latest IPD cifutils apptainer
 test_ipd:
-	source ./.ipd/setup.sh && apptainer exec ./.ipd/cifutils_latest.sif pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=auto --maxprocesses=24 --dist=worksteal tests/
+	source ./.ipd/setup.sh && \
+	OPENBLAS_NUM_THREADS=1 \
+	OMP_NUM_THREADS=1 \
+	apptainer exec ./.ipd/cifutils_latest.sif \
+	pytest --cov=cifutils \
+		--cov-report=term-missing \
+		--cov-report=html \
+		--cov-report=xml \
+		-n=auto \
+		--maxprocesses=24 \
+		--max-worker-restart=4 \
+		--dist=worksteal \
+		tests/
 
 ## Run pytest and generate coverage report
 test:
@@ -72,7 +84,17 @@ test:
 
 ## Run pytest in parallel
 parallel_test:
-	pytest --cov=cifutils --cov-report=term-missing --cov-report=html --cov-report=xml -n=auto --maxprocesses=24 --dist=worksteal tests/
+	OPENBLAS_NUM_THREADS=1 \
+	OMP_NUM_THREADS=1 \
+	pytest --cov=cifutils \
+		--cov-report=term-missing \
+		--cov-report=html \
+		--cov-report=xml \
+		-n=auto \
+		--dist=worksteal \
+		--maxprocesses=24 \
+		--max-worker-restart=4 \
+		tests/
 
 #################################################################################
 # Self Documenting Commands                                                     #
