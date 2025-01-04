@@ -379,8 +379,12 @@ def get_chem_comp_leaving_atom_names(
         # ... check if all atoms in the connected group are flagged as leaving atoms
         #     by the CCD entry
         for connected_group in connected_groups:
-            heavy_atoms = list(filter(lambda x: element[x] != "H", connected_group))
-            if all(is_leaving_atom[heavy_atoms]):
+            heavy_atoms: list[int] = list(filter(lambda x: element[x] != "H", connected_group))
+            is_leaving_group = (
+                all(is_leaving_atom[heavy_atoms]) if len(heavy_atoms) > 0 else all(is_leaving_atom[connected_group])
+            )
+
+            if is_leaving_group:
                 leaving_atom_names[atom_name[atom_idx]] += [atom_name[idx] for idx in connected_group]
 
     # ... turn leaving_atom_names into a dictionary of tuples
