@@ -94,7 +94,6 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
     atom_names = atom_array.atom_name
     chain_types = get_annotation(atom_array, "chain_type", default=None)
     is_polymer = get_annotation(atom_array, "is_polymer", default=np.zeros(atom_array.array_length(), dtype=bool))
-    had_is_polymer_annot = "is_polymer" in atom_array.get_annotation_categories()
 
     # ... get iterators over the residues
     residue_starts = get_residue_starts(atom_array, add_exclusive_stop=True)
@@ -181,7 +180,7 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
             # ... optionally add `is_polymer` annotation to the atom array
             is_polymer[this_res_start:next_res_stop] = True
 
-    if not had_is_polymer_annot:
+    if "is_polymer" not in atom_array.get_annotation_categories():
         # ... if polymer annotation was not present before, we set it here based on the inferred bonds
         atom_array.set_annotation("is_polymer", is_polymer)
 
