@@ -287,15 +287,13 @@ DEFAULT_VALENCE = {
     "C": 4,
     "N": 3,
     "O": 2,
-    "S": 2,  # or 4 or 6 in higher oxidation states
-    "P": 3,  # or 5 in higher oxidation states
     "F": 1,
     "Cl": 1,
     "Br": 1,
-    "I": 1,
     "B": 3,
 }
 """Default valences of common elements in organic compounds.
+Only elements that have unambiguous valences are included.
 
 Reference:
     - https://www.rdkit.org/docs/RDKit_Book.html#valence-calculation-and-allowed-valences

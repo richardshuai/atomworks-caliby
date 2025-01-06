@@ -187,7 +187,7 @@ def test_parse_with_no_resolved_atoms(tmpdir):
 
     # Use the tmpdir fixture to create a temporary file path
     cif_path = tmpdir.join("test.cif")
-    to_cif_file(atom_array, cif_path)
+    to_cif_file(atom_array, cif_path, include_nan_coords=True)
 
     # ... parse the atom array
     out = parse(cif_path)

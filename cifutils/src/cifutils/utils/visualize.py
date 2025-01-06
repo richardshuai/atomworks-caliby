@@ -3,6 +3,7 @@
 __all__ = ["view"]
 
 import logging
+import uuid
 from itertools import cycle
 
 import biotite.structure as struc
@@ -14,6 +15,14 @@ from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, METAL_ELEMENTS
 from cifutils.utils.io_utils import to_cif_string
 
 logger = logging.getLogger("cifutils")
+
+try:
+    import pymol_remote.client
+
+    _is_pymol_remote_installed = True
+except ImportError:
+    _is_pymol_remote_installed = False
+    logger.warning("PymolSession not installed, visualization will not work")
 
 IPD_PYMOL_COLORS = [
     "#888888",  # pymol_gray
@@ -85,7 +94,11 @@ def view(
         structure = structure[structure.occupancy > 0]
 
     # Convert the structure to a temporary CIF string for interacting with py3Dmol
-    _tmp_cif_str = to_cif_string(structure, _allow_ambiguous_bond_annotations=True)
+    _tmp_cif_str = to_cif_string(
+        structure,
+        _allow_ambiguous_bond_annotations=True,
+        include_entity_poly=False,
+    )
     # ... add the structure model to the view in mmCIF format
     view.addModel(_tmp_cif_str, "structure", format="mmcif")
 
@@ -169,3 +182,102 @@ def view(
         view.zoomTo(zoom_to_selection)
 
     return view
+
+
+def get_pymol_session(hostname: str | None = None, port: int | None = None) -> "pymol_remote.client.PymolSession":
+    """
+    Establishes a connection to a PyMOL server and returns a `pymol_remote.client.PymolSession` object.
+    First attempts to reuse an existing global session if no hostname/port is specified.
+    Otherwise tries to establish a new connection, attempting up to 5 consecutive ports.
+
+    If you want to use `pymol_remote`, make sure to follow the usage instructions at
+        https://github.com/Croydon-Brixton/pymol-remote
+
+    Args:
+        - hostname (str | None, optional): The hostname of the PyMOL server. Defaults to 'localhost' if None.
+        - port (int | None, optional): The starting port number to attempt connection. Defaults to 9123 if None.
+
+    Returns:
+        pymol_remote.client.PymolSession: An active connection to the PyMOL server.
+
+    Raises:
+        - ImportError: If `pymol_remote` package is not installed.
+        - RuntimeError: If unable to establish connection after trying 5 consecutive ports.
+    """
+    if not _is_pymol_remote_installed:
+        raise ImportError("`pymol_remote` is not installed or in the pythonpath, visualization will not work.")
+
+    # ... get existing session if available
+    if (hostname is None) and (port is None):
+        session = pymol_remote.client._GLOBAL_SERVER_PROXY
+        if session:
+            return pymol_remote.client.PymolSession(hostname=session.hostname, port=session.port, force_new=False)
+
+    # ... otherwise, try to connect to a new session
+    hostname = hostname or "localhost"
+    port = port or 9123
+    for i in range(5):
+        try:
+            session = pymol_remote.client.PymolSession(hostname=hostname, port=port + i)
+            break
+        except Exception:
+            session = None
+            pass
+
+    if session is None:
+        raise RuntimeError(
+            f"Failed to connect to Pymol on {hostname}:{port}."
+            "Ensure you are using SSH forwarding and `pymol_remote` correctly."
+        )
+
+    return session
+
+
+def view_pymol(
+    structure: AtomArray,
+    id: str | None = None,
+    hostname: str | None = None,
+    port: int | None = None,
+) -> str:
+    """
+    Visualizes an AtomArray structure in PyMOL by connecting to a PyMOL server and loading the structure. If no ID is
+    provided, generates a unique identifier for the structure.
+
+    Args:
+        - structure (AtomArray): The atomic structure to be visualized in PyMOL.
+        - id (str | None, optional): Unique identifier for the structure in PyMOL. If None, generates a random 9-character
+            string in XXX-XXX-XXX format. Defaults to None.
+        - hostname (str | None, optional): The hostname of the PyMOL server. If None, uses 'localhost' or attempts to reuse
+            an existing connection. Defaults to None.
+        - port (int | None, optional): The port number for the PyMOL server connection. If None, uses default port 9123 or
+            attempts to reuse existing connection. Defaults to None.
+
+    Returns:
+        str: The identifier used for the structure in PyMOL.
+
+    Raises:
+        ImportError: If `pymol_remote` package is not installed.
+        RuntimeError: If unable to establish connection to PyMOL server.
+    """
+    # Establish a connection to the pymol server
+    session = get_pymol_session(hostname, port)
+
+    # Generate a unique ID for the structure if not provided
+    if id is None:
+        # Generate random 9-character string in 3-3-3 format
+        random_str = str(uuid.uuid4()).replace("-", "")[:9]
+        id = f"{random_str[:3]}-{random_str[3:6]}-{random_str[6:]}"
+
+    # Send to pymol
+    _tmp_cif_str = to_cif_string(
+        structure,
+        id=id,
+        _allow_ambiguous_bond_annotations=True,
+        include_entity_poly=True,
+        include_nan_coords=False,
+        include_bonds=True,
+        extra_fields=[],
+    )
+    session.set_state(_tmp_cif_str, object=id, format="cif")
+
+    return id

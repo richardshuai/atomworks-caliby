@@ -25,10 +25,9 @@ def test_view_basic(sample_atom_array):
     assert isinstance(result, py3Dmol.view)
 
 
-def test_view_custom_dimensions():
+def test_view_custom_dimensions(sample_atom_array):
     """Test view function with custom width and height."""
-    atoms = AtomArray(5)
-    result = view(atoms, width=800, height=600)
+    result = view(sample_atom_array, width=800, height=600)
     assert isinstance(result, py3Dmol.view)
     # Note: We can't directly check the dimensions of the view object
 
@@ -48,12 +47,10 @@ def test_view_show_unoccupied(sample_atom_array):
     assert isinstance(result_shown, py3Dmol.view)
 
 
-def test_view_custom_colors():
+def test_view_custom_colors(sample_atom_array):
     """Test using custom colors for visualization."""
-    atoms = AtomArray(5)
-    atoms.set_annotation("chain_id", ["A"] * 5)
     custom_colors = ["#FF0000", "#00FF00", "#0000FF"]
-    result = view(atoms, colors=custom_colors)
+    result = view(sample_atom_array, colors=custom_colors)
     assert isinstance(result, py3Dmol.view)
 
 
@@ -87,4 +84,37 @@ def test_view_invalid_input():
         view("not an AtomArray")
 
 
-# Additional tests can be added for more specific scenarios or edge cases
+@pytest.mark.skip(reason="Requires PyMOL remote connection. Run manually instead.")
+@pytest.mark.requires_pymol_remote
+def test_view_pymol_remote(sample_atom_array):
+    """Test view function with PyMOL remote."""
+    from io import StringIO
+
+    import biotite.structure as struc
+    from conftest import get_pdb_path
+
+    from cifutils.parser import parse
+    from cifutils.utils.io_utils import load_any
+    from cifutils.utils.visualize import get_pymol_session, view_pymol
+
+    result = parse(get_pdb_path("5ocm"), ccd_mirror_path=None)
+
+    array = result["assemblies"]["1"][0]
+    obj_name = view_pymol(array)
+
+    session = get_pymol_session()
+    assert obj_name in session.get_object_list(), "Object not found in PyMOL session"
+    session.get_state(obj_name, format="cif")
+
+    _is_nan_coords = np.isnan(array.coord).any(axis=1)
+
+    array_not_nan = array[~_is_nan_coords]
+    loaded_array = load_any(StringIO(session.get_state(obj_name, format="cif")), model=1)
+    assert loaded_array.coord.shape == array_not_nan.coord.shape
+
+    # NOTE: To compare actual coordinates we need to sort both arrays by
+    #  (chain_id, res_id, res_name, atom_name)
+    #  ...(pymol somehow messes up the order)
+    # array_not_nan = array_not_nan[struc.info.standardize_order(array_not_nan)]
+    loaded_array = loaded_array[struc.info.standardize_order(loaded_array)]
+    assert np.allclose(array_not_nan.coord, loaded_array.coord, atol=1e-2, rtol=1e-2)

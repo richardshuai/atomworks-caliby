@@ -66,41 +66,235 @@ import biotite.structure as struc  # noqa: E402
 
 from cifutils.utils.selection import get_residue_starts  # noqa: E402
 
+# Improve the 'get_residue_starts' function to disambiguate symmetry copies
 struc.get_residue_starts = get_residue_starts
 
 
-# TODO: Remove this patch with biotite 1.0.2 if #714 gets merged
-def equal_annotations(self, item, equal_nan: bool = True) -> bool:  # noqa: ANN001
+# Improve the AtomArray representation to be leaner, for debugging
+def _lean_atom_array_repr_(self: struc.AtomArray) -> str:
+    """Lean AtomArray representation that only shows at most 20 atoms (first 10 and last 10)."""
+    atoms = ""
+    n_atoms = self.array_length()
+    for i in range(0, n_atoms):
+        if len(atoms) == 0:
+            atoms = "\n\t" + self.get_atom(i).__repr__()
+        elif i >= 10 and i < (n_atoms - 10):
+            if i == 10:
+                atoms += "\n\t... (" + str(n_atoms - 21) + " not shown) ..."
+            continue
+        else:
+            atoms = atoms + ",\n\t" + self.get_atom(i).__repr__()
+    return f"AtomArray([{atoms}\n])"
+
+
+struc.AtomArray.__repr__ = _lean_atom_array_repr_
+
+# fmt: off
+# ruff: noqa
+from biotite.structure import AtomArray, AtomArrayStack
+from biotite.structure.io.pdbx.convert import (
+    MaskValue,
+    _check_non_empty,
+    _determine_entity_id,
+    _get_or_create_block,
+    _repeat,
+    _set_inter_residue_bonds,
+    _set_intra_residue_bonds,
+    unitcell_from_vectors,
+)
+
+
+def set_structure(
+    pdbx_file,
+    array,
+    data_block=None,
+    include_bonds=False,
+    extra_fields=[],
+):
     """
-    Check, if this object shares equal annotation arrays with the
-    given :class:`AtomArray` or :class:`AtomArrayStack`.
+    Set the ``atom_site`` category with atom information from an
+    :class:`AtomArray` or :class:`AtomArrayStack`.
+
+    This will save the coordinates, the mandatory annotation categories
+    and the optional annotation categories
+    ``atom_id``, ``b_factor``, ``occupancy`` and ``charge``.
+    If the atom array (stack) contains the annotation ``'atom_id'``,
+    these values will be used for atom numbering instead of continuous
+    numbering.
+    Furthermore, inter-residue bonds will be written into the
+    ``struct_conn`` category.
 
     Parameters
     ----------
-    item : AtomArray or AtomArrayStack
-        The object to compare the annotation arrays with.
-    equal_nan: bool
-        Whether to count `nan` values as equal. Default: True.
+    pdbx_file : CIFFile or CIFBlock or BinaryCIFFile or BinaryCIFBlock
+        The file object.
+    array : AtomArray or AtomArrayStack
+        The structure to be written. If a stack is given, each array in
+        the stack will be in a separate model.
+    data_block : str, optional
+        The name of the data block.
+        Default is the first (and most times only) data block of the
+        file.
+        If the data block object is passed directly to `pdbx_file`,
+        this parameter is ignored.
+        If the file is empty, a new data block will be created.
+    include_bonds : bool, optional
+        If set to true and `array` has associated ``bonds`` , the
+        intra-residue bonds will be written into the ``chem_comp_bond``
+        category.
+        Inter-residue bonds will be written into the ``struct_conn``
+        independent of this parameter.
+    extra_fields : list of str, optional
+        List of additional fields from the ``atom_site`` category
+        that should be written into the file.
+        Default is an empty list.
 
-    Returns:
-    -------
-    equality : bool
-        True, if the annotation arrays are equal.
+    Notes
+    -----
+    In some cases, the written inter-residue bonds cannot be read again
+    due to ambiguity to which atoms the bond refers.
+    This is the case, when two equal residues in the same chain have
+    the same (or a masked) `res_id`.
+
+    Examples
+    --------
+
+    >>> import os.path
+    >>> file = CIFFile()
+    >>> set_structure(file, atom_array)
+    >>> file.write(os.path.join(path_to_directory, "structure.cif"))
+
     """
-    if not isinstance(item, struc.atoms._AtomArrayBase):
-        return False
-    if not self.equal_annotation_categories(item):
-        return False
-    for name in self._annot:
-        # ... allowing `nan` values causes type-casting, which is only possible for floating-point arrays
-        allow_nan = equal_nan if np.issubdtype(self._annot[name].dtype, np.floating) else False
-        if not np.array_equal(
-            self._annot[name],
-            item._annot[name],
-            equal_nan=allow_nan,
-        ):
-            return False
-    return True
+    _check_non_empty(array)
+
+    block = _get_or_create_block(pdbx_file, data_block)
+    Category = block.subcomponent_class()
+    Column = Category.subcomponent_class()
+
+    # Fill PDBx columns from information
+    # in structures' attribute arrays as good as possible
+    atom_site = Category()
+    atom_site["group_PDB"] = np.where(array.hetero, "HETATM", "ATOM")
+    atom_site["type_symbol"] = np.copy(array.element)
+    atom_site["label_atom_id"] = np.copy(array.atom_name)
+    if "altloc_id" in array.get_annotation_categories():
+        atom_site["label_alt_id"] = np.copy(array.altloc_id)
+    else:
+        atom_site["label_alt_id"] = Column(
+            # AtomArrays do not store altloc atoms
+            np.full(array.array_length(), "."),
+            np.full(array.array_length(), MaskValue.INAPPLICABLE),
+        )
+    atom_site["label_comp_id"] = np.copy(array.res_name)
+    atom_site["label_asym_id"] = np.copy(array.chain_id)
+    if "chain_entity" in array.get_annotation_categories():
+        atom_site["label_entity_id"] = np.copy(array.chain_entity)
+    else:
+        atom_site["label_entity_id"] = _determine_entity_id(array.chain_id)
+    atom_site["label_seq_id"] = np.copy(array.res_id)
+    atom_site["pdbx_PDB_ins_code"] = Column(
+        np.copy(array.ins_code),
+        np.where(array.ins_code == "", MaskValue.INAPPLICABLE, MaskValue.PRESENT),
+    )
+    atom_site["auth_seq_id"] = atom_site["label_seq_id"]
+    atom_site["auth_comp_id"] = atom_site["label_comp_id"]
+    atom_site["auth_asym_id"] = atom_site["label_asym_id"]
+    atom_site["auth_atom_id"] = atom_site["label_atom_id"]
+
+    annot_categories = array.get_annotation_categories()
+    if "atom_id" in annot_categories:
+        atom_site["id"] = np.copy(array.atom_id)
+    if "b_factor" in annot_categories:
+        atom_site["B_iso_or_equiv"] = np.copy(array.b_factor)
+    if "occupancy" in annot_categories:
+        atom_site["occupancy"] = np.copy(array.occupancy)
+    if "charge" in annot_categories:
+        atom_site["pdbx_formal_charge"] = Column(
+            np.array([f"{c:+d}" if c != 0 else "?" for c in array.charge]),
+            np.where(array.charge == 0, MaskValue.MISSING, MaskValue.PRESENT),
+        )
+
+    # Handle all remaining custom fields
+    if len(extra_fields) > 0:
+        # ... check to avoid clashes with standard annotations
+        _standard_annotations = [
+            "hetero",
+            "element",
+            "atom_name",
+            "res_name",
+            "chain_id",
+            "res_id",
+            "ins_code",
+            "atom_id",
+            "b_factor",
+            "occupancy",
+            "charge",
+        ]
+        _reserved_annotation_names = list(atom_site.keys()) + _standard_annotations
+
+        for annot in extra_fields:
+            if annot in _reserved_annotation_names:
+                raise ValueError(
+                    f"Annotation name '{annot}' is reserved and cannot be written to as extra field. "
+                    "Please choose another name."
+                )
+            atom_site[annot] = np.copy(array.get_annotation(annot))
+
+    if array.bonds is not None:
+        struct_conn = _set_inter_residue_bonds(array, atom_site)
+        if struct_conn is not None:
+            block["struct_conn"] = struct_conn
+        if include_bonds:
+            chem_comp_bond = _set_intra_residue_bonds(array, atom_site)
+            if chem_comp_bond is not None:
+                block["chem_comp_bond"] = chem_comp_bond
+
+    # In case of a single model handle each coordinate
+    # simply like a flattened array
+    if isinstance(array, AtomArray) or (isinstance(array, AtomArrayStack) and array.stack_depth() == 1):
+        # 'ravel' flattens coord without copy
+        # in case of stack with stack_depth = 1
+        atom_site["Cartn_x"] = np.copy(np.ravel(array.coord[..., 0]))
+        atom_site["Cartn_y"] = np.copy(np.ravel(array.coord[..., 1]))
+        atom_site["Cartn_z"] = np.copy(np.ravel(array.coord[..., 2]))
+        atom_site["pdbx_PDB_model_num"] = np.ones(array.array_length(), dtype=np.int32)
+    # In case of multiple models repeat annotations
+    # and use model specific coordinates
+    else:
+        atom_site = _repeat(atom_site, array.stack_depth())
+        coord = np.reshape(array.coord, (array.stack_depth() * array.array_length(), 3))
+        atom_site["Cartn_x"] = np.copy(coord[:, 0])
+        atom_site["Cartn_y"] = np.copy(coord[:, 1])
+        atom_site["Cartn_z"] = np.copy(coord[:, 2])
+        atom_site["pdbx_PDB_model_num"] = np.repeat(
+            np.arange(1, array.stack_depth() + 1, dtype=np.int32),
+            repeats=array.array_length(),
+        )
+    if "atom_id" not in annot_categories:
+        # Count from 1
+        atom_site["id"] = np.arange(1, len(atom_site["group_PDB"]) + 1)
+    block["atom_site"] = atom_site
+
+    # Write box into file
+    if array.box is not None:
+        # PDBx files can only store one box for all models
+        # -> Use first box
+        if array.box.ndim == 3:
+            box = array.box[0]
+        else:
+            box = array.box
+        len_a, len_b, len_c, alpha, beta, gamma = unitcell_from_vectors(box)
+        cell = Category()
+        cell["length_a"] = len_a
+        cell["length_b"] = len_b
+        cell["length_c"] = len_c
+        cell["angle_alpha"] = np.rad2deg(alpha)
+        cell["angle_beta"] = np.rad2deg(beta)
+        cell["angle_gamma"] = np.rad2deg(gamma)
+        block["cell"] = cell
 
 
-struc.atoms._AtomArrayBase.equal_annotations = equal_annotations
+import biotite.structure.io.pdbx as pdbx
+
+pdbx.set_structure = set_structure
+# fmt: on

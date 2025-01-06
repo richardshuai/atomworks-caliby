@@ -12,13 +12,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
+import biotite.structure as struc
 import biotite.structure.io.pdb as biotite_pdb
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
 from biotite.structure.io import pdbx
 
 from cifutils.common import default, exists
-from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT
+from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from cifutils.enums import ChainType
+from cifutils.utils.sequence import get_1_from_3_letter_code
 
 logger = logging.getLogger("cifutils")
 
@@ -212,6 +215,104 @@ def read_any(
     return file_obj
 
 
+def _build_entity_poly(
+    atom_array: struc.AtomArray,
+) -> dict[str, dict[str, float | int | str | list | np.ndarray]]:
+    """
+    Build the entity_poly category for a CIF file from an AtomArray.
+
+    This function processes polymer entities in the structure and generates their sequence information
+    in both canonical and non-canonical forms.
+
+    Args:
+        - atom_array: AtomArray containing the structure data with polymer chain information.
+
+    Returns:
+        A dictionary containing the entity_poly category with the following fields:
+        - entity_id: List of entity identifiers
+        - type: List of polymer types (polypeptide, polynucleotide, etc.)
+        - nstd_linkage: List indicating presence of non-standard linkages
+        - nstd_monomer: List indicating presence of non-standard monomers
+        - pdbx_seq_one_letter_code: List of sequences in one-letter code
+        - pdbx_seq_one_letter_code_can: List of canonical sequences
+        - pdbx_strand_id: List of chain identifiers
+        - pdbx_target_identifier: List of target identifiers
+    """
+    _entity_poly_categories = (
+        "entity_id",
+        "type",
+        "nstd_linkage",
+        "nstd_monomer",
+        "pdbx_seq_one_letter_code",
+        "pdbx_seq_one_letter_code_can",
+        "pdbx_strand_id",
+        "pdbx_target_identifier",
+    )
+
+    # ... get index of the first atom of each chain
+    chain_starts = struc.get_chain_starts(atom_array)
+
+    # ... get chain ids, iids, entity ids, and chain types
+    chain_ids = atom_array.chain_id[chain_starts]
+    chain_iids = atom_array.chain_iid[chain_starts]
+    entity_ids = atom_array.chain_entity[chain_starts]
+    is_polymer = atom_array.is_polymer[chain_starts]
+    chain_types = atom_array.chain_type[chain_starts]
+
+    if not np.any(is_polymer):
+        return {}
+
+    unique_polymer_entity_ids = np.unique(entity_ids[is_polymer])
+    entity_poly = {cat: [] for cat in _entity_poly_categories}
+    for entity_id in unique_polymer_entity_ids:
+        # ... get all relevant chain ids
+        chain_ids = np.unique(chain_ids[entity_ids == entity_id])
+
+        # ... get chain type
+        chain_type = ChainType.as_enum(chain_types[entity_ids == entity_id][0])
+
+        # ... get sequence
+        example_chain_iid = chain_iids[entity_ids == entity_id][0]
+        res_starts = struc.get_residue_starts(atom_array[atom_array.chain_iid == example_chain_iid])
+        seq = atom_array.res_name[res_starts]
+        wrap_every_n = lambda text, n: "\n".join(text[i : i + n] for i in range(0, len(text), n))  # noqa: E731
+        processed_entity_non_canonical_sequence = "".join(
+            get_1_from_3_letter_code(ccd_code, chain_type, use_closest_canonical=False) for ccd_code in seq
+        )
+        processed_entity_non_canonical_sequence = wrap_every_n(processed_entity_non_canonical_sequence, 80)
+        processed_entity_canonical_sequence = "".join(
+            get_1_from_3_letter_code(ccd_code, chain_type, use_closest_canonical=True) for ccd_code in seq
+        )
+        processed_entity_canonical_sequence = wrap_every_n(processed_entity_canonical_sequence, 80)
+
+        # ... check for non-standard monomers
+        has_non_standard_monomer = ~np.all(np.isin(seq, STANDARD_AA + STANDARD_RNA + STANDARD_DNA))
+
+        # ... add to entity_poly
+        entity_poly["entity_id"].append(entity_id)
+        entity_poly["type"].append(chain_type.to_string().lower())
+        entity_poly["nstd_linkage"].append("no")
+        entity_poly["nstd_monomer"].append("yes" if has_non_standard_monomer else "no")
+        entity_poly["pdbx_seq_one_letter_code"].append(processed_entity_non_canonical_sequence)
+        entity_poly["pdbx_seq_one_letter_code_can"].append(processed_entity_canonical_sequence)
+        entity_poly["pdbx_strand_id"].append(",".join(chain_ids))
+        entity_poly["pdbx_target_identifier"].append("?")
+    return {"entity_poly": entity_poly}
+
+
+def _write_categories_to_block(
+    block: "pdbx.Block", categories: dict[str, dict[str, float | int | str | list | np.ndarray]]
+) -> None:
+    """Write a set of categories to a CIF block"""
+    Category = block.subcomponent_class()  # noqa: N806
+    Column = Category.subcomponent_class()  # noqa: N806
+    for category_name, category_data in categories.items():
+        category = Category()
+        for key, value in category_data.items():
+            category[key] = Column(value)
+        block[category_name] = category
+
+
 def to_cif_buffer(
     structure: AtomArray,
     *,
@@ -219,6 +320,10 @@ def to_cif_buffer(
     author: str = _get_logged_in_user(),
     date: str | None = None,
     time: str | None = None,
+    include_entity_poly: bool = False,
+    include_nan_coords: bool = True,
+    include_bonds: bool = True,
+    extra_fields: list[str] | Literal["all"] = [],
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
     _allow_ambiguous_bond_annotations: bool = False,
 ) -> io.StringIO:
@@ -230,6 +335,10 @@ def to_cif_buffer(
         - author (str): The author of the entry.
         - date (str): The date of the entry.
         - time (str): The time of the entry.
+        - include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
+        - include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
+        - include_bonds (bool): Whether to write bonds in the CIF file.
+        - extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
         - extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
@@ -265,34 +374,53 @@ def to_cif_buffer(
         structure.altloc_id = ["."] * structure.array_length()
 
     block = pdbx.convert._get_or_create_block(cif_file, block_name=id)
-    Category = block.subcomponent_class()  # noqa: N806
-    Column = Category.subcomponent_class()  # noqa: N806
 
-    block["entry"] = Category(
-        {
-            "id": id,
-            "author": author,
-            "date": date,
-            "time": time,
-        }
-    )
+    # Build metadata
+    metadata = {"entry": {"id": id, "author": author, "date": date, "time": time}}
+    for flag, build_func in [
+        (include_entity_poly, _build_entity_poly),
+    ]:
+        if flag:
+            try:
+                metadata.update(build_func(structure))
+            except Exception as e:
+                logger.warning(f"Failed to build `{build_func.__name__}`: {e}")
+    # Write metadata to block
+    _write_categories_to_block(block, metadata)
 
     # Set the structure in the CIF file
-    pdbx.set_structure(cif_file, structure, data_block=id, include_bonds=True)
+    if extra_fields == "all":
+        _standard_cif_annotations = frozenset(
+            {
+                "chain_id",
+                "res_id",
+                "res_name",
+                "atom_name",
+                "atom_id",
+                "element",
+                "ins_code",
+                "hetero",
+                "altloc_id",
+                "charge",
+                "occupancy",
+                "b_factor",
+            }
+        )
+        extra_fields = list(set(structure.get_annotation_categories()) - _standard_cif_annotations)
+
+    if not include_nan_coords:
+        has_nan_coords = np.any(np.isnan(structure.coord), axis=1)
+        structure = structure[~has_nan_coords]
+
+    pdbx.set_structure(cif_file, structure, data_block=id, include_bonds=include_bonds, extra_fields=extra_fields)
 
     # Add extra categories if provided
     if extra_categories:
-        for category_name, category_data in extra_categories.items():
-            category = Category()
-            for key, value in category_data.items():
-                category[key] = Column(value)
-            block[category_name] = category
+        _write_categories_to_block(block, extra_categories)
 
     # Serialize the CIF file to a string
     buffer = io.StringIO()
-    cif_file.write(
-        buffer,
-    )
+    cif_file.write(buffer)
     return buffer
 
 
@@ -303,6 +431,10 @@ def to_cif_string(
     author: str = _get_logged_in_user(),
     date: str | None = None,
     time: str | None = None,
+    include_entity_poly: bool = False,
+    include_nan_coords: bool = True,
+    include_bonds: bool = True,
+    extra_fields: list[str] | Literal["all"] = [],
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
     _allow_ambiguous_bond_annotations: bool = False,
 ) -> str:
@@ -314,6 +446,10 @@ def to_cif_string(
         - author (str): The author of the entry.
         - date (str): The date of the entry.
         - time (str): The time of the entry.
+        - include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
+        - include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
+        - include_bonds (bool): Whether to write bonds in the CIF file.
+        - extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
         - extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
@@ -327,6 +463,10 @@ def to_cif_string(
         author=author,
         date=date,
         time=time,
+        include_entity_poly=include_entity_poly,
+        include_nan_coords=include_nan_coords,
+        include_bonds=include_bonds,
+        extra_fields=extra_fields,
         extra_categories=extra_categories,
         _allow_ambiguous_bond_annotations=_allow_ambiguous_bond_annotations,
     ).getvalue()
@@ -340,6 +480,10 @@ def to_cif_file(
     author: str = _get_logged_in_user(),
     date: str | None = None,
     time: str | None = None,
+    include_entity_poly: bool = True,
+    include_nan_coords: bool = True,
+    include_bonds: bool = True,
+    extra_fields: list[str] | Literal["all"] = [],
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
 ) -> str:
     """Convert an AtomArray structure to a CIF formatted file.
@@ -351,6 +495,10 @@ def to_cif_file(
         - author (str): The author of the entry.
         - date (str): The date of the entry.
         - time (str): The time of the entry.
+        - include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
+        - include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
+        - include_bonds (bool): Whether to write bonds in the CIF file.
+        - extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
         - extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
@@ -365,7 +513,16 @@ def to_cif_file(
     with open(path, "w") as f:
         f.write(
             to_cif_buffer(
-                structure, id=id, author=author, date=date, time=time, extra_categories=extra_categories
+                structure,
+                id=id,
+                author=author,
+                date=date,
+                time=time,
+                include_entity_poly=include_entity_poly,
+                include_nan_coords=include_nan_coords,
+                include_bonds=include_bonds,
+                extra_fields=extra_fields,
+                extra_categories=extra_categories,
             ).getvalue()
         )
     return path

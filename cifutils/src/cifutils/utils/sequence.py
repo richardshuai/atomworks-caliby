@@ -5,6 +5,8 @@ __all__ = [
     "get_3_from_1_letter_code",
 ]
 
+import logging
+
 import numpy as np
 from Bio.Data.PDBData import (
     nucleic_letters_3to1,
@@ -26,7 +28,8 @@ from cifutils.constants import (
     UNKNOWN_RNA,
 )
 from cifutils.enums import ChainType
-from cifutils.utils.io_utils import logger
+
+logger = logging.getLogger("cifutils")
 
 
 def get_1_from_3_letter_code(
