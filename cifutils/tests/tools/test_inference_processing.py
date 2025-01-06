@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from biotite.structure import AtomArray
 
+from cifutils import parse
 from cifutils.enums import ChainType
 from cifutils.tools.fasta import split_generalized_fasta_sequence
 from cifutils.tools.inference import (
@@ -292,3 +293,16 @@ def test_full_components_input(dict_inputs):
     assert np.unique(atom_array.chain_id).shape[0] == 7  # 1 monomer, 2 dimers, 1 noncanonical, 1 ligand, 2 glycans
     assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E", "F", "G"}
     assert set(np.unique(atom_array.chain_type)) == {ChainType.POLYPEPTIDE_L, ChainType.NON_POLYMER}
+
+
+def test_recover_bonds_from_cif(dict_inputs):
+    data = parse(
+        "tests/data/test_unl_ligand_with_bonds.cif",
+        assume_residues_all_resolved=True,
+        fix_ligands_at_symmetry_centers=False,
+    )
+    atom_array = data["asym_unit"][0]
+
+    assert all(atom_array.res_name == "UNL")
+    assert len(atom_array) == 28
+    assert atom_array.bonds.as_array().shape[0] == 32

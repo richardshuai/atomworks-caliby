@@ -5,6 +5,7 @@ from assertpy import assert_that
 from biotite.structure import AtomArray
 from rdkit import Chem
 
+from cifutils.tools.inference import components_to_atom_array
 from cifutils.tools.rdkit import (
     atom_array_from_rdkit,
     atom_array_to_rdkit,
@@ -12,6 +13,7 @@ from cifutils.tools.rdkit import (
     get_morgan_fingerprint_from_rdkit_mol,
     smiles_to_rdkit,
 )
+from cifutils.utils.io_utils import load_any
 
 try:
     # Settings for debugging & interactive tests
@@ -52,6 +54,27 @@ def test_smiles_to_rdkit_to_atom_array(smiles):
 
     assert isinstance(atom_array, AtomArray)
     assert atom_array.array_length() == mol.GetNumAtoms()
+
+
+@pytest.mark.parametrize("smiles", TEST_SMILES)
+def test_smiles_to_atom_array_to_rdkit(smiles):
+    inputs = []
+    inputs.append(
+        {
+            "smiles": smiles,
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "A",
+        }
+    )
+    atom_array = components_to_atom_array(inputs)
+    mol = atom_array_to_rdkit(atom_array, set_coord=True, infer_hydrogens=False)
+    new_atom_array = atom_array_from_rdkit(
+        mol, set_coord_if_available=True, elements_as_int=False, remove_hydrogens=False
+    )
+    assert new_atom_array.array_length() == atom_array.array_length()
+    for annotation in ["chain_id", "res_id", "res_name", "atom_name"]:
+        assert np.array_equal(new_atom_array.get_annotation(annotation), atom_array.get_annotation(annotation))
 
 
 @pytest.mark.parametrize("test_atom_array", TEST_ATOM_ARRAYS)
@@ -107,6 +130,9 @@ def molecules():
         "HEM": ccd_code_to_rdkit("HEM"),
         "NAG": ccd_code_to_rdkit("NAG"),
         "BMA": ccd_code_to_rdkit("BMA"),
+        "CustomUNL": atom_array_to_rdkit(
+            load_any("tests/data/test_unl_ligand_with_bonds.cif", model=1), set_coord=False
+        ),
     }
     return mols
 
@@ -120,7 +146,6 @@ def test_fingerprints(molecules):
     sim_leu_gly = Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["Glycine"])
     sim_nag_bma = Chem.DataStructs.TanimotoSimilarity(fingerprints["NAG"], fingerprints["BMA"])
     sim_nag_hem = Chem.DataStructs.TanimotoSimilarity(fingerprints["NAG"], fingerprints["HEM"])
-
     # Assert that leucine is more similar to isoleucine than to glycine
     assert_that(sim_leu_ile).is_greater_than(sim_leu_gly).described_as(
         "Leucine should be more similar to Isoleucine than to Glycine"
@@ -138,6 +163,9 @@ def test_fingerprints(molecules):
     assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["NAG"])).is_less_than(0.3)
     assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["BMA"])).is_less_than(0.3)
     assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["HEM"])).is_less_than(0.3)
+    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["CustomUNL"], fingerprints["Leucine"])).is_less_than(
+        0.3
+    )
 
 
 if __name__ == "__main__":
