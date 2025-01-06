@@ -1,6 +1,6 @@
 [project]
 name = "cifutils"
-version = "2.1.1"
+dynamic = ["version"]
 description = "Convert arbitrary biological inputs into an AtomArray, modify them, and then perform downstream actions like training machine learning models."
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -11,9 +11,19 @@ authors = [
     { name = "Rohith Krishna"},
 ]
 
+# Build settings ----------------------------------------------------------------------
 [build-system]
-requires = ["hatchling"]
+requires = [
+    "hatchling",
+    "hatch-vcs == 0.4",
+]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/cifutils/version.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
