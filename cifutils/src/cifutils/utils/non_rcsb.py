@@ -6,7 +6,7 @@ Such files do not follow the standard CIF format and thus may require special ha
 __all__ = [
     "get_identity_assembly_gen_category",
     "get_identity_op_expr_category",
-    "infer_chain_info_from_atom_array",
+    "initialize_chain_info_from_atom_array",
 ]
 
 import logging
@@ -104,19 +104,23 @@ def infer_chain_type_from_ccd_codes(ccd_code_seq: Sequence[str]) -> ChainType:
     return chain_type
 
 
-def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
-    """
-    Infer chain type information from an AtomArray, in the event that the PDB or CIF file does not contain the necessary information.
+def initialize_chain_info_from_atom_array(
+    atom_array: AtomArray, infer_chain_type: bool = True, infer_chain_sequences: bool = True
+) -> dict:
+    """Infer specified information (chain type and sequence information) from an AtomArray.
+
+    Required when the chain type or polymer sequence information is not explicitly provided in the CIF file.
     Such situations may arise when the CIF file is not from the RCSB PDB database (e.g., distillation).
 
-    WARNING: Use this function as a "last resort" when the chain type information is not explicitly provided in the CIF file;
-    otherwise, use `get_chain_info_from_category`.
+    WARNING: Use this function for computationally predicted structures or for inference; do not use for files from the RCSB PDB database.
 
     Args:
         atom_array (AtomArray): The AtomArray object to infer chain information from.
+        infer_chain_type (bool, optional): Whether to infer the chain type from the AtomArray. Defaults to True.
+        infer_chain_sequences (bool, optional): Whether to infer the chain sequences from the AtomArray. Defaults to True.
 
     Returns:
-        dict: A dictionary containing the inferred chain information (chain type and whether the chain is a polymer).
+        dict: A dictionary containing the specified chain information as keys
     """
     logger.info(
         "Could not read ChainType from CIF file, inferring from AtomArray (ensure this is the correct behavior)!"
@@ -147,14 +151,19 @@ def infer_chain_info_from_atom_array(atom_array: AtomArray) -> dict:
             get_1_from_3_letter_code(ccd_code, chain_type, use_closest_canonical=True) for ccd_code in seq
         )
 
-        chain_info_dict[chain_id] = {
-            "res_id": list(res_ids[is_in_chain]),
-            "res_name": list(res_names[is_in_chain]),
-            "is_polymer": chain_type.is_polymer(),
-            "chain_type": chain_type,
-            "processed_entity_non_canonical_sequence": processed_entity_non_canonical_sequence,
-            "processed_entity_canonical_sequence": processed_entity_canonical_sequence,
-        }
+        chain_info_dict[chain_id] = {}
+
+        if infer_chain_type:
+            chain_info_dict[chain_id]["chain_type"] = chain_type
+            chain_info_dict[chain_id]["is_polymer"] = chain_type.is_polymer()
+
+        if infer_chain_sequences:
+            chain_info_dict[chain_id]["res_id"] = list(res_ids[is_in_chain])
+            chain_info_dict[chain_id]["res_name"] = list(res_names[is_in_chain])
+            chain_info_dict[chain_id]["processed_entity_non_canonical_sequence"] = (
+                processed_entity_non_canonical_sequence
+            )
+            chain_info_dict[chain_id]["processed_entity_canonical_sequence"] = processed_entity_canonical_sequence
 
     return chain_info_dict
 

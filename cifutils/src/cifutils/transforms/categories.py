@@ -42,9 +42,19 @@ def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray
         return {}
 
 
-def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
-    """
-    Extracts chain information from the CIF block.
+def initialize_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> dict:
+    """Extracts chain entity-level information from the CIF block.
+
+    Requires the categories 'entity' and 'entity_poly' to be present in the CIF block.
+
+    In particular, this function adds the following information to the chain_info_dict:
+        - The RCSB entity ID for each chain (e.g., 1, 2, 3, etc.)
+        - The chain type as an IntEnum (e.g., polypeptide(L), non-polymer, etc.)
+        - The unprocessed one-letter entity canonical and non-canonical sequences.
+        - A boolean flag indicating whether the chain is a polymer.
+        - The EC numbers for the chain.
+
+    Note that three-letter sequence information is added to the chain_info_dict in a later step.
 
     Args:
         cif_block (CIFBlock): Parsed CIF block.
@@ -53,6 +63,10 @@ def get_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArray) -> 
     Returns:
         dict: Dictionary containing the sequence details of each chain.
     """
+    assert "entity" in cif_block, "entity category not found in CIF block."
+    assert "entity_poly" in cif_block, "entity_poly category not found in CIF block."
+
+    # ... initialize
     chain_info_dict = {}
 
     # Step 1: Build a mapping of chain id to entity id from the `atom_site`
@@ -191,9 +205,10 @@ def get_metadata_from_category(cif_block: CIFBlock, fallback_id: str | None = No
 def load_monomer_sequence_information_from_category(
     cif_block: CIFBlock, chain_info_dict: dict, atom_array: AtomArray, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH
 ) -> dict:
-    """
-    Load monomer sequence information into a chain_info_dict, using:
-        (a) The CIFCategory 'entity_poly_seq' as the sequence ground-truth for polymere.
+    """Load monomer sequence information into a chain_info_dict
+
+    Uses:
+        (a) The CIFCategory 'entity_poly_seq' as the sequence ground-truth for polymers.
         (b) The AtomArray as the ground-truth for non-polymers.
 
     We must rely on the CIFCategory 'entity_poly_seq' for polymers, as the AtomArray may not contain the full sequence information (e.g., unresolved residues)
@@ -207,7 +222,12 @@ def load_monomer_sequence_information_from_category(
         atom_array (AtomArray): The atom array used to get the sequence for non-polymers.
 
     Returns:
-        The updated chain_info_dict with monomer sequence information.
+        The updated chain_info_dict with monomer sequence information. Adds the following keys:
+            - 'res_name': The CCD residue names for each chain.
+            - 'res_id': The residue IDs for each chain (does not perform re-indexing)
+            - 'processed_entity_non_canonical_sequence': The processed non-canonical sequence for each chain.
+            - 'processed_entity_canonical_sequence': The processed canonical sequence for each chain.
+            - 'has_sequence_heterogeneity': A boolean flag indicating whether the chain has
     """
     # Assert that entity_poly_seq category is present
     assert "entity_poly_seq" in cif_block, "entity_poly_seq category not found in CIF block."

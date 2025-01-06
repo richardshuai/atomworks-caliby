@@ -7,7 +7,7 @@ from conftest import get_pdb_path
 
 from cifutils.enums import ChainType
 from cifutils.parser import parse
-from cifutils.utils.non_rcsb import infer_chain_info_from_atom_array
+from cifutils.utils.non_rcsb import initialize_chain_info_from_atom_array
 
 DIR = Path(__file__).parent.parent / "data"
 CIF_PATHS = [DIR / "example_distillation_output.cif"]
@@ -17,7 +17,6 @@ CIF_PATHS = [DIR / "example_distillation_output.cif"]
 def test_load_with_all_resolved(path: str):
     result = parse(
         filename=path,
-        assume_residues_all_resolved=True,
         add_missing_atoms=True,
         remove_ccds=[],
         remove_hydrogens=True,
@@ -34,7 +33,6 @@ def test_af2_predicted_pdb_example():
         filename=DIR / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb",
         remove_waters=True,
         remove_ccds=[],
-        assume_residues_all_resolved=True,
     )
     # Check if processing runs through
     assert result is not None
@@ -52,7 +50,6 @@ def test_pdb_with_same_chain_poly_non_poly():
     result = parse(
         filename=DIR / "1qfe.pdb",
         remove_hydrogens=True,
-        assume_residues_all_resolved=True,
     )
     # Check if processing runs through
     assert result is not None
@@ -68,9 +65,6 @@ def test_pdb_with_same_chain_poly_non_poly():
         culprits = atom_array[(~np.isfinite(atom_array.coord)).any(axis=1)]
         raise RuntimeError(f"Some residues are missing coordinates: \n{culprits}")
 
-    # Assert that all atoms are full occupancy
-    assert np.all(atom_array.occupancy == 1.0)
-
 
 @pytest.mark.parametrize("test_case", CHAIN_TYPE_TEST_CASES)
 def test_infer_chain_info_from_atom_array(test_case: dict):
@@ -81,7 +75,7 @@ def test_infer_chain_info_from_atom_array(test_case: dict):
         remove_waters=True,
     )["asym_unit"][0]
 
-    chain_info = infer_chain_info_from_atom_array(atom_array)
+    chain_info = initialize_chain_info_from_atom_array(atom_array)
 
     for chain_id, info_dict in chain_info.items():
         got = info_dict["chain_type"]
@@ -93,3 +87,7 @@ def test_infer_chain_info_from_atom_array(test_case: dict):
         else:
             # Enforce strict equality for polymers
             assert got == expected
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

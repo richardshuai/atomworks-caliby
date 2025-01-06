@@ -21,9 +21,9 @@ from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS
 from cifutils.transforms.categories import (
     category_to_dict,
-    get_chain_info_from_category,
     get_ligand_of_interest_info,
     get_metadata_from_category,
+    initialize_chain_info_from_category,
     load_monomer_sequence_information_from_category,
 )
 from cifutils.utils.assembly import build_assemblies_from_asym_unit
@@ -33,7 +33,7 @@ from cifutils.utils.io_utils import get_structure, read_any, to_cif_buffer
 from cifutils.utils.non_rcsb import (
     get_identity_assembly_gen_category,
     get_identity_op_expr_category,
-    infer_chain_info_from_atom_array,
+    initialize_chain_info_from_atom_array,
 )
 
 logger = logging.getLogger("cifutils")
@@ -48,7 +48,6 @@ def parse(
     cache_dir: os.PathLike | None = None,
     save_to_cache: bool = False,
     load_from_cache: bool = False,
-    assume_residues_all_resolved: bool = False,
     add_missing_atoms: bool = True,
     add_id_and_entity_annotations: bool = True,
     add_bond_types_from_struct_conn: list[str] = ["covale"],
@@ -86,9 +85,6 @@ def parse(
         *** CIF parsing arguments ***
         ccd_mirror_path (str, optional): Path to the local mirror of the Chemical Component Dictionary (recommended).
             If not provided, Biotite's built-in CCD will be used.
-        assume_residues_all_resolved (bool): Whether we can assume when parsing
-            that all residues are represented, and all atoms are present. Required
-            for distillation examples that do not have all RCSB fields. Defaults to False.
         add_missing_atoms (bool, optional): Whether to add missing atoms to the
             structure (from entirely or partially unresolved residues). Defaults to True.
         add_id_and_entity_annotations (bool, optional): Whether to add identifier and entity
@@ -189,7 +185,6 @@ def parse(
         result = _parse_from_pdb(
             filename=filename,
             ccd_mirror_path=ccd_mirror_path,
-            assume_residues_all_resolved=assume_residues_all_resolved,
             add_missing_atoms=add_missing_atoms,
             add_id_and_entity_annotations=add_id_and_entity_annotations,
             add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
@@ -207,7 +202,6 @@ def parse(
         result = _parse_from_cif(
             filename=filename,
             ccd_mirror_path=ccd_mirror_path,
-            assume_residues_all_resolved=assume_residues_all_resolved,
             add_missing_atoms=add_missing_atoms,
             add_id_and_entity_annotations=add_id_and_entity_annotations,
             add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
@@ -259,7 +253,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         fallback_filename = Path(filename).stem
     data_dict["metadata"] = get_metadata_from_category(cif_file.block, fallback_id=fallback_filename)
 
-    # ...load structure into the "asym_unit" key using the RCSB labels for sequence ids, and later update for non-polymers
+    # ... load structure into the "asym_unit" key using the RCSB labels for sequence ids, and later update for non-polymers
     common_extra_fields = [
         "label_entity_id",
         "auth_seq_id",  # for non-polymer residue indexing
@@ -273,7 +267,6 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         asym_unit_stack = get_structure(
             cif_file,
             extra_fields=common_extra_fields,
-            assume_residues_all_resolved=kwargs["assume_residues_all_resolved"],
             model=kwargs["model"],
         )
     except InvalidFileError:
@@ -282,27 +275,22 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         asym_unit_stack = get_structure(
             cif_file,
             extra_fields=common_extra_fields,
-            assume_residues_all_resolved=kwargs["assume_residues_all_resolved"],
             model=1,
         )
 
-    # ...ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
+    # ... if occupancy is not an annotation, add it, defaulting to 1.0
+    if "occupancy" not in asym_unit_stack.get_annotation_categories():
+        asym_unit_stack.set_annotation("occupancy", np.ones(asym_unit_stack.array_length()))
+
+    # ... ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
     if not isinstance(asym_unit_stack, AtomArrayStack):
         asym_unit_stack = struc.stack([asym_unit_stack])
-
-    # ...load chain information from the first model (uses atom_array to build chain list)
-    if "entity" and "entity_poly" in cif_file.block:
-        # We can get the chain information directly from the CIF file
-        data_dict["chain_info"] = get_chain_info_from_category(cif_file.block, asym_unit_stack[0])
-    else:
-        # We must infer the chain information from the AtomArray residue names (not bulletproof)
-        data_dict["chain_info"] = infer_chain_info_from_atom_array(asym_unit_stack[0])
 
     if kwargs["remove_hydrogens"]:
         # (Most examples, except NMR studies and small molecules, will not have any hydrogens)
         asym_unit_stack = ta.remove_hydrogens(asym_unit_stack)
 
-    # ...remove any explicitly excluded residues (e.g., crystallization solvents, waters)
+    # ... remove any explicitly excluded residues (e.g., crystallization solvents, waters)
     if remove_ccds or kwargs["remove_waters"]:
         # NOTE: If the excluded residues are part of a polymer chain, or part of a
         #  multi-chain ligand, this may create sequence gaps!
@@ -313,13 +301,21 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
 
         asym_unit_stack = ta.remove_ccd_components(asym_unit_stack, remove_ccds)
 
-    # ...replace non-polymeric chain sequence ids with author sequence ids (since the non-polymer sequence ID's are not informative)
-    asym_unit_stack = ta.update_nonpoly_seq_ids(asym_unit_stack, data_dict["chain_info"])
+    # ... initialize chain information from the first model (uses atom_array to build chain list)
+    if "entity" and "entity_poly" in cif_file.block:
+        # We can get the chain entity-level information directly from the CIF file
+        data_dict["chain_info"] = initialize_chain_info_from_category(cif_file.block, asym_unit_stack[0])
+    else:
+        # Infer the chain information from the AtomArray residue names (useful for inference; should not be used for RCSB files)
+        data_dict["chain_info"] = initialize_chain_info_from_atom_array(
+            asym_unit_stack[0], infer_chain_type=True, infer_chain_sequences=True
+        )
 
-    # ...load monomer sequence information into chain_info_dict
-    # NOTE: We MAY NOT delete polymer atoms from the AtomArray after this step, as the sequences won't be updated
-    if not kwargs["assume_residues_all_resolved"]:
-        # Use the `entity_poly_seq` category as ground-truth for polymers, and the AtomArray as ground-truth for non-polymers
+    if "entity_poly_seq" in cif_file.block:
+        # ... replace non-polymeric chain sequence ids with author sequence ids (since the non-polymer sequence ID's are not informative)
+        asym_unit_stack = ta.update_nonpoly_seq_ids(asym_unit_stack, data_dict["chain_info"])
+
+        # Use the `entity_poly_seq` category as ground-truth sequence for polymers, and the AtomArray as ground-truth for non-polymers
         data_dict["chain_info"] = load_monomer_sequence_information_from_category(
             cif_block=cif_file.block,
             chain_info_dict=data_dict["chain_info"],
@@ -473,15 +469,6 @@ def _parse_from_pdb(filename: os.PathLike, **parse_from_cif_kwargs) -> dict[str,
             assert np.all(updated_chain_hetero_annotations) or np.all(~updated_chain_hetero_annotations)
 
     cif_buffer = to_cif_buffer(atom_array_stack, id=Path(filename).stem)
-
-    if (
-        "assume_residues_all_resolved" in parse_from_cif_kwargs
-        and not parse_from_cif_kwargs["assume_residues_all_resolved"]
-    ):
-        logger.warning(
-            "PDB file detected; assuming all residues are resolved. We highly recommend using CIF files instead."
-        )
-    parse_from_cif_kwargs["assume_residues_all_resolved"] = True
 
     # ...parse the CIF block into a dictionary
     parse_from_cif_kwargs["file_type"] = "pdb"

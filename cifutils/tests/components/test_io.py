@@ -33,16 +33,15 @@ def test_load_any(pdb_id, file_type, directory):
 
 
 @pytest.mark.parametrize(
-    "extra_fields, assume_residues_all_resolved, include_bonds, model",
+    "extra_fields, include_bonds, model",
     [
-        ([], False, True, None),
-        (["b_factor", "occupancy"], False, True, None),
-        ([], True, True, None),
-        ([], False, False, None),
-        ([], False, True, 1),
+        ([], True, None),
+        (["b_factor", "occupancy"], True, None),
+        ([], False, None),
+        ([], True, 1),
     ],
 )
-def test_get_structure_configurations(extra_fields, assume_residues_all_resolved, include_bonds, model):
+def test_get_structure_configurations(extra_fields, include_bonds, model):
     # Fetch 6lyz.cif as a buffer
     cif_buffer = rcsb.fetch("6lyz", "cif")
 
@@ -53,7 +52,6 @@ def test_get_structure_configurations(extra_fields, assume_residues_all_resolved
     structure = get_structure(
         cif_file,
         extra_fields=extra_fields,
-        assume_residues_all_resolved=assume_residues_all_resolved,
         include_bonds=include_bonds,
         model=model,
     )
@@ -70,10 +68,6 @@ def test_get_structure_configurations(extra_fields, assume_residues_all_resolved
         assert structure.bonds is not None
     else:
         assert structure.bonds is None
-
-    # Check if all occupancies are 1.0 when assume_residues_all_resolved is True
-    if assume_residues_all_resolved:
-        assert np.all(structure.occupancy == 1.0)
 
     # Check if the correct model is returned when specified
     if model is not None:
@@ -101,7 +95,6 @@ def test_to_cif_string():
     cif_structure2 = load_any(
         io.StringIO(cif_string),
         file_type="cif",
-        assume_residues_all_resolved=False,
         extra_fields=["b_factor", "occupancy", "charge"],
     )
     assert np.allclose(cif_structure.coord, cif_structure2.coord)
@@ -197,10 +190,7 @@ def test_parse_with_no_resolved_atoms(tmpdir):
     to_cif_file(atom_array, cif_path)
 
     # ... parse the atom array
-    out = parse(
-        cif_path,
-        assume_residues_all_resolved=True,
-    )
+    out = parse(cif_path)
 
     # Smoke test
     assert out is not None

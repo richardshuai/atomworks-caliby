@@ -294,11 +294,13 @@ def test_full_components_input(dict_inputs):
     assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E", "F", "G"}
     assert set(np.unique(atom_array.chain_type)) == {ChainType.POLYPEPTIDE_L, ChainType.NON_POLYMER}
 
+    # Assert full occupancy
+    assert np.all(atom_array.occupancy == 1.0)
+
 
 def test_recover_bonds_from_cif(dict_inputs):
     data = parse(
         "tests/data/test_unl_ligand_with_bonds.cif",
-        assume_residues_all_resolved=True,
         fix_ligands_at_symmetry_centers=False,
     )
     atom_array = data["asym_unit"][0]
