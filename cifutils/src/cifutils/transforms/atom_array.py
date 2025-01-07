@@ -67,29 +67,30 @@ def resolve_arginine_naming_ambiguity(atom_array: AtomArray) -> AtomArray:
     """
     # TODO: Generalize to AtomArrayStack
     arg_mask = atom_array.res_name == "ARG"
-
     arg_nh1_mask = (atom_array.atom_name == "NH1") & arg_mask
     arg_nh2_mask = (atom_array.atom_name == "NH2") & arg_mask
     arg_cd_mask = (atom_array.atom_name == "CD") & arg_mask
 
     cd_nh1_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh1_mask], axis=-1)
     cd_nh2_dist = np.linalg.norm(atom_array.coord[arg_cd_mask] - atom_array.coord[arg_nh2_mask], axis=-1)
+    both_finite = np.isfinite(cd_nh1_dist) & np.isfinite(cd_nh2_dist)
 
     # Check if there are any name swamps required
-    _to_swap = cd_nh1_dist > cd_nh2_dist  # local mask
+    local_to_swap = (cd_nh1_dist > cd_nh2_dist) & both_finite  # local mask
     # turn local mask into global mask
     to_swap = np.zeros(atom_array.array_length(), dtype=bool)
-    to_swap[arg_nh1_mask] = _to_swap
-    to_swap[arg_nh2_mask] = _to_swap
+    to_swap[arg_nh1_mask] = local_to_swap
+    to_swap[arg_nh2_mask] = local_to_swap
 
     # Swap NH1 and NH2 names if NH1 is further from CD than NH2
     if np.any(to_swap):
-        logger.debug(f"Resolving {np.sum(_to_swap)} arginine naming ambiguities.")
-        atom_array.atom_name[arg_nh1_mask & to_swap] = "NH2"
-        atom_array.atom_name[arg_nh2_mask & to_swap] = "NH1"
+        logger.debug(f"Resolving {np.sum(local_to_swap)} arginine naming ambiguities.")
+        prev_nh1_coord = atom_array.coord[arg_nh1_mask & to_swap]
+        prev_nh2_coord = atom_array.coord[arg_nh2_mask & to_swap]
 
-        # apply reorder to ensure standardized order
-        atom_array[arg_mask] = atom_array[arg_mask][struc.info.standardize_order(atom_array[arg_mask])]
+        atom_array.coord[arg_nh1_mask & to_swap] = prev_nh2_coord
+        atom_array.coord[arg_nh2_mask & to_swap] = prev_nh1_coord
+
     return atom_array
 
 

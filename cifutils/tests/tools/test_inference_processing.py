@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
+from conftest import get_pdb_path
 
 from cifutils import parse
 from cifutils.enums import ChainType
@@ -17,6 +18,7 @@ from cifutils.tools.inference import (
     one_letter_to_ccd_code,
     read_chai_fasta,
 )
+from cifutils.utils.testing import assert_same_atom_array
 
 
 @pytest.fixture
@@ -308,3 +310,48 @@ def test_recover_bonds_from_cif(dict_inputs):
     assert all(atom_array.res_name == "UNL")
     assert len(atom_array) == 28
     assert atom_array.bonds.as_array().shape[0] == 32
+
+
+def test_same_atom_array_from_cif_and_inference():
+    """Tests if the bonds inferred from the components are the same as the bonds in the CIF file."""
+    chain_id = "A"
+    transformation_id = "1"
+
+    data = parse(get_pdb_path("3en2"), remove_hydrogens=True)
+    atom_array = data["assemblies"][transformation_id][0]
+
+    # ... extract the sequence and build inference input
+    monomer = [
+        {
+            "seq": data["chain_info"][chain_id]["unprocessed_entity_non_canonical_sequence"],
+            "chain_type": data["chain_info"][chain_id]["chain_type"],
+            "chain_id": chain_id,
+            "is_polymer": data["chain_info"][chain_id]["is_polymer"],
+        }
+    ]
+
+    chain_atom_array_from_inference = components_to_atom_array(monomer)
+    chain_atom_array_from_cif = atom_array[
+        (atom_array.chain_id == chain_id) & (atom_array.transformation_id == transformation_id)
+    ]
+
+    # Inference should have full occupancy and null b_factor
+    assert np.all(chain_atom_array_from_inference.occupancy == 1.0)
+    assert np.all(np.isnan(chain_atom_array_from_inference.b_factor))
+
+    # Assert same atom array
+    annotations_to_compare = list(
+        set(chain_atom_array_from_cif.get_annotation_categories()) - {"occupancy", "b_factor"}
+    )
+
+    assert_same_atom_array(
+        chain_atom_array_from_inference,
+        chain_atom_array_from_cif,
+        compare_coords=False,
+        compare_bonds=True,
+        annotations_to_compare=annotations_to_compare,
+    )
+
+
+if __name__ == "__main__":
+    test_same_atom_array_from_cif_and_inference()

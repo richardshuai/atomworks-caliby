@@ -299,6 +299,9 @@ def sequence_to_annotated_atom_array(
         ccd_mirror_path=ccd_mirror_path,
     )
 
+    # ... add the atomic number annotation (vs. element, which is a string)
+    atom_array = ta.add_atomic_number_annotation(atom_array)
+
     # Compute bonds and leaving groups
     n_atoms = atom_array.array_length()
     polymer_bonds, polymer_bonds_leaving_atoms = get_inferred_polymer_bonds(atom_array)
@@ -310,9 +313,9 @@ def sequence_to_annotated_atom_array(
 
     # ... remove index annotation and leaving group annotations
     _annotations_to_remove = (
-        "is_backbone_atom",
         "is_n_terminal_atom",
         "is_c_terminal_atom",
+        "is_leaving_atom",
     )
     for annotation in _annotations_to_remove:
         atom_array.del_annotation(annotation)
@@ -321,6 +324,7 @@ def sequence_to_annotated_atom_array(
     atom_array.set_annotation("occupancy", np.ones(atom_array.array_length()))
     atom_array.set_annotation("is_polymer", np.full(atom_array.array_length(), is_polymer))
     atom_array.set_annotation("chain_type", np.full(atom_array.array_length(), chain_type))
+    atom_array.set_annotation("b_factor", np.full(atom_array.array_length(), np.nan))
 
     return atom_array
 
@@ -414,9 +418,12 @@ def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
     atom_array = ta.add_id_and_entity_annotations(atom_array)
 
     # ... annotate iids (assumes we are only given the asym)
-    atom_array.set_annotation("chain_iid", atom_array.chain_id)
-    atom_array.set_annotation("pn_unit_iid", atom_array.pn_unit_id)
+    atom_array.set_annotation("chain_iid", np.char.add(atom_array.chain_id, "_1"))
+    atom_array.set_annotation("pn_unit_iid", np.char.add(atom_array.pn_unit_id, "_1"))
     atom_array.set_annotation("molecule_iid", atom_array.molecule_id)
+
+    # ... set transformation ID to string "1"
+    atom_array.set_annotation("transformation_id", np.full(atom_array.array_length(), "1"))
 
     return atom_array
 
