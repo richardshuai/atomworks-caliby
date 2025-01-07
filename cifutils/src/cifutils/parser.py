@@ -307,7 +307,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         asym_unit_stack = ta.remove_ccd_components(asym_unit_stack, remove_ccds)
 
     # ... initialize chain information from the first model (uses atom_array to build chain list)
-    if "entity" and "entity_poly" in cif_file.block:
+    if "entity" in cif_file.block and "entity_poly" in cif_file.block:
         # We can get the chain entity-level information directly from the CIF file
         data_dict["chain_info"] = initialize_chain_info_from_category(cif_file.block, asym_unit_stack[0])
     else:
