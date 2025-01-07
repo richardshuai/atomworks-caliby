@@ -3,7 +3,7 @@
 import pytest
 import torch
 from cifutils.tools.inference import components_to_atom_array, read_chai_fasta
-from cifutils.utils.non_rcsb import infer_chain_info_from_atom_array
+from cifutils.utils.non_rcsb import initialize_chain_info_from_atom_array
 
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
@@ -20,7 +20,7 @@ def test_af3_pipeline_from_chai_fasta():
     fasta_path = TEST_DATA_DIR / "inference_like_chai_fasta.fasta"
     inference_input_components = read_chai_fasta(fasta_path)
     atom_array = components_to_atom_array(inference_input_components)
-    chain_info = infer_chain_info_from_atom_array(atom_array)
+    chain_info = initialize_chain_info_from_atom_array(atom_array)
 
     assert atom_array is not None, "Failed to load atom array from FASTA file"
 
@@ -54,7 +54,7 @@ def test_rf2aa_pipeline_from_chai_fasta():
     fasta_path = TEST_DATA_DIR / "inference_like_chai_fasta.fasta"
     inference_input_components = read_chai_fasta(fasta_path)
     atom_array = components_to_atom_array(inference_input_components)
-    chain_info = infer_chain_info_from_atom_array(atom_array)
+    chain_info = initialize_chain_info_from_atom_array(atom_array)
 
     # Build and run rf2aa inference pipeline
     pipeline = build_rf2aa_transform_pipeline(

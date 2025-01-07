@@ -13,6 +13,7 @@ dependencies:
   - pip:
     # Project related dependencies
     # ... generic tools
+    - GitPython>=3.0.0,<4  # Git library for Python
     - cython>=3.0.0,<4  # Cython compiler for C extensions
     - cytoolz>=0.12.3,<1  # Cython-optimized tools for itertools and functional programming
     - assertpy>=1.1.0,<2  # Assertions library
@@ -37,7 +38,7 @@ dependencies:
     - fair-esm
 
     # Local packages
-    - git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/baker-laboratory/cifutils.git@v2.1.0
+    - git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/baker-laboratory/cifutils.git@v2.3.0
 
     # Formatting & linting
     - ruff==0.8.3 # python linter & formatter

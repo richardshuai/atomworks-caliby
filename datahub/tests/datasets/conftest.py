@@ -154,7 +154,7 @@ AF3_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
         columns_to_load=["example_id", "sequence_hash"],
     ),
     dataset_parser=AF2FB_DistillationParser(),
-    cif_parser_args={"assume_residues_all_resolved": True},
+    cif_parser_args={},
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=[{"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}],
         rna_msa_dirs=[],
@@ -172,7 +172,7 @@ RF2AA_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
         columns_to_load=["example_id", "sequence_hash"],
     ),
     dataset_parser=AF2FB_DistillationParser(),
-    cif_parser_args={"assume_residues_all_resolved": True},
+    cif_parser_args={},
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=[{"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}],
         rna_msa_dirs=[],

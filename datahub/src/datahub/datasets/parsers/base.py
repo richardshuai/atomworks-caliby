@@ -8,7 +8,6 @@ from cifutils.constants import CRYSTALLIZATION_AIDS
 
 """Default arguments for CIFUtils."""
 DEFAULT_CIF_PARSER_ARGS = {
-    "assume_residues_all_resolved": False,  # Unless using computationally predicted files
     "add_missing_atoms": True,
     "add_id_and_entity_annotations": True,
     "add_bond_types_from_struct_conn": ["covale"],

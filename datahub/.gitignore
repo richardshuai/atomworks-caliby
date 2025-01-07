@@ -178,6 +178,7 @@ ruff.toml
 
 # Development
 dev.py
+version.py
 */notebooks/
 
 # Pytest

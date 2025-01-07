@@ -66,7 +66,6 @@ class DataPreprocessor:
         self.path = path  # for logging
         return parse(
             filename=path,
-            assume_residues_all_resolved=(not self.from_rcsb),
             build_assembly=self.build_assembly,
             add_missing_atoms=self.add_missing_atoms,
             remove_waters=self.remove_waters,

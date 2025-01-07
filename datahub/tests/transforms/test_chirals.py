@@ -202,7 +202,7 @@ TEST_CASES_WITH_COVALENT_MODIFICATION = [
         "expected_chiral_count": 50,
         # 3 * 50 = 150 plane-pairs to compare (since all chirals here are with an implicit hydrogen there's 3 plane-pairs per chiral center)
         "expected_chiral_feats_shape": (150, 5),
-        "spotcheck_openbabel_molecule": {"atom_id": 940, "pn_unit_iid": "B_1"},
+        "spotcheck_openbabel_molecule": {"atom_id": 996, "pn_unit_iid": "B_1"},
     },
 ]
 
