@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from cifutils.template import get_empty_ccd_template
-from cifutils.utils.bonds import fix_formal_charges, get_inferred_polymer_bonds
+from cifutils.utils.bonds import correct_formal_charges_for_specified_atoms, get_inferred_polymer_bonds
 from cifutils.utils.ccd import get_chem_comp_leaving_atom_names
 
 LEAVING_GROUP_TEST_CASES = {
@@ -23,7 +23,7 @@ def test_fix_formal_charge_of_deprotonated_alanine():
 
     ala_oxt_deprotonated = ala[ala.atom_name != "HXT"]
     assert (
-        fix_formal_charges(ala_oxt_deprotonated, np.ones(len(ala) - 1, dtype=bool))[
+        correct_formal_charges_for_specified_atoms(ala_oxt_deprotonated, np.ones(len(ala) - 1, dtype=bool))[
             ala_oxt_deprotonated.atom_name == "OXT"
         ].charge
         == -1
@@ -59,5 +59,5 @@ def test_infer_polymer_bonds():
     assert len(atom_array[atom_array.atom_name == "H2"]) == 1
 
     # ... fix formal charges
-    atom_array = fix_formal_charges(atom_array, np.ones(len(atom_array), dtype=bool))
+    atom_array = correct_formal_charges_for_specified_atoms(atom_array, np.ones(len(atom_array), dtype=bool))
     assert np.array_equal(atom_array.charge, np.zeros(len(atom_array)))

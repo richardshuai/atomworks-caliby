@@ -669,7 +669,7 @@ def _get_bond_degree_per_atom(atom_array: struc.AtomArray) -> np.ndarray:
     return degree
 
 
-def fix_formal_charges(atom_array: struc.AtomArray, to_update: np.ndarray) -> struc.AtomArray:
+def correct_formal_charges_for_specified_atoms(atom_array: struc.AtomArray, to_update: np.ndarray) -> struc.AtomArray:
     """
     Fix formal charges for atoms in an AtomArray after forming bonds between CCD components.
 

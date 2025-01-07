@@ -55,6 +55,7 @@ def parse(
     remove_waters: bool = True,
     fix_ligands_at_symmetry_centers: bool = True,
     fix_arginines: bool = True,
+    fix_formal_charges: bool = True,
     convert_mse_to_met: bool = False,
     remove_hydrogens: bool = False,
     model: int | None = None,
@@ -101,6 +102,8 @@ def parse(
             at symmetry centers that clash with themselves when transformed. Defaults to True.
         fix_arginines (bool, optional): Whether to fix arginine naming ambiguity, see the
             AF-3 supplement for details. Defaults to True.
+        fix_formal_charges (bool, optional): Whether to fix formal charges on atoms involved in inter-residue bonds.
+            Defaults to True.
         convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE)
             residues to methionine (MET) residues. Defaults to False.
         remove_hydrogens (bool, optional): Whether to remove hydrogens from the structure
@@ -192,6 +195,7 @@ def parse(
             remove_waters=remove_waters,
             fix_ligands_at_symmetry_centers=fix_ligands_at_symmetry_centers,
             fix_arginines=fix_arginines,
+            fix_formal_charges=fix_formal_charges,
             convert_mse_to_met=convert_mse_to_met,
             remove_hydrogens=remove_hydrogens,
             model=model,
@@ -209,6 +213,7 @@ def parse(
             remove_waters=remove_waters,
             fix_ligands_at_symmetry_centers=fix_ligands_at_symmetry_centers,
             fix_arginines=fix_arginines,
+            fix_formal_charges=fix_formal_charges,
             convert_mse_to_met=convert_mse_to_met,
             remove_hydrogens=remove_hydrogens,
             model=model,
@@ -347,6 +352,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
                 add_bond_types_from_struct_conn=kwargs["add_bond_types_from_struct_conn"],
                 remove_hydrogens=kwargs["remove_hydrogens"],
                 use_ccd_charges=True,
+                fix_formal_charges=kwargs["fix_formal_charges"],
             )
 
         # ...resolve arginine naming ambiguity

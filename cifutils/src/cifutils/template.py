@@ -9,7 +9,11 @@ from biotite.structure import AtomArray, BondList
 import cifutils.transforms.atom_array as ta
 from cifutils.common import exists
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
-from cifutils.utils.bonds import fix_formal_charges, get_inferred_polymer_bonds, get_struct_conn_bonds
+from cifutils.utils.bonds import (
+    correct_formal_charges_for_specified_atoms,
+    get_inferred_polymer_bonds,
+    get_struct_conn_bonds,
+)
 from cifutils.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_available
 from cifutils.utils.selection import get_annotation
 
@@ -277,6 +281,7 @@ def add_missing_atoms(
     add_bond_types_from_struct_conn: list[str] = ["covale"],
     remove_hydrogens: bool = True,
     use_ccd_charges: bool = True,
+    fix_formal_charges: bool = True,
 ) -> AtomArray:
     """
     Adds missing atoms to an AtomArray by matching residues to CCD templates and handling inter-residue bonds.
@@ -289,14 +294,15 @@ def add_missing_atoms(
     5. Fixes formal charges on atoms involved in inter-residue bonds
 
     Args:
-        - atom_array (AtomArray): Input structure containing atoms to be completed.
-        - chain_info_dict (dict): Dictionary mapping chain IDs to dicts containing 'res_id', 'res_name', 'is_polymer', and
+        atom_array (AtomArray): Input structure containing atoms to be completed.
+        chain_info_dict (dict): Dictionary mapping chain IDs to dicts containing 'res_id', 'res_name', 'is_polymer', and
             'chain_type' info.
-        - struct_conn_dict (dict, optional): Dictionary containing structural connectivity information. Defaults to {}.
-        - add_bond_types_from_struct_conn (list[str], optional): Types of bonds to add from struct_conn. Defaults to
+        struct_conn_dict (dict, optional): Dictionary containing structural connectivity information. Defaults to {}.
+        add_bond_types_from_struct_conn (list[str], optional): Types of bonds to add from struct_conn. Defaults to
             ["covale"].
-        - remove_hydrogens (bool, optional): Whether to remove hydrogen atoms from templates. Defaults to True.
-        - use_ccd_charges (bool, optional): Whether to use charges from CCD or input structure. Defaults to True.
+        remove_hydrogens (bool, optional): Whether to remove hydrogen atoms from templates. Defaults to True.
+        use_ccd_charges (bool, optional): Whether to use charges from CCD or input structure. Defaults to True.
+        fix_formal_charges (bool, optional): Whether to fix formal charges on atoms involved in inter-residue bonds.
 
     Returns:
         AtomArray: Completed structure with missing atoms added and proper bonding.
@@ -345,7 +351,8 @@ def add_missing_atoms(
     makes_inter_bond = makes_inter_bond[~is_leaving]
 
     # ... fix charges of newly bonded atoms, where needed
-    atoms = fix_formal_charges(atoms, to_update=makes_inter_bond)
+    if fix_formal_charges:
+        atoms = correct_formal_charges_for_specified_atoms(atoms, to_update=makes_inter_bond)
 
     # ... remove hydrogens
     if remove_hydrogens:

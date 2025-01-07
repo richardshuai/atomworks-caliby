@@ -25,7 +25,7 @@ from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.template import build_template_atom_array
 from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
 from cifutils.utils.bonds import (
-    fix_formal_charges,
+    correct_formal_charges_for_specified_atoms,
     get_inferred_polymer_bonds,
     get_struct_conn_bonds,
     spoof_struct_conn_dict_from_string,
@@ -501,7 +501,7 @@ def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: 
         makes_inter_bond = makes_inter_bond[~is_leaving]
 
         # ... fix charges of newly bonded atoms, where needed
-        atom_array = fix_formal_charges(atom_array, to_update=makes_inter_bond)
+        atom_array = correct_formal_charges_for_specified_atoms(atom_array, to_update=makes_inter_bond)
 
     # ... remove hydrogens
     atom_array = ta.remove_hydrogens(atom_array)
