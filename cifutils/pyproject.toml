@@ -143,3 +143,24 @@ testpaths = "tests"  # Only run tests in the tests directory (speeds up collecti
 norecursedirs = "docs *.egg-info .git .tox htmlcov"
 conftest = "tests/conftest.py"
 addopts = "--import-mode=importlib"
+
+[tool.coverage.run]
+parallel = true
+source = ["src/cifutils"]
+omit = [
+    "src/cifutils/version.py",
+    "tests/*",
+    "*/__init__.py",
+    "setup.py",
+    "*/version.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]

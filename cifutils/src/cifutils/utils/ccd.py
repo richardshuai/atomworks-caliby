@@ -247,7 +247,7 @@ def parse_ccd_cif(
     return atoms
 
 
-@immutable_lru_cache(maxsize=20000)
+@immutable_lru_cache(maxsize=20000, deepcopy=True)
 def get_ccd_component_from_mirror(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, **parse_ccd_cif_kwargs
 ) -> struc.AtomArray:
@@ -275,6 +275,7 @@ def get_ccd_component_from_mirror(
     return atom_array
 
 
+@immutable_lru_cache(maxsize=200, deepcopy=True)
 def atom_array_from_ccd_code(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, **parse_ccd_cif_kwargs
 ) -> struc.AtomArray:
@@ -327,7 +328,7 @@ def _find_connected_components_after_removal(graph: nx.Graph, node_to_remove: in
     return components
 
 
-@immutable_lru_cache(maxsize=2000)
+@cache
 def get_chem_comp_leaving_atom_names(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, mode: Literal["warn", "raise"] = "warn"
 ) -> dict[str, tuple[str, ...]]:

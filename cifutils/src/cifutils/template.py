@@ -7,7 +7,7 @@ import numpy as np
 from biotite.structure import AtomArray, BondList
 
 import cifutils.transforms.atom_array as ta
-from cifutils.common import exists
+from cifutils.common import exists, immutable_lru_cache
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
 from cifutils.utils.bonds import (
     correct_formal_charges_for_specified_atoms,
@@ -27,6 +27,7 @@ purpose of adding missing atoms.
 """
 
 
+@immutable_lru_cache(maxsize=200)
 def get_empty_ccd_template(
     ccd_code: str,
     *,
@@ -68,7 +69,8 @@ def get_empty_ccd_template(
 def match_residue_to_template(
     template: AtomArray,
     real: AtomArray,
-    use_ccd_charges: bool,
+    res_mask: np.ndarray | None = None,
+    use_ccd_charges: bool = False,
 ) -> AtomArray:
     """
     Matches atoms from a real structure to a template structure, copying over coordinates and annotations while preserving
@@ -81,6 +83,8 @@ def match_residue_to_template(
     Args:
         - template (AtomArray): Template structure containing the reference topology and complete set of atoms.
         - real (AtomArray): Real structure containing the atoms to be matched to the template.
+        - res_mask (np.ndarray, optional): A mask of atoms in the real structure to match to the template. Defaults to
+            None, which matches all atoms in the real structure.
         - use_ccd_charges (bool): Whether to keep template charges (True) or copy charges from real structure (False).
 
     Returns:
@@ -94,19 +98,26 @@ def match_residue_to_template(
         - If multiple template atoms match a real atom, only first match is used (with warning)
         - Records whether alternative atom IDs were used for matching in 'uses_alt_atom_id' annotation
     """
+    if res_mask is None:
+        res_mask = np.ones(real.array_length(), dtype=bool)
+
+    # Get global indices of relevant entries from real for faster indexing
+    gidx = np.where(res_mask)[0]
+
     # ... get information about the residue
-    ccd_code = real.res_name[0]
+    ccd_code = real.res_name[gidx[0]]
     annotations = set(real.get_annotation_categories())
 
     # ... fail if there are multiple atoms with the same name in the `real` array
-    if len(np.unique(real.atom_name)) != len(real):
+    atom_names = real.atom_name[gidx]
+    if len(np.unique(atom_names)) != len(gidx):
         raise ValueError(f"CCD {ccd_code}: Multiple atoms with the same name in \n{real}")
 
     # ... determine whether to use the standard or alternative atom naming
     match_by = "atom_name"
-    if "alt_atom_id" in template.get_annotation_categories():
-        n_matches_std = np.sum(np.isin(real.atom_name, template.atom_name))
-        n_matches_alt = np.sum(np.isin(real.atom_name, template.alt_atom_id))
+    n_matches_std = np.sum(np.isin(atom_names, template.atom_name, assume_unique=True))
+    if ("alt_atom_id" in template.get_annotation_categories()) and n_matches_std < len(gidx):
+        n_matches_alt = np.sum(np.isin(atom_names, template.alt_atom_id, assume_unique=True))
         match_alt = n_matches_alt > n_matches_std
         match_by = "alt_atom_id" if match_alt else "atom_name"
         if match_alt:
@@ -114,35 +125,26 @@ def match_residue_to_template(
     # ... and record what we used to match
     template.set_annotation("uses_alt_atom_id", [(match_by == "alt_atom_id")] * len(template))
 
-    # ... match the atoms that exist in the chemical component
-    for atom in real:
-        # match_by: 'atom_name' or 'alt_atom_id'
-        match = np.where(template.get_annotation(match_by) == atom.atom_name)[0]
+    # ... compute matching indices
+    _, template_idxs, local_match_idxs = np.intersect1d(
+        template.get_annotation(match_by), atom_names, assume_unique=True, return_indices=True
+    )
 
-        if len(match) == 0:
-            # ... drop atoms that are not in the template (!This should not happen, except for UNK/X/DX!)
-            logger.warning(f"{ccd_code}: Atom {atom} not found in template {template}. Will be dropped.")
-            continue
-        elif len(match) > 1:
-            # ... drop atoms that are duplicated in the template (!This should not happen!)
-            logger.warning(
-                f"{ccd_code}: Atom {atom} found multiple times in template {template}. Only first will be matched."
-            )
-            continue
-
-        # ... copy over the annotations
-        template.coord[match] = atom.coord
-        template.occupancy[match] = atom._annot.get("occupancy", 1.0)
-        template.ins_code[match] = atom._annot.get("ins_code", template.ins_code[match])
-        if "b_factor" in annotations:
-            template.b_factor[match] = atom._annot.get("b_factor", np.nan)
-        if not use_ccd_charges:
-            template.charge[match] = atom._annot.get("charge", template.charge[match])
+    # ... fill the annotations
+    match_idxs = gidx[local_match_idxs]  # global indices of real atoms that matched
+    template.coord[template_idxs] = real.coord[match_idxs]
+    template.occupancy[template_idxs] = real.occupancy[match_idxs] if "occupancy" in annotations else 1.0
+    if "ins_code" in annotations:
+        template.ins_code[template_idxs] = real.ins_code[match_idxs]
+    if "b_factor" in annotations:
+        template.b_factor[template_idxs] = real.b_factor[match_idxs]
+    if not use_ccd_charges:
+        template.charge[template_idxs] = real.charge[match_idxs]
 
     # ... copy over general residue annotations
-    template.chain_id = [atom.chain_id] * len(template)
-    template.res_id = [atom.res_id] * len(template)
-    template.ins_code = [atom.ins_code] * len(template)
+    template.chain_id = [real.chain_id[gidx[0]]] * len(template)
+    template.res_id = [real.res_id[gidx[0]]] * len(template)
+    template.ins_code = [real.ins_code[gidx[0]]] * len(template)
 
     # ... return matched array
     return template
@@ -213,9 +215,7 @@ def build_template_atom_array(
 
         assert len(chain_res_ids) == len(chain_res_names), "Lenght mismatch between chain_res_ids, chain_res_names!"
 
-        for res_id, (res_id_original, ccd_code) in enumerate(
-            zip(chain_res_ids, chain_res_names, strict=False), start=1
-        ):
+        for res_id, (res_id_original, ccd_code) in enumerate(zip(chain_res_ids, chain_res_names, strict=True), start=1):
             res_id_original = int(res_id_original)
             # ... and corresponding mask
             res_mask = (chain_ids == chain_id) & (res_names == ccd_code) & (res_ids == res_id_original)
@@ -253,18 +253,21 @@ def build_template_atom_array(
                 remove_hydrogens=remove_hydrogens,
                 # ... add required residue-wise annotations
                 chain_id=chain_id,
-                res_id=res_id_original if chain_is_polymer else res_id,
                 occupancy=0.0,
                 # ... add custom residue-wise annotations if they exist
                 is_polymer=chain_is_polymer,
                 b_factor=np.nan if "b_factor" in annotations else None,
                 chain_type=chain_type,
             )
+            # ... to make caching efficient, add the res_id annotation separately,
+            #     since this will differ between residues of the same chain
+            tmpl.res_id = np.full(len(tmpl), res_id_original if chain_is_polymer else res_id)
 
             # ... copy over the annotations & coordinates from the atom_array if the residue exists
             if res_mask.any():
-                real = atom_array[res_mask]
-                tmpl = match_residue_to_template(template=tmpl, real=real, use_ccd_charges=use_ccd_charges)
+                tmpl = match_residue_to_template(
+                    template=tmpl, real=atom_array, res_mask=res_mask, use_ccd_charges=use_ccd_charges
+                )
 
             template_residues.append(tmpl)
 
@@ -317,7 +320,9 @@ def add_missing_atoms(
         chain_info_dict=chain_info_dict,
         atom_array=atom_array,
         use_ccd_charges=use_ccd_charges,
-        remove_hydrogens=False,  # we keep hydrogens here, to allow fixing formal charges
+        remove_hydrogens=False
+        if fix_formal_charges
+        else remove_hydrogens,  # we keep hydrogens here, to allow fixing formal charges
     )
 
     # ... infer inter-residue polymer bonds

@@ -69,13 +69,14 @@ test_ipd:
 	OMP_NUM_THREADS=1 \
 	apptainer exec ./.ipd/cifutils.sif \
 	pytest --cov=cifutils \
+		--cov-config=pyproject.toml \
 		--cov-report=term-missing \
 		--cov-report=html \
 		--cov-report=xml \
 		-n=auto \
+		--dist=load \
 		--maxprocesses=24 \
 		--max-worker-restart=4 \
-		--dist=worksteal \
 		tests/
 
 ## Run pytest and generate coverage report
@@ -87,14 +88,24 @@ parallel_test:
 	OPENBLAS_NUM_THREADS=1 \
 	OMP_NUM_THREADS=1 \
 	pytest --cov=cifutils \
+		--cov-config=pyproject.toml \
 		--cov-report=term-missing \
 		--cov-report=html \
 		--cov-report=xml \
 		-n=auto \
-		--dist=worksteal \
+		--dist=load \
 		--maxprocesses=24 \
 		--max-worker-restart=4 \
 		tests/
+
+## Run parse-speed benchmark
+benchmark:
+	pytest tests/speed \
+		--benchmark-time-unit="s" \
+		--benchmark-warmup=False \
+		--benchmark-min-rounds=3 \
+		--benchmark-autosave \
+		--benchmark-compare
 
 #################################################################################
 # Self Documenting Commands                                                     #

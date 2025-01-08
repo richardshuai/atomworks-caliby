@@ -44,8 +44,11 @@ def test_regression_against_stored_result(pdb_id: str):
     regression_dir.mkdir(parents=True, exist_ok=True)
     pickle_path = regression_dir / f"{pdb_id}.pkl"
 
-    # Uncomment the following lines to create the pickle file
+    # # Uncomment the following lines to create the pickle file
     # with pickle_path.open("wb") as f:
+    #     import cifutils
+
+    #     result["cifutils_version"] = cifutils.__version__
     #     pickle.dump(result, f)
 
     with pickle_path.open("rb") as f:
@@ -92,7 +95,9 @@ def test_regression_against_stored_result(pdb_id: str):
     assert_same_atom_array(
         result["asym_unit"],
         expected_result["asym_unit"],
-        annotations_to_compare=["chain_id", "res_name", "res_id", "atom_name"],
+        annotations_to_compare=["chain_id", "res_name", "res_id", "atom_name", "charge"],
+        compare_coords=True,
+        compare_bonds=True,
     )
 
     # ... the assemblies
@@ -102,7 +107,9 @@ def test_regression_against_stored_result(pdb_id: str):
         assert_same_atom_array(
             result["assemblies"][assembly_id],
             expected_result["assemblies"][assembly_id],
-            annotations_to_compare=["chain_id", "res_name", "res_id", "atom_name"],
+            annotations_to_compare=["chain_id", "res_name", "res_id", "atom_name", "charge"],
+            compare_coords=True,
+            compare_bonds=True,
         )
 
     # ... the ligand of interest information

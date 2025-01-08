@@ -23,7 +23,6 @@ from biotite.structure import AtomArray
 from cifutils.common import to_hashable
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
-    BIOTITE_BOND_TYPE_TO_BOND_ORDER,
     CHEM_TYPE_POLYMERIZATION_ATOMS,
     DEFAULT_VALENCE,
     HYDROGEN_LIKE_SYMBOLS,
@@ -660,11 +659,19 @@ def _get_bond_degree_per_atom(atom_array: struc.AtomArray) -> np.ndarray:
     """
     Returns the total degree (= sum of bond orders) for each atom.
     """
-    degree = np.zeros(atom_array.array_length(), dtype=np.int8)
+    # Count both ends of each edge
+    edge_list = atom_array.bonds._bonds[:, :2]
+    weights = atom_array.bonds._bonds[:, -1].copy()
+    # ... remove aromaticity from the weights:
+    weights[weights == struc.BondType.AROMATIC_SINGLE] = 1
+    weights[weights == struc.BondType.AROMATIC_DOUBLE] = 2
+    weights[weights == struc.BondType.AROMATIC_TRIPLE] = 3
 
-    for atom_idx in range(atom_array.array_length()):
-        _, bond_types = atom_array.bonds.get_bonds(atom_idx)
-        degree[atom_idx] = sum(map(BIOTITE_BOND_TYPE_TO_BOND_ORDER.get, bond_types))
+    degree = np.bincount(edge_list.ravel(), weights=np.repeat(weights, 2))
+
+    # ... pad in case of unbonded atoms
+    if len(degree) <= atom_array.array_length():
+        degree = np.pad(degree, (0, atom_array.array_length() - len(degree)))
 
     return degree
 
@@ -688,15 +695,18 @@ def correct_formal_charges_for_specified_atoms(atom_array: struc.AtomArray, to_u
 
     # ... get valences (masked for elements with no default valence)
     _invalid = -10
-    default_valence = np.array([DEFAULT_VALENCE.get(elt, _invalid) for elt in atom_array.element])
+    default_valence = np.array([DEFAULT_VALENCE.get(elt, _invalid) for elt in atom_array.element[to_update]])
 
     # ... compute total number of bonds per atom
-    degree = _get_bond_degree_per_atom(atom_array)
+    degree = _get_bond_degree_per_atom(atom_array)[to_update]
 
     # ... compute formal charge
     formal_charge = degree - default_valence
 
     # ... update the relevant entries
     valid = default_valence != _invalid
-    atom_array.charge[to_update & valid] = formal_charge[to_update & valid]
+
+    # ... convert local indices to global indices
+    global_idxs = np.arange(atom_array.array_length())[to_update]
+    atom_array.charge[global_idxs[valid]] = formal_charge[valid]
     return atom_array
