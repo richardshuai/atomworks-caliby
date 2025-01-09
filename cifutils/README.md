@@ -238,7 +238,7 @@ Putting it all together, we arrive at the following combinatorial nomenclature t
 
 #### Molecules
 - `molecule_id`: 1 (numeric for memory concerns, but can be conceptualized as "A,B,C")
-- `molecule_iid`: 1 (numeric for memory concerns, but can be conceptualized as ("A_1,B_1,C_1"), 2 (e.g., "A_2,B_2,C_2")
+- `molecule_iid`: 1 (numeric for memory concerns, but can be conceptualized as "A_1,B_1,C_1"), 2 (e.g., "A_2,B_2,C_2")
 - `molecule_entity`: 1
 
 # Contributing guidelines
