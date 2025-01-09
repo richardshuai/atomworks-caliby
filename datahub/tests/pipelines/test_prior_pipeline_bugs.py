@@ -42,7 +42,6 @@ def full_pdb_dataset_af3():
             id_column="example_id",
             data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/pn_units_df_train.parquet"),
         ),
-        cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
         return_key="feats",
         save_failed_examples_to_dir=None,
     )
@@ -60,7 +59,6 @@ def full_pdb_dataset_af3():
             id_column="example_id",
             data=pd.read_parquet("/projects/ml/RF2_allatom/datasets/af3_splits/2024_09_23/interfaces_df_train.parquet"),
         ),
-        cif_parser_args={"cache_dir": "/projects/ml/RF2_allatom/cache/cif"},
         return_key="feats",
         save_failed_examples_to_dir=None,
     )
@@ -77,7 +75,7 @@ PRIOR_PIPELINE_BUGS_AF3 = [
 
 
 @pytest.mark.parametrize("example_id", PRIOR_PIPELINE_BUGS_AF3)
-@pytest.mark.very_slow
+@pytest.mark.slow
 def test_specific_examples_af3(example_id: str, full_pdb_dataset_af3: ConcatDatasetWithID):
     """Run a single example through the pipeline. Useful for debugging specific examples."""
     try:

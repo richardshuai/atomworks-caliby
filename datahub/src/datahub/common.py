@@ -13,20 +13,20 @@ def default(obj: Any, default: Any) -> Any:
 
 
 def generate_example_id(dataset_names: list[str], pdb_id: str, assembly_id: str, query_pn_unit_iids: list) -> str:
-    """
-    Generate a unique example ID from a DataFrame row.
+    """Generate a unique example ID from a DataFrame row.
+
     This unique ID is helpful for debugging and to track performance on specific examples.
 
     An example can be uniquely defined by, in order:
-    (1) a composed list of dataset names (e.g., [pdb, pn_unit] to indicate the pn_unit dataset nested within the PDB dataset)
-    (2) pdb_id (or any group-level identifier, if using a non-PDB dataset), within the dataset specified by (1)
-    (3) assembly_id
-    (4) query_pn_unit_iids
+        (1) a composed list of dataset names (e.g., [pdb, pn_unit] to indicate the pn_unit dataset nested within the PDB dataset)
+        (2) pdb_id (or any group-level identifier, if using a non-PDB dataset), within the dataset specified by (1)
+        (3) assembly_id
+        (4) query_pn_unit_iids
     """
     # Format: {[dataset_names]}{pdb_id}{assembly_id}{query_pn_unit_iids}
-    # Example for pn_unit dataset: {['pdb', 'pn_unit']}{6VYB}{1}{['A_1']}
-    # Example for interface dataset: {['pdb', 'interfaces']}{6VYB}{1}{['A_1', 'B_1']}
-    # Example for a distillation dataset: {['af2_distillation']}{6VYB}{1}{['A_1']}
+    # Example for pn_unit dataset: {['pdb', 'pn_unit']}{6vyb}{1}{['A_1']}
+    # Example for interface dataset: {['pdb', 'interfaces']}{6vyb}{1}{['A_1', 'B_1']}
+    # Example for a distillation dataset: {['af2_distillation']}{6vyb}{1}{['A_1']}
     return f"{{{dataset_names}}}{{{pdb_id}}}{{{assembly_id}}}{{{query_pn_unit_iids}}}"
 
 

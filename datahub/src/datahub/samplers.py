@@ -20,7 +20,7 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
         (2) The number of proteins / nucleic acids / ligands in the example
         (3) Whether the example is an interface or a chain
 
-    Specifically, we apply the following formula (Section 2.5.1 from the AF-3 Supplementary Information):
+    Specifically, AF3 gives the following formula (Section 2.5.1 from the AF-3 Supplementary Information):
         w ∝ (β_r / N_clust) * (a_prot * n_prot + a_nuc * n_nuc + a_ligand * n_ligand)
 
     Where:
@@ -30,8 +30,13 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
         - a_prot, a_nuc, and a_ligand are the interface weight hyperparameters for proteins, nucleic acids, and ligands, respectively
         - n_prot, n_nuc, and n_ligand are the number of proteins, nucleic acids, and ligands in the example
 
-    Optionally, to better control sampling of peptide clusters, we introduce n_peptide and a_peptide as well. We define peptides
-    as proteins with fewer than PEPTIDE_MAX_RESIDUES residues.
+    We make the following modifications to the original AF-3 formula:
+        - We introduce n_peptide and a_peptide to better control the sampling over peptides (which were being over-sampled). We define peptides
+        as proteins with fewer than PEPTIDE_MAX_RESIDUES residues (see `datahub.preprocessing.constants`).
+        - We introduce an incremental a_loi weight to control the sampling of ligands of interests (LOI), also described as Subject of Investigation.
+
+    Thus, our full formula is:
+        w ∝ (β_r / N_clust) * (a_prot * n_prot + a_peptide * n_peptide + a_nuc * n_nuc + a_ligand * n_ligand + a_loi * is_loi)
 
     Parameters:
         df (pd.DataFrame): DataFrame containing the PN unit or interface data
@@ -48,6 +53,17 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
     n_peptide = df.get("n_peptide", 0)
     cluster_size = df["cluster_size"]
 
+    # For interfaces, the column "involves_loi" indicates whether the interface involves a ligand of interest
+    # For pn_units, the column "q_pn_unit_is_loi" indicates whether the query PN Unit is a ligand of interest
+    # (1 = True, 0 = False)
+    is_loi = df.get("involves_loi", df.get("q_pn_unit_is_loi", False)).astype(int)
+    if "involves_loi" not in df.columns and "q_pn_unit_is_loi" not in df.columns:
+        logger.warning(
+            "No column found for 'involves_loi' or 'q_pn_unit_is_loi'. "
+            "Defaulting to False for all examples. If this is incorrect, please check!"
+            "Columns in dataframe: {df.columns}"
+        )
+
     # Assert that all cluster sizes are greater than 0
     assert all(cluster_size > 0), "All cluster sizes must be greater than 0"
 
@@ -60,7 +76,7 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
         )
 
     # If we're missing any of the alphas, or any of the counts, log a warning
-    missing_alphas = set(alphas.keys()) - set(["a_prot", "a_peptide", "a_nuc", "a_ligand"])
+    missing_alphas = set(alphas.keys()) - set(["a_prot", "a_peptide", "a_nuc", "a_ligand", "a_loi"])
     missing_counts = set(["n_prot", "n_peptide", "n_nuc", "n_ligand"]) - set(df.columns)
 
     if missing_alphas:
@@ -69,8 +85,7 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
         logger.warning(f"Missing chain within dataframe counts: {missing_counts}; defaulting to 0")
         logger.warning(f"Columns in dataframe: {df.columns}")
 
-    if not missing_alphas and not missing_counts:
-        logger.info(f"Calculating weights for AF-3 examples using alphas={alphas}")
+    logger.info(f"Calculating weights for AF-3 examples using alphas={alphas}, beta={beta}")
 
     # Vectorized calculation of the weights
     weights = (beta / cluster_size) * (
@@ -78,6 +93,7 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
         + alphas.get("a_peptide", 0) * n_peptide
         + alphas.get("a_nuc", 0) * n_nuc
         + alphas.get("a_ligand", 0) * n_ligand
+        + alphas.get("a_loi", 0) * is_loi
     )
 
     return weights
@@ -207,7 +223,8 @@ class DistributedMixedSampler(Sampler):
             - "probability": Probability of sampling from this dataset
         num_replicas: Number of replicas (nodes) in the distributed setting
         rank: Rank of the current node
-        n_examples_per_epoch: Number of examples in an epoch. Effectively, the "length" of the sampler (since we often sample with replacement)
+        n_examples_per_epoch: Number of examples in an epoch. Effectively, the "length" of the sampler (since we often sample with replacement).
+            May be None, in which case the number of examples per epoch must be set dynamically by a parent sampler.
         shuffle: Whether to shuffle the indices. If False, the iterator will return all sampled indices from the first dataset, then the second, etc.
         drop_last: Whether to drop the last incomplete batch if the dataset size is not divisible by the batch size
     
@@ -284,7 +301,7 @@ class DistributedMixedSampler(Sampler):
 
         for sampler, n_examples in zip(self.samplers, self.n_examples_per_dataset):
             # Set the `n_examples_per_epoch` for each sampler, if they allow it...
-            # NOTE: Required for MixedSamplers, which need to continue propagating the number of examples per epoch
+            # NOTE: Required for MixedSamplers, which must continue propagating the number of examples per epoch
             if hasattr(sampler, "_set_num_examples_per_epoch"):
                 sampler._set_num_examples_per_epoch(n_examples)
 

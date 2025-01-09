@@ -261,9 +261,7 @@ def test_make_reference_conformer_for_UNL(tmp_path):
     to_cif_file(atom_array, cif_path)
 
     # ... parse the atom array
-    out = parse(
-        cif_path,
-    )
+    out = parse(cif_path)
 
     # ... assemble the pipeline input in a format compatible with the DataHub pipeline
     pipeline_input = {
@@ -315,9 +313,7 @@ def test_make_reference_conformer_for_UNL_failure_case(tmp_path):
     to_cif_file(atom_array, cif_path)
 
     # ... parse the atom array
-    out = parse(
-        cif_path,
-    )
+    out = parse(cif_path)
 
     # ... assemble the pipeline input in a format compatible with the DataHub pipeline
     pipeline_input = {
