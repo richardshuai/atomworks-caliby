@@ -237,8 +237,8 @@ Putting it all together, we arrive at the following combinatorial nomenclature t
 - `pn_unit_entity`: 1, 2, corresponding to `pn_unit_ids` "A" and "B,C", respectively
 
 #### Molecules
-- `molecule_id`: "A,B,C"
-- `molecule_iid`: "A_1,B_1,C_1", "A_2,B_2,C_2"
+- `molecule_id`: 1 (numeric for memory concerns, but can be conceptualized as "A,B,C")
+- `molecule_iid`: 1 (numeric for memory concerns, but can be conceptualized as ("A_1,B_1,C_1"), 2 (e.g., "A_2,B_2,C_2")
 - `molecule_entity`: 1
 
 # Contributing guidelines
