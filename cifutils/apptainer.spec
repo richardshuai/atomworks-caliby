@@ -62,7 +62,7 @@ IncludeCmd: yes
    # ... remove conda
    conda clean -a -y
    # ... remove other apt packages that are no longer needed
-   apt-get -y purge build-essential git wget
+   apt-get -y purge build-essential wget
    apt-get -y autoremove
    apt-get clean
    rm /opt/miniconda.sh

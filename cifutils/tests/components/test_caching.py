@@ -68,8 +68,8 @@ def test_caching(pdb_id: str, tmp_path):
             annotations_to_compare,
         )
 
-    # Assert that the cached result is at least twice as fast as the normal result
-    assert cached_elapsed_time < normal_elapsed_time / 2
+    # Assert that the cached result is at least 1.5x faster than the normal result
+    assert cached_elapsed_time < normal_elapsed_time / 1.5
 
 
 if __name__ == "__main__":

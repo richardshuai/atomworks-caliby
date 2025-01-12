@@ -354,6 +354,10 @@ def smiles_to_annotated_atom_array(
     array.set_annotation("chain_id", np.full(array.array_length(), chain_id))
     array.set_annotation("is_polymer", np.full(array.array_length(), is_polymer))
     array.set_annotation("chain_type", np.full(array.array_length(), ChainType.as_enum(chain_type)))
+    array.set_annotation("b_factor", np.full(array.array_length(), np.nan))
+    array.set_annotation("stereo", np.full(array.array_length(), "N"))
+    array.set_annotation("is_backbone_atom", np.full(array.array_length(), False))
+
     return array
 
 
@@ -382,6 +386,9 @@ def sdf_to_annotated_atom_array(
     array.set_annotation("chain_id", np.full(array.array_length(), chain_id))
     array.set_annotation("is_polymer", np.full(array.array_length(), is_polymer))
     array.set_annotation("chain_type", np.full(array.array_length(), ChainType.as_enum(chain_type)))
+    array.set_annotation("b_factor", np.full(array.array_length(), np.nan))
+    array.set_annotation("stereo", np.full(array.array_length(), "N"))
+    array.set_annotation("is_backbone_atom", np.full(array.array_length(), False))
     return array
 
 

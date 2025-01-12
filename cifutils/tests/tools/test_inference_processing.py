@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
 
+import biotite.structure as struc
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
@@ -58,7 +59,7 @@ def dict_inputs():
 
     ligand = [
         {
-            "smiles": "CCCCCCCCCCCCCC(=O)O",
+            "smiles": "O=C1OCC(=C1)C5C4(C(O)CC3C(CCC2CC(O)CCC23C)C4(O)CC5)C",
             "chain_type": "non-polymer",
             "is_polymer": False,
             "chain_id": "E",
@@ -208,6 +209,9 @@ def test_components_to_atom_array_ligand(dict_inputs):
     assert not np.any(atom_array.is_polymer)
     assert np.all(atom_array.chain_type == ChainType.NON_POLYMER)
 
+    # Assert that all elements are letters, not string representations of numbers
+    assert all(s.isupper() for s in atom_array.element)
+
 
 def test_components_to_atom_array_glycan(dict_inputs, bonds):
     """Test conversion of ligand components to AtomArray."""
@@ -314,44 +318,78 @@ def test_recover_bonds_from_cif(dict_inputs):
 
 def test_same_atom_array_from_cif_and_inference():
     """Tests if the bonds inferred from the components are the same as the bonds in the CIF file."""
-    chain_id = "A"
+    chain_ids_to_compare = ["A", "G"]
     transformation_id = "1"
 
-    data = parse(get_pdb_path("3en2"), remove_hydrogens=True)
-    atom_array = data["assemblies"][transformation_id][0]
+    data = parse(get_pdb_path("5ocm"), remove_hydrogens=True)
+    atom_array_from_cif = data["assemblies"][transformation_id][0]
 
     # ... extract the sequence and build inference input
     monomer = [
         {
-            "seq": data["chain_info"][chain_id]["unprocessed_entity_non_canonical_sequence"],
-            "chain_type": data["chain_info"][chain_id]["chain_type"],
-            "chain_id": chain_id,
-            "is_polymer": data["chain_info"][chain_id]["is_polymer"],
+            "seq": data["chain_info"]["A"]["unprocessed_entity_non_canonical_sequence"],
+            "chain_type": data["chain_info"]["A"]["chain_type"],
+            "chain_id": "A",
+            "is_polymer": data["chain_info"]["A"]["is_polymer"],
+        }
+    ]
+    ligand = [
+        {
+            "smiles": "NC(=O)c1ccc[n+](c1)[CH]2O[CH](CO[P]([O-])(=O)O[P](O)(=O)OC[CH]3O[CH]([CH](O[P](O)(O)=O)[CH]3O)n4cnc5c(N)ncnc45)[CH](O)[CH]2O",
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "G",
         }
     ]
 
-    chain_atom_array_from_inference = components_to_atom_array(monomer)
-    chain_atom_array_from_cif = atom_array[
-        (atom_array.chain_id == chain_id) & (atom_array.transformation_id == transformation_id)
-    ]
+    atom_array_from_inference = components_to_atom_array(monomer + ligand)
 
-    # Inference should have full occupancy and null b_factor
-    assert np.all(chain_atom_array_from_inference.occupancy == 1.0)
-    assert np.all(np.isnan(chain_atom_array_from_inference.b_factor))
+    for chain_id in chain_ids_to_compare:
+        chain_atom_array_from_inference = atom_array_from_inference[(atom_array_from_inference.chain_id == chain_id)]
+        chain_atom_array_from_cif = atom_array_from_cif[atom_array_from_cif.chain_id == chain_id]
 
-    # Assert same atom array
-    annotations_to_compare = list(
-        set(chain_atom_array_from_cif.get_annotation_categories()) - {"occupancy", "b_factor"}
-    )
+        # Inference should have full occupancy and null b_factor
+        assert np.all(chain_atom_array_from_inference.occupancy == 1.0)
+        assert np.all(np.isnan(chain_atom_array_from_inference.b_factor))
 
-    assert_same_atom_array(
-        chain_atom_array_from_inference,
-        chain_atom_array_from_cif,
-        compare_coords=False,
-        compare_bonds=True,
-        annotations_to_compare=annotations_to_compare,
-    )
+        # Assert same atom array
+        annotations_to_compare = list(
+            set(chain_atom_array_from_cif.get_annotation_categories())
+            - {
+                "occupancy",
+                "b_factor",
+                "is_aromatic",
+                "alt_atom_id",
+                "molecule_id",  # The molecule_id and all entity annotations may differ between the two
+                "molecule_iid",
+                "molecule_entity",
+                "pn_unit_entity",
+            }
+        )
+        is_ligand = not chain_atom_array_from_cif.is_polymer[0]
+
+        if is_ligand:
+            # Renumber residues to be 0-indexed for non-polymers, 1-indexed for polymers
+            chain_atom_array_from_cif.res_id = struc.spread_residue_wise(
+                chain_atom_array_from_cif, np.arange(struc.get_residue_count(chain_atom_array_from_cif))
+            )
+            # ... and don't compare residue names, atom names, stereo annotations, as that won't work for UNL
+            for item in ["res_name", "atom_name", "stereo"]:
+                annotations_to_compare.remove(item)
+        else:
+            chain_atom_array_from_cif.res_id = struc.spread_residue_wise(
+                chain_atom_array_from_cif, np.arange(1, struc.get_residue_count(chain_atom_array_from_cif) + 1)
+            )
+
+        assert_same_atom_array(
+            chain_atom_array_from_inference,
+            chain_atom_array_from_cif,
+            compare_coords=False,
+            compare_bonds=True,
+            annotations_to_compare=annotations_to_compare,
+            enforce_order=False,
+        )
 
 
 if __name__ == "__main__":
-    test_same_atom_array_from_cif_and_inference()
+    pytest.main([__file__])

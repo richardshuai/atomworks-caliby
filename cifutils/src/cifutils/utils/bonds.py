@@ -483,7 +483,7 @@ def hash_graph(
     """
     Computes a hash for a given graph using the Weisfeiler-Lehman (WL) graph hashing algorithm and additionally
     adds a node and edge attribute hash, if specified, to deal with common edge cases where WL fails (e.g.
-     disconnected graphs).
+    disconnected graphs).
 
     Args:
         - graph (networkx.Graph): The input graph to be hashed.

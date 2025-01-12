@@ -43,7 +43,7 @@ def test_smiles_to_rdkit_to_atom_array(smiles):
     # remove the inferred hydrogens again
     mol = Chem.RemoveHs(mol)
 
-    atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, elements_as_int=False, remove_hydrogens=True)
+    atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, remove_hydrogens=True)
 
     # Add extra annotations
     atom_array.res_name = ["UNL"] * atom_array.array_length()
@@ -69,9 +69,7 @@ def test_smiles_to_atom_array_to_rdkit(smiles):
     )
     atom_array = components_to_atom_array(inputs)
     mol = atom_array_to_rdkit(atom_array, set_coord=True, infer_hydrogens=False)
-    new_atom_array = atom_array_from_rdkit(
-        mol, set_coord_if_available=True, elements_as_int=False, remove_hydrogens=False
-    )
+    new_atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, remove_hydrogens=False)
     assert new_atom_array.array_length() == atom_array.array_length()
     for annotation in ["chain_id", "res_id", "res_name", "atom_name"]:
         assert np.array_equal(new_atom_array.get_annotation(annotation), atom_array.get_annotation(annotation))
@@ -85,9 +83,7 @@ def test_atom_array_rdkit_interconversion(test_atom_array):
     mol = atom_array_to_rdkit(test_atom_array, set_coord=True, infer_hydrogens=False)
 
     # Convert back to AtomArray
-    new_atom_array = atom_array_from_rdkit(
-        mol, set_coord_if_available=True, elements_as_int=False, remove_hydrogens=False
-    )
+    new_atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, remove_hydrogens=False)
 
     # Check if the number of atoms is preserved
     assert new_atom_array.array_length() == test_atom_array.array_length()

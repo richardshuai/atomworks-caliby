@@ -451,7 +451,7 @@ AF3_EXCLUDED_LIGANDS: Final[list[str]] = [
     # "TPO", # Phosphothreonine; a commonly occuring PTM in proteins, useful in cellular signaling pathways
     "TRS",
     "UNK",
-    "UNL",
+    "UNL",  # WARNING: Only exclude during training, not inference
     "UNX",
     "UPL",
     "URE",

@@ -4,8 +4,11 @@ __all__ = ["assert_same_atom_array"]
 
 
 import biotite.structure as struc
+import networkx as nx
 import numpy as np
 from biotite.structure.atoms import AtomArray, AtomArrayStack
+
+from cifutils.utils.bonds import hash_graph
 
 
 def _get_atom_array_stats(arr: AtomArray) -> str:
@@ -23,7 +26,8 @@ def assert_same_atom_array(
     compare_coords: bool = True,
     compare_bonds: bool = True,
     annotations_to_compare: list[str] | None = None,
-    _n_mismatches_to_show: int = 20,
+    enforce_order: bool = True,
+    _n_mismatches_to_show: int = 5,
 ) -> None:
     """Asserts that two AtomArray objects are equal.
 
@@ -34,6 +38,8 @@ def assert_same_atom_array(
         compare_bonds (bool, optional): Whether to compare bonds. Defaults to True.
         annotations_to_compare (list[str] | None, optional): List of annotation categories to compare.
             Defaults to None, in which case all annotations are compared.
+        enforce_order (bool, optional): Whether to enforce the order of the atoms. Defaults to True.
+            NOTE: Enforcing order is much faster; use False only when strictly necessary.
         _n_mismatches_to_show (int, optional): Number of mismatches to show. Defaults to 20.
 
     WARNING: If AtomArrayStack objects are passed, only the first array is compared.
@@ -92,12 +98,31 @@ def assert_same_atom_array(
     if compare_bonds:
         assert arr1.bonds is not None, "arr1.bonds is None"
         assert arr2.bonds is not None, "arr2.bonds is None"
-        if not np.array_equal(arr1.bonds.as_array(), arr2.bonds.as_array()):
-            mismatch_idxs = np.where(arr1.bonds.as_array() != arr2.bonds.as_array())[0]
-            msg = f"Bonds do not match at {len(mismatch_idxs)} indices. First few mismatches:" + "\n"
-            for idx in mismatch_idxs[:_n_mismatches_to_show]:
-                msg += f"\t{idx}: {arr1.bonds.as_array()[idx]} != {arr2.bonds.as_array()[idx]}\n"
-            raise AssertionError(msg)
+
+        if enforce_order:
+            # Compare bond arrays directly
+            if not np.array_equal(arr1.bonds.as_array(), arr2.bonds.as_array()):
+                mismatch_idxs = np.where(arr1.bonds.as_array() != arr2.bonds.as_array())[0]
+                msg = f"Bonds do not match at {len(mismatch_idxs)} indices. First few mismatches:" + "\n"
+                for idx in mismatch_idxs[:_n_mismatches_to_show]:
+                    msg += f"\t{idx}: {arr1.bonds.as_array()[idx]} != {arr2.bonds.as_array()[idx]}\n"
+                raise AssertionError(msg)
+        else:
+            # Check graph isomorphisms, labeling nodes with element
+            arr1_graph = arr1.bonds.as_graph()
+            arr2_graph = arr2.bonds.as_graph()
+
+            # Hash the graphs and assert they are the same
+            arr_1_node_annots = {node: arr1.element[node] for node in arr1_graph.nodes()}
+            arr_2_node_annots = {node: arr2.element[node] for node in arr2_graph.nodes()}
+
+            nx.set_node_attributes(arr1_graph, arr_1_node_annots, "element")
+            nx.set_node_attributes(arr2_graph, arr_2_node_annots, "element")
+
+            arr1_hash = hash_graph(arr1_graph, node_attr="element")
+            arr2_hash = hash_graph(arr2_graph, node_attr="element")
+
+            assert arr1_hash == arr2_hash, f"Graph hashes do not match: {arr1_hash} != {arr2_hash}"
 
     if annotations_to_compare is None:
         arr1_annotation_keys = arr1.get_annotation_categories()
@@ -108,29 +133,55 @@ def assert_same_atom_array(
         assert len(missing_in_arr2) == 0, f"Annotations missing in arr2: {missing_in_arr2}"
         annotations_to_compare = arr1_annotation_keys
 
-    for annotation in annotations_to_compare:
-        if annotation not in arr1.get_annotation_categories():
-            raise AssertionError(f"Annotation {annotation} not in arr1.")
-        if annotation not in arr2.get_annotation_categories():
-            raise AssertionError(f"Annotation {annotation} not in arr2.")
+    if enforce_order:
+        # Compare annotations directly
+        for annotation in annotations_to_compare:
+            if annotation not in arr1.get_annotation_categories():
+                raise AssertionError(f"Annotation {annotation} not in arr1.")
+            if annotation not in arr2.get_annotation_categories():
+                raise AssertionError(f"Annotation {annotation} not in arr2.")
 
-        # Check if the arrays contain floating-point numbers (in which case, we allow NaN == NaN)
-        if np.issubdtype(arr1.get_annotation(annotation).dtype, np.floating) and np.issubdtype(
-            arr2.get_annotation(annotation).dtype, np.floating
-        ):
-            arrays_equal = np.array_equal(
-                arr1.get_annotation(annotation), arr2.get_annotation(annotation), equal_nan=True
-            )
-        else:
-            arrays_equal = np.array_equal(
-                arr1.get_annotation(annotation), arr2.get_annotation(annotation), equal_nan=False
-            )
+            # Check if the arrays contain floating-point numbers (in which case, we allow NaN == NaN)
+            if np.issubdtype(arr1.get_annotation(annotation).dtype, np.floating) and np.issubdtype(
+                arr2.get_annotation(annotation).dtype, np.floating
+            ):
+                arrays_equal = np.array_equal(
+                    arr1.get_annotation(annotation), arr2.get_annotation(annotation), equal_nan=True
+                )
+            else:
+                arrays_equal = np.array_equal(
+                    arr1.get_annotation(annotation), arr2.get_annotation(annotation), equal_nan=False
+                )
 
-        if not arrays_equal:
-            mismatch_idxs = np.where(arr1.get_annotation(annotation) != arr2.get_annotation(annotation))[0]
-            msg = (
-                f"Annotation {annotation} does not match at {len(mismatch_idxs)} indices. First few mismatches:" + "\n"
-            )
-            for idx in mismatch_idxs[:_n_mismatches_to_show]:
-                msg += f"\t{idx}: {arr1.get_annotation(annotation)[idx]} != {arr2.get_annotation(annotation)[idx]}\n"
+            if not arrays_equal:
+                mismatch_idxs = np.where(arr1.get_annotation(annotation) != arr2.get_annotation(annotation))[0]
+                msg = (
+                    f"Annotation {annotation} does not match at {len(mismatch_idxs)} indices. First few mismatches:"
+                    + "\n"
+                )
+                for idx in mismatch_idxs[:_n_mismatches_to_show]:
+                    msg += (
+                        f"\t{idx}: {arr1.get_annotation(annotation)[idx]} != {arr2.get_annotation(annotation)[idx]}\n"
+                    )
+                    if idx >= _n_mismatches_to_show:
+                        break
+                raise AssertionError(msg)
+    else:
+        # Convert annotations to a sorted list of tuples and compare (order-invariant)
+        def convert_atom_array_to_sorted_tuples(arr: AtomArray, annotations: list[str]) -> list[tuple]:
+            atoms = []
+            for atom in arr:
+                atom_info = [(annotation, atom.__getattr__(annotation)) for annotation in annotations]
+                atoms.append(tuple(sorted(atom_info)))
+            return sorted(atoms)
+
+        arr1_atoms_sorted = convert_atom_array_to_sorted_tuples(arr1, annotations_to_compare)
+        arr2_atoms_sorted = convert_atom_array_to_sorted_tuples(arr2, annotations_to_compare)
+
+        if arr1_atoms_sorted != arr2_atoms_sorted:
+            msg = "Annotations do not match. First few mismatches:\n"
+            for idx, atom in enumerate(set(arr1_atoms_sorted).symmetric_difference(set(arr2_atoms_sorted))):
+                msg += f"\t{idx}: {atom}\n"
+                if idx >= _n_mismatches_to_show:
+                    break
             raise AssertionError(msg)

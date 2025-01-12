@@ -220,7 +220,7 @@ def build_template_atom_array(
             # ... and corresponding mask
             res_mask = (chain_ids == chain_id) & (res_names == ccd_code) & (res_ids == res_id_original)
 
-            # ... if we cannot get a template from the CCD, we copy over the atoms from the atom_array verbatim
+            # ... if we cannot get a template from the CCD (e.g., UNL), we copy over the atoms from the atom_array verbatim
             if (ccd_code in DO_NOT_MATCH_CCD) or not check_ccd_codes_are_available(
                 [ccd_code], ccd_mirror_path, mode="warn"
             ):

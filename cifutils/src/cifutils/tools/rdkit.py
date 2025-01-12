@@ -452,7 +452,6 @@ def atom_array_from_rdkit(
     *,
     set_coord_if_available: bool = True,
     conformer_id: int | None = None,
-    elements_as_int: bool = True,
     remove_hydrogens: bool = True,
     remove_inferred_atoms: bool = False,
 ) -> AtomArray:
@@ -468,7 +467,6 @@ def atom_array_from_rdkit(
             a conformer is available.
         - conformer_id (int | None): The conformer ID to use for coordinates. If None, the first
           conformer is used.
-        - elements_as_int (bool): Whether to store the elements as integers (atomic numbers) or strings.
         - remove_hydrogens (bool): Whether to remove any explicit hydrogen atoms.
         - remove_inferred_atoms (bool): Whether to remove any atoms that do not carry the `rdkit_atom_id` annotation.
 
@@ -502,7 +500,8 @@ def atom_array_from_rdkit(
         element_counter[rdatom.GetAtomicNum()] += 1
         atoms.append(
             struc.Atom(
-                element=str(rdatom.GetAtomicNum()) if elements_as_int else rdatom.GetSymbol(),
+                element=rdatom.GetSymbol(),
+                atomic_number=rdatom.GetAtomicNum(),
                 coord=coords[idx],
                 charge=rdatom.GetFormalCharge(),
                 hyb=RDKIT_HYBRIDIZATION_TO_INT[rdatom.GetHybridization()],
