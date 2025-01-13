@@ -79,10 +79,22 @@ def test_parser_one_letter_sequence_outputs(pdb_id: str):
             assert len(unprocessed_entity_canonical_sequence) >= len(processed_entity_canonical_sequence)
 
             # If there's no sequence heterogeneity, perform additional checks
-            if not chain_details["has_sequence_heterogeneity"] and (
-                chain_type == "polypeptide(D)" or chain_type == "polypeptide(L)"
+            if (
+                not chain_details["has_sequence_heterogeneity"]
+                and (chain_type == "polypeptide(D)" or chain_type == "polypeptide(L)")
+                and (unprocessed_cleaned != processed_cleaned)
             ):
-                assert unprocessed_cleaned == processed_cleaned
+                mismatches = []
+                for i, (u, p) in enumerate(zip(unprocessed_cleaned, processed_cleaned, strict=False)):
+                    if u != p:
+                        mismatches.append(f"position {i+1}: {u} != {p}")
+                    mismatch_details = "\n".join(mismatches)
+                    raise AssertionError(
+                        f"Sequence mismatch found:\n"
+                        f"Unprocessed: {unprocessed_cleaned}\n"
+                        f"Processed:   {processed_cleaned}\n"
+                        f"Mismatches at:\n{mismatch_details}"
+                    )
 
 
 # Define test cases for proteins

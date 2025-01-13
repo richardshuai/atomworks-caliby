@@ -18,13 +18,10 @@ from biotite.structure import AtomArray
 from biotite.structure.io.pdbx import CIFBlock
 
 from cifutils.common import deduplicate_iterator, exists
-from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND
+from cifutils.constants import CCD_MIRROR_PATH
 from cifutils.enums import ChainType
-from cifutils.utils.ccd import get_available_ccd_codes, get_chem_comp_type, get_unknown_ccd_code_for_chem_comp_type
 from cifutils.utils.selection import get_residue_starts
-from cifutils.utils.sequence import (
-    get_1_from_3_letter_code,
-)
+from cifutils.utils.sequence import get_1_from_3_letter_code
 
 logger = logging.getLogger("cifutils")
 
@@ -231,7 +228,6 @@ def load_monomer_sequence_information_from_category(
     """
     # Assert that entity_poly_seq category is present
     assert "entity_poly_seq" in cif_block, "entity_poly_seq category not found in CIF block."
-    available_ccd_codes = get_available_ccd_codes(ccd_mirror_path)
 
     # Handle polymers by using `entity_poly_seq`
     polymer_seq_df = category_to_df(cif_block, "entity_poly_seq")
@@ -246,17 +242,8 @@ def load_monomer_sequence_information_from_category(
         logger.info("Sequence heterogeneity detected, keeping only the last occurrence of each residue.")
         polymer_seq_df = polymer_seq_df[~duplicates]
 
-    # Map any polymer residues not in CCD data to the corresponding UNKNOWN_* token
-    def _replace_by_unknown_if_not_available(ccd_code: str) -> str:
-        if ccd_code in available_ccd_codes:
-            return ccd_code
-        else:
-            return get_unknown_ccd_code_for_chem_comp_type(get_chem_comp_type(ccd_code))
-
-    polymer_seq_df["res_name"] = polymer_seq_df["res_name"].apply(_replace_by_unknown_if_not_available)
-
     # Map rcsb_entity to lists of residue names and residue IDs
-    polymer_seq_df["rcsb_entity"] = polymer_seq_df["rcsb_entity"].astype(float)
+    polymer_seq_df["rcsb_entity"] = polymer_seq_df["rcsb_entity"].astype(int)
     polymer_entity_id_to_res_names_and_ids = {
         rcsb_entity: {"res_name": group["res_name"].tolist(), "res_id": group["res_id"].tolist()}
         for rcsb_entity, group in polymer_seq_df.groupby("rcsb_entity")
@@ -293,16 +280,8 @@ def load_monomer_sequence_information_from_category(
         else:
             # For non-polymers, we must re-compute every time, since entities are not guaranteed to have the same monomer sequence (e.g., for H2O chains)
             chain_res_starts = res_starts[atom_array.chain_id[res_starts] == chain_id]
-            residue_id_list = atom_array.res_id[chain_res_starts]
-            residue_name_list = atom_array.res_name[chain_res_starts]
-
-            # Map any non-polymer residues not in the precompiled CCD data to "UNL" (unknown ligand)
-            residue_name_list = [
-                residue if residue in available_ccd_codes else UNKNOWN_LIGAND for residue in residue_name_list
-            ]
-
-            chain_info_dict[chain_id]["res_name"] = list(residue_name_list)
-            chain_info_dict[chain_id]["res_id"] = list(residue_id_list)
+            chain_info_dict[chain_id]["res_name"] = list(atom_array.res_name[chain_res_starts])
+            chain_info_dict[chain_id]["res_id"] = list(atom_array.res_id[chain_res_starts])
 
         chain_info_dict[chain_id]["has_sequence_heterogeneity"] = (
             str(rcsb_entity) in entities_with_sequence_heterogeneity

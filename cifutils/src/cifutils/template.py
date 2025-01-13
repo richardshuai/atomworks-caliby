@@ -213,7 +213,7 @@ def build_template_atom_array(
         chain_is_polymer = chain_id_to_is_polymer[chain_id]
         chain_type = chain_id_to_types[chain_id].value  # chain_type is an IntEnum; we want the value
 
-        assert len(chain_res_ids) == len(chain_res_names), "Lenght mismatch between chain_res_ids, chain_res_names!"
+        assert len(chain_res_ids) == len(chain_res_names), "Length mismatch between chain_res_ids, chain_res_names!"
 
         for res_id, (res_id_original, ccd_code) in enumerate(zip(chain_res_ids, chain_res_names, strict=True), start=1):
             res_id_original = int(res_id_original)
