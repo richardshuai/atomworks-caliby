@@ -212,7 +212,7 @@ def read_any(
         file_type = infer_pdb_file_type(path_or_buffer)
 
     # Convert string paths to Path objects and decompress if necessary
-    if isinstance(path_or_buffer, (str, Path)):
+    if isinstance(path_or_buffer, str | Path):
         path_or_buffer = Path(path_or_buffer)
         if path_or_buffer.suffix in (".gz", ".gzip"):
             with gzip.open(path_or_buffer, "rt") as f:

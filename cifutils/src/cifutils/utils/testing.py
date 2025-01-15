@@ -177,6 +177,10 @@ def assert_same_atom_array(
                 raise AssertionError(msg)
         else:
             # Check graph isomorphisms, labeling nodes with element
-            arr1_hash = hash_atom_array(arr1, annotations=["element"], bond_order=compare_bond_order)
-            arr2_hash = hash_atom_array(arr2, annotations=["element"], bond_order=compare_bond_order)
+            arr1_hash = hash_atom_array(
+                arr1, annotations=["element"], bond_order=compare_bond_order, cast_aromatic_bonds_to_same_type=True
+            )
+            arr2_hash = hash_atom_array(
+                arr2, annotations=["element"], bond_order=compare_bond_order, cast_aromatic_bonds_to_same_type=True
+            )
             assert arr1_hash == arr2_hash, f"Graph hashes do not match: {arr1_hash} != {arr2_hash}"

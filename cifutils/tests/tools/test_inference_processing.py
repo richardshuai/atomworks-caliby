@@ -386,7 +386,7 @@ def test_same_atom_array_from_cif_and_inference():
             compare_bonds=True,
             annotations_to_compare=annotations_to_compare,
             enforce_order=False,
-            compare_bond_order=False,
+            compare_bond_order=True,
         )
 
 

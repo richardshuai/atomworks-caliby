@@ -77,17 +77,32 @@ def test_hash_atom_array():
 
     # DEBUG: Uncomment for manual inspection
     # import networkx as nx
-    # from cifutils.common import sum_string_arrays
+    # import matplotlib.pyplot as plt
+    # from cifutils.utils.bonds import _atom_array_to_networkx_graph
     # gs = []
-    # annotations = ["atom_name"]
+    # annotations = ["element"]
     # for arr in [arr1, arr2]:
-    #     g = arr.bonds.as_graph()
-    #     # ... create node annotations
-    #     node_annot_array = sum_string_arrays(*[arr.get_annotation(annot).astype(str) for annot in annotations])
-    #     # ... add the node annotations to the graph
-    #     node_attrs = {node: node_annot_array[node] for node in g.nodes()}
-    #     nx.set_node_attributes(g, node_attrs, "node_data")
+    #     g = _atom_array_to_networkx_graph(arr, annotations=annotations, bond_order=True)
     #     gs.append(g)
+    # def show_graph(G, figsize=(10, 10), node_attr="node_data", edge_attr="bond_type"):
+    #     fig, ax = plt.subplots(figsize=figsize)
+    #     pos = nx.kamada_kawai_layout(G)
+    #     node_values = [G.nodes[node].get(node_attr, "") for node in G.nodes()]
+    #     edge_values = [G[u][v].get(edge_attr, "") for u, v in G.edges()]
+    #     unique_node_values = list(set(node_values))
+    #     unique_edge_values = list(set(edge_values))
+    #     node_colors = [unique_node_values.index(val) for val in node_values]
+    #     edge_colors = [unique_edge_values.index(val) for val in edge_values]
+    #     nx.draw_networkx_nodes(G, pos, node_color=node_colors, cmap=plt.cm.tab20)
+    #     nx.draw_networkx_edges(G, pos, edge_color=edge_colors, edge_cmap=plt.cm.tab20)
+    #     node_labels = {node: G.nodes[node].get(node_attr, "") for node in G.nodes()}
+    #     nx.draw_networkx_labels(G, pos, labels=node_labels)
+    #     edge_labels = {(u, v): G[u][v].get(edge_attr, "") for u, v in G.edges()}
+    #     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+    #     plt.axis("off")
+    #     return fig, ax
+    # show_graph(gs[0])
+    # show_graph(gs[1])
 
     assert hash_atom_array(arr1, annotations=["atom_name"], bond_order=True) == hash_atom_array(
         arr2, annotations=["atom_name"], bond_order=True

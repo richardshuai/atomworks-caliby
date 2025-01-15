@@ -524,20 +524,58 @@ def hash_graph(
     return hash
 
 
+def _atom_array_to_networkx_graph(
+    atom_array: AtomArray,
+    annotations: tuple[str] = ("element", "atom_name"),
+    bond_order: bool = True,
+    cast_aromatic_bonds_to_same_type: bool = True,
+) -> nx.Graph:
+    """Convert an AtomArray to a NetworkX graph."""
+    # ... create the bond graph
+    bonds = atom_array.bonds.as_array()
+    bond_list = bonds[:, :2]
+
+    # ... create the bond graph for the atom array
+    bond_graph = nx.Graph()
+    bond_graph.add_nodes_from(range(len(atom_array)))
+    bond_graph.add_edges_from(bond_list)
+
+    # ... annotate the bond graph with bond order
+    if bond_order:
+        bond_type = bonds[:, -1]
+        if cast_aromatic_bonds_to_same_type:
+            bond_type[bond_type == struc.BondType.AROMATIC_SINGLE] = 0
+            bond_type[bond_type == struc.BondType.AROMATIC_DOUBLE] = 0
+            bond_type[bond_type == struc.BondType.AROMATIC_TRIPLE] = 0
+        nx.set_edge_attributes(
+            bond_graph, {tuple(bond): type for bond, type in zip(bond_list, bond_type, strict=False)}, "bond_type"
+        )
+
+    # ... annotate the bond graph with the desired node annotations
+    if annotations:
+        node_data = sum_string_arrays(*[atom_array.get_annotation(annot).astype(str) for annot in annotations])
+        # ... map the node annotations to the bond graph
+        nx.set_node_attributes(bond_graph, {n: node_data[n] for n in bond_graph.nodes()}, "node_data")
+
+    return bond_graph
+
+
 def hash_atom_array(
-    atom_array: AtomArray, annotations: tuple[str] = ("element", "atom_name"), bond_order: bool = True
+    atom_array: AtomArray,
+    annotations: tuple[str] = ("element", "atom_name"),
+    bond_order: bool = True,
+    cast_aromatic_bonds_to_same_type: bool = False,
 ) -> str:
     """
     Computes a hash for an AtomArray based on the bond connectivity and the selected node annotations.
     """
     # ... create the bond graph
-    bond_graph = atom_array.bonds.as_graph()
-    # ... create node annotations
-    if annotations:
-        node_annot_array = sum_string_arrays(*[atom_array.get_annotation(annot).astype(str) for annot in annotations])
-        # ... add the node annotations to the graph
-        node_attrs = {node: node_annot_array[node] for node in bond_graph.nodes()}
-        nx.set_node_attributes(bond_graph, node_attrs, "node_data")
+    bond_graph = _atom_array_to_networkx_graph(
+        atom_array,
+        annotations=annotations,
+        bond_order=bond_order,
+        cast_aromatic_bonds_to_same_type=cast_aromatic_bonds_to_same_type,
+    )
 
     return hash_graph(
         bond_graph, node_attr="node_data" if annotations else None, edge_attr="bond_type" if bond_order else None
