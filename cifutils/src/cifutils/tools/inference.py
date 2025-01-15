@@ -68,6 +68,7 @@ class SequenceComponent(ChemicalComponent):
     chain_type: ChainType | None = None
     is_polymer: bool | None = None
     chain_id: str | None = None
+    msa_path: os.PathLike | None = None
 
     @staticmethod
     def infer_chain_type(seq: str) -> ChainType:
@@ -191,6 +192,7 @@ class SDFComponent(LigandComponent):
 @dataclass
 class CIFFileComponent(ChemicalComponent):
     path: os.PathLike | io.StringIO
+    msa_paths: dict[str, os.PathLike] | None = None
 
 
 @dataclass
@@ -264,6 +266,7 @@ def sequence_to_annotated_atom_array(
     chain_type: ChainType | str = None,
     is_polymer: bool | None = None,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
+    **kwargs,
 ) -> AtomArray:
     if isinstance(seq, str) and is_polymer:
         seq = one_letter_to_ccd_code(split_generalized_fasta_sequence(seq), chain_type=chain_type)
@@ -421,6 +424,21 @@ def ccd_code_to_annotated_atom_array(
     return array
 
 
+def assign_res_name_from_atom_array_hash(atom_array: AtomArray, hash_to_id: KeyToIntMapper) -> AtomArray:
+    """Assigns a residue name to an array based on its hash.
+
+    The residue names will be assigned as `#L{id}` where `id` is a unique integer assigned to each hash.
+
+    Args:
+        ligand_array (AtomArray): The ligand array to assign a residue name to.
+        ligand_hash_to_id (KeyToIntMapper): A mapper from ligand hash to ligand ID.
+    """
+    ligand_hash = hash_atom_array(atom_array, annotations=["element", "atom_name"], bond_order=True)
+    ligand_id = hash_to_id(ligand_hash)
+    atom_array.res_name = np.full(atom_array.array_length(), f"#L{ligand_id}")
+    return atom_array
+
+
 def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
     # ... annotate ids and entities
     atom_array = ta.add_id_and_entity_annotations(atom_array)
@@ -436,11 +454,29 @@ def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
     return atom_array
 
 
+def build_msa_paths_by_chain_id_from_component_list(components: list[ChemicalComponent]) -> dict[str, os.PathLike]:
+    """Build a dictionary of MSA paths by chain ID from a list of ChemicalComponent objects.
+
+    The composed dictionary may be encoded as extra metadata in the CIF file, and ultimately loaded
+    into `chain_info` through `parse`.
+    """
+    msa_paths_by_chain_id = {}
+    for component in components:
+        if hasattr(component, "msa_path") and component.msa_path is not None:
+            msa_paths_by_chain_id[component.chain_id] = component.msa_path
+        elif hasattr(component, "msa_paths") and component.msa_paths is not None:
+            for chain_id, msa_path in component.msa_paths.items():
+                msa_paths_by_chain_id[chain_id] = msa_path
+
+    return msa_paths_by_chain_id
+
+
 def components_to_atom_array(
     components: list[ChemicalComponent | dict],
     bonds: list[str] | None = None,
+    return_components: bool = False,
     _set_nan_to_random: bool = False,
-) -> AtomArray:
+) -> AtomArray | list[ChemicalComponent]:
     """Build an AtomArray from a list of ChemicalComponent objects and, optionally, a list of bonds.
 
     Args:
@@ -452,15 +488,16 @@ def components_to_atom_array(
             (CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME, CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME)
             ```
             e.g., [("A:THR:4:CG", "D:UNL:0:O13"), ("A:CYS:5:SG",  "A:CYS:137:SG")]
+        return_components (bool): If True, return the components list as well as the AtomArray. Useful for e.g., mapping
+            components to generated chain IDs or inferred chain types.
 
-    NOTE: We recommend visualizing the AtomArray to ensure that the bonds are correctly added before using it for inference.
-    NOTE: The ResID numbering follows the RCSB convention and is 1-indexed!
+    NOTE: If manually specifying bonds, we recommend visualizing the bond graph with `matplotlib` to ensure that the bonds are correctly
+    NOTE: The res_id numbering follows the RCSB convention (1-indexed)
 
     Returns:
         AtomArray: The assembled AtomArray, used for visualization or inference.
     """
     # TODO: Add support for chiral specifications
-    # TODO: Add support for ligands inserted inside sequence polymer chains (e.g. non-CCD coded noncanonicals)
     # TODO: Add support for cif/pdb
 
     # Ensure that all components are ChemicalComponent objects
@@ -482,12 +519,12 @@ def components_to_atom_array(
             atom_arrays.append(sequence_to_annotated_atom_array(**component.as_dict()))
         elif isinstance(component, SmilesComponent):
             ligand_array = smiles_to_annotated_atom_array(**component.as_dict())
-            ligand_hash = hash_atom_array(ligand_array, annotations=["element", "atom_name"], bond_order=True)
-            ligand_id = ligand_hash_to_id(ligand_hash)
-            ligand_array.res_name = np.full(ligand_array.array_length(), f"#L{ligand_id}")
-            atom_arrays.append(ligand_array)
+            atom_arrays.append(assign_res_name_from_atom_array_hash(ligand_array, ligand_hash_to_id))
         elif isinstance(component, CCDComponent):
             atom_arrays.append(ccd_code_to_annotated_atom_array(**component.as_dict()))
+        elif isinstance(component, SDFComponent):
+            ligand_array = sdf_to_annotated_atom_array(**component.as_dict())
+            atom_arrays.append(assign_res_name_from_atom_array_hash(ligand_array, ligand_hash_to_id))
         else:
             raise ValueError(f"Unknown chemical component type: {type(component)}")
 
@@ -508,6 +545,7 @@ def components_to_atom_array(
 
         # ... add the bonds to the AtomArray
         atom_array.bonds = atom_array.bonds.merge(struct_conn_bonds)
+
         # ... record which atoms make inter-residue bonds
         atoms_with_inter_bonds = np.unique(struct_conn_bonds.as_array()[:, :2])
         makes_inter_bond = np.zeros(len(atom_array), dtype=bool)
@@ -533,5 +571,8 @@ def components_to_atom_array(
     if _set_nan_to_random:
         nan_coordinates = np.isnan(atom_array.coord)
         atom_array.coord[nan_coordinates] = np.random.rand(*atom_array.coord[nan_coordinates].shape)
+
+    if return_components:
+        return atom_array, components
 
     return atom_array

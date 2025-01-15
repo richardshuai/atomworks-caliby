@@ -1,3 +1,5 @@
+"""Tests for the inference processing tools."""
+
 import tempfile
 from pathlib import Path
 
@@ -20,6 +22,8 @@ from cifutils.tools.inference import (
     read_chai_fasta,
 )
 from cifutils.utils.testing import assert_same_atom_array
+
+# TODO: Write tests for SDF components, CIF file components
 
 
 @pytest.fixture
@@ -293,8 +297,19 @@ def test_full_chai_input(chai_fasta_input):
 
 def test_full_components_input(dict_inputs):
     components = sum(dict_inputs.values(), start=[])
-    atom_array = components_to_atom_array(components)
+    atom_array, components = components_to_atom_array(components, return_components=True)
 
+    # Assert that the extracted chain IDs match the values recovered from the components
+    extracted_chain_ids = [entry.get("chain_id", "") for entries in dict_inputs.values() for entry in entries]
+
+    for index, chain_id in enumerate(extracted_chain_ids):
+        if chain_id:
+            chain_id_from_component = components[index].chain_id
+            assert (
+                chain_id == chain_id_from_component
+            ), f"Mismatch at index {index}: {chain_id} != {chain_id_from_component}"
+
+    # Sanity check outputs
     assert isinstance(atom_array, AtomArray)
     assert np.unique(atom_array.chain_id).shape[0] == 7  # 1 monomer, 2 dimers, 1 noncanonical, 1 ligand, 2 glycans
     assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E", "F", "G"}

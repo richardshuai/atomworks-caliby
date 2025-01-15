@@ -187,7 +187,6 @@ def parse(
                 # Log an error, and continue to parse from CIF
                 logger.error(f"Error loading from cache: {e}")
 
-    # Parse from PDB if the file is a PDB file or buffer with `is_cif=False`
     if file_type == "pdb":
         result = _parse_from_pdb(
             filename=filename,
@@ -205,7 +204,6 @@ def parse(
             model=model,
             build_assembly=build_assembly,
         )
-    # Parse from CIF if the file is a CIF file or buffer with `is_cif=True`
     elif file_type in ("cif", "bcif"):
         result = _parse_from_cif(
             filename=filename,
@@ -245,17 +243,17 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
 
     NOTE: This method is not intended to be called directly; use `parse` instead.
     """
-    # Handle default lists to avoid mutable default arguments
+    # (Handle default lists to avoid mutable default arguments)
     remove_ccds = [] if kwargs["remove_ccds"] is None else kwargs["remove_ccds"].copy()
 
-    # ...default running dictionary, which we will populate through a series of Transforms
+    # (Default running dictionary, which we will populate through a series of Transforms)
     data_dict = {"extra_info": {}}
 
-    # ...read the CIF file into the dictionary (we will clean up the dictionary before returning)
+    # ... read the CIF file into the dictionary (we will clean up the dictionary before returning)
     cif_file = read_any(filename)
     data_dict["cif_block"] = cif_file.block
 
-    # ...load metadata into "metadata" key (either from RCSB standard fields, or from the custom `extra_metadata` field)
+    # ... load metadata into "metadata" key (either from RCSB standard fields, or from the custom `extra_metadata` field)
     if isinstance(filename, io.StringIO | io.BytesIO):
         fallback_filename = next(iter(cif_file.keys()))
     else:
@@ -287,7 +285,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
             model=1,
         )
 
-    # ... if occupancy is not an annotation, add it, defaulting to 1.0
+    # If occupancy is not an annotation, add it, defaulting to 1.0
     if "occupancy" not in asym_unit_stack.get_annotation_categories():
         asym_unit_stack.set_annotation("occupancy", np.ones(asym_unit_stack.array_length()))
 
@@ -315,7 +313,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         # We can get the chain entity-level information directly from the CIF file
         data_dict["chain_info"] = initialize_chain_info_from_category(cif_file.block, asym_unit_stack[0])
     else:
-        # Infer the chain information from the AtomArray residue names (useful for inference; should not be used for RCSB files)
+        # ... infer the chain information from the AtomArray residue names (useful for inference; should not be used for RCSB files)
         data_dict["chain_info"] = initialize_chain_info_from_atom_array(
             asym_unit_stack[0], infer_chain_type=True, infer_chain_sequences=True
         )
@@ -332,16 +330,15 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
             ccd_mirror_path=kwargs["ccd_mirror_path"],
         )
 
-    # ...handle sequence heterogeneity by selecting the residue that appears last
+    # Handle sequence heterogeneity by selecting the residue that appears last
     asym_unit_stack = ta.keep_last_residue(asym_unit_stack)
 
-    # ...add the is_polymer annotation to the AtomArray
+    # ... add the is_polymer annotation to the AtomArray
     asym_unit_stack = ta.add_polymer_annotation(asym_unit_stack, data_dict["chain_info"])
 
-    # ...add the ChainType annotation to the AtomArray
+    # ... add the ChainType annotation to the AtomArray
     asym_unit_stack = ta.add_chain_type_annotation(asym_unit_stack, data_dict["chain_info"])
 
-    # ...loop through models
     models = []
     for model_idx in range(asym_unit_stack.stack_depth()):
         atom_array = asym_unit_stack[model_idx]
@@ -359,11 +356,11 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
                 fix_formal_charges=kwargs["fix_formal_charges"],
             )
 
-        # ...resolve arginine naming ambiguity
+        # ... resolve arginine naming ambiguity
         if kwargs["fix_arginines"]:
             atom_array = ta.resolve_arginine_naming_ambiguity(atom_array)
 
-        # ...convert MSE to MET
+        # ... convert MSE to MET
         if kwargs["convert_mse_to_met"]:
             atom_array = ta.mse_to_met(atom_array)
 
@@ -373,25 +370,24 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
 
         models.append(atom_array)
 
-    # ...create an AtomArrayStack from the list of AtomArrays
+    # ... create an AtomArrayStack from the list of AtomArrays
     asym_unit_stack = struc.stack(models)
 
     # ... add the atomic number annotation (vs. element, which is a string)
     asym_unit_stack = ta.add_atomic_number_annotation(asym_unit_stack)
 
-    # ...optionally, build assemblies and add assembly-specifc annotation (instance IDs)
+    # ... optionally, build assemblies and add assembly-specifc annotation (instance IDs)
     if exists(kwargs["build_assembly"]):
-        # ...assert that `build_assembly` is a valid option
         assert kwargs["build_assembly"] in ["first", "all"] or isinstance(
             kwargs["build_assembly"], list | tuple
         ), "Invalid `build_assembly` option. Must be 'first', 'all', or a list/tuple of assembly IDs as strings."
 
         if "pdbx_struct_assembly" in data_dict["cif_block"]:
-            # ...build the assemblies from the CIF file, adding the `iid` annotations as we do so
+            # ... build the assemblies from the CIF file, adding the `iid` annotations as we do so
             assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
             struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
         else:
-            # ...if there are no assemblies, set the `assembly_gen_category` and `struct_oper_category` to identity operations
+            # If there are no assemblies, set the `assembly_gen_category` and `struct_oper_category` to identity operations
             assembly_gen_category = get_identity_assembly_gen_category(list(data_dict["chain_info"].keys()))
             struct_oper_category = get_identity_op_expr_category()
 
@@ -409,10 +405,17 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
     else:
         data_dict["assemblies"] = {}
 
-    # ...get ligand of interest information
+    # ... get ligand of interest information
     data_dict["ligand_info"] = get_ligand_of_interest_info(data_dict["cif_block"])
 
-    # ...remove annotations that are no longer needed to save memory
+    if "msa_paths_by_chain_id" in cif_file.block:
+        # ... add the MSA information to the chain info dictionary
+        logger.info("MSA paths detected in CIF file. Adding to chain information...")
+        msa_paths_by_chain_id = category_to_dict(cif_file.block, "msa_paths_by_chain_id")
+        for chain_id, msa_path in msa_paths_by_chain_id.items():
+            data_dict["chain_info"][chain_id]["msa_path"] = Path(msa_path.item())
+
+    # ... remove annotations that are no longer needed to save memory
     _remove_annotations = {
         "leaving_atom_flag",
         "is_leaving_atom",
@@ -427,7 +430,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
                 _remove_annotation_if_exists(assembly, annotation)
     data_dict["asym_unit"] = asym_unit_stack
 
-    # ...and subset to only the keys we want to return, verbosely for clarity
+    # ... subset to only the keys we want to return, verbosely for clarity
     _keep_keys = {"chain_info", "ligand_info", "asym_unit", "assemblies", "metadata", "extra_info"}
     return keyfilter(lambda k: k in _keep_keys, data_dict)
 

@@ -11,12 +11,13 @@ from biotite.structure import AtomArray, AtomArrayStack
 from conftest import TEST_DATA_DIR
 
 from cifutils import parse
-from cifutils.tools.inference import components_to_atom_array
+from cifutils.tools.inference import build_msa_paths_by_chain_id_from_component_list, components_to_atom_array
 from cifutils.utils.io_utils import (
     get_structure,
     infer_pdb_file_type,
     load_any,
     read_any,
+    to_cif_buffer,
     to_cif_file,
     to_cif_string,
     to_pdb_string,
@@ -231,6 +232,35 @@ def test_parse_with_no_resolved_atoms(tmpdir):
 
     # Smoke test
     assert out is not None
+
+
+def test_inject_msa_information_into_chain_info():
+    # Spoof the input data using the inference pipeline
+    inputs = [
+        {
+            "seq": "MSSKQVQLSLPVLVSLVLVSLQVR",
+            "msa_path": "sequence_1.a3m",
+        },
+        {
+            "seq": "MKTAYIAKQRQISFVKSHFS",
+            "msa_path": "sequence_2.a3m",
+        },
+    ]
+    atom_array, components = components_to_atom_array(inputs, return_components=True)
+
+    msa_paths_by_chain_id = build_msa_paths_by_chain_id_from_component_list(components)
+
+    cif_buffer_with_metadata = to_cif_buffer(
+        atom_array,
+        id="test_inject_msa",
+        extra_categories={"msa_paths_by_chain_id": msa_paths_by_chain_id},
+    )
+
+    # ... parse
+    out = parse(cif_buffer_with_metadata)
+
+    assert out["chain_info"]["A"]["msa_path"] == Path("sequence_1.a3m")
+    assert out["chain_info"]["B"]["msa_path"] == Path("sequence_2.a3m")
 
 
 if __name__ == "__main__":
