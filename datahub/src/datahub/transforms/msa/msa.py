@@ -26,11 +26,9 @@ from datahub.transforms.atom_array import (
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import ConvertToTorch, Transform
 from datahub.transforms.msa._msa_constants import (
-    AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
     AMINO_ACID_ONE_LETTER_TO_INT,
     GAP_THREE_LETTER,
     MSA_INTEGER_TO_THREE_LETTER,
-    RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
 )
 from datahub.transforms.msa._msa_featurizing_utils import (
     assign_extra_rows_to_cluster_representatives,
@@ -41,18 +39,18 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     transform_ins_counts,
     uniformly_select_rows,
 )
-from datahub.transforms.msa._msa_loading_utils import parse_msa
+from datahub.transforms.msa._msa_loading_utils import get_msa_path, load_msa_data_from_path
 from datahub.transforms.msa._msa_pairing_utils import join_multiple_msas_by_tax_id
-from datahub.utils.io import cache_to_disk_as_pickle, get_sharded_file_path
-from datahub.utils.misc import grouped_count, hash_sequence
+from datahub.utils.io import cache_to_disk_as_pickle
+from datahub.utils.misc import grouped_count
 from datahub.utils.token import apply_token_wise, get_token_count, get_token_starts
 
 logger = logging.getLogger(__name__)
 
 
 class PairAndMergePolymerMSAs(Transform):
-    """
-    Pairs and merges multiple polymer MSAs by tax_id.
+    """Pairs and merges multiple polymer MSAs by tax_id.
+
     Ensures that the query sequence is always the first sequence in the MSA.
 
     Stores results in "merged_polymer_msa" in the data dictionary, with keys:
@@ -144,6 +142,7 @@ class PairAndMergePolymerMSAs(Transform):
         else:
             # Homomeric complex - no need to pair, we will concatenate the MSAs later
             merged_polymer_msas = msa_list[0]
+
             # We consider homomers to be unpaired
             merged_polymer_msas["all_paired"] = np.zeros(merged_polymer_msas["msa"].shape[0], dtype=bool)
             merged_polymer_msas["any_paired"] = np.zeros(merged_polymer_msas["msa"].shape[0], dtype=bool)
@@ -173,13 +172,77 @@ class PairAndMergePolymerMSAs(Transform):
         return data
 
 
+def load_polymer_msas(
+    atom_array: AtomArray,
+    chain_info: dict,
+    protein_msa_dirs: list[dict[str, str]],
+    rna_msa_dirs: list[dict[str, str]],
+    max_msa_sequences: int = 10_000,
+    msa_cache_dir: PathLike | None = None,
+    use_paths_in_chain_info: bool = False,
+) -> dict[str, np.array]:
+    """Load MSAs for all polymer chains in the AtomArray and store them in a dictionary. See the LoadPolymerMSAs transform for more information"""
+    msas_by_chain_id = {}
+
+    # NOTE: If `msa_cache_dir` is `None`, the cache decorator will be a no-op
+    cached_load_msa_data_from_path = cache_to_disk_as_pickle(msa_cache_dir)(load_msa_data_from_path)
+
+    for chain_id in np.unique(atom_array.chain_id[np.isin(atom_array.chain_type, ChainType.get_polymers())]):
+        sequence = chain_info[chain_id]["processed_entity_non_canonical_sequence"]
+        chain_type = chain_info[chain_id]["chain_type"]
+
+        # Set the query chain tax_id to "query" to avoid pairing issues downstream (we force all query sequences to be paired with themselves)
+        # Subsequent occurrences of the query sequence will not have the "query" tax ID, and will be paired appropriately
+        query_chain_msa_tax_id = "query"
+
+        # ... find the path
+        if (
+            use_paths_in_chain_info
+            and "msa_path" in chain_info[chain_id]
+            and chain_info[chain_id]["msa_path"] is not None
+        ):
+            msa_file_path = Path(chain_info[chain_id]["msa_path"])
+        else:
+            # NOTE: We replace "U" with "T" for RNA sequences to match the MSA file names, which is a legacy behavior
+            msa_file_path = (
+                get_msa_path(sequence, protein_msa_dirs)
+                if chain_type.is_protein()
+                else get_msa_path(sequence.replace("U", "T"), rna_msa_dirs)
+            )
+
+        if msa_file_path is None:
+            # If no MSA file path is found, we skip this chain
+            continue
+
+        assert msa_file_path.exists(), f"MSA file not found at given path: {msa_file_path}"
+
+        # ... load the MSA data from the specified path
+        msa_data = cached_load_msa_data_from_path(
+            msa_file_path=msa_file_path,
+            chain_type=chain_type,
+            max_msa_sequences=max_msa_sequences,
+            query_tax_id=query_chain_msa_tax_id,
+        )
+
+        if msa_data["msa"] is not None:
+            msas_by_chain_id[chain_id] = {
+                **msa_data,
+                "msa_is_padded_mask": np.zeros(msa_data["msa"].shape, dtype=bool),  # 1 = padded, 0 = not padded
+            }
+
+    return msas_by_chain_id
+
+
 class LoadPolymerMSAs(Transform):
-    """
-    Load MSAs for all polymer chains in the AtomArray.
+    """Load MSAs for all polymer chains in the AtomArray.
 
     For the MSAs that are found, store the MSA (as a np.array of integers), insertions,
     tax IDs, and pre-computed sequence similarities in `polymer_msas_by_chain_id`
     indexed by chain_id (e.g., "A").
+
+    Note that MSAs may be found in two ways:
+        (1) By loading from the MSA files on disk based on the sequence hash(e.g., for training data).
+        (2) By using specific MSA paths provided in the chain_info dictionary (e.g., for inference).
 
     Args:
         protein_msa_dirs (list[dict]): The directories containing the protein MSAs and
@@ -198,15 +261,16 @@ class LoadPolymerMSAs(Transform):
         rna_msa_dirs (list[dict]): The directories containing the RNA MSAs and their
             associated file types, as a list of dictionaries. See `protein_msa_dirs`
             for directory structure details.
+        use_paths_in_chain_info (bool): Whether to use the MSA paths provided in the chain_info dictionary.
+            E.g., for inference mode. If True, we will first check the chain_info dictionary for MSA paths.
         max_msa_sequences (int, optional): The maximum number of sequences to load from
             the MSA files. Defaults to 10000. Only applies when loading; further
             sub-sampling of the MSA occurs downstream (e.g., for the standard or extra MSA stack).
-            AF-3 used a large value (~16K), but our MSAs on disk are already
-            pre-filtered to 10K.
+            AF-3 used a large value (~16K), but our MSAs on disk are already pre-filtered to 10K.
         msa_cache_dir (PathLike, optional): The directory to cache the parsed MSA data
             (since loading from text files is slow). If None, caching is turned off.
 
-    The `polymer_msas_by_chain_id` dictionary contains the following keys:
+    The `polymer_msas_by_chain_id` dictionary which is added contains the following keys:
         - msa: The MSA as a 2D np.array of integers, using the encoding specified in
           `_msa_constants.py`. Note that this encoding is transitory and will be
           converted to model-specific token indices later.
@@ -216,177 +280,47 @@ class LoadPolymerMSAs(Transform):
           np.array of strings.
         - sequence_similarity: The sequence similarity to the query sequence for each
           row in the MSA.
+        - msa_is_padded_mask: A mask indicating whether a given position in the MSA is
+          padded (0) or not (1); defaults to 1 for all positions. Used downstream when
+          filling the full MSA from the encoded MSA.
     """
 
+    max_msa_sequences: int
     protein_msa_dirs: list[dict]
     rna_msa_dirs: list[dict]
-    max_msa_sequences: int
-    msa_cache_dir: Path
+    cached_load_msa_data_from_path: callable
 
     def __init__(
         self,
-        protein_msa_dirs: list[dict] = [
-            {
-                "dir": "/projects/msa/rf2aa_af3/rf2aa_paper_model_protein_msas",
-                "extension": ".a3m.gz",
-                "directory_depth": 2,
-            },
-            {
-                "dir": "/projects/msa/rf2aa_af3/missing_msas_through_2024_08_12",
-                "extension": ".msa0.a3m.gz",
-                "directory_depth": 2,
-            },
-        ],
-        rna_msa_dirs: list[dict] = [{"dir": "/projects/msa/rf2aa_af3/rf2aa_paper_model_rna_msas", "extension": ".afa"}],
+        protein_msa_dirs: list[
+            dict
+        ] = [],  # Example: [{"dir": "/path/to/protein/msas", "extension": ".a3m.gz", "directory_depth": 2}]
+        rna_msa_dirs: list[dict] = [],
         max_msa_sequences: int = 10000,
         msa_cache_dir: PathLike | None = None,
+        use_paths_in_chain_info: bool = False,
     ):
         self.max_msa_sequences = max_msa_sequences
         self.protein_msa_dirs = protein_msa_dirs
         self.rna_msa_dirs = rna_msa_dirs
-
-        # ...apply decorator to cache the MSA data (NOTE: `None` turns off caching)
-        self._load_msa_data = cache_to_disk_as_pickle(msa_cache_dir)(self._load_msa_data)
+        self.msa_cache_dir = msa_cache_dir
+        self.use_paths_in_chain_info = use_paths_in_chain_info
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array", "chain_info"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_type", "chain_id"])
 
-    def _load_msa_data(
-        self, chain_type: ChainType, sequence: str, query_chain_msa_tax_id: str
-    ) -> tuple[np.array, np.array, np.array]:
-        """
-        Load the MSA data based on chain type and file availability.
-        Instead of loading single-character MSAs (which are ambiguous for proteins/RNA), we load the full MSA and convert to integers.
-
-        In addition to the core MSA information (MSA, ins, tax_ids), we also pre-calculate (and cache) the sequence similarity to the query sequence
-        to accelerate downstream processing.
-
-        Args:
-            chain_type (ChainType): The type of the chain (Protein or RNA).
-            sequence (str): The polymer one-letter sequence.
-            query_chain_msa_tax_id (str): The tax ID for the query chain. Defaults to "query" to ensure the query sequence is paired with itself.
-
-        Returns:
-            A tuple of numpy arrays containing msa, ins, tax_ids, and sequence similarity.
-        """
-        # TODO: Refactor into functional API
-        msa = None
-        ins = None
-        tax_ids = None
-
-        if chain_type.is_protein():
-            # ...hash the sequence so we can look up the MSA file
-            sequence_hash = hash_sequence(sequence)
-
-            # ...loop through all protein MSA directories, checking if the requested MSA file exists
-            for protein_msa_dir in self.protein_msa_dirs:
-                # ...build the path to the MSA file based on the directory depth
-                depth = protein_msa_dir.get("directory_depth", 0)
-                protein_msa_file = get_sharded_file_path(
-                    Path(protein_msa_dir["dir"]), sequence_hash, protein_msa_dir["extension"], depth
-                )
-
-                # ...load the MSA file if it exists
-                if protein_msa_file.exists():
-                    # ...parse the MSA file (either A3M or FASTA)
-                    msa, ins, tax_ids = parse_msa(
-                        protein_msa_file, maxseq=self.max_msa_sequences, query_tax_id=query_chain_msa_tax_id
-                    )
-
-                    # ...convert to integers, using the protein one-letter ASCII lookup table
-                    msa = AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE[msa.view(np.uint8)]
-
-                    # (Don't look at the other protein MSA directories if we found the file in this one)
-                    break
-
-        elif chain_type == ChainType.RNA:
-            # ...handle legacy behavior where RNA MSAs use T instead of U
-            sequence = sequence.replace("U", "T")
-
-            # ...hash the sequence so we can look up the correct MSA file
-            sequence_hash = hash_sequence(sequence)
-
-            # ...loop through all RNA MSA directories, checking if the requested MSA file exists
-            for rna_msa_dir in self.rna_msa_dirs:
-                depth = rna_msa_dir.get("directory_depth", 0)
-                rna_msa_file = get_sharded_file_path(
-                    Path(rna_msa_dir["dir"]), sequence_hash, rna_msa_dir["extension"], depth
-                )
-                if rna_msa_file.exists():
-                    # ...parse the MSA file (either A3M or FASTA)
-                    msa, ins, tax_ids = parse_msa(
-                        rna_msa_file, maxseq=self.max_msa_sequences, query_tax_id=query_chain_msa_tax_id
-                    )
-
-                    # ...convert to integers
-                    msa = RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE[msa.view(np.uint8)]
-
-                    # (Don't look ath the other RNA MSA directories if we found the file)
-                    break
-
-        # ...pre-calculate the sequence similarity to the query sequence for each row in the MSA
-        sequence_similarity = None
-        if msa is not None:
-            sequence_similarity = (msa == msa[0:1]).mean(axis=1)
-
-        return {
-            "msa": msa,
-            "ins": ins,
-            "tax_ids": tax_ids,
-            "sequence_similarity": sequence_similarity,
-        }
-
-    def _get_polymer_msas_by_chain_id(self, polymer_chain_ids: np.array, chain_info: dict) -> dict:
-        """
-        Retrieves MSAs for each polymer chain ID (e.g., "A").
-        If we can't find an MSA for a given chain ID, return a length-1 MSA containing only the query sequence.
-
-        Args:
-            polymer_chain_ids (np.array): List of unique chain IDs for polymers.
-            chain_info (dict): Dictionary containing chain information for the polymers (e.g., type). Must have chain IDs as keys, with "type" and "processed_entity_non_canonical_sequence" as sub-keys.
-
-        Returns:
-            msas_by_chain_id (dict): Dictionary with chain IDs as keys and corresponding MSA data as values. Values are:
-                msa (np.array): The MSA as a 2D np.array of ASCII int8 byte character strings
-                msa_is_padded_mask (np.array): A mask indicating whether a given position in the MSA is padded (0) or not (1); defaults 1 for all positions
-                ins (np.array): The insertion array for the MSA, indicating number of insertion to the LEFT of a given index
-                tax_ids (np.array): The taxonomic IDs for each sequence in the MSA
-        """
-        msas_by_chain_id = {}
-        for chain_id in polymer_chain_ids:
-            sequence = chain_info[chain_id]["processed_entity_non_canonical_sequence"]
-            chain_type = chain_info[chain_id]["chain_type"]
-
-            # Set the query chain tax_id to "query" to avoid pairing issues downstream (we force all query sequences to be paired with themselves)
-            # Subsequent occurrences of the query sequence will not have the "query" tax ID, and will be paired appropriately
-            query_chain_msa_tax_id = "query"
-
-            # ...load the MSA file from the correct directory (protein or RNA)
-            msa_data = self._load_msa_data(chain_type, sequence, query_chain_msa_tax_id)
-            msa = msa_data["msa"]
-
-            if msa is not None:
-                # ...if we found an MSA, store it in the dictionary
-                msas_by_chain_id[chain_id] = {
-                    "msa": msa,
-                    "msa_is_padded_mask": np.zeros(msa.shape, dtype=bool),  # 1 = padded, 0 = not padded
-                    "ins": msa_data["ins"],
-                    "tax_ids": msa_data["tax_ids"],
-                    "sequence_similarity": msa_data["sequence_similarity"],
-                }
-
-        return msas_by_chain_id
-
     def forward(self, data: dict) -> dict:
-        atom_array = data["atom_array"]
-        chain_info = data["chain_info"]
-        polymer_chain_ids = np.unique(atom_array.chain_id[np.isin(atom_array.chain_type, ChainType.get_polymers())])
-
-        polymer_msas_by_chain_id = self._get_polymer_msas_by_chain_id(polymer_chain_ids, chain_info)
-
-        # Add the MSAs to the data dictionary
+        polymer_msas_by_chain_id = load_polymer_msas(
+            atom_array=data["atom_array"],
+            chain_info=data["chain_info"],
+            protein_msa_dirs=self.protein_msa_dirs,
+            rna_msa_dirs=self.rna_msa_dirs,
+            max_msa_sequences=self.max_msa_sequences,
+            msa_cache_dir=self.msa_cache_dir,
+            use_paths_in_chain_info=self.use_paths_in_chain_info,
+        )
         data["polymer_msas_by_chain_id"] = polymer_msas_by_chain_id
 
         return data
@@ -633,7 +567,7 @@ class FeaturizeMSALikeRF2AA(Transform):
     """
     Featurizes the MSA in the style of RF2AA, returning one featurized set of outputs for each recycle.
 
-    Initialization arguments:
+    Args:
         encoding (TokenEncoding): The encoding object to use for the MSA.
         n_recycles (int): The number of recycles to perform. We will generate a unique featurized MSA for each recycle.
         n_msa_cluster_representatives (int): The number of MSA cluster representatives to select. The remaining sequences (up to `n_extra_rows`) will be used as extra MSA.

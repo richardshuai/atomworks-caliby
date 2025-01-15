@@ -117,38 +117,38 @@ def cache_to_disk_as_pickle(cache_dir: PathLike | None = None, use_gzip: bool = 
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(self, *args: Any, **kwargs: Any) -> Any:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             if cache_dir is None:
                 # If caching is disabled, always execute the function
-                return func(self, *args, **kwargs)
+                return func(*args, **kwargs)
 
-            # ...create cache directory if it doesn't exist
+            # ... create cache directory if it doesn't exist
             cache_dir_path = Path(cache_dir)
             cache_dir_path.mkdir(parents=True, exist_ok=True)
 
-            # ...create a unique cache file path based on the MD5 hash of function arguments
+            # ... create a unique cache file path based on the MD5 hash of function arguments
             args_repr = f"{args}_{kwargs}"
             hash_hex = hashlib.md5(args_repr.encode()).hexdigest()
             file_extension = ".pkl.gz" if use_gzip else ".pkl"
             cache_file = get_sharded_file_path(cache_dir, hash_hex, file_extension, directory_depth)
 
-            # ...check if cache file exists
+            # ... check if cache file exists
             open_func = gzip.open if use_gzip else open
             if cache_file.exists():
                 try:
-                    # ...try to load the result from cache file
+                    # ... try to load the result from cache file
                     with open_func(cache_file, "rb") as f:
                         result = pickle.load(f)
                     return result
 
                 except Exception as e:
-                    # ...fallback to executing the function, with a warning
+                    # (Fallback to executing the function, with a warning)
                     logger.error(f"Error loading cache file {cache_file}: {e}")
 
-            # ...if cache file doesn't exist, execute the function
-            result = func(self, *args, **kwargs)
+            # If cache file doesn't exist, execute the function
+            result = func(*args, **kwargs)
 
-            # ...and save the result to cache file, creating directories if necessary
+            # ... save the result to cache file, creating directories if necessary
             cache_file.parent.mkdir(parents=True, exist_ok=True)
             with open_func(cache_file, "wb") as f:
                 pickle.dump(result, f)

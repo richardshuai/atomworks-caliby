@@ -13,8 +13,7 @@ UNKNOWN_DNA_THREE_LETTER = "DX"  # Note that this will be padded to 3 letters
 
 
 def create_lookup_table(one_letter_to_int: dict, fallback_letter: str) -> np.ndarray:
-    """
-    Create a numpy lookup table from int8 one-letter codes to integer indices.
+    """Create a numpy lookup table from int8 one-letter codes to integer indices.
 
     Args:
         one_letter_to_int (dict): Dictionary mapping one-letter codes to integer indices.
@@ -43,13 +42,6 @@ def create_lookup_table(one_letter_to_int: dict, fallback_letter: str) -> np.nda
     return lookup_table
 
 
-"""
-Ordered list of protein amino acid one-letter codes, including gaps, ambiguous, and rare amino acids.
-
-References:
-    - https://iupac.qmul.ac.uk/AminoAcid/A2021.html#AA21 (for IUPAC amino acid codes)
-    - https://www.cup.uni-muenchen.de/ch/compchem/tink/as.html (for Pyrollisine)
-"""
 AMINO_ACID_ONE_LETTER_TO_INT = {
     # Canonical amino acids
     "A": 0,
@@ -84,13 +76,14 @@ AMINO_ACID_ONE_LETTER_TO_INT = {
     "U": 25,  # Selenocysteine, the 21st amino acid; analogue of the more common cystein with selenhium in lieu of sulfer (encoded by UGA codon)
     "O": 26,  # Pyrrolysine, the 22nd amino acid; found in some archaea and bacteria (encoded by UAG codon)
 }
-
 """
-Ordered list of RNA nucleotide one-letter codes, including gaps, ambiguous, and rare residues.
+Ordered list of protein amino acid one-letter codes, including gaps, ambiguous, and rare amino acids.
 
 References:
-    - https://www.promega.com/resources/guides/nucleic-acid-analysis/restriction-enzyme-resource/restriction-enzyme-resource-tables/iupac-ambiguity-codes-for-nucleotide-degeneracy/
+    - https://iupac.qmul.ac.uk/AminoAcid/A2021.html#AA21 (for IUPAC amino acid codes)
+    - https://www.cup.uni-muenchen.de/ch/compchem/tink/as.html (for Pyrollisine)
 """
+
 RNA_NUCLEOTIDE_ONE_LETTER_TO_INT = {
     # Canonical RNA residues (starting from 27 to avoid overlap with amino acids)
     "A": 27,
@@ -115,6 +108,12 @@ RNA_NUCLEOTIDE_ONE_LETTER_TO_INT = {
     "D": 40,  # Not C (A, G, or T)
     "V": 41,  # Not T (A, C, or G)
 }
+"""
+Ordered list of RNA nucleotide one-letter codes, including gaps, ambiguous, and rare residues.
+
+References:
+    - https://www.promega.com/resources/guides/nucleic-acid-analysis/restriction-enzyme-resource/restriction-enzyme-resource-tables/iupac-ambiguity-codes-for-nucleotide-degeneracy/
+"""
 
 # Create lookup tables from MSA one letter codes to integers, based on the above mappings
 AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE = create_lookup_table(AMINO_ACID_ONE_LETTER_TO_INT, fallback_letter="X")

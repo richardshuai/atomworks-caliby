@@ -1,10 +1,17 @@
 import re
 import string
 from os import PathLike
+from pathlib import Path
 
 import numpy as np
+from cifutils.enums import ChainType
 
-from datahub.utils.io import open_file
+from datahub.transforms.msa._msa_constants import (
+    AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
+    RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
+)
+from datahub.utils.io import get_sharded_file_path, open_file
+from datahub.utils.misc import hash_sequence
 
 
 def extract_tax_id(line: str, unknown_tax_id: str = "") -> str:
@@ -200,3 +207,56 @@ def parse_a3m(
     tax_ids_array = np.array(tax_ids)
 
     return msa_array, ins_array, tax_ids_array
+
+
+def get_msa_path(seq: str, msa_dirs: list[dict[str, str]]):
+    """Retrieve the path to the MSA file for a given sequence.
+
+    Args:
+        seq (str): The one-letter sequence for which to find the MSA. May be a protein or RNA sequence.
+        msa_dirs (list[dict[str, str]]): Dictionaries to search for the hashed sequence. Keys in the dictionary are:
+            - dir (str): The directory where the MSA files are stored.
+            - extension (str): The file extension of the MSA files (e.g., ".a3m.gz" or ".fasta").
+            - directory_depth (int, optional): The directory nesting depth, i.e., the MSA file
+                might be stored at `dir/d8/07/d8074f77ba.a3m.gz`. Defaults to 0 (flat directory).
+            Note that the dictionaries are searched in order, and the first match is returned.
+    """
+    sequence_hash = hash_sequence(seq)
+    for msa_dir in msa_dirs:
+        msa_file = get_sharded_file_path(
+            Path(msa_dir["dir"]), sequence_hash, msa_dir["extension"], msa_dir.get("directory_depth", 0)
+        )
+        if msa_file.exists():
+            return msa_file
+    return None
+
+
+def load_msa_data_from_path(
+    msa_file_path: PathLike, chain_type: ChainType, max_msa_sequences: int = 10_000, query_tax_id: str = "query"
+) -> dict[str, np.array]:
+    """Given an MSA file path and the corresponding chain type, load the MSA data.
+
+    We must consider the ChainType to determine how to convert the MSA to our intermediate integer representation
+    (since the single-letter representations of amino acids and nucleotides overlap)
+
+    Args:
+        msa_file_path (PathLike): The path to the MSA file (can be gzipped).
+        chain_type (ChainType): The type of the chain (e.g., Protein or RNA).
+        max_msa_sequences (int): The maximum number of sequences to read from the file (for processing speed).
+        query_tax_id (str): The taxonomy ID for the query sequence. Defaults to "query"; ensures the query sequence is paired with itself.
+    """
+    # ... parse the MSA file (handles both A3M or FASTA formats)
+    msa, ins, tax_ids = parse_msa(msa_file_path, maxseq=max_msa_sequences, query_tax_id=query_tax_id)
+
+    # ... convert to integers, using the protein one-letter ASCII lookup table
+    if chain_type.is_protein():
+        msa = AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE[msa.view(np.uint8)]
+    elif chain_type == ChainType.RNA:
+        msa = RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE[msa.view(np.uint8)]
+    else:
+        raise ValueError(f"Unsupported chain type for MSAs: {chain_type}")
+
+    # Sequence similarity to the query sequence for each row in the MSA
+    sequence_similarity = (msa == msa[0:1]).mean(axis=1) if msa is not None else None
+
+    return {"msa": msa, "ins": ins, "tax_ids": tax_ids, "sequence_similarity": sequence_similarity}
