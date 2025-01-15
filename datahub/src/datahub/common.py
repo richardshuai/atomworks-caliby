@@ -1,15 +1,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
-
-def exists(obj: Any) -> bool:
-    return obj is not None
-
-
-def default(obj: Any, default: Any) -> Any:
-    return obj if exists(obj) else default
+from cifutils.common import default, exists  # noqa: F401
 
 
 def generate_example_id(dataset_names: list[str], pdb_id: str, assembly_id: str, query_pn_unit_iids: list) -> str:

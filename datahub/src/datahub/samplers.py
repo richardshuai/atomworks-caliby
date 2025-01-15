@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], beta: float) -> pd.Series:
-    """
+    """Determines the weight of each example in the DataFrame using a methodology inspired by AF-3.
+
     In AF-3, the weight of a given example is a function of:
         (1) The size of the cluster to which the example belongs (specific for interfaces vs. chains)
         (2) The number of proteins / nucleic acids / ligands in the example
@@ -38,7 +39,7 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
     Thus, our full formula is:
         w ∝ (β_r / N_clust) * (a_prot * n_prot + a_peptide * n_peptide + a_nuc * n_nuc + a_ligand * n_ligand + a_loi * is_loi)
 
-    Parameters:
+    Args:
         df (pd.DataFrame): DataFrame containing the PN unit or interface data
         alphas (dict): Dictionary containing the weight hyperparameters for proteins, nucleic acids, ligands, and possibly peptides (common across interfaces and chains)
         beta (float): Weighting hyperparameter (distinct for interfaces and chains)
@@ -46,23 +47,28 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
     Returns:
         pd.Series: A Series containing the calculated weights for each row in the DataFrame
     """
+    required_columns = ["n_prot", "n_nuc", "n_ligand", "cluster_size"]
+    assert all(col in df.columns for col in required_columns), (
+        "Missing required columns in the (loaded) DataFrame. "
+        f"Please ensure the DataFrame contains the following columns: {required_columns}"
+        "Also ensure that the columns to include are specified in the Hydra configuration file."
+    )
     # Extract relevant columns with default handling
-    n_prot = df.get("n_prot", 0)
-    n_nuc = df.get("n_nuc", 0)
-    n_ligand = df.get("n_ligand", 0)
-    n_peptide = df.get("n_peptide", 0)
+    n_prot = df["n_prot"]
+    n_nuc = df["n_nuc"]
+    n_ligand = df["n_ligand"]
+    n_peptide = df["n_peptide"]
     cluster_size = df["cluster_size"]
 
     # For interfaces, the column "involves_loi" indicates whether the interface involves a ligand of interest
     # For pn_units, the column "q_pn_unit_is_loi" indicates whether the query PN Unit is a ligand of interest
     # (1 = True, 0 = False)
-    is_loi = df.get("involves_loi", df.get("q_pn_unit_is_loi", False)).astype(int)
-    if "involves_loi" not in df.columns and "q_pn_unit_is_loi" not in df.columns:
-        logger.warning(
-            "No column found for 'involves_loi' or 'q_pn_unit_is_loi'. "
-            "Defaulting to False for all examples. If this is incorrect, please check!"
-            "Columns in dataframe: {df.columns}"
-        )
+    assert "involves_loi" in df.columns or "q_pn_unit_is_loi" in df.columns, (
+        "Missing column for 'involves_loi' or 'q_pn_unit_is_loi'. "
+        "Please check the columns in the DataFrame: {df.columns}, "
+        "and the columns to include specified in the Hydra configuration file."
+    )
+    is_loi = (df["involves_loi"] if "involves_loi" in df.columns else df["q_pn_unit_is_loi"]).astype(int)
 
     # Assert that all cluster sizes are greater than 0
     assert all(cluster_size > 0), "All cluster sizes must be greater than 0"
@@ -100,10 +106,9 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
 
 
 def get_cluster_sizes(df: pd.DataFrame, cluster_column="cluster") -> dict:
-    """
-    Generate a mapping between cluster alphanumeric IDs and the number of PN units/interfaces in each cluster.
+    """Generate a mapping between cluster alphanumeric IDs and the number of PN units/interfaces in each cluster.
 
-    Parameters:
+    Args:
         df (pd.DataFrame): DataFrame containing the PN unit or interface data
         cluster_column (str): Name of the column containing the cluster alphanumeric IDs
 
@@ -120,10 +125,9 @@ def get_cluster_sizes(df: pd.DataFrame, cluster_column="cluster") -> dict:
 def calculate_weights_for_pdb_dataset_df(
     dataset_df: pd.DataFrame, alphas: dict[str, float], beta: float
 ) -> torch.Tensor:
-    """
-    Calculate weights for each row in the DataFrame based on the cluster size and the AF-3 weighting methodology.
+    """Calculate weights for each row in the DataFrame based on the cluster size and the AF-3 weighting methodology.
 
-    Parameters:
+    Args:
         dataset_df (pd.DataFrame): DataFrame containing the PN unit or interface data
         alphas (dict[str, float]): Dictionary containing alpha values for the weighting calculation (common across interfaces and chains/pn_units)
         beta (float): Beta value for the weighting calculation (distinct for interfaces and chains/pn_units)
@@ -147,10 +151,9 @@ def calculate_weights_for_pdb_dataset_df(
 def calculate_weights_by_inverse_cluster_size(
     dataset_df: pd.DataFrame, cluster_column_name: str = "cluster"
 ) -> torch.Tensor:
-    """
-    Calculate weights for each row in the DataFrame as the inverse of its cluster size.
+    """Calculate weights for each row in the DataFrame as the inverse of its cluster size.
 
-    Parameters:
+    Args:
         dataset_df (pd.DataFrame): DataFrame containing the PN unit or interface data
         cluster_column_name (str): Column name in `dataset_df` corresponding to the cluster info. Default is "cluster".
 
@@ -171,9 +174,7 @@ def calculate_weights_by_inverse_cluster_size(
 
 
 def set_sampler_epoch(sampler: Sampler, epoch: int, add_random_offset: bool = False) -> None:
-    """
-    Control the random seed for a sampler.
-    """
+    """Control the random seed for a sampler."""
     if add_random_offset:
         epoch += torch.randint(-int(1e12), int(1e12), (1,)).item()
 
@@ -190,8 +191,8 @@ def set_sampler_epoch(sampler: Sampler, epoch: int, add_random_offset: bool = Fa
 
 
 class DistributedMixedSampler(Sampler):
-    """
-    Custom DistributedSampler implementation that samples from an arbitrary list of samplers with specified probabilities.
+    """Custom DistributedSampler implementation that samples from an arbitrary list of samplers with specified probabilities.
+
     Child samplers can be any type of non-distributed sampler, including a MixedSampler.
     After gathering all indices, shards the samples across nodes, ensuring each node receives a unique slice of the dataset.
 
@@ -216,7 +217,9 @@ class DistributedMixedSampler(Sampler):
         If any of the child samplers were distributed samples, then the DistributedMixedSampler would not receive n_examples_per_epoch indices, 
         and we would raise an error.
 
-    Parameters:
+    NOTE: The order of the datasets in datasets_info MUST match the order of the datasets in the ConcatDataset associated with this MixedSampler.
+
+    Args:
         datasets_info: List of dictionaries, where each dictionary must contain at a minimum:
             - "sampler": Sampler object for the dataset
             - "dataset": Dataset object associated with the sampler
@@ -233,8 +236,6 @@ class DistributedMixedSampler(Sampler):
     
     References:
         - PyTorch DistributedSampler (https://github.com/pytorch/pytorch/blob/main/torch/utils/data/distributed.py#L68)
-
-    NOTE: The order of the datasets in datasets_info MUST match the order of the datasets in the ConcatDataset associated with this MixedSampler.
     """
 
     def __init__(
@@ -263,22 +264,25 @@ class DistributedMixedSampler(Sampler):
         self.cumulative_lengths = self.cumulative_lengths[:-1]
 
         # Assert that:
-        # ...the number of samplers, probabilities, and datasets match
+        # ... the number of samplers, probabilities, and datasets match
         assert_that(self.samplers).is_length(len(self.probabilities)).is_length(len(self.dataset_lengths))
-        # ...the probabilities sum to 1
+        # ... the probabilities sum to 1
         assert_that(sum(self.probabilities)).is_close_to(1.0, tolerance=1e-6).described_as(
             "Probabilities must sum to 1"
         )
-        # ...the datasets_info contains keys for "sampler", "probability", and "dataset"
+        # ... the datasets_info contains keys for "sampler", "probability", and "dataset"
         assert_that(datasets_info[0]).contains_key("sampler").contains_key("probability").contains_key("dataset")
 
         if n_examples_per_epoch is not None:
             self._set_num_examples_per_epoch(n_examples_per_epoch)
 
     def _set_num_examples_per_epoch(self, n_examples_per_epoch: int) -> None:
-        """
-        Set the number of examples per epoch, and update the number of examples per epoch for each sampler.
+        """Set the number of examples per epoch, and update the number of examples per epoch for each sampler.
+
         Allows for dynamic setting and propagation of the number of examples per epoch.
+
+        Args:
+            n_examples_per_epoch: Number of examples in an epoch. Effectively, the "length" of the sampler
         """
         self.n_examples_per_epoch = n_examples_per_epoch
 
@@ -305,11 +309,11 @@ class DistributedMixedSampler(Sampler):
             if hasattr(sampler, "_set_num_examples_per_epoch"):
                 sampler._set_num_examples_per_epoch(n_examples)
 
-            # ...override the `num_samples` attribute if it exists (e.g., for WeightedRandomSampler)
+            # ... override the `num_samples` attribute if it exists (e.g., for WeightedRandomSampler)
             if hasattr(sampler, "num_samples"):
                 sampler.num_samples = n_examples
 
-            # ...and assert that either we have more than n_examples_per_epoch examples or we are sampling with replacement
+            # ... and assert that either we have more than n_examples_per_epoch examples or we are sampling with replacement
             sampler_has_enough_data = len(sampler) >= n_examples
             sampler_is_replacement = getattr(sampler, "replacement", False)
             assert_that(sampler_has_enough_data or sampler_is_replacement).is_true().described_as(
@@ -378,12 +382,11 @@ class DistributedMixedSampler(Sampler):
 
 
 class MixedSampler(DistributedMixedSampler):
-    """
-    A non-distributed sampler that samples from an arbitrary list of samplers with specified probabilities.
+    """A non-distributed sampler that samples from an arbitrary list of samplers with specified probabilities.
 
     This class acts like a DistributedMixedSampler with `rank=0` and `num_replicas=1`.
 
-    Parameters:
+    Args:
         datasets_info: List of dictionaries, where each dictionary must contain at a minimum:
             - "sampler": Sampler object for the dataset
             - "dataset": Dataset object associated with the sampler
@@ -403,8 +406,7 @@ class MixedSampler(DistributedMixedSampler):
 
 
 class FallbackSamplerWrapper(Sampler):
-    """
-    A wrapper around a sampler that allows for a fallback sampler to be used when an error occurs.
+    """A wrapper around a sampler that allows for a fallback sampler to be used when an error occurs.
 
     Meant to be used with a FallbackDatasetWrapper.
     """

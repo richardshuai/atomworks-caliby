@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from assertpy import assert_that
 from biotite.structure import AtomArray
-from cifutils.common import exists
+from cifutils.common import KeyToIntMapper, exists
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 from cifutils.utils.ccd import get_std_to_alt_atom_name_map
 from torch.nn import functional as F
@@ -30,34 +30,6 @@ from datahub.transforms.base import Transform
 from datahub.utils.token import get_token_count, get_token_starts, token_iter
 
 logger = getLogger(__name__)
-
-
-class KeyToIntMapper:
-    """
-    Maps keys to unique integers based on the order of the first appearance of the key.
-
-    This is useful for mapping id's such as `chain_id`, `chain_entity`, `molecule_iid`, etc.
-    to integers.
-
-    Example:
-    ```python
-        chain_id_to_int = KeyToIntMapper()
-        chain_id_to_int("A")  # 0
-        chain_id_to_int("C")  # 1
-        chain_id_to_int("A")  # 0
-        chain_id_to_int("B")  # 2
-    ```
-    """
-
-    def __init__(self):
-        self.key_to_id = {}
-        self.next_id = 0
-
-    def __call__(self, value: Any) -> int:
-        if value not in self.key_to_id:
-            self.key_to_id[value] = self.next_id
-            self.next_id += 1
-        return self.key_to_id[value]
 
 
 def atom_array_to_encoding(

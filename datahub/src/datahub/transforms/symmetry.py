@@ -10,7 +10,7 @@ import networkx.algorithms.isomorphism as iso
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from cifutils.utils.bonds import hash_graph
+from cifutils.utils.bonds import hash_atom_array
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
@@ -380,14 +380,7 @@ class AddPostCropMoleculeEntityToFreeFloatingLigands(Transform):
                 # Hash the current free-floating ligand molecule
                 # ... get a molecular graph with edge attributes = `bond_type`
                 # ... c.f. https://github.com/biotite-dev/biotite/blob/v0.41.0/src/biotite/structure/bonds.pyx#L427-L434
-                molecule = atom_array[is_in_molecule]
-                mol_graph = molecule.bonds.as_graph()
-
-                # ... set node attributes to atomic `element`
-                nx.set_node_attributes(mol_graph, {idx: elt for idx, elt in enumerate(molecule.element)}, "element")
-
-                # ... compute WL-hash
-                mol_hash = hash_graph(mol_graph, edge_attr="bond_type", node_attr="element")
+                mol_hash = hash_atom_array(atom_array[is_in_molecule], annotations=["element"], bond_order=True)
 
             # ... add molecule hash to lookup table for assigning
             if mol_hash not in hash_to_entity:

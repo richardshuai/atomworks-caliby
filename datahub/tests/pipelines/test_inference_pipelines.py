@@ -2,11 +2,14 @@
 
 import pytest
 import torch
+from cifutils import parse
 from cifutils.tools.inference import components_to_atom_array, read_chai_fasta
+from cifutils.utils.io_utils import to_cif_buffer
 from cifutils.utils.non_rcsb import initialize_chain_info_from_atom_array
+from cifutils.utils.testing import assert_same_atom_array
 
 from datahub.pipelines.af3 import build_af3_transform_pipeline
-from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
+from datahub.utils.testing import cached_parse
 from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, TEST_DATA_DIR
 
 
@@ -48,16 +51,30 @@ def test_af3_pipeline_from_chai_fasta():
         ), f"Found NaN in feats: {feat_name=}, {feat=}"
 
 
-def test_rf2aa_pipeline_from_chai_fasta():
-    """Test the RF2AA transformation pipeline with different configurations."""
+AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES = [
+    [
+        {
+            "seq": "MNAKEIVVHALRLLENGDARGWCDLFHPEGVLEYPYPPPGYKTRFEGRETIWAHMRLFPEYMTIRFTDVQFYETADPDLAIGEFHGDGVHTVSGGKLAADYISVLRTRDGQILLYRLFFNPLRVLEPLGLEHHHHHH",
+            "chain_type": "polypeptide(l)",
+        },
+        {
+            "smiles": "O=C1OCC(=C1)C5C4(C(O)CC3C(CCC2CC(O)CCC23C)C4(O)CC5)C",
+            "chain_type": "non-polymer",
+        },
+    ]
+]
+
+
+@pytest.mark.parametrize("inference_components", AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES)
+def test_af3_pipeline_from_sequence_and_smiles(inference_components):
     # Load chai fasta
-    fasta_path = TEST_DATA_DIR / "inference_like_chai_fasta.fasta"
-    inference_input_components = read_chai_fasta(fasta_path)
-    atom_array = components_to_atom_array(inference_input_components)
+    atom_array = components_to_atom_array(inference_components)
     chain_info = initialize_chain_info_from_atom_array(atom_array)
 
-    # Build and run rf2aa inference pipeline
-    pipeline = build_rf2aa_transform_pipeline(
+    assert atom_array is not None, "Failed to load atom array from inference components"
+
+    # Build and run af3 inference pipeline
+    pipeline = build_af3_transform_pipeline(
         is_inference=True,
         protein_msa_dirs=PROTEIN_MSA_DIRS,
         rna_msa_dirs=RNA_MSA_DIRS,
@@ -65,7 +82,7 @@ def test_rf2aa_pipeline_from_chai_fasta():
 
     transformed_data = pipeline(
         data={
-            "example_id": str(fasta_path),
+            "example_id": "test_example",
             "atom_array": atom_array,
             "chain_info": chain_info,
         }
@@ -73,6 +90,83 @@ def test_rf2aa_pipeline_from_chai_fasta():
 
     # Basic validation checks
     assert "feats" in transformed_data, "Missing feats in pipeline output."
+
+    # Check that none of the feats is `nan`
+    for feat_name, feat in transformed_data["feats"].items():
+        assert (
+            feat.isfinite().all() if isinstance(feat, torch.Tensor) else True
+        ), f"Found NaN in feats: {feat_name=}, {feat=}"
+
+    # Check that we successfully generated a reference conformer for the ligand
+    assert not torch.any(torch.all(transformed_data["feats"]["ref_pos"] == 0, dim=1))
+
+
+def test_same_pipeline_outputs_from_cif_and_inference():
+    transformation_id = "1"
+    data = cached_parse("7rxs", remove_hydrogens=True)
+    atom_array_from_cif = data["assemblies"][transformation_id][0]
+
+    pipeline = build_af3_transform_pipeline(
+        is_inference=True,
+        protein_msa_dirs=PROTEIN_MSA_DIRS,
+        rna_msa_dirs=RNA_MSA_DIRS,
+    )
+
+    # Run the pipeline on the CIF data
+    cif_out = pipeline(
+        data={
+            "example_id": "test_example",
+            "atom_array": atom_array_from_cif,
+            "chain_info": data["chain_info"],
+        }
+    )
+
+    # Run the pipeline on the inference components, derived from the CIF data
+    monomer = [
+        {
+            "seq": data["chain_info"]["A"]["unprocessed_entity_non_canonical_sequence"],
+            "chain_type": data["chain_info"]["A"]["chain_type"],
+            "chain_id": "A",
+        }
+    ]
+    ligand = [{"smiles": "Cc1cc(cc(c1)Oc2nccc(n2)c3c(ncn3[C@H]4CCN(C4)CCN)c5ccc(cc5)I)C", "chain_id": "C"}]
+    buffer = to_cif_buffer(components_to_atom_array(monomer + ligand), include_entity_poly=True)
+    pipeline_inputs_from_inference = parse(buffer, remove_hydrogens=True)
+    atom_array_from_inference = pipeline_inputs_from_inference["assemblies"][transformation_id][0]
+
+    annotations_to_compare = set(atom_array_from_cif.get_annotation_categories()) - {
+        "res_name",
+        "atom_name",
+        "res_id",
+        "stereo",
+        "b_factor",
+        "alt_atom_id",
+        "is_aromatic",
+        "occupancy",
+    }
+    assert_same_atom_array(
+        atom_array_from_cif,
+        atom_array_from_inference,
+        compare_coords=False,
+        compare_bonds=True,
+        annotations_to_compare=annotations_to_compare,
+        enforce_order=False,
+    )
+
+    inference_out = pipeline(
+        data={
+            "example_id": "test_example",
+            "atom_array": pipeline_inputs_from_inference["assemblies"][transformation_id][0],
+            "chain_info": data["chain_info"],
+        }
+    )
+
+    # Assert same shapes
+    assert cif_out["feats"]["ref_pos"].shape == inference_out["feats"]["ref_pos"].shape
+
+    # Assert no NaNs in ref_pos
+    assert torch.isfinite(cif_out["feats"]["ref_pos"]).all()
+    assert torch.isfinite(inference_out["feats"]["ref_pos"]).all()
 
 
 if __name__ == "__main__":

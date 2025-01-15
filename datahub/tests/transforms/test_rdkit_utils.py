@@ -44,7 +44,7 @@ def test_smiles_to_rdkit_with_conformer_to_atom_array(smiles):
     # remove the inferred hydrogens again
     mol = Chem.RemoveHs(mol)
 
-    atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, elements_as_int=False, remove_hydrogens=True)
+    atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, remove_hydrogens=True)
 
     # Add extra annotations
     atom_array.res_name = ["UNL"] * atom_array.array_length()
@@ -71,9 +71,7 @@ def test_smiles_to_atom_array_to_conformer(smiles):
     atom_array = components_to_atom_array(inputs)
     mol = atom_array_to_rdkit(atom_array, infer_hydrogens=True)
     mol = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize=True)
-    new_atom_array = atom_array_from_rdkit(
-        mol, set_coord_if_available=True, elements_as_int=False, remove_hydrogens=True
-    )
+    new_atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, remove_hydrogens=True)
 
     # Ensure we didn't drop any atoms
     assert len(atom_array) == len(new_atom_array)

@@ -7,6 +7,7 @@ import torch
 from biotite.structure import AtomArray
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
 from cifutils.tools.rdkit import atom_array_from_rdkit
+from cifutils.utils.ccd import get_available_ccd_codes
 from cifutils.utils.selection import get_residue_starts
 from rdkit import Chem
 
@@ -20,6 +21,9 @@ from datahub.transforms.rdkit_utils import (
 from datahub.utils.geometry import random_rigid_augmentation
 
 logger = logging.getLogger("datahub")
+
+# UNL is a special CCD code for unknown ligands; we do not consider it "known" as it has no structure
+KNOWN_CCD_CODES = get_available_ccd_codes() - {UNKNOWN_LIGAND}
 
 
 def _get_rdkit_mols_with_conformers(
@@ -47,8 +51,8 @@ def _get_rdkit_mols_with_conformers(
     """
     ref_mols = {}
     for res_name, count in res_stochiometry.items():
-        if res_name == UNKNOWN_LIGAND:
-            ref_mols[res_name] = None  # placeholder so that the UNL is still counted later on
+        if res_name not in KNOWN_CCD_CODES:
+            ref_mols[res_name] = None  # placeholder so that the unknown CCD codes are still counted later on
             continue
         mol = ccd_code_to_rdkit_with_conformers(
             ccd_code=res_name, n_conformers=count, timeout_seconds=timeout_seconds, **generate_conformers_kwargs
@@ -58,7 +62,7 @@ def _get_rdkit_mols_with_conformers(
     return ref_mols
 
 
-def generate_conformer_for_UNL(
+def generate_conformer_for_unknown_ccd(
     atom_array: AtomArray,
     timeout_seconds: float = 10.0,
     **generate_conformers_kwargs,
@@ -196,18 +200,18 @@ def get_af3_reference_molecule_features(
     res_stochiometry = dict(zip(*np.unique(_res_names, return_counts=True)))
 
     # ... get reference molecules with conformers for each residue
-    # (We do not generate conformers for UNL here, as we will do that later)
+    # (We do not generate conformers for unknown CCD codes here, as we will do that later)
     ref_mols = _get_rdkit_mols_with_conformers(
         res_stochiometry=res_stochiometry, timeout_seconds=conformer_generation_timeout, **generate_conformers_kwargs
     )
 
-    # ... generate conformers for unknown ligands (UNL), if present
-    unknown_ligand_conformers = []
-    if UNKNOWN_LIGAND in res_stochiometry:
-        res_indices_with_unknown = np.where(_res_names == UNKNOWN_LIGAND)[0]
+    # ... generate conformers for CCD codes that are unknown (including UNL)
+    unknown_ccd_conformers = []
+    if not all(res_name in KNOWN_CCD_CODES for res_name in res_stochiometry):
+        res_indices_with_unknown = np.where(~np.isin(_res_names, list(KNOWN_CCD_CODES)))[0]
         for res_index in res_indices_with_unknown:
-            unknown_ligand_conformers.append(
-                generate_conformer_for_UNL(
+            unknown_ccd_conformers.append(
+                generate_conformer_for_unknown_ccd(
                     atom_array[_res_starts[res_index] : _res_ends[res_index]],
                     timeout_seconds=conformer_generation_timeout,
                     **generate_conformers_kwargs,
@@ -242,9 +246,9 @@ def get_af3_reference_molecule_features(
         res_name = atom_array.res_name[res_start]
 
         # ... turn conformer into an atom array
-        if res_name == UNKNOWN_LIGAND:
-            # (UNL conformers are already atom arrays, since we generated them directly)
-            conformer = unknown_ligand_conformers[_next_conf_idx[res_name]]
+        if res_name not in KNOWN_CCD_CODES:
+            # (conformers for unknown CCD codes are already atom arrays, since we generated them directly)
+            conformer = unknown_ccd_conformers[_next_conf_idx[res_name]]
         else:
             conformer = atom_array_from_rdkit(
                 ref_mols[res_name],

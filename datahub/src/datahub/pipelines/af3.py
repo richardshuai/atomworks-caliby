@@ -81,7 +81,7 @@ def build_af3_transform_pipeline(
     # Undesired res names
     undesired_res_names: list[str] = AF3_EXCLUDED_LIGANDS,
     # Conformer generation params
-    conformer_generation_timeout: float = 2.0,  # seconds
+    conformer_generation_timeout: float = 5.0,  # seconds
     # Template params
     max_n_template: int = 20,  # Maximum number of templates to return from our template search (distinct from n_template)
     n_template: int = 4,
@@ -153,7 +153,10 @@ def build_af3_transform_pipeline(
         RemoveTerminalOxygen(),
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
         RemovePolymersWithTooFewResolvedResidues(min_residues=4),  # Remove polymers with too few resolved residues
-        HandleUndesiredResTokens(undesired_res_names),  # e.g., non-standard residues
+        # NOTE: For inference, we must keep UNL to support ligands that are not in the CCD
+        HandleUndesiredResTokens(
+            undesired_res_names if not is_inference else [x for x in undesired_res_names if x != "UNL"]
+        ),  # e.g., non-standard residues
         FlagAndReassignCovalentModifications(),
         FlagNonPolymersForAtomization(),
         AddGlobalAtomIdAnnotation(),

@@ -360,7 +360,6 @@ def sample_rdkit_conformer_for_atom_array(
     new_atom_array = atom_array_from_rdkit(
         mol,
         set_coord_if_available=set_coord_if_available,
-        elements_as_int=True,
         remove_inferred_atoms=True,
         remove_hydrogens=False,
     )
