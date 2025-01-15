@@ -12,7 +12,7 @@ import numpy as np
 from biotite.structure import AtomArray
 
 import cifutils.transforms.atom_array as ta
-from cifutils.common import exists
+from cifutils.common import KeyToIntMapper, exists
 from cifutils.constants import (
     CCD_MIRROR_PATH,
     PEPTIDE_MAX_RESIDUES,
@@ -28,6 +28,7 @@ from cifutils.utils.bonds import (
     correct_formal_charges_for_specified_atoms,
     get_inferred_polymer_bonds,
     get_struct_conn_bonds,
+    hash_atom_array,
     spoof_struct_conn_dict_from_string,
 )
 from cifutils.utils.ccd import (
@@ -435,7 +436,11 @@ def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
     return atom_array
 
 
-def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: list[str] | None = None) -> AtomArray:
+def components_to_atom_array(
+    components: list[ChemicalComponent | dict],
+    bonds: list[str] | None = None,
+    _set_nan_to_random: bool = False,
+) -> AtomArray:
     """Build an AtomArray from a list of ChemicalComponent objects and, optionally, a list of bonds.
 
     Args:
@@ -472,10 +477,15 @@ def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: 
         component.chain_id = component.chain_id or next(chain_id_generator)
 
         # TODO: Can we add support for SDFComponent?
+        ligand_hash_to_id = KeyToIntMapper()  # ... to keep track of identical ligands
         if isinstance(component, SequenceComponent):
             atom_arrays.append(sequence_to_annotated_atom_array(**component.as_dict()))
         elif isinstance(component, SmilesComponent):
-            atom_arrays.append(smiles_to_annotated_atom_array(**component.as_dict()))
+            ligand_array = smiles_to_annotated_atom_array(**component.as_dict())
+            ligand_hash = hash_atom_array(ligand_array, annotations=["element", "atom_name"], bond_order=True)
+            ligand_id = ligand_hash_to_id(ligand_hash)
+            ligand_array.res_name = np.full(ligand_array.array_length(), f"#L{ligand_id}")
+            atom_arrays.append(ligand_array)
         elif isinstance(component, CCDComponent):
             atom_arrays.append(ccd_code_to_annotated_atom_array(**component.as_dict()))
         else:
@@ -483,6 +493,8 @@ def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: 
 
     # ... concatenate all atom arrays into a single AtomArray
     atom_array = struc.concatenate(atom_arrays)
+
+    # TODO: We may be able to simplify by casting to a buffer and running `parse`
 
     if bonds:
         # ... spoof the struct_conn CIFCategory
@@ -515,5 +527,11 @@ def components_to_atom_array(components: list[ChemicalComponent | dict], bonds: 
 
     # ... add iid, id, entity annotations
     atom_array = add_inference_iid_id_entity_annotations(atom_array)
+
+    # HACK: replace NaN with random coordinates
+    # TODO: Remove this once we correctly handle NaN downstream
+    if _set_nan_to_random:
+        nan_coordinates = np.isnan(atom_array.coord)
+        atom_array.coord[nan_coordinates] = np.random.rand(*atom_array.coord[nan_coordinates].shape)
 
     return atom_array

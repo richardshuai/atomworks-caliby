@@ -1,16 +1,26 @@
 import io
 import tempfile
 from contextlib import nullcontext
+from pathlib import Path
 
 import biotite.structure as struc
 import numpy as np
 import pytest
 from biotite.database import rcsb
 from biotite.structure import AtomArray, AtomArrayStack
+from conftest import TEST_DATA_DIR
 
 from cifutils import parse
 from cifutils.tools.inference import components_to_atom_array
-from cifutils.utils.io_utils import get_structure, load_any, read_any, to_cif_file, to_cif_string, to_pdb_string
+from cifutils.utils.io_utils import (
+    get_structure,
+    infer_pdb_file_type,
+    load_any,
+    read_any,
+    to_cif_file,
+    to_cif_string,
+    to_pdb_string,
+)
 
 
 @pytest.mark.parametrize(
@@ -30,6 +40,33 @@ def test_load_any(pdb_id, file_type, directory):
         loaded_structure = load_any(rcsb.fetch(pdb_id, file_type, tmp_dir), file_type=file_type)
         assert isinstance(loaded_structure, AtomArray | AtomArrayStack)
         assert loaded_structure.array_length() > 0
+
+
+def test_infer_filetype():
+    assert infer_pdb_file_type("6lyz.pdb") == "pdb"
+    assert infer_pdb_file_type("6lyz.pdb.gz") == "pdb"
+    assert infer_pdb_file_type("6lyz.pdb.gzip") == "pdb"
+    assert infer_pdb_file_type("6lyz.mmcif") == "cif"
+    assert infer_pdb_file_type("6lyz.mmcif.gz") == "cif"
+    assert infer_pdb_file_type("6lyz.mmcif.gzip") == "cif"
+    assert infer_pdb_file_type("6lyz.pdbx") == "cif"
+    assert infer_pdb_file_type("6lyz.pdbx.gz") == "cif"
+    assert infer_pdb_file_type("6lyz.pdbx.gzip") == "cif"
+    assert infer_pdb_file_type("6lyz.bcif") == "bcif"
+    assert infer_pdb_file_type("6lyz.bcif.gz") == "bcif"
+    assert infer_pdb_file_type("6lyz.bcif.gzip") == "bcif"
+
+    with open(TEST_DATA_DIR / "6lyz.bcif", "rb") as f:
+        buffer = io.BytesIO(f.read())
+        assert infer_pdb_file_type(buffer) == "bcif"
+
+    with open(TEST_DATA_DIR / "1a8o_modified.cif") as f:
+        buffer = io.StringIO(f.read())
+        assert infer_pdb_file_type(buffer) == "cif"
+
+    with open(TEST_DATA_DIR / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb") as f:
+        buffer = io.StringIO(f.read())
+        assert infer_pdb_file_type(buffer) == "pdb"
 
 
 @pytest.mark.parametrize(
@@ -186,11 +223,11 @@ def test_parse_with_no_resolved_atoms(tmpdir):
     atom_array = components_to_atom_array(inputs)
 
     # Use the tmpdir fixture to create a temporary file path
-    cif_path = tmpdir.join("test.cif")
+    cif_path = Path(tmpdir) / "test.cif"
     to_cif_file(atom_array, cif_path, include_nan_coords=True)
 
     # ... parse the atom array
-    out = parse(cif_path)
+    out = parse(Path(cif_path))
 
     # Smoke test
     assert out is not None

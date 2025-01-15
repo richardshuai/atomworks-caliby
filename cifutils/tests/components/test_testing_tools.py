@@ -1,0 +1,77 @@
+import numpy as np
+import pytest
+from conftest import TEST_DATA_DIR
+
+from cifutils.utils.io_utils import load_any
+from cifutils.utils.testing import assert_same_atom_array
+
+
+@pytest.fixture
+def atom_array():
+    return load_any(
+        TEST_DATA_DIR / "6lyz.bcif", model=1, extra_fields=["charge", "b_factor", "occupancy"], include_bonds=True
+    )
+
+
+# ... test that we can detect changes in charges
+@pytest.mark.parametrize(
+    "annotation, change_value",
+    [
+        ("charge", 1),
+        ("b_factor", 0.5),
+        ("occupancy", 0.1),
+        ("atom_name", "BLA"),
+        ("element", "X"),
+        ("chain_id", "?"),
+        ("res_name", "###"),
+        ("res_id", 999),
+    ],
+)
+def test_annotations_change(atom_array, annotation, change_value):
+    atom_array2 = atom_array.copy()
+    assert_same_atom_array(atom_array, atom_array2)
+    atom_array2.get_annotation(annotation)[0] = change_value
+    with pytest.raises(AssertionError):
+        assert_same_atom_array(atom_array, atom_array2)
+
+    annotations = atom_array.get_annotation_categories()
+    annotations_to_compare = [annot for annot in annotations if annot != annotation]
+    assert_same_atom_array(atom_array, atom_array2, annotations_to_compare=annotations_to_compare)
+
+
+def test_bonds_change(atom_array):
+    atom_array2 = atom_array.copy()
+    assert_same_atom_array(atom_array, atom_array2)
+    atom_array2.bonds.add_bond(0, 1)
+    with pytest.raises(AssertionError):
+        assert_same_atom_array(atom_array, atom_array2)
+    assert_same_atom_array(atom_array, atom_array2, compare_bonds=False)
+
+
+def test_coords_change(atom_array):
+    atom_array2 = atom_array.copy()
+    assert_same_atom_array(atom_array, atom_array2)
+    atom_array2.coord[0] = atom_array2.coord[0] + 1
+    with pytest.raises(AssertionError):
+        assert_same_atom_array(atom_array, atom_array2)
+    assert_same_atom_array(atom_array, atom_array2, compare_coords=False)
+
+
+def test_atom_array_length_change(atom_array):
+    atom_array2 = atom_array.copy()
+    assert_same_atom_array(atom_array, atom_array2)
+    atom_array2 = atom_array2[:-1]
+    with pytest.raises(AssertionError):
+        assert_same_atom_array(atom_array, atom_array2)
+
+
+def test_scrambled_order(atom_array):
+    atom_array2 = atom_array.copy()
+    assert_same_atom_array(atom_array, atom_array2)
+    # Swap first two atoms
+    swap_first_two = np.arange(len(atom_array))
+    swap_first_two[0], swap_first_two[1] = swap_first_two[1], swap_first_two[0]
+    atom_array2 = atom_array2[swap_first_two]
+    with pytest.raises(AssertionError):
+        assert_same_atom_array(atom_array, atom_array2, enforce_order=True, compare_coords=False)
+    assert_same_atom_array(atom_array, atom_array2, enforce_order=False, compare_coords=False)

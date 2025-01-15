@@ -18,7 +18,7 @@ import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
 from biotite.structure.io import pdbx
 
-from cifutils.common import default, exists
+from cifutils.common import exists
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from cifutils.enums import ChainType
 from cifutils.utils.sequence import get_1_from_3_letter_code
@@ -153,25 +153,9 @@ def get_structure(
     return atom_array_stack
 
 
-def read_any(
-    path_or_buffer: os.PathLike | io.StringIO | io.BytesIO,
-    file_type: Literal["cif", "mmcif", "pdbx", "pdb", "pdb1", "bcif"] | None = None,
-) -> pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile:
+def infer_pdb_file_type(path_or_buffer: os.PathLike | io.StringIO | io.BytesIO) -> Literal["cif", "pdb", "bcif"]:
     """
-    Reads any of the allowed file types into the appropriate Biotite file object.
-
-    Args:
-        path_or_buffer (PathLike | io.StringIO | io.BytesIO): The path to the file or a buffer to read from.
-            If a buffer, it's highly recommended to specify the file_type.
-        file_type (Literal["cif", "mmcif", "pdbx", "pdb", "pdb1", "bcif"], optional): Type of the file.
-            If None, it will be inferred from the file extension. When using a buffer, the file type must be specified.
-        **load_kwargs: Additional keyword arguments to pass to the Biotite loading function.
-
-    Returns:
-        pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile: The loaded file object.
-
-    Raises:
-        ValueError: If the file type is unsupported or cannot be determined.
+    Infer the file type of a PDB file or buffer.
     """
     # Convert string paths to Path objects
     if isinstance(path_or_buffer, str):
@@ -179,37 +163,70 @@ def read_any(
 
     # Determine file type and open context
     if isinstance(path_or_buffer, io.BytesIO):
-        inferred_file_type = "bcif"
+        return "bcif"
     elif isinstance(path_or_buffer, io.StringIO):
         # ... if second line starts with '#', it is very likely a cif file
         path_or_buffer.seek(0)
         path_or_buffer.readline()  # Skip the first line
         second_line = path_or_buffer.readline().strip()
         path_or_buffer.seek(0)
-        inferred_file_type = "cif" if second_line.startswith("#") else "pdb"
+        return "cif" if second_line.startswith("#") else "pdb"
     elif isinstance(path_or_buffer, Path):
         if path_or_buffer.suffix in (".gz", ".gzip"):
             inferred_file_type = Path(path_or_buffer.stem).suffix.lstrip(".")
+        else:
+            inferred_file_type = path_or_buffer.suffix.lstrip(".")
+
+    # Canonicalize the file type
+    if inferred_file_type in ("cif", "mmcif", "pdbx"):
+        return "cif"
+    elif inferred_file_type in ("pdb", "pdb1"):
+        return "pdb"
+    elif inferred_file_type == "bcif":
+        return "bcif"
+    else:
+        raise ValueError(f"Unsupported file type: {inferred_file_type}")
+
+
+def read_any(
+    path_or_buffer: os.PathLike | io.StringIO | io.BytesIO,
+    file_type: Literal["cif", "pdb", "bcif"] | None = None,
+) -> pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile:
+    """
+    Reads any of the allowed file types into the appropriate Biotite file object.
+
+    Args:
+        path_or_buffer (PathLike | io.StringIO | io.BytesIO): The path to the file or a buffer to read from.
+            If a buffer, it's highly recommended to specify the file_type.
+        file_type (Literal["cif", "pdb", "bcif"], optional): Type of the file.
+            If None, it will be inferred from the file extension. When using a buffer, the file type must be specified.
+
+    Returns:
+        pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile: The loaded file object.
+
+    Raises:
+        ValueError: If the file type is unsupported or cannot be determined.
+    """
+    # Determine file type
+    if file_type is None:
+        file_type = infer_pdb_file_type(path_or_buffer)
+
+    # Convert string paths to Path objects and decompress if necessary
+    if isinstance(path_or_buffer, str):
+        path_or_buffer = Path(path_or_buffer)
+        if path_or_buffer.suffix in (".gz", ".gzip"):
             with gzip.open(path_or_buffer, "rt") as f:
                 path_or_buffer = io.StringIO(f.read())
 
-        else:
-            inferred_file_type = path_or_buffer.suffix.lstrip(".")
-    else:
-        raise ValueError(f"Unsupported path_or_buffer type: {type(path_or_buffer)}")
-
     # Determine the appropriate file object based on file type
-    file_type = default(file_type, inferred_file_type)
-    if file_type in ("cif", "mmcif", "pdbx"):
+    if file_type == "cif":
         file_cls = pdbx.CIFFile
-    elif file_type in ("pdb", "pdb1"):
+    elif file_type == "pdb":
         file_cls = biotite_pdb.PDBFile
     elif file_type == "bcif":
         file_cls = pdbx.BinaryCIFFile
-    else:
-        raise ValueError(f"Unsupported file type: {file_type}")
 
-    # Load the structure
+    # Load the file content
     file_obj = file_cls.read(path_or_buffer)
 
     return file_obj

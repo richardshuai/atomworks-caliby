@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from cifutils.template import get_empty_ccd_template
-from cifutils.utils.bonds import correct_formal_charges_for_specified_atoms, get_inferred_polymer_bonds
+from cifutils.utils.bonds import correct_formal_charges_for_specified_atoms, get_inferred_polymer_bonds, hash_atom_array
 from cifutils.utils.ccd import get_chem_comp_leaving_atom_names
 
 LEAVING_GROUP_TEST_CASES = {
@@ -61,3 +61,41 @@ def test_infer_polymer_bonds():
     # ... fix formal charges
     atom_array = correct_formal_charges_for_specified_atoms(atom_array, np.ones(len(atom_array), dtype=bool))
     assert np.array_equal(atom_array.charge, np.zeros(len(atom_array)))
+
+
+def test_hash_atom_array():
+    arr1 = get_empty_ccd_template("ALA", res_id=1, chain_id="A", remove_hydrogens=False)
+    arr2 = arr1.copy()
+    assert hash_atom_array(arr1, annotations=None) == hash_atom_array(arr2, annotations=None)
+    assert hash_atom_array(arr1, annotations=["atom_name"]) == hash_atom_array(arr2, annotations=["atom_name"])
+    assert hash_atom_array(arr1, annotations=["atom_name"], bond_order=True) == hash_atom_array(
+        arr2, annotations=["atom_name"], bond_order=True
+    )
+    # ... invert the order
+    invert_order = np.arange(len(arr1))[::-1]
+    arr2 = arr1[invert_order]
+
+    # DEBUG: Uncomment for manual inspection
+    # import networkx as nx
+    # from cifutils.common import sum_string_arrays
+    # gs = []
+    # annotations = ["atom_name"]
+    # for arr in [arr1, arr2]:
+    #     g = arr.bonds.as_graph()
+    #     # ... create node annotations
+    #     node_annot_array = sum_string_arrays(*[arr.get_annotation(annot).astype(str) for annot in annotations])
+    #     # ... add the node annotations to the graph
+    #     node_attrs = {node: node_annot_array[node] for node in g.nodes()}
+    #     nx.set_node_attributes(g, node_attrs, "node_data")
+    #     gs.append(g)
+
+    assert hash_atom_array(arr1, annotations=["atom_name"], bond_order=True) == hash_atom_array(
+        arr2, annotations=["atom_name"], bond_order=True
+    )
+    # ... swap first two atoms
+    swap_first_two = np.arange(len(arr1))
+    swap_first_two[0], swap_first_two[1] = swap_first_two[1], swap_first_two[0]
+    arr2 = arr1[swap_first_two]
+    assert hash_atom_array(arr1, annotations=["atom_name"], bond_order=True) == hash_atom_array(
+        arr2, annotations=["atom_name"], bond_order=True
+    )

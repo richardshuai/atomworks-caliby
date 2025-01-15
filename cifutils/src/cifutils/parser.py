@@ -29,7 +29,7 @@ from cifutils.transforms.categories import (
 from cifutils.utils.assembly import build_assemblies_from_asym_unit
 from cifutils.utils.ccd import check_ccd_codes_are_available
 from cifutils.utils.chain import create_chain_id_generator
-from cifutils.utils.io_utils import get_structure, read_any, to_cif_buffer
+from cifutils.utils.io_utils import get_structure, infer_pdb_file_type, read_any, to_cif_buffer
 from cifutils.utils.non_rcsb import (
     get_identity_assembly_gen_category,
     get_identity_op_expr_category,
@@ -42,8 +42,9 @@ __all__ = ["parse"]
 
 
 def parse(
-    filename: os.PathLike,
+    filename: os.PathLike | io.StringIO | io.BytesIO,
     *,
+    file_type: Literal["cif", "pdb"] | None = None,
     ccd_mirror_path: os.PathLike | None = CCD_MIRROR_PATH,
     cache_dir: os.PathLike | None = None,
     save_to_cache: bool = False,
@@ -75,10 +76,11 @@ def parse(
 
     Args:
         filename (PathLike | io.StringIO | io.BytesIO): Path or buffer to the structural file. May be any format
-            of atomic-evel structure (e.g. .cif, .cif.gz, .pdb), Although .cif files are *strongly* recommended.
+            of atomic-evel structure (e.g. .cif, .bcif, .cif.gz, .pdb), Although .cif files are *strongly* recommended.
 
         *** Wrapper arguments ***
-
+        file_type (Literal["cif", "pdb"] | None, optional): The file type of the structure file.
+            If not provided, the file type will be inferred automatically.
         load_from_cache (bool, optional): Whether to load pre-compiled results from cache. Defaults to False.
         cache_dir (PathLike, optional): Directory path to save pre-compiled results. Defaults to None.
         save_to_cache (bool, optional): Whether to save the results to cache when building the structure. Defaults to False.
@@ -143,48 +145,50 @@ def parse(
     if save_to_cache and not cache_dir:
         raise ValueError("Must provide a cache directory to save to cache")
 
-    # Build the cache file path, if necessary
-    if cache_dir:
+    file_type = file_type or infer_pdb_file_type(filename)
+    is_buffer = isinstance(filename, io.StringIO | io.BytesIO)
+
+    # Only load from / save to cache if we are not using a buffer
+    if cache_dir and not is_buffer:
+        # Build the cache file path, if necessary
         cache_dir = Path(cache_dir)
-        # Make the cache directory if it doesn't exist
         cache_dir.mkdir(parents=True, exist_ok=True)
 
         # Build the cache file path
         assembly_info = ",".join(build_assembly) if isinstance(build_assembly, list | tuple) else build_assembly
         cache_file_path = cache_dir / f"{Path(filename).stem}_assembly_{assembly_info}.pkl.gz"
 
-    # If we are loading from cache, try to load the result from the cache
-    if load_from_cache and cache_dir:
-        try:
-            # Try to load the result from the cache
-            if cache_file_path.exists():
-                # Load the result from the cache
-                result = pd.read_pickle(cache_file_path)
+        # If we are loading from cache, try to load the result from the cache
+        if load_from_cache:
+            try:
+                # Try to load the result from the cache
+                if cache_file_path.exists():
+                    # Load the result from the cache
+                    result = pd.read_pickle(cache_file_path)
 
-                # Build assemblies
-                asym_unit = result["asym_unit"]
-                extra_info = result["extra_info"]
-                if "assembly_gen_category" in extra_info:
-                    assemblies = build_assemblies_from_asym_unit(
-                        assembly_gen_category=extra_info["assembly_gen_category"],
-                        struct_oper_category=extra_info["struct_oper_category"],
-                        asym_unit_atom_array_stack=asym_unit,
-                        build_assembly=build_assembly,
-                        fix_symmetry_centers=fix_ligands_at_symmetry_centers,
-                    )
-                else:
-                    assemblies = asym_unit
+                    # Build assemblies
+                    asym_unit = result["asym_unit"]
+                    extra_info = result["extra_info"]
+                    if "assembly_gen_category" in extra_info:
+                        assemblies = build_assemblies_from_asym_unit(
+                            assembly_gen_category=extra_info["assembly_gen_category"],
+                            struct_oper_category=extra_info["struct_oper_category"],
+                            asym_unit_atom_array_stack=asym_unit,
+                            build_assembly=build_assembly,
+                            fix_symmetry_centers=fix_ligands_at_symmetry_centers,
+                        )
+                    else:
+                        assemblies = asym_unit
 
-                # Return updated result
-                result["assemblies"] = assemblies
-                return result
-        except Exception as e:
-            # Log an error, and continue to parse from CIF
-            logger.error(f"Error loading from cache: {e}")
+                    # Return updated result
+                    result["assemblies"] = assemblies
+                    return result
+            except Exception as e:
+                # Log an error, and continue to parse from CIF
+                logger.error(f"Error loading from cache: {e}")
 
-    filename = Path(filename)
-    # Parse from PDB
-    if str(filename).endswith((".pdb", ".pdb.gz")):
+    # Parse from PDB if the file is a PDB file or buffer with `is_cif=False`
+    if file_type == "pdb":
         result = _parse_from_pdb(
             filename=filename,
             ccd_mirror_path=ccd_mirror_path,
@@ -201,8 +205,8 @@ def parse(
             model=model,
             build_assembly=build_assembly,
         )
-    # Parse from CIF
-    elif str(filename).endswith((".cif", ".cif.gz", ".bcif", ".bcif.gz")):
+    # Parse from CIF if the file is a CIF file or buffer with `is_cif=True`
+    elif file_type in ("cif", "bcif"):
         result = _parse_from_cif(
             filename=filename,
             ccd_mirror_path=ccd_mirror_path,
@@ -220,9 +224,9 @@ def parse(
             build_assembly=build_assembly,
         )
     else:
-        raise ValueError(f"Unsupported file type: {filename.suffix}. Please use a .cif, .cif.gz, or .pdb file.")
+        raise ValueError(f"Unsupported file type: {filename}")
 
-    if save_to_cache and cache_dir and (not cache_file_path.exists()):
+    if not is_buffer and save_to_cache and cache_dir and (not cache_file_path.exists()):
         # We want our cache to include:
         #   (1) All keys in `result` excep the assemblies and
         #   (2) The information needed to rebuild the assembly(s), which is stored in `result["extra_info"]`

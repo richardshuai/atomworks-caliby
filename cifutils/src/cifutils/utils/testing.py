@@ -4,11 +4,10 @@ __all__ = ["assert_same_atom_array"]
 
 
 import biotite.structure as struc
-import networkx as nx
 import numpy as np
 from biotite.structure.atoms import AtomArray, AtomArrayStack
 
-from cifutils.utils.bonds import hash_graph
+from cifutils.utils.bonds import hash_atom_array
 
 
 def _get_atom_array_stats(arr: AtomArray) -> str:
@@ -27,6 +26,7 @@ def assert_same_atom_array(
     compare_bonds: bool = True,
     annotations_to_compare: list[str] | None = None,
     enforce_order: bool = True,
+    compare_bond_order: bool = True,
     _n_mismatches_to_show: int = 5,
 ) -> None:
     """Asserts that two AtomArray objects are equal.
@@ -40,6 +40,7 @@ def assert_same_atom_array(
             Defaults to None, in which case all annotations are compared.
         enforce_order (bool, optional): Whether to enforce the order of the atoms. Defaults to True.
             NOTE: Enforcing order is much faster; use False only when strictly necessary.
+        compare_bond_order (bool, optional): Whether to compare bond order. Defaults to True.
         _n_mismatches_to_show (int, optional): Number of mismatches to show. Defaults to 20.
 
     WARNING: If AtomArrayStack objects are passed, only the first array is compared.
@@ -82,7 +83,7 @@ def assert_same_atom_array(
                         msg += f"\tarr1: {_get_atom_array_stats(arr1_res_aa)}\n"
                         msg += f"\tarr2: {_get_atom_array_stats(arr2_res_aa)}\n"
 
-        raise ValueError(msg)
+        raise AssertionError(msg)
 
     if compare_coords:
         assert (
@@ -94,35 +95,6 @@ def assert_same_atom_array(
             for idx in mismatch_idxs[:_n_mismatches_to_show]:
                 msg += f"\t{idx}: {arr1.coord[idx]} != {arr2.coord[idx]}\n"
             raise AssertionError(msg)
-
-    if compare_bonds:
-        assert arr1.bonds is not None, "arr1.bonds is None"
-        assert arr2.bonds is not None, "arr2.bonds is None"
-
-        if enforce_order:
-            # Compare bond arrays directly
-            if not np.array_equal(arr1.bonds.as_array(), arr2.bonds.as_array()):
-                mismatch_idxs = np.where(arr1.bonds.as_array() != arr2.bonds.as_array())[0]
-                msg = f"Bonds do not match at {len(mismatch_idxs)} indices. First few mismatches:" + "\n"
-                for idx in mismatch_idxs[:_n_mismatches_to_show]:
-                    msg += f"\t{idx}: {arr1.bonds.as_array()[idx]} != {arr2.bonds.as_array()[idx]}\n"
-                raise AssertionError(msg)
-        else:
-            # Check graph isomorphisms, labeling nodes with element
-            arr1_graph = arr1.bonds.as_graph()
-            arr2_graph = arr2.bonds.as_graph()
-
-            # Hash the graphs and assert they are the same
-            arr_1_node_annots = {node: arr1.element[node] for node in arr1_graph.nodes()}
-            arr_2_node_annots = {node: arr2.element[node] for node in arr2_graph.nodes()}
-
-            nx.set_node_attributes(arr1_graph, arr_1_node_annots, "element")
-            nx.set_node_attributes(arr2_graph, arr_2_node_annots, "element")
-
-            arr1_hash = hash_graph(arr1_graph, node_attr="element")
-            arr2_hash = hash_graph(arr2_graph, node_attr="element")
-
-            assert arr1_hash == arr2_hash, f"Graph hashes do not match: {arr1_hash} != {arr2_hash}"
 
     if annotations_to_compare is None:
         arr1_annotation_keys = arr1.get_annotation_categories()
@@ -185,3 +157,26 @@ def assert_same_atom_array(
                 if idx >= _n_mismatches_to_show:
                     break
             raise AssertionError(msg)
+
+    if compare_bonds:
+        assert arr1.bonds is not None, "arr1.bonds is None"
+        assert arr2.bonds is not None, "arr2.bonds is None"
+
+        if enforce_order:
+            # Compare bond arrays directly
+            bonds1 = arr1.bonds.as_array()
+            bonds2 = arr2.bonds.as_array()
+            if not compare_bond_order:
+                bonds1 = bonds1[:, :2]
+                bonds2 = bonds2[:, :2]
+            if not np.array_equal(bonds1, bonds2):
+                mismatch_idxs = np.where(bonds1 != bonds2)[0]
+                msg = f"Bonds do not match at {len(mismatch_idxs)} indices. First few mismatches:" + "\n"
+                for idx in mismatch_idxs[:_n_mismatches_to_show]:
+                    msg += f"\t{idx}: {bonds1[idx]} != {bonds2[idx]}\n"
+                raise AssertionError(msg)
+        else:
+            # Check graph isomorphisms, labeling nodes with element
+            arr1_hash = hash_atom_array(arr1, annotations=["element"], bond_order=compare_bond_order)
+            arr2_hash = hash_atom_array(arr2, annotations=["element"], bond_order=compare_bond_order)
+            assert arr1_hash == arr2_hash, f"Graph hashes do not match: {arr1_hash} != {arr2_hash}"

@@ -210,7 +210,7 @@ def set_structure(
         atom_site["occupancy"] = np.copy(array.occupancy)
     if "charge" in annot_categories:
         atom_site["pdbx_formal_charge"] = Column(
-            np.array([f"{c:+d}" if c != 0 else "?" for c in array.charge]),
+            np.array([f"{int(c):+d}" if c != 0 else "?" for c in array.charge]),
             np.where(array.charge == 0, MaskValue.MISSING, MaskValue.PRESENT),
         )
 

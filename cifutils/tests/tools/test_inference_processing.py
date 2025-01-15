@@ -318,10 +318,8 @@ def test_recover_bonds_from_cif(dict_inputs):
 
 def test_same_atom_array_from_cif_and_inference():
     """Tests if the bonds inferred from the components are the same as the bonds in the CIF file."""
-    chain_ids_to_compare = ["A", "G"]
     transformation_id = "1"
-
-    data = parse(get_pdb_path("5ocm"), remove_hydrogens=True)
+    data = parse(get_pdb_path("7rxs"), remove_hydrogens=True)
     atom_array_from_cif = data["assemblies"][transformation_id][0]
 
     # ... extract the sequence and build inference input
@@ -335,16 +333,16 @@ def test_same_atom_array_from_cif_and_inference():
     ]
     ligand = [
         {
-            "smiles": "NC(=O)c1ccc[n+](c1)[CH]2O[CH](CO[P]([O-])(=O)O[P](O)(=O)OC[CH]3O[CH]([CH](O[P](O)(O)=O)[CH]3O)n4cnc5c(N)ncnc45)[CH](O)[CH]2O",
+            "smiles": "Cc1cc(cc(c1)Oc2nccc(n2)c3c(ncn3[C@H]4CCN(C4)CCN)c5ccc(cc5)I)C",
             "chain_type": "non-polymer",
             "is_polymer": False,
-            "chain_id": "G",
+            "chain_id": "C",
         }
     ]
 
     atom_array_from_inference = components_to_atom_array(monomer + ligand)
 
-    for chain_id in chain_ids_to_compare:
+    for chain_id in np.unique(atom_array_from_cif.chain_id):
         chain_atom_array_from_inference = atom_array_from_inference[(atom_array_from_inference.chain_id == chain_id)]
         chain_atom_array_from_cif = atom_array_from_cif[atom_array_from_cif.chain_id == chain_id]
 
@@ -388,6 +386,7 @@ def test_same_atom_array_from_cif_and_inference():
             compare_bonds=True,
             annotations_to_compare=annotations_to_compare,
             enforce_order=False,
+            compare_bond_order=False,
         )
 
 

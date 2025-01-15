@@ -8,6 +8,7 @@ __all__ = [
     "get_connected_nodes",
     "get_inferred_polymer_bonds",
     "get_struct_conn_bonds",
+    "hash_atom_array",
     "hash_graph",
 ]
 
@@ -20,7 +21,7 @@ import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
 
-from cifutils.common import to_hashable
+from cifutils.common import sum_string_arrays, to_hashable
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
     CHEM_TYPE_POLYMERIZATION_ATOMS,
@@ -521,6 +522,26 @@ def hash_graph(
         # ... add number of unique edges to hash
         hash += f"_{len(graph.edges)}"
     return hash
+
+
+def hash_atom_array(
+    atom_array: AtomArray, annotations: tuple[str] = ("element", "atom_name"), bond_order: bool = True
+) -> str:
+    """
+    Computes a hash for an AtomArray based on the bond connectivity and the selected node annotations.
+    """
+    # ... create the bond graph
+    bond_graph = atom_array.bonds.as_graph()
+    # ... create node annotations
+    if annotations:
+        node_annot_array = sum_string_arrays(*[atom_array.get_annotation(annot).astype(str) for annot in annotations])
+        # ... add the node annotations to the graph
+        node_attrs = {node: node_annot_array[node] for node in bond_graph.nodes()}
+        nx.set_node_attributes(bond_graph, node_attrs, "node_data")
+
+    return hash_graph(
+        bond_graph, node_attr="node_data" if annotations else None, edge_attr="bond_type" if bond_order else None
+    )
 
 
 def generate_inter_level_bond_hash(
