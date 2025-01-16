@@ -179,7 +179,7 @@ def load_polymer_msas(
     rna_msa_dirs: list[dict[str, str]],
     max_msa_sequences: int = 10_000,
     msa_cache_dir: PathLike | None = None,
-    use_paths_in_chain_info: bool = False,
+    use_paths_in_chain_info: bool = True,
 ) -> dict[str, np.array]:
     """Load MSAs for all polymer chains in the AtomArray and store them in a dictionary. See the LoadPolymerMSAs transform for more information"""
     msas_by_chain_id = {}
@@ -288,7 +288,6 @@ class LoadPolymerMSAs(Transform):
     max_msa_sequences: int
     protein_msa_dirs: list[dict]
     rna_msa_dirs: list[dict]
-    cached_load_msa_data_from_path: callable
 
     def __init__(
         self,
@@ -298,7 +297,7 @@ class LoadPolymerMSAs(Transform):
         rna_msa_dirs: list[dict] = [],
         max_msa_sequences: int = 10000,
         msa_cache_dir: PathLike | None = None,
-        use_paths_in_chain_info: bool = False,
+        use_paths_in_chain_info: bool = True,
     ):
         self.max_msa_sequences = max_msa_sequences
         self.protein_msa_dirs = protein_msa_dirs
@@ -564,8 +563,7 @@ class FillFullMSAFromEncoded(Transform):
 
 
 class FeaturizeMSALikeRF2AA(Transform):
-    """
-    Featurizes the MSA in the style of RF2AA, returning one featurized set of outputs for each recycle.
+    """Featurizes the MSA in the style of RF2AA, returning one featurized set of outputs for each recycle.
 
     Args:
         encoding (TokenEncoding): The encoding object to use for the MSA.

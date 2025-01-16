@@ -253,6 +253,7 @@ def build_af3_transform_pipeline(
             rna_msa_dirs=rna_msa_dirs,
             max_msa_sequences=max_msa_sequences,  # maximum number of sequences to load (we later subsample further)
             msa_cache_dir=Path(msa_cache_dir) if exists(msa_cache_dir) else None,
+            use_paths_in_chain_info=True,  # if there are paths specified in the `chain_info` for a given chain, use them
         ),
         PairAndMergePolymerMSAs(dense=dense_msa),
         # ...encode MSA to AF-3 format

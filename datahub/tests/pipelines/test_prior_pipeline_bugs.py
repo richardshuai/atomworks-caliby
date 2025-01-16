@@ -75,7 +75,7 @@ PRIOR_PIPELINE_BUGS_AF3 = [
 
 
 @pytest.mark.parametrize("example_id", PRIOR_PIPELINE_BUGS_AF3)
-@pytest.mark.slow
+@pytest.mark.skip
 def test_specific_examples_af3(example_id: str, full_pdb_dataset_af3: ConcatDatasetWithID):
     """Run a single example through the pipeline. Useful for debugging specific examples."""
     try:

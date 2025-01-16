@@ -3,7 +3,11 @@
 import pytest
 import torch
 from cifutils import parse
-from cifutils.tools.inference import components_to_atom_array, read_chai_fasta
+from cifutils.tools.inference import (
+    build_msa_paths_by_chain_id_from_component_list,
+    components_to_atom_array,
+    read_chai_fasta,
+)
 from cifutils.utils.io_utils import to_cif_buffer
 from cifutils.utils.non_rcsb import initialize_chain_info_from_atom_array
 from cifutils.utils.testing import assert_same_atom_array
@@ -54,8 +58,10 @@ def test_af3_pipeline_from_chai_fasta():
 AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES = [
     [
         {
-            "seq": "MNAKEIVVHALRLLENGDARGWCDLFHPEGVLEYPYPPPGYKTRFEGRETIWAHMRLFPEYMTIRFTDVQFYETADPDLAIGEFHGDGVHTVSGGKLAADYISVLRTRDGQILLYRLFFNPLRVLEPLGLEHHHHHH",
+            "seq": "IIGGHEAKPHSRPYMAYLQIMDEYSGSKKCGGFLIREDFVLTAAHCSGSKIQVTLGAHNIKEQEKMQQIIPVVKIIPHPAYNSKTISNDIMLLKLKSKAKRSSAVKPLNLPRRNVKVKPGDVCYVAGWGKLGPMGKYSDTLQEVELTVQEDQKCESYLKNYFDKANEICAGDPKIKRASFRGDSGGPLVCKKVAAGIVSYGQNDGSTPRAFTKVSTFLSWIKKTMKKSIEPD",
             "chain_type": "polypeptide(l)",
+            "msa_path": "tests/data/msa_for_inference.a3m",
+            "chain_id": "A",
         },
         {
             "smiles": "O=C1OCC(=C1)C5C4(C(O)CC3C(CCC2CC(O)CCC23C)C4(O)CC5)C",
@@ -68,8 +74,13 @@ AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES = [
 @pytest.mark.parametrize("inference_components", AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES)
 def test_af3_pipeline_from_sequence_and_smiles(inference_components):
     # Load chai fasta
-    atom_array = components_to_atom_array(inference_components)
+    atom_array, initialized_components = components_to_atom_array(inference_components, return_components=True)
     chain_info = initialize_chain_info_from_atom_array(atom_array)
+
+    # Spoof MSA paths
+    msa_paths_by_chain_id = build_msa_paths_by_chain_id_from_component_list(initialized_components)
+    for chain_id, msa_path in msa_paths_by_chain_id.items():
+        chain_info[chain_id]["msa_path"] = msa_path
 
     assert atom_array is not None, "Failed to load atom array from inference components"
 
@@ -90,6 +101,8 @@ def test_af3_pipeline_from_sequence_and_smiles(inference_components):
 
     # Basic validation checks
     assert "feats" in transformed_data, "Missing feats in pipeline output."
+
+    assert transformed_data["feats"]["msa_stack"].shape[1] > 1, "MSA stack has only one sequence"
 
     # Check that none of the feats is `nan`
     for feat_name, feat in transformed_data["feats"].items():

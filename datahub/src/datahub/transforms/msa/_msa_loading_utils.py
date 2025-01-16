@@ -36,6 +36,19 @@ def parse_msa(
         raise ValueError(f"Unsupported MSA file extension: {filename.name}")
 
 
+def remove_header_from_msa_file(fstream):
+    """Skips lines in the file stream until the first line starting with '>'. Returns the rest of the lines."""
+    for line in fstream:
+        if line.startswith(">"):
+            # Return the rest of the lines starting from the first header line
+            yield line
+            break
+
+    # Continue yielding the rest of the lines
+    for line in fstream:
+        yield line
+
+
 def parse_fasta(filename: PathLike, maxseq: int = 10000, query_tax_id: str = "query") -> tuple[np.ndarray, np.ndarray]:
     """
     Reads a FASTA (.afa or .fasta) file and returns sequences as a numpy array, along with insertion positions and taxonomy IDs.
@@ -63,7 +76,7 @@ def parse_fasta(filename: PathLike, maxseq: int = 10000, query_tax_id: str = "qu
     ins = []
     tax_ids = []
 
-    fstream = open_file(filename)
+    fstream = remove_header_from_msa_file(open_file(filename))
 
     for index, line in enumerate(fstream):
         # Extract taxonomy ID from the header line, but don't process like the rest of the MSA
@@ -146,7 +159,7 @@ def parse_a3m(
     table = str.maketrans(dict.fromkeys(string.ascii_lowercase))
 
     # ...open the file
-    fstream = open_file(filename)
+    fstream = remove_header_from_msa_file(open_file(filename))
 
     for index, line in enumerate(fstream):
         # Extract taxonomy ID from the header line, but don't process like the rest of the MSA
