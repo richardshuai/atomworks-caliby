@@ -116,6 +116,7 @@ class GenericDFParser(MetadataRowParser):
         self.pn_unit_iid_colnames = (
             pn_unit_iid_colnames if isinstance(pn_unit_iid_colnames, list) else [pn_unit_iid_colnames]
         )
+        self.assembly_id_colname = assembly_id_colname
 
     def _parse(self, row: pd.Series) -> dict[str, Any]:
         # Assemble input pn_units
