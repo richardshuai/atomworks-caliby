@@ -53,7 +53,7 @@ def _validate_atomize(atom_array: AtomArray, atomize: np.ndarray) -> None:
         raise ValueError("For each residue, all atoms must be atomized or none must be atomized.")
 
 
-def atomize_residues(
+def atomize_by_ccd_name(
     atom_array: AtomArray,
     atomize_by_default: bool = True,
     res_names_to_atomize: list[str] = [],
@@ -117,8 +117,7 @@ def atomize_residues(
 
 
 class AtomizeByCCDName(Transform):
-    """
-    Atomize residues by breaking down the CCD res_name field into the actual element names.
+    """Atomize residues by breaking down the CCD res_name field into the actual element names.
 
     NOTE: Both polymers AND non-polymers are considered "residues" by the CCD, and have a corresponding res_name.
 
@@ -155,8 +154,7 @@ class AtomizeByCCDName(Transform):
         move_atomized_part_to_end: bool = False,
         validate_atomize: bool = False,
     ):
-        """
-        Initialize the AtomizeByCCDName transform.
+        """Initialize the AtomizeByCCDName transform.
 
         NOTE:
             - Residues are atomized if they have the `atomize` flag set to True.
@@ -200,7 +198,7 @@ class AtomizeByCCDName(Transform):
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array = data["atom_array"]
 
-        atom_array = atomize_residues(
+        atom_array = atomize_by_ccd_name(
             atom_array,
             atomize_by_default=self.atomize_by_default,
             res_names_to_atomize=self.res_names_to_atomize,

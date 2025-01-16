@@ -2,13 +2,16 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 import torch
+from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from cifutils.utils.selection import get_residue_starts
 
 from datahub.transforms.af3_reference_molecule import (
+    _encode_atom_names_like_af3,
     _map_reference_conformer_to_residue,
     get_af3_reference_molecule_features,
 )
 from datahub.transforms.atom_array import add_global_token_id_annotation
+from datahub.transforms.atomize import atomize_by_ccd_name
 from datahub.transforms.rdkit_utils import atom_array_to_rdkit, find_automorphisms_with_rdkit
 from datahub.transforms.symmetry import apply_automorphs
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
@@ -153,15 +156,22 @@ def test_get_af3_reference_molecule_features_res(res_name):
 
 def test_get_af3_reference_molecule_features_chain():
     atom_array = struc.info.residue("ALA") + struc.info.residue("R2R") + struc.info.residue("TYR")
+    # Add the necessary annotations from `parse`
     atom_array = atom_array[atom_array.atom_name != "OXT"]
     atom_array = atom_array[atom_array.element != "H"]
     atom_array = add_global_token_id_annotation(atom_array)
+
+    # We atomize so that we can test using the element for atom names of atomized tokens
+    atom_array = atomize_by_ccd_name(atom_array, res_names_to_ignore=STANDARD_AA + STANDARD_RNA + STANDARD_DNA)
 
     n_atoms = len(atom_array)
 
     seed = 42
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
         features = get_af3_reference_molecule_features(atom_array, apply_random_rotation_and_translation=False)
+        features_with_elements_for_atomized_atom_names = get_af3_reference_molecule_features(
+            atom_array, apply_random_rotation_and_translation=False, use_element_for_atom_names_of_atomized_tokens=True
+        )
 
     assert "ref_pos" in features
     assert "ref_mask" in features
@@ -171,6 +181,19 @@ def test_get_af3_reference_molecule_features_chain():
     assert (
         len(features["ref_automorphs"]) == 1000
     ), f"Expected 1000 conformers but got {len(features['ref_automorphs'])}"
+
+    # ... check that the atom name features are the same for non-atomized tokens
+    assert np.all(
+        features["ref_atom_name_chars"][~atom_array.atomize]
+        == features_with_elements_for_atomized_atom_names["ref_atom_name_chars"][~atom_array.atomize]
+    )
+
+    # ... check that the atom name features for atomized tokens are encoded correctly, when indicated
+    encoded_elements = _encode_atom_names_like_af3(atom_array.element)
+    assert np.all(
+        features_with_elements_for_atomized_atom_names["ref_atom_name_chars"][atom_array.atomize]
+        == encoded_elements[atom_array.atomize]
+    )
 
     assert features["ref_pos"].shape == (n_atoms, 3)
     assert features["ref_mask"].shape == (n_atoms,)
@@ -221,7 +244,3 @@ def test_reference_conformer_generation_for_two_molecules_only_differing_by_tran
     atom_array.set_annotation("token_id", np.arange(len(atom_array)))
     features = get_af3_reference_molecule_features(atom_array)
     assert len(features) > 0, "Expected features to be non-empty"
-
-
-if __name__ == "__main__":
-    pytest.main(["-v", __file__])

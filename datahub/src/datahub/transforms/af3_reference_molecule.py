@@ -157,6 +157,7 @@ def get_af3_reference_molecule_features(
     conformer_generation_timeout: float = 10.0,
     should_generate_automorphisms_with_rdkit: bool = True,
     apply_random_rotation_and_translation: bool = True,
+    use_element_for_atom_names_of_atomized_tokens: bool = False,
     **generate_conformers_kwargs,
 ) -> dict[str, Any]:
     """
@@ -296,8 +297,16 @@ def get_af3_reference_molecule_features(
     )
     # ... charge
     ref_charge = atom_array.charge
+
     # ... atom name
     ref_atom_name_chars = _encode_atom_names_like_af3(atom_array.atom_name)
+
+    if use_element_for_atom_names_of_atomized_tokens:
+        assert (
+            "atomize" in atom_array.get_annotation_categories()
+        ), "Atomize annotation is required when using element for atom names of atomized tokens."
+        ref_atom_name_chars[atom_array.atomize] = _encode_atom_names_like_af3(atom_array.element[atom_array.atomize])
+
     # ... space uid (type conversion needed for some older torch versions)
     ref_space_uid = atom_array.token_id.astype(np.int64)
     return {
@@ -347,16 +356,22 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         self,
         conformer_generation_timeout: float = 10.0,
         should_generate_automorphisms_with_rdkit: bool = True,
+        use_element_for_atom_names_of_atomized_tokens: bool = False,
         **generate_conformers_kwargs,
     ):
         self.conformer_generation_timeout = conformer_generation_timeout
         self.should_generate_automorphisms_with_rdkit = should_generate_automorphisms_with_rdkit
         self.generate_conformers_kwargs = generate_conformers_kwargs
+        self.use_element_for_atom_names_of_atomized_tokens = use_element_for_atom_names_of_atomized_tokens
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["res_name", "element", "charge", "atom_name", "token_id"])
+
+        if self.use_element_for_atom_names_of_atomized_tokens:
+            check_atom_array_annotation(data, ["atomize"])
+
         atom_array = data["atom_array"]
         assert (
             len(atom_array[atom_array.atom_name == "OXT"]) == 0
@@ -369,6 +384,7 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
             atom_array,
             conformer_generation_timeout=self.conformer_generation_timeout,
             should_generate_automorphisms_with_rdkit=self.should_generate_automorphisms_with_rdkit,
+            use_element_for_atom_names_of_atomized_tokens=self.use_element_for_atom_names_of_atomized_tokens,
             **self.generate_conformers_kwargs,
         )
 
