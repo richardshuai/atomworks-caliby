@@ -10,6 +10,9 @@ from datahub.datasets.parsers import MetadataRowParser
 
 class AF2FB_DistillationParser(MetadataRowParser):
     """
+    DEPRECATION WARNING: This parser is deprecated and will be removed in a future release.
+    We should use the GenericDFParser instead, providing `path` and `example_id` columns.
+
     Parser for AF2FB distillation metadata.
 
     The AF2FB distillation dataset is provided courtesy of Meta/Facebook.

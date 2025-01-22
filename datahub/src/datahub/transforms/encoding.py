@@ -295,8 +295,7 @@ def atom_array_from_encoding(
 
 
 class EncodeAtomArray(Transform):
-    """
-    Encode an atom array to an arbitrary `TokenEncoding`.
+    """Encode an atom array to an arbitrary `TokenEncoding`.
 
     This will add the following information to the data dict:
         - `encoding` (dict)

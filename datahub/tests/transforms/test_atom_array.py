@@ -258,7 +258,7 @@ def test_make_reference_conformer_for_UNL(tmp_path):
 
     # Use tmp_path to create a temporary file path
     cif_path = tmp_path / "test.cif"
-    to_cif_file(atom_array, cif_path)
+    to_cif_file(atom_array, cif_path, gzip_output=False)
 
     # ... parse the atom array
     out = parse(cif_path)
@@ -310,7 +310,7 @@ def test_make_reference_conformer_for_UNL_failure_case(tmp_path):
 
     # Use tmp_path to create a temporary file path
     cif_path = tmp_path / "test.cif"
-    to_cif_file(atom_array, cif_path)
+    to_cif_file(atom_array, cif_path, gzip_output=False)
 
     # ... parse the atom array
     out = parse(cif_path)

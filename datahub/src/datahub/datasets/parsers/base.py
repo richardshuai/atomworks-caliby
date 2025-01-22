@@ -13,17 +13,16 @@ DEFAULT_CIF_PARSER_ARGS = {
     "add_bond_types_from_struct_conn": ["covale"],
     "remove_ccds": CRYSTALLIZATION_AIDS,
     "remove_waters": True,
+    "remove_hydrogens": True,
     "fix_ligands_at_symmetry_centers": True,
     "convert_mse_to_met": True,
-    "remove_hydrogens": True,
     "fix_arginines": True,
     "model": None,  # all models
 }
 
 
 class MetadataRowParser(ABC):
-    """
-    Abstract base class for MetadataRowParsers.
+    """Abstract base class for MetadataRowParsers.
 
     A MetadataRowParser is a class that parses a row from a DataFrame on disk into a format digestible by the `load_example_from_metadata_row` function.
 
@@ -58,8 +57,7 @@ class MetadataRowParser(ABC):
 
     @abstractmethod
     def _parse(self, row: pd.Series) -> dict[str, Any]:
-        """
-        Abstract method to be implemented by subclasses for parsing a DataFrame row.
+        """Abstract method to be implemented by subclasses for parsing a DataFrame row.
 
         Args:
             row (pd.Series): DataFrame row to parse.
@@ -89,8 +87,7 @@ def load_example_from_metadata_row(
     *,
     cif_parser_args: dict | None = None,
 ) -> dict:
-    """
-    Load training/validation example from a DataFrame row into a common format using the given metadata row parsing function
+    """Load training/validation example from a DataFrame row into a common format using the given metadata row parsing function
     and CIF parser arguments.
 
     Performs the following steps:

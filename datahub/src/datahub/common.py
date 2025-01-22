@@ -37,13 +37,14 @@ def parse_example_id(example_id: str) -> dict:
     matches = re.findall(r"\{(.*?)\}", example_id)
 
     if len(matches) != 4:
-        raise ValueError("Invalid example ID format")
+        raise ValueError(f"Invalid example ID format: {example_id}, with {len(matches)} matches found (expected 4).")
 
     # Extract the components
     datasets = eval(matches[0])  # Convert string representation of list to actual list
     pdb_id = matches[1]
     assembly_id = matches[2]
-    query_pn_unit_iids = eval(matches[3])  # Convert string representation of list to actual list
+    # Convert string representation of list to actual list
+    query_pn_unit_iids = eval(matches[3]) if matches[3] else []
 
     return {
         "datasets": datasets,

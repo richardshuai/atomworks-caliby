@@ -1,4 +1,5 @@
 import itertools
+import logging
 
 import numpy as np
 from assertpy import assert_that
@@ -20,6 +21,8 @@ from datahub.utils.token import (
     get_token_starts,
     spread_token_wise,
 )
+
+logger = logging.getLogger("datahub")
 
 
 def crop_contiguous_af2_multimer(iids: list[int | str], instance_lens: list[int], crop_size: int) -> dict:
@@ -240,8 +243,7 @@ def get_spatial_crop_mask(
 
 
 class CropContiguousLikeAF3(Transform):
-    """
-    A transform that performs contiguous cropping similar to AF3.
+    """A transform that performs contiguous cropping similar to AF3.
 
     This class implements the contiguous cropping procedure as described in AF3. It selects a crop center
     from a contiguous region of the atom array and samples a crop around this center.
@@ -333,8 +335,7 @@ def crop_spatial_like_af3(
     crop_center_cutoff_distance: float = 15.0,
     force_crop: bool = False,
 ) -> dict:
-    """
-    Crop spatial tokens around a given `crop_center` by keeping the `crop_size` nearest neighbors (with jitter).
+    """Crop spatial tokens around a given `crop_center` by keeping the `crop_size` nearest neighbors (with jitter).
 
     Args:
         - atom_array (AtomArray): The atom array to crop.
@@ -515,8 +516,7 @@ class CropSpatialLikeAF3(Transform):
         force_crop: bool = False,
         max_atoms_in_crop: int | None = None,
     ):
-        """
-        Initialize the CropSpatialLikeAF3 transform.
+        """Initialize the CropSpatialLikeAF3 transform.
 
         Args:
             crop_size (int): The maximum number of tokens to crop. Must be greater than 0.
@@ -547,10 +547,11 @@ class CropSpatialLikeAF3(Transform):
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
 
-        if "query_pn_unit_iids" in data:
+        if "query_pn_unit_iids" in data and data["query_pn_unit_iids"]:
             query_pn_units = data["query_pn_unit_iids"]
         else:
             query_pn_units = np.unique(atom_array.pn_unit_iid)
+            logger.info(f"No query PN unit(s) provided for spatial crop. Randomly selecting from {query_pn_units}.")
 
         crop_info = crop_spatial_like_af3(
             atom_array=atom_array,

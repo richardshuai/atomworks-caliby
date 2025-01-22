@@ -1,4 +1,4 @@
-"""MetadataRowParser implementations for the default PDB datasets (supporting AF-3 and RF2AA workflows)."""
+"""MetadataRowParser implementations for chain- and interface-based datasets."""
 
 from pathlib import Path
 from typing import Any
@@ -10,8 +10,7 @@ from datahub.datasets.parsers import MetadataRowParser
 
 
 class PNUnitsDFParser(MetadataRowParser):
-    """
-    Parser for pn_units DataFrame rows.
+    """Parser for pn_units DataFrame rows.
 
     In addition to standard fields (example_id, path), this parser also includes:
         - The query pn_unit instance ID, which is used to center the crop.
@@ -47,8 +46,7 @@ class PNUnitsDFParser(MetadataRowParser):
 
 
 class InterfacesDFParser(MetadataRowParser):
-    """
-    Parser for interfaces DataFrame rows.
+    """Parser for interfaces DataFrame rows.
 
     In addition to standard fields (example_id, path), this parser also includes:
         - The two query pn_unit instance IDs, as a list, which are used to sample the interface during cropping.
@@ -84,13 +82,16 @@ class InterfacesDFParser(MetadataRowParser):
 
 
 class GenericDFParser(MetadataRowParser):
-    """
-    Generic parser for interfaces and/or pn_units. Any extra columns will be included in "extra_info".
-    Note: By convention, `example_id` values are generated with `datahub.common.generate_example_id`.
-    Also note: It is important to avoid duplication of interfaces due to order inversion. If not using the preprocessing
-        scripts in datahub, ensure that your interfaces dataframe has been checked for this.
+    """Generic parser for an interface- or chain-based dataframe.
 
-    Parameters:
+    Any extra columns will be included in the "extra_info" key that is passed to the Transform pipeline.
+
+    NOTE: By convention, `example_id` values are generated with `datahub.common.generate_example_id`.
+    NOTE: We must avoid duplication of interfaces due to order inversion. If not using the preprocessing
+        scripts in `datahub`, ensure that the interfaces dataframe has been checked for duplicates.
+        For example, [A, B] and [B, A] should be considered the same interface.
+
+    Args:
         example_id_colname (str): Name of the column containing a unique identifier for each example across all datasets
         path_colname (str): Name of the column containing paths to the structure files.
         pn_unit_iid_colnames (str | List[str]): The name(s) of the column(s) containing the cifutils pn_unit_iid(s).
@@ -106,16 +107,22 @@ class GenericDFParser(MetadataRowParser):
 
     def __init__(
         self,
-        pn_unit_iid_colnames: str | list[str] = ["pn_unit_1_iid", "pn_unit_2_iid"],
+        pn_unit_iid_colnames: str | list[str] | None = ["pn_unit_1_iid", "pn_unit_2_iid"],
         example_id_colname: str = "example_id",
         path_colname: str = "path",
         assembly_id_colname: str | None = None,
     ):
         self.example_id_colname = example_id_colname
         self.path_colname = path_colname
-        self.pn_unit_iid_colnames = (
-            pn_unit_iid_colnames if isinstance(pn_unit_iid_colnames, list) else [pn_unit_iid_colnames]
-        )
+
+        if isinstance(pn_unit_iid_colnames, str):
+            self.pn_unit_iid_colnames = [pn_unit_iid_colnames]
+        elif pn_unit_iid_colnames is None:
+            self.pn_unit_iid_colnames = []
+        else:
+            assert isinstance(pn_unit_iid_colnames, list)
+            self.pn_unit_iid_colnames = pn_unit_iid_colnames
+
         self.assembly_id_colname = assembly_id_colname
 
     def _parse(self, row: pd.Series) -> dict[str, Any]:

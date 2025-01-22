@@ -2,7 +2,7 @@ from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
 
 from datahub.datasets.datasets import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
 from datahub.datasets.parsers import (
-    AF2FB_DistillationParser,
+    GenericDFParser,
     InterfacesDFParser,
     PNUnitsDFParser,
     ValidationDFParserLikeAF3,
@@ -151,9 +151,9 @@ AF3_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
         data=AF2_DISTILLATION_FACEBOOK_DF,
         id_column="example_id",
         name="af2fb_distillation",
-        columns_to_load=["example_id", "sequence_hash"],
+        columns_to_load=["example_id", "sequence_hash", "path"],
     ),
-    dataset_parser=AF2FB_DistillationParser(),
+    dataset_parser=GenericDFParser(pn_unit_iid_colnames=[]),
     cif_parser_args={},
     transform=build_af3_transform_pipeline(
         protein_msa_dirs=[{"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}],
@@ -169,9 +169,9 @@ RF2AA_AF2FB_DISTILLATION_DATASET = StructuralDatasetWrapper(
         data=AF2_DISTILLATION_FACEBOOK_DF,
         id_column="example_id",
         name="af2fb_distillation",
-        columns_to_load=["example_id", "sequence_hash"],
+        columns_to_load=["example_id", "sequence_hash", "path"],
     ),
-    dataset_parser=AF2FB_DistillationParser(),
+    dataset_parser=GenericDFParser(pn_unit_iid_colnames=[]),
     cif_parser_args={},
     transform=build_rf2aa_transform_pipeline(
         protein_msa_dirs=[{"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}],
