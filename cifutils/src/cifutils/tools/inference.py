@@ -475,7 +475,7 @@ def components_to_atom_array(
     components: list[ChemicalComponent | dict],
     bonds: list[str] | None = None,
     return_components: bool = False,
-    _set_nan_to_random: bool = False,
+    _set_nan_to_random: bool = True,
 ) -> AtomArray | list[ChemicalComponent]:
     """Build an AtomArray from a list of ChemicalComponent objects and, optionally, a list of bonds.
 

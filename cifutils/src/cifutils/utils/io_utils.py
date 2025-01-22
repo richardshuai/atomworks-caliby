@@ -350,19 +350,19 @@ def to_cif_buffer(
     """Convert an AtomArray structure to a CIF formatted StringIO buffer.
 
     Args:
-        - structure (AtomArray): The atomic structure to be converted.
-        - id (str): The ID of the entry. This will be used as the data block name.
-        - author (str): The author of the entry.
-        - date (str): The date of the entry.
-        - time (str): The time of the entry.
-        - include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
-        - include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
-        - include_bonds (bool): Whether to write bonds in the CIF file.
-        - extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
-        - extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
+        structure (AtomArray): The atomic structure to be converted.
+        id (str): The ID of the entry. This will be used as the data block name.
+        author (str): The author of the entry.
+        date (str): The date of the entry.
+        time (str): The time of the entry.
+        include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
+        include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
+        include_bonds (bool): Whether to write bonds in the CIF file.
+        extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
+        extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
-        - _allow_ambiguous_bond_annotations (bool, optional): Private argument, not meant for public use.
+        _allow_ambiguous_bond_annotations (bool, optional): Private argument, not meant for public use.
             If True, allows ambiguous bond annotations.
 
     Returns:
@@ -461,16 +461,16 @@ def to_cif_string(
     """Convert an AtomArray structure to a CIF formatted string.
 
     Args:
-        - structure (AtomArray): The atomic structure to be converted.
-        - id (str): The ID of the entry. This will be used as the data block name.
-        - author (str): The author of the entry.
-        - date (str): The date of the entry.
-        - time (str): The time of the entry.
-        - include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
-        - include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
-        - include_bonds (bool): Whether to write bonds in the CIF file.
-        - extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
-        - extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
+        structure (AtomArray): The atomic structure to be converted.
+        id (str): The ID of the entry. This will be used as the data block name.
+        author (str): The author of the entry.
+        date (str): The date of the entry.
+        time (str): The time of the entry.
+        include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
+        include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
+        include_bonds (bool): Whether to write bonds in the CIF file.
+        extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
+        extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
 
@@ -505,23 +505,26 @@ def to_cif_file(
     include_bonds: bool = True,
     extra_fields: list[str] | Literal["all"] = [],
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
-) -> str:
+    gzip_output: bool = True,
+) -> os.PathLike:
     """Convert an AtomArray structure to a CIF formatted file.
 
     Args:
-        - structure (AtomArray): The atomic structure to be converted.
-        - path (os.PathLike): The file path where the CIF formatted structure will be saved.
-        - id (str): The ID of the entry. This will be used as the data block name.
-        - author (str): The author of the entry.
-        - date (str): The date of the entry.
-        - time (str): The time of the entry.
-        - include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
-        - include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
-        - include_bonds (bool): Whether to write bonds in the CIF file.
-        - extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
-        - extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
+        structure (AtomArray): The atomic structure to be converted.
+        path (os.PathLike): The file path where the CIF formatted structure will be saved.
+        id (str): The ID of the entry. This will be used as the data block name.
+        author (str): The author of the entry.
+        date (str): The date of the entry.
+        time (str): The time of the entry.
+        include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
+        include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
+        include_bonds (bool): Whether to write bonds in the CIF file.
+        extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
+        extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
+        gzip_output (bool): Whether to gzip the output file. Files compressed with gzip will have a `.cif.gz` extension.
+            Such files take significantly less space on disk, but can still be read by `cifutils` and PyMol.
 
     Returns:
         str: The file path where the CIF formatted structure was saved.
@@ -530,21 +533,26 @@ def to_cif_file(
         IOError: If there's an issue writing to the specified file path.
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
-        f.write(
-            to_cif_buffer(
-                structure,
-                id=id,
-                author=author,
-                date=date,
-                time=time,
-                include_entity_poly=include_entity_poly,
-                include_nan_coords=include_nan_coords,
-                include_bonds=include_bonds,
-                extra_fields=extra_fields,
-                extra_categories=extra_categories,
-            ).getvalue()
-        )
+
+    cif_data = to_cif_buffer(
+        structure,
+        id=id,
+        author=author,
+        date=date,
+        time=time,
+        include_entity_poly=include_entity_poly,
+        include_nan_coords=include_nan_coords,
+        include_bonds=include_bonds,
+        extra_fields=extra_fields,
+        extra_categories=extra_categories,
+    ).getvalue()
+
+    open_func = gzip.open if gzip_output else open
+    path = str(path) + ".gz" if (gzip_output and not str(path).endswith(".gz")) else path
+
+    with open_func(path, mode="wt") as f:
+        f.write(cif_data)
+
     return path
 
 

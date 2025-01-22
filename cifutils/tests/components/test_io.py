@@ -225,7 +225,7 @@ def test_parse_with_no_resolved_atoms(tmpdir):
 
     # Use the tmpdir fixture to create a temporary file path
     cif_path = Path(tmpdir) / "test.cif"
-    to_cif_file(atom_array, cif_path, include_nan_coords=True)
+    cif_path = to_cif_file(atom_array, cif_path, include_nan_coords=True)
 
     # ... parse the atom array
     out = parse(Path(cif_path))
