@@ -475,7 +475,6 @@ def components_to_atom_array(
     components: list[ChemicalComponent | dict],
     bonds: list[str] | None = None,
     return_components: bool = False,
-    _set_nan_to_random: bool = True,
 ) -> AtomArray | list[ChemicalComponent]:
     """Build an AtomArray from a list of ChemicalComponent objects and, optionally, a list of bonds.
 
@@ -565,12 +564,6 @@ def components_to_atom_array(
 
     # ... add iid, id, entity annotations
     atom_array = add_inference_iid_id_entity_annotations(atom_array)
-
-    # HACK: replace NaN with random coordinates
-    # TODO: Remove this once we correctly handle NaN downstream
-    if _set_nan_to_random:
-        nan_coordinates = np.isnan(atom_array.coord)
-        atom_array.coord[nan_coordinates] = np.random.rand(*atom_array.coord[nan_coordinates].shape)
 
     if return_components:
         return atom_array, components

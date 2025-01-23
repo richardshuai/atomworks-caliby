@@ -742,10 +742,10 @@ def ccd_code_to_rdkit(
         Mol: The RDKit molecule corresponding to the given residue name.
     """
     if ccd_path is None:
-        # ...use Biotite's internal CCD (WARNING: may be outdated, depending on when you/your dependency
+        # ... use Biotite's internal CCD (WARNING: may be outdated, depending on when you/your dependency
         #    last computed your Biotite CCD)
         return atom_array_to_rdkit(
-            struc.info.residue(ccd_code),
+            struc.info.residue(ccd_code, allow_missing_coord=True),
             set_coord=set_coord,
             infer_hydrogens=infer_hydrogens,
             **atom_array_to_rdkit_kwargs,
@@ -753,13 +753,14 @@ def ccd_code_to_rdkit(
 
     ccd_path = Path(ccd_path)
     if ccd_path.exists():
-        # ...use the local CCD directory, which we assume is sharded by the first character of the res_name (as it should be, since we're using `rsync`)
+        # ... use the specified CCD directory, which we assume is sharded by the first character of the res_name (as it should be, since we're using `rsync`)
         path = ccd_path / ccd_code[0] / ccd_code / f"{ccd_code}.cif"
         with open(path, encoding="utf-8") as file:
             cif_file = struc.io.pdbx.CIFFile.read(file)
 
         return atom_array_to_rdkit(
-            struc.io.pdbx.get_component(cif_file),
+            # See: https://github.com/biotite-dev/biotite/pull/730
+            struc.io.pdbx.get_component(cif_file, allow_missing_coord=True),
             set_coord=set_coord,
             infer_hydrogens=infer_hydrogens,
             **atom_array_to_rdkit_kwargs,
