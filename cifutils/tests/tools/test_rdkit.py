@@ -68,7 +68,7 @@ def test_smiles_to_atom_array_to_rdkit(smiles):
         }
     )
     atom_array = components_to_atom_array(inputs)
-    mol = atom_array_to_rdkit(atom_array, set_coord=True, infer_hydrogens=False)
+    mol = atom_array_to_rdkit(atom_array, set_coord=True, hydrogens="keep")
     new_atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, remove_hydrogens=False)
     assert new_atom_array.array_length() == atom_array.array_length()
     for annotation in ["chain_id", "res_id", "res_name", "atom_name"]:
@@ -80,7 +80,7 @@ def test_atom_array_rdkit_interconversion(test_atom_array):
     test_atom_array.chain_id = ["A"] * test_atom_array.array_length()
 
     # Convert AtomArray to RDKit Mol
-    mol = atom_array_to_rdkit(test_atom_array, set_coord=True, infer_hydrogens=False)
+    mol = atom_array_to_rdkit(test_atom_array, set_coord=True, hydrogens="keep")
 
     # Convert back to AtomArray
     new_atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, remove_hydrogens=False)
@@ -118,16 +118,18 @@ def test_fixing_molecules():
 
 @pytest.fixture(scope="module")
 def molecules():
+    hydrogens = "remove"
+
     # Create RDKit molecules for some amino acids and small molecules
     mols = {
-        "Leucine": ccd_code_to_rdkit("LEU"),
-        "Isoleucine": ccd_code_to_rdkit("ILE"),
-        "Glycine": ccd_code_to_rdkit("GLY"),
-        "HEM": ccd_code_to_rdkit("HEM"),
-        "NAG": ccd_code_to_rdkit("NAG"),
-        "BMA": ccd_code_to_rdkit("BMA"),
+        "Leucine": ccd_code_to_rdkit("LEU", hydrogens=hydrogens),
+        "Isoleucine": ccd_code_to_rdkit("ILE", hydrogens=hydrogens),
+        "Glycine": ccd_code_to_rdkit("GLY", hydrogens=hydrogens),
+        "HEM": ccd_code_to_rdkit("HEM", hydrogens=hydrogens),
+        "NAG": ccd_code_to_rdkit("NAG", hydrogens=hydrogens),
+        "BMA": ccd_code_to_rdkit("BMA", hydrogens=hydrogens),
         "CustomUNL": atom_array_to_rdkit(
-            load_any("tests/data/test_unl_ligand_with_bonds.cif", model=1), set_coord=False
+            load_any("tests/data/test_unl_ligand_with_bonds.cif", model=1), set_coord=False, hydrogens=hydrogens
         ),
     }
     return mols
