@@ -2,14 +2,17 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
+from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 
 from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES
+from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.transforms.filters import (
     FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
     RemoveHydrogens,
+    RemoveNucleicAcidTerminalOxygen,
     RemovePolymersWithTooFewResolvedResidues,
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
@@ -269,6 +272,46 @@ def test_filter_to_specified_pn_units(test_case: str):
         remaining_pn_unit_iids = np.unique(output["atom_array"].pn_unit_iid)
         expected_pn_unit_iids = set(eval(row["all_pn_unit_iids_after_processing"]))
         assert set(remaining_pn_unit_iids) == expected_pn_unit_iids
+
+
+TERMINAL_OXYGEN_TEST_CASES = [
+    {
+        "pdb_id": "4z3c",
+    }
+]
+
+
+@pytest.mark.parametrize("test_case", TERMINAL_OXYGEN_TEST_CASES)
+def test_add_terminal_oxygen_indices(test_case: dict):
+    data = cached_parse(test_case["pdb_id"])
+
+    # Apply base transforms
+    base_pipeline = Compose(
+        [
+            # Base pipeline
+            RemoveHydrogens(),
+            AtomizeByCCDName(
+                atomize_by_default=True,
+                res_names_to_ignore=STANDARD_AA + STANDARD_RNA + STANDARD_DNA,
+                move_atomized_part_to_end=False,
+                validate_atomize=False,
+            ),
+        ]
+    )
+
+    prepared_data = base_pipeline(data)
+    num_atoms_before_removal = len(prepared_data["atom_array"])
+    assert "OP3" in prepared_data["atom_array"].atom_name
+
+    remove_terminal_oxygen_indices_pipeline = Compose(
+        [
+            RemoveNucleicAcidTerminalOxygen(),
+        ]
+    )
+
+    confidence_data = remove_terminal_oxygen_indices_pipeline(prepared_data)
+    assert num_atoms_before_removal == len(confidence_data["atom_array"]) + 2
+    assert "OP3" not in confidence_data["atom_array"].atom_name
 
 
 if __name__ == "__main__":

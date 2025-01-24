@@ -10,7 +10,7 @@ import numpy as np
 from biotite.structure import AtomArray
 from cifutils.common import not_isin
 from cifutils.constants import HYDROGEN_LIKE_SYMBOLS
-from cifutils.enums import ChainType
+from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.utils.sequence import get_1_from_3_letter_code, get_3_from_1_letter_code
 
 from datahub.common import exists
@@ -400,3 +400,27 @@ class RemoveTerminalOxygen(ApplyFunctionToAtomArray):
 
     def __init__(self):
         super().__init__(func=lambda arr: arr[arr.atom_name != "OXT"])
+
+
+class RemoveNucleicAcidTerminalOxygen(Transform):
+    """
+    Remove terminal oxygen atoms (`OP3`) in nucleic acids from the atom array.
+    """
+
+    requires_previous_transforms = ["AtomizeByCCDName"]
+
+    def check_input(self, data):
+        check_contains_keys(data, ["atom_array"])
+        check_is_instance(data, "atom_array", AtomArray)
+        check_atom_array_annotation(data, ["atom_name", "chain_type", "atomize"])
+
+    def forward(self, data):
+        atom_array = data["atom_array"]
+        is_terminal_oxygen_atom_type = atom_array.atom_name == "OP3"
+        is_nucleic_acid = np.isin(atom_array.chain_type, ChainTypeInfo.NUCLEIC_ACIDS)
+        is_atomized = atom_array.atomize
+        is_terminal_oxygen = is_terminal_oxygen_atom_type & is_nucleic_acid & ~is_atomized
+
+        atom_array = atom_array[~is_terminal_oxygen]
+        data["atom_array"] = atom_array
+        return data

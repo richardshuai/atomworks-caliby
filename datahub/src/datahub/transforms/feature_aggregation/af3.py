@@ -136,6 +136,7 @@ class AggregateFeaturesLikeAF3(Transform):
                 "coord_token_lvl": torch.tensor(coord_token_lvl),  # [n_tokens, 3], using the representative tokens
                 "mask_token_lvl": torch.tensor(mask_token_lvl),  # [n_tokens], using the representative tokens
                 "chain_iid_token_lvl": chain_iid_token_lvl,  # numpy.ndarray of strings with shape (n_tokens,)
+                "rep_atom_idxs": torch.tensor(_token_rep_idxs),  # [n_tokens]
             }
         )
 

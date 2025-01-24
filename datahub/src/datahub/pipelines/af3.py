@@ -7,7 +7,7 @@ from cifutils.constants import AF3_EXCLUDED_LIGANDS, GAP, STANDARD_AA, STANDARD_
 from cifutils.enums import ChainType
 
 from datahub.common import exists
-from datahub.encoding_definitions import AF3SequenceEncoding
+from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding
 from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
 from datahub.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
@@ -16,6 +16,11 @@ from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
     ComputeAtomToTokenMap,
     CopyAnnotation,
+)
+from datahub.transforms.atom_frames import (
+    AddAtomFrames,
+    AddIsRealAtom,
+    AddPolymerFrameIndices,
 )
 from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import (
@@ -33,8 +38,9 @@ from datahub.transforms.covalent_modifications import FlagAndReassignCovalentMod
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 from datahub.transforms.diffusion.edm import SampleEDMNoise
-from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
+from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures, EncodeAtomArray
 from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
+from datahub.transforms.feature_aggregation.confidence import PackageConfidenceFeats
 from datahub.transforms.featurize_unresolved_residues import (
     PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
@@ -43,6 +49,7 @@ from datahub.transforms.filters import (
     FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
     RemoveHydrogens,
+    RemoveNucleicAcidTerminalOxygen,
     RemovePolymersWithTooFewResolvedResidues,
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
@@ -99,6 +106,8 @@ def build_af3_transform_pipeline(
     msa_cache_dir: PathLike | str | None = None,
     sigma_data: float = 16.0,
     diffusion_batch_size: int = 48,
+    # whether to include data for confidence head
+    run_confidence_head: bool = False,
 ):
     """Build the AF3 pipeline with specified parameters.
 
@@ -143,9 +152,11 @@ def build_af3_transform_pipeline(
         assert crop_center_cutoff_distance > 0, "Crop center cutoff distance must be greater than 0"
 
     af3_sequence_encoding = AF3SequenceEncoding()
+    rf2aa_sequence_encoding = RF2AA_ATOM36_ENCODING
 
     transforms = [
-        AddData({"is_inference": is_inference}),
+        AddData({"is_inference": is_inference, "run_confidence_head": run_confidence_head}),
+        # AddData({"run_confidence_head": run_confidence_head}),
         RemoveHydrogens(),
         FilterToSpecifiedPNUnits(
             extra_info_key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"
@@ -166,6 +177,7 @@ def build_af3_transform_pipeline(
             move_atomized_part_to_end=False,
             validate_atomize=False,
         ),
+        RemoveNucleicAcidTerminalOxygen(),
         AddWithinChainInstanceResIdx(),
         AddWithinPolyResIdxAnnotation(),
     ]
@@ -287,21 +299,50 @@ def build_af3_transform_pipeline(
         BatchStructuresForDiffusionNoising(batch_size=diffusion_batch_size),
         CenterRandomAugmentation(batch_size=diffusion_batch_size),
         SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),
-        # ... remove all non-feature keys (to make compatible wit generic batch_collate, which only allows tensors, numpy arrays, str, etc.)
-        SubsetToKeys(
-            [
-                "example_id",
-                "feats",
-                "t",
-                "noise",
-                "ground_truth",
-                "coord_atom_lvl_to_be_noised",
-                "automorphisms",
-                "symmetry_resolution",
-            ]
-        ),
+    ]
+
+    confidence_transforms = Compose(
+        [
+            # Additions required for confidence calculation
+            EncodeAtomArray(rf2aa_sequence_encoding),
+            AddAtomFrames(),
+            AddIsRealAtom(rf2aa_sequence_encoding),
+            AddPolymerFrameIndices(),
+            # AddNucleicAcidTerminalOxygenIndices(),
+            # wrap it all together
+            PackageConfidenceFeats(),
+        ]
+    )
+
+    transforms.append(
+        ConditionalRoute(
+            condition_func=lambda data: data.get("run_confidence_head", False),
+            transform_map={
+                True: confidence_transforms,
+                False: Identity(),
+            },
+        )
+    )
+
+    keys_to_keep = [
+        "example_id",
+        "feats",
+        "t",
+        "noise",
+        "ground_truth",
+        "coord_atom_lvl_to_be_noised",
+        "automorphisms",
+        "symmetry_resolution",
+    ]
+    if run_confidence_head:
+        keys_to_keep.append("confidence_feats")
+
+    transforms += [
+        # Subset to only keys necessary
+        SubsetToKeys(keys_to_keep)
     ]
 
     # ... compose final pipeline
     pipeline = Compose(transforms)
+
     return pipeline

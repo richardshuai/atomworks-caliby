@@ -12,9 +12,11 @@ from datahub.transforms._checks import (
     check_contains_keys,
     check_is_instance,
 )
+from datahub.transforms.atom_array import ComputeAtomToTokenMap
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Transform
 from datahub.transforms.encoding import EncodeAtomArray
+from datahub.transforms.filters import RemoveNucleicAcidTerminalOxygen, RemoveTerminalOxygen
 from datahub.utils.token import get_token_starts
 
 # Constants copied from `chemdata` to decouple the RF2AA repository from the datahub pipeline
@@ -300,6 +302,116 @@ class AddAtomFrames(Transform):
             atom_frames[token_level_pn_unit_mask] = pn_unit_instance_atom_frames
 
         data["rf2aa_atom_frames"] = atom_frames
+
         return data
 
     # TODO: Tests for `AddAtomFrames`
+
+
+class AddIsRealAtom(Transform):
+    """
+    Makes a faux version of is_real_atom that we previously derived from the ChemData heavy atom mask. Determines how many atoms are in each residue based on the atom array to
+    accomodate terminal oxygens etc...
+    This mask is used in the pLDDT calculation, where it is used to mask pLDDT logits in the [B,I,Max_N_Atoms] representation.
+    Uses the atom_to_token_map to determine the number of atoms in each residue, outputting a boolean mask in [I,36] format. This can accomodate
+    up to 36 atoms per residue, as the RF2aa is_real_atom object has 36 atoms per residue. In AF3, the maximum number of atoms per residue
+    is 23, and this tensor is truncated in the pLDDT calculation.
+
+    Adds:
+        - 'is_real_atom': torch.Tensor of shape [I, 36] (bool)
+    """
+
+    requires_previous_transforms = [ComputeAtomToTokenMap, RemoveTerminalOxygen, RemoveNucleicAcidTerminalOxygen]
+
+    def __init__(self, token_encoding):
+        self.max_n_atoms = token_encoding.n_atoms_per_token
+
+    def check_input(self, data):
+        check_contains_keys(data, ["atom_array"])
+        check_is_instance(data, "atom_array", AtomArray)
+
+    def forward(self, data):
+        tok_idx = data["feats"]["atom_to_token_map"]
+
+        is_real_atom = torch.zeros(tok_idx.max() + 1, self.max_n_atoms, dtype=torch.bool)
+        for i in range(is_real_atom.shape[0]):
+            is_real_atom[i, : torch.sum(tok_idx == i)] = True
+
+        data["is_real_atom"] = is_real_atom
+
+        return data
+
+
+class AddPolymerFrameIndices(Transform):
+    """
+    Adds indices for the atoms that will constitute the backbone frames for non-ligands.
+    Adds an I,3 tensor, where the first index is the atom index of the N, the second is
+    the atom index of the CA, and the third is the atom index of the C for protein.
+    Follows the AF3 pattern for nucleic acids. For ligands and noncanonicals (ie anything
+    atomized), this functions adds the index of each atom to the CA position.
+
+    Adds:
+        - 'frame_idxs': torch.Tensor of shape [I, 3] (long)
+    """
+
+    def __init__(self):
+        pass
+
+    def check_input(self, data):
+        check_contains_keys(data, ["feats", "atom_array"])
+        check_is_instance(data, "atom_array", AtomArray)
+
+    def forward(self, data):
+        # construct the masks
+        atom_array = data["atom_array"]
+        is_protein = data["feats"]["is_protein"]
+        is_nucleic_acid = data["feats"]["is_rna"] | data["feats"]["is_dna"]
+
+        # problem is that noncanonical proteins and nas are marked as protein/nucleic acid, not as ligand, so instead we use the atomize mask
+        is_ligand = atom_array.atomize[get_token_starts(atom_array)]
+
+        token_len = max(atom_array.token_id) + 1
+
+        frame_idxs = np.zeros((token_len, 3), dtype=np.int64)
+
+        nitrogen_atoms = (
+            is_protein[atom_array.token_id.astype(np.int32)]
+            & (atom_array.atom_name == "N")
+            & ~is_ligand[atom_array.token_id.astype(np.int32)]
+        )
+        c_alpha_atoms = (
+            is_protein[atom_array.token_id.astype(np.int32)]
+            & (atom_array.atom_name == "CA")
+            & ~is_ligand[atom_array.token_id.astype(np.int32)]
+        )
+        c_atoms = (
+            is_protein[atom_array.token_id.astype(np.int32)]
+            & (atom_array.atom_name == "C")
+            & ~is_ligand[atom_array.token_id.astype(np.int32)]
+        )
+        o_four_prime_atoms = (
+            is_nucleic_acid[atom_array.token_id.astype(np.int32)]
+            & (atom_array.atom_name == "O4'")
+            & ~is_ligand[atom_array.token_id.astype(np.int32)]
+        )
+        c_one_prime_atoms = (
+            is_nucleic_acid[atom_array.token_id.astype(np.int32)]
+            & (atom_array.atom_name == "C1'")
+            & ~is_ligand[atom_array.token_id.astype(np.int32)]
+        )
+        c_two_prime_atoms = (
+            is_nucleic_acid[atom_array.token_id.astype(np.int32)]
+            & (atom_array.atom_name == "C2'")
+            & ~is_ligand[atom_array.token_id.astype(np.int32)]
+        )
+        ligand_atoms = is_ligand[atom_array.token_id.astype(np.int32)]
+
+        frame_idxs[~is_ligand, 0] = np.where(nitrogen_atoms | o_four_prime_atoms)[0]
+        frame_idxs[:, 1] = np.where(c_alpha_atoms | c_one_prime_atoms | ligand_atoms)[0]
+        frame_idxs[~is_ligand, 2] = np.where(c_atoms | c_two_prime_atoms)[0]
+
+        frame_idxs = torch.from_numpy(frame_idxs)
+
+        data["pae_frame_idx_token_lvl_from_atom_lvl"] = frame_idxs
+
+        return data
