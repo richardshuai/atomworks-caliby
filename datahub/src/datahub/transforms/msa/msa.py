@@ -196,6 +196,7 @@ def load_polymer_msas(
         query_chain_msa_tax_id = "query"
 
         # ... find the path
+        msa_file_path = None
         if (
             use_paths_in_chain_info
             and "msa_path" in chain_info[chain_id]
@@ -203,12 +204,12 @@ def load_polymer_msas(
         ):
             msa_file_path = Path(chain_info[chain_id]["msa_path"])
         else:
-            # NOTE: We replace "U" with "T" for RNA sequences to match the MSA file names, which is a legacy behavior
-            msa_file_path = (
-                get_msa_path(sequence, protein_msa_dirs)
-                if chain_type.is_protein()
-                else get_msa_path(sequence.replace("U", "T"), rna_msa_dirs)
-            )
+            if chain_type.is_protein():
+                msa_file_path = get_msa_path(sequence, protein_msa_dirs)
+            elif chain_type == ChainType.RNA:
+                sequence = sequence.replace("U", "T")
+                # NOTE: We replace "U" with "T" for RNA sequences to match the MSA file names, which is a legacy behavior
+                msa_file_path = get_msa_path(sequence.replace("U", "T"), rna_msa_dirs)
 
         if msa_file_path is None:
             # If no MSA file path is found, we skip this chain

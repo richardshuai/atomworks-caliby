@@ -1,7 +1,8 @@
+import pandas as pd
 import pytest
 from torch.utils.data import ConcatDataset, Dataset, SequentialSampler
 
-from datahub.samplers import DistributedMixedSampler, MixedSampler
+from datahub.samplers import DistributedMixedSampler, LoadBalancedDistributedSampler, MixedSampler
 
 
 class DummyDataset(Dataset):
@@ -99,6 +100,42 @@ def test_distributed_mixed_sampler(dummy_datasets):
             assert 1000 <= item < 1100
         else:
             assert 2000 <= item < 2100
+
+
+@pytest.fixture
+def dummy_dataset_with_n_tokens():
+    # Create a dataset where each item has a different number of tokens
+    data = pd.DataFrame({"size": [100, 400, 200, 800, 100, 800, 200, 900, 200]})
+    return DummyDataset(data)
+
+
+def test_load_balanced_distributed_sampler(dummy_dataset_with_n_tokens):
+    """
+    Test that the LoadBalancedDistributedSampler correctly balances "size" loads across replicas.
+    """
+    length_key = "size"
+
+    # Create samplers for two replicas
+    sampler_rank_0 = LoadBalancedDistributedSampler(
+        dummy_dataset_with_n_tokens, key_to_balance=length_key, num_replicas=2, rank=0
+    )
+    sampler_rank_1 = LoadBalancedDistributedSampler(
+        dummy_dataset_with_n_tokens, key_to_balance=length_key, num_replicas=2, rank=1
+    )
+
+    # Get indices for each rank
+    indices_rank_0 = list(sampler_rank_0)
+    indices_rank_1 = list(sampler_rank_1)
+
+    # Calculate size counts for each rank
+    sizes_rank_0 = [dummy_dataset_with_n_tokens.data[length_key][idx] for idx in indices_rank_0]
+    sizes_rank_1 = [dummy_dataset_with_n_tokens.data[length_key][idx] for idx in indices_rank_1]
+
+    # Assert that the size count is balanced
+    assert abs(sum(sizes_rank_0) - sum(sizes_rank_1)) <= max(dummy_dataset_with_n_tokens.data[length_key])
+
+    # Ensure that indices are disjoint (except for the last index, which may be the same due to padding)
+    assert set(indices_rank_0[:-1]).isdisjoint(set(indices_rank_1[:-1]))
 
 
 if __name__ == "__main__":

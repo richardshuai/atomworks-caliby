@@ -7,10 +7,10 @@ from datahub.datasets.datasets import (
     ConcatDatasetWithID,
     PandasDataset,
     StructuralDatasetWrapper,
-    get_row_and_index_by_example_id,
 )
 from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser
 from datahub.pipelines.af3 import build_af3_transform_pipeline
+from datahub.utils.testing import cached_parse
 from tests.conftest import (
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,
@@ -67,25 +67,24 @@ def full_pdb_dataset_af3():
     return ConcatDatasetWithID(datasets=[pn_units_dataset_af3, interfaces_dataset_af3])
 
 
-PRIOR_PIPELINE_BUGS_AF3 = [
-    "{['pdb', 'pn_units']}{5epq}{1}{['A_1']}",
-    "{['pdb', 'interfaces']}{2g37}{1}{['B_1', 'F_1']}",
-    "{['pdb', 'interfaces']}{4v4s}{1}{['D_1', 'Y_1']}",
-]
+PRIOR_PIPELINE_BUGS_AF3 = ["7qbs", "5epq", "2g37", "4v4s"]
 
 
-@pytest.mark.parametrize("example_id", PRIOR_PIPELINE_BUGS_AF3)
-@pytest.mark.skip
-def test_specific_examples_af3(example_id: str, full_pdb_dataset_af3: ConcatDatasetWithID):
+@pytest.mark.parametrize("pdb_id", PRIOR_PIPELINE_BUGS_AF3)
+@pytest.mark.slow
+def test_prior_pipeline_bugs_af3(pdb_id: str):
     """Run a single example through the pipeline. Useful for debugging specific examples."""
-    try:
-        index = get_row_and_index_by_example_id(full_pdb_dataset_af3, example_id)["index"]
-        sample = full_pdb_dataset_af3[index]
-        assert sample is not None, f"Sample is None, with example_id: {example_id}"
-    except Exception as e:
-        # We may be excluding some examples with the filters, which is desireable in some cases (e.g., AF-3 excluded ligands)
-        logger.debug(f"Error processing example {example_id}: {e}; note that this may be expected due to filters.")
+    input = cached_parse(pdb_id)
+    input["example_id"] = pdb_id
+    pipe = build_af3_transform_pipeline(
+        protein_msa_dirs=PROTEIN_MSA_DIRS,
+        rna_msa_dirs=RNA_MSA_DIRS,
+        is_inference=False,
+    )
+    output = pipe(input)
+
+    assert output is not None
 
 
 if __name__ == "__main__":
-    pytest.main(["-v", __file__, "-m very_slow"])
+    pytest.main(["-v", __file__, "-m not very_slow"])

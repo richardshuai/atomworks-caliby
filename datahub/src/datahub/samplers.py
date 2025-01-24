@@ -2,13 +2,13 @@ import itertools
 import logging
 import math
 from operator import add
-from typing import Sequence
+from typing import Iterator, Sequence
 
 import pandas as pd
 import torch
 from assertpy import assert_that
 from toolz import accumulate
-from torch.utils.data import Sampler, WeightedRandomSampler
+from torch.utils.data import Dataset, DistributedSampler, Sampler, WeightedRandomSampler
 
 logger = logging.getLogger(__name__)
 
@@ -454,3 +454,74 @@ class LazyWeightedRandomSampler(WeightedRandomSampler):
                 ).tolist()
 
             yield prefetch_buffer.pop(0)
+
+
+class LoadBalancedDistributedSampler(DistributedSampler):
+    """DistributedSampler that balances large examples across replicas.
+
+    Helpful for validation, where we don't want GPUs to be idle while waiting for the slowest replica to finish.
+    For example, we may want to avoid the scenario where one GPU receives many large examples that are slow to process,
+    while another GPU receives many small examples that are quick to process.
+
+    NOTE: Only useful for validation, as the order of the examples is deterministic.
+
+    Args:
+        dataset: Dataset used for sampling.
+        key_to_balance: Key in the dataset data dataframe that contains the length (size) of each example.
+            The dataset must have a data attribute that can be accessed like a dataframe.
+            For example, if the dataset has a data attribute that is a pandas DataFrame, the key_to_balance
+            should be a column in that DataFrame (i.e., "n_tokens").
+        num_replicas (int, optional): Number of processes participating in
+            distributed training. By default, :attr:`world_size` is retrieved from the
+            current distributed group.
+        rank (int, optional): Rank of the current process within :attr:`num_replicas`.
+            By default, :attr:`rank` is retrieved from the current distributed
+            group.
+        drop_last (bool, optional): if ``True``, then the sampler will drop the
+            tail of the data to make it evenly divisible across the number of
+            replicas. If ``False``, the sampler will add extra indices to make
+            the data evenly divisible across the replicas. Default: ``False``.
+    """
+
+    def __init__(
+        self,
+        dataset: Dataset,
+        key_to_balance: str,
+        num_replicas: int | None = None,
+        rank: int | None = None,
+        drop_last: bool = False,
+    ):
+        super().__init__(
+            dataset=dataset,
+            num_replicas=num_replicas,
+            rank=rank,
+            shuffle=False,  # No shuffling when we try and balance across replicas
+            drop_last=drop_last,
+        )
+        self.length_key = key_to_balance
+
+    def __iter__(self) -> Iterator[int]:
+        # Extract sizes from the dataset
+        sizes = self.dataset.data[self.length_key]
+        indices = list(range(len(sizes)))
+
+        # Sort indices by example size
+        indices.sort(key=lambda x: sizes[x], reverse=True)
+
+        if not self.drop_last:
+            # add extra samples to make it evenly divisible
+            padding_size = self.total_size - len(indices)
+            if padding_size <= len(indices):
+                indices += indices[-padding_size:]  # Add from the end of the list, which are the smallest examples
+            else:
+                indices += indices[-1:] * padding_size
+        else:
+            # remove tail of data to make it evenly divisible.
+            indices = indices[: self.total_size]
+        assert len(indices) == self.total_size
+
+        # subsample
+        indices = indices[self.rank : self.total_size : self.num_replicas]
+        assert len(indices) == self.num_samples
+
+        return iter(indices)

@@ -33,12 +33,12 @@ dependencies:
     - biopython>=1.83,<2  # Collection of Python modules for bioinformatics
     - py3Dmol>=2.2.1,<3  # Python wrapper for 3Dmol.js
     - pymol-remote>=0.0.5  # Remote access to PyMOL from Python (has no dependencies)
-    - biotite>=1.1.0,<1.2
+    - git+https://github.com/biotite-dev/biotite.git@fab175e7ba4608d9613f092ad4e080661c6cc816
     # ... ESM
     - fair-esm
 
     # Local packages
-    - git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/baker-laboratory/cifutils.git@v2.6.0
+    - git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/baker-laboratory/cifutils.git@v2.6.1
 
     # Formatting & linting
     - ruff==0.8.3 # python linter & formatter

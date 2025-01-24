@@ -111,6 +111,12 @@ IncludeCmd: yes
    # Add conda environment to PATH
    export PATH=/usr/envs/datahub-apptainer/bin:$PATH
 
+   # Run the biotite setup command
+   # (Temporary measure until we switch to released Biotite version)
+   . /usr/etc/profile.d/conda.sh
+   conda activate datahub-apptainer
+   python -m biotite.setup_ccd
+
    ## CLEANUP
    # Unset the access token environment variables to avoid possibly
    # leaking them in the container

@@ -209,4 +209,4 @@ def test_inference_msa_transform(test_case):
 
 
 if __name__ == "__main__":
-    pytest.main(["-s", "-v", "-m not very_slow", f"{__file__}::test_inference_msa_transform"])
+    pytest.main(["-s", "-v", "-m not very_slow", __file__])
