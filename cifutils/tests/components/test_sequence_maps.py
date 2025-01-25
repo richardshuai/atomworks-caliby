@@ -87,7 +87,7 @@ def test_parser_one_letter_sequence_outputs(pdb_id: str):
                 mismatches = []
                 for i, (u, p) in enumerate(zip(unprocessed_cleaned, processed_cleaned, strict=False)):
                     if u != p:
-                        mismatches.append(f"position {i + 1}: {u} != {p}")
+                        mismatches.append(f"position {i+1}: {u} != {p}")
                     mismatch_details = "\n".join(mismatches)
                     raise AssertionError(
                         f"Sequence mismatch found:\n"

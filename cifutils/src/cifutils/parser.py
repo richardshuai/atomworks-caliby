@@ -378,7 +378,6 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
 
     # ... optionally, build assemblies and add assembly-specifc annotation (instance IDs)
     if exists(kwargs["build_assembly"]):
-        # ...assert that `build_assembly` is a valid option
         assert kwargs["build_assembly"] in ["first", "all"] or isinstance(
             kwargs["build_assembly"], list | tuple
         ), "Invalid `build_assembly` option. Must be 'first', 'all', or a list/tuple of assembly IDs as strings."
