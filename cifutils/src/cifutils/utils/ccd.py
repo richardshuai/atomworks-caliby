@@ -343,7 +343,14 @@ def get_chem_comp_leaving_atom_names(
         >>> get_chem_comp_leaving_atom_names("ALA")
         {'N': ('H2',), 'C': ('OXT', 'HXT'), 'OXT': ('HXT',)}
     """
-    chem_comp = atom_array_from_ccd_code(ccd_code, ccd_mirror_path)
+    try:
+        chem_comp = atom_array_from_ccd_code(ccd_code, ccd_mirror_path)
+    except ValueError as e:
+        if mode == "warn":
+            logger.warning(f"Failed to compute leaving groups for `{ccd_code}`: {e}")
+        elif mode == "raise":
+            raise ValueError(f"Failed to compute leaving groups for `{ccd_code}`: {e}")
+        return {}
 
     if "is_leaving_atom" not in chem_comp.get_annotation_categories():
         if mode == "warn":
