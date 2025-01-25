@@ -349,7 +349,7 @@ def get_chem_comp_leaving_atom_names(
         if mode == "warn":
             logger.warning(f"Failed to compute leaving groups for `{ccd_code}`: {e}")
         elif mode == "raise":
-            raise ValueError(f"Failed to compute leaving groups for `{ccd_code}`: {e}")
+            raise ValueError(f"Failed to compute leaving groups for `{ccd_code}`: {e}") from e
         return {}
 
     if "is_leaving_atom" not in chem_comp.get_annotation_categories():
