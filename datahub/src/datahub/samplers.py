@@ -511,10 +511,11 @@ class LoadBalancedDistributedSampler(DistributedSampler):
         if not self.drop_last:
             # add extra samples to make it evenly divisible
             padding_size = self.total_size - len(indices)
-            if padding_size <= len(indices):
-                indices += indices[-padding_size:]  # Add from the end of the list, which are the smallest examples
-            else:
-                indices += indices[-1:] * padding_size
+            if padding_size > 0:
+                if padding_size <= len(indices):
+                    indices += indices[-padding_size:]  # Add from the end of the list, which are the smallest examples
+                else:
+                    indices += indices[-1:] * padding_size
         else:
             # remove tail of data to make it evenly divisible.
             indices = indices[: self.total_size]
