@@ -106,8 +106,9 @@ def build_af3_transform_pipeline(
     msa_cache_dir: PathLike | str | None = None,
     sigma_data: float = 16.0,
     diffusion_batch_size: int = 48,
-    # whether to include data for confidence head
+    # Whether to include features for confidence head
     run_confidence_head: bool = False,
+    return_atom_array: bool = False,
 ):
     """Build the AF3 pipeline with specified parameters.
 
@@ -156,7 +157,6 @@ def build_af3_transform_pipeline(
 
     transforms = [
         AddData({"is_inference": is_inference, "run_confidence_head": run_confidence_head}),
-        # AddData({"run_confidence_head": run_confidence_head}),
         RemoveHydrogens(),
         FilterToSpecifiedPNUnits(
             extra_info_key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"
@@ -165,9 +165,7 @@ def build_af3_transform_pipeline(
         RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
         RemovePolymersWithTooFewResolvedResidues(min_residues=4),  # Remove polymers with too few resolved residues
         # NOTE: For inference, we must keep UNL to support ligands that are not in the CCD
-        HandleUndesiredResTokens(
-            undesired_res_names if not is_inference else [x for x in undesired_res_names if x != "UNL"]
-        ),  # e.g., non-standard residues
+        HandleUndesiredResTokens(undesired_res_tokens=undesired_res_names),  # e.g., non-standard residues
         FlagAndReassignCovalentModifications(),
         FlagNonPolymersForAtomization(),
         AddGlobalAtomIdAnnotation(),
@@ -184,7 +182,7 @@ def build_af3_transform_pipeline(
 
     # Crop
 
-    # ...crop around our query pn_unit(s) early, since we don't need the full structure moving forward
+    # ... crop around our query pn_unit(s) early, since we don't need the full structure moving forward
     cropping_transform = RandomRoute(
         transforms=[
             CropContiguousLikeAF3(
@@ -259,7 +257,7 @@ def build_af3_transform_pipeline(
     ]
 
     transforms += [
-        # ...load and pair MSAs
+        # ... load and pair MSAs
         LoadPolymerMSAs(
             protein_msa_dirs=protein_msa_dirs,
             rna_msa_dirs=rna_msa_dirs,
@@ -268,12 +266,12 @@ def build_af3_transform_pipeline(
             use_paths_in_chain_info=True,  # if there are paths specified in the `chain_info` for a given chain, use them
         ),
         PairAndMergePolymerMSAs(dense=dense_msa),
-        # ...encode MSA to AF-3 format
+        # ... encode MSA to AF-3 format
         EncodeMSA(encoding=af3_sequence_encoding, token_to_use_for_gap=af3_sequence_encoding.token_to_idx["<G>"]),
-        # ...fill MSA, indexing into only the portions of the polymers that are present in the cropped structure
+        # ... fill MSA, indexing into only the portions of the polymers that are present in the cropped structure
         FillFullMSAFromEncoded(pad_token=af3_sequence_encoding.token_to_idx["<G>"]),
         AddAF3TokenBondFeatures(),
-        # ...featurize MSA
+        # ... featurize MSA
         ConvertToTorch(
             keys=[
                 "encoded",
@@ -287,15 +285,15 @@ def build_af3_transform_pipeline(
             n_msa=n_msa,
         ),
         # Prepare coordinates for noising (without modifying the ground truth)
-        # ...add placeholder coordinates for noising
+        # ... add placeholder coordinates for noising
         CopyAnnotation(annotation_to_copy="coord", new_annotation="coord_to_be_noised"),
-        # ...handling of unresolved residues (note that these Transforms create the "atom_array_to_noise" dictionary, if not already present)
+        # ... handling of unresolved residues (note that these Transforms create the "atom_array_to_noise" dictionary, if not already present)
         PlaceUnresolvedTokenAtomsOnRepresentativeAtom(annotation_to_update="coord_to_be_noised"),
         PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(annotation_to_update="coord_to_be_noised"),
         # Feature aggregation
         AggregateFeaturesLikeAF3(),
         OneHotTemplateRestype(encoding=af3_sequence_encoding),
-        # ...batching and noise sampling for diffusion
+        # ... batching and noise sampling for diffusion
         BatchStructuresForDiffusionNoising(batch_size=diffusion_batch_size),
         CenterRandomAugmentation(batch_size=diffusion_batch_size),
         SampleEDMNoise(sigma_data=sigma_data, diffusion_batch_size=diffusion_batch_size),
@@ -308,7 +306,6 @@ def build_af3_transform_pipeline(
             AddAtomFrames(),
             AddIsRealAtom(rf2aa_sequence_encoding),
             AddPolymerFrameIndices(),
-            # AddNucleicAcidTerminalOxygenIndices(),
             # wrap it all together
             PackageConfidenceFeats(),
         ]
@@ -336,6 +333,8 @@ def build_af3_transform_pipeline(
     ]
     if run_confidence_head:
         keys_to_keep.append("confidence_feats")
+    if return_atom_array:
+        keys_to_keep.append("atom_array")
 
     transforms += [
         # Subset to only keys necessary

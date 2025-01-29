@@ -712,9 +712,7 @@ def compute_atom_to_token_map(atom_array: AtomArray) -> dict:
 
 
 class ComputeAtomToTokenMap(Transform):
-    """
-    Add length `[n_atom]` array to the `feats` dictionary that indicates the `token_id` for each atom.
-    """
+    """Add length `[n_atom]` array to the `feats` dictionary that indicates the `token_id` for each atom."""
 
     requires_previous_transforms = ["AddGlobalTokenIdAnnotation"]
 
