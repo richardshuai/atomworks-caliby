@@ -532,7 +532,11 @@ def to_cif_file(
     Raises:
         IOError: If there's an issue writing to the specified file path.
     """
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if not path:
+        raise ValueError("No file path specified.")
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
 
     cif_data = to_cif_buffer(
         structure,

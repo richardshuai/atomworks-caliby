@@ -7,7 +7,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
-from conftest import get_pdb_path
+from conftest import TEST_DATA_DIR, get_pdb_path
 
 from cifutils import parse
 from cifutils.enums import ChainType
@@ -22,8 +22,6 @@ from cifutils.tools.inference import (
     read_chai_fasta,
 )
 from cifutils.utils.testing import assert_same_atom_array
-
-# TODO: Write tests for SDF components, CIF file components
 
 
 @pytest.fixture
@@ -87,6 +85,12 @@ def dict_inputs():
         }
     ]
 
+    sdf = [
+        {
+            "path": f"{TEST_DATA_DIR}/HEM_ideal.sdf",
+        }
+    ]
+
     return {
         "monomer": monomer,
         "dimer": dimer,
@@ -94,6 +98,7 @@ def dict_inputs():
         "ligand": ligand,
         "glycan_1": glycan_1,
         "glycan_2": glycan_2,
+        "sdf": sdf,
     }
 
 
@@ -311,12 +316,23 @@ def test_full_components_input(dict_inputs):
 
     # Sanity check outputs
     assert isinstance(atom_array, AtomArray)
-    assert np.unique(atom_array.chain_id).shape[0] == 7  # 1 monomer, 2 dimers, 1 noncanonical, 1 ligand, 2 glycans
-    assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E", "F", "G"}
+    assert (
+        np.unique(atom_array.chain_id).shape[0] == 8
+    )  # 1 monomer, 2 dimers, 1 noncanonical, 1 ligand, 2 glycans, 1 SDF (HEM)
+    assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E", "F", "G", "H"}
     assert set(np.unique(atom_array.chain_type)) == {ChainType.POLYPEPTIDE_L, ChainType.NON_POLYMER}
 
     # Assert full occupancy
     assert np.all(atom_array.occupancy == 1.0)
+
+
+def test_sdf_input(dict_inputs):
+    components = dict_inputs["monomer"] + dict_inputs["sdf"]
+    atom_array = components_to_atom_array(components)
+
+    # Assert that all coordinates are present for the non-polymers
+    non_polymer_atom_array = atom_array[atom_array.chain_type == ChainType.NON_POLYMER]
+    assert not np.any(np.isnan(non_polymer_atom_array.coord))
 
 
 def test_recover_bonds_from_cif(dict_inputs):

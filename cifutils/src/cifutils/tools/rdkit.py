@@ -42,13 +42,18 @@ RDKIT_HYBRIDIZATION_TO_INT: Final[dict[Chem.rdchem.HybridizationType, int]] = {
     Chem.rdchem.HybridizationType.S: 0,
     Chem.rdchem.HybridizationType.SP: 1,
     Chem.rdchem.HybridizationType.SP2: 2,
-    Chem.rdchem.HybridizationType.SP3: 3,
-    Chem.rdchem.HybridizationType.SP3D: 4,
-    Chem.rdchem.HybridizationType.SP3D2: 5,
-    Chem.rdchem.HybridizationType.OTHER: 6,
+    Chem.rdchem.HybridizationType.SP2D: 3,
+    Chem.rdchem.HybridizationType.SP3: 4,
+    Chem.rdchem.HybridizationType.SP3D: 5,
+    Chem.rdchem.HybridizationType.SP3D2: 6,
+    Chem.rdchem.HybridizationType.OTHER: 7,
     Chem.rdchem.HybridizationType.UNSPECIFIED: -1,
 }
-"""Mapping from RDKit hybridization types to integers."""
+"""
+Mapping from RDKit hybridization types to integers.
+
+Reference: https://www.rdkit.org/docs/cppapi/classRDKit_1_1Atom.html#a58e40e30db6b42826243163175cac976
+"""
 
 RDKIT_BOND_TYPE_TO_BIOTITE: Final[dict[tuple[Chem.BondType, bool], struc.bonds.BondType]] = {
     # (rdkit bond type, is_aromatic) -> biotite bond type

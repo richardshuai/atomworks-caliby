@@ -601,6 +601,8 @@ def add_chain_type_annotation(
 
 def add_atomic_number_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
     """Adds the atomic number (atomic_number) annotation to the AtomArray."""
-    atom_array.add_annotation("atomic_number", dtype=np.int8)
-    atom_array.set_annotation("atomic_number", listmap(ELEMENT_NAME_TO_ATOMIC_NUMBER.get, atom_array.element))
+    atom_array.set_annotation(
+        "atomic_number",
+        np.array(listmap(ELEMENT_NAME_TO_ATOMIC_NUMBER.get, np.char.upper(atom_array.element)), dtype=np.int8),
+    )
     return atom_array

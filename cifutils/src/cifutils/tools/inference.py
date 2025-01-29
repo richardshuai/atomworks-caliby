@@ -244,7 +244,7 @@ def read_chai_fasta(fasta_path: Path) -> list[ChemicalComponent]:
         if metadata.startswith("ligand"):
             components.append(SmilesComponent(smiles=content))
         elif metadata.endswith(".sdf"):
-            components.append(sdf_to_annotated_atom_array(sdf=content))
+            components.append(sdf_to_annotated_atom_array(path=content))
         else:
             if "protein" in metadata:
                 components.append(Protein(seq=content))
@@ -366,7 +366,7 @@ def smiles_to_annotated_atom_array(
 
 
 def sdf_to_annotated_atom_array(
-    sdf: io.StringIO | os.PathLike,
+    path: io.StringIO | os.PathLike,
     chain_id: str,
     *,
     chain_type: ChainType | str = "non-polymer",
@@ -376,7 +376,7 @@ def sdf_to_annotated_atom_array(
     if backend == "rdkit":
         from cifutils.tools.rdkit import atom_array_from_rdkit, sdf_to_rdkit
 
-        mol = sdf_to_rdkit(sdf)
+        mol = sdf_to_rdkit(path)
         array = atom_array_from_rdkit(mol)
     elif backend == "openbabel":
         raise NotImplementedError("Openbabel backend not yet implemented.")
@@ -512,7 +512,6 @@ def components_to_atom_array(
     for component in components:
         component.chain_id = component.chain_id or next(chain_id_generator)
 
-        # TODO: Can we add support for SDFComponent?
         ligand_hash_to_id = KeyToIntMapper()  # ... to keep track of identical ligands
         if isinstance(component, SequenceComponent):
             atom_arrays.append(sequence_to_annotated_atom_array(**component.as_dict()))
