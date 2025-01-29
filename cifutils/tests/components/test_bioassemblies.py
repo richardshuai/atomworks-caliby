@@ -59,7 +59,7 @@ def test_assembly_atom_coordinates(pdb_id: str):
         build_assembly="first",
         fix_arginines=False,
         remove_waters=False,
-        remove_hydrogens=True,
+        hydrogen_policy="remove",
         remove_ccds=[],  # Do not remove crystallization solvents
         ccd_mirror_path=None,  # Use Biotite's CCD mirror
     )["assemblies"]["1"][0]

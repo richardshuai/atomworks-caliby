@@ -24,6 +24,11 @@ from cifutils.utils.selection import annot_start_stop_idxs
 
 logger = logging.getLogger("cifutils")
 
+try:
+    import hydride
+except ImportError:
+    logger.warning("Hydride library not found, hydrogens cannot be inferred. Pip install hydride to enable.")
+
 
 def subset_atom_array(atom_array: AtomArray | AtomArrayStack, keep: np.ndarray) -> AtomArray | AtomArrayStack:
     """Subsets an AtomArray or AtomArrayStack by a boolean mask."""
@@ -289,6 +294,28 @@ def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> Atom
     # Update the atom_array_label with the (1-indexed) author sequence ids
     atom_array.res_id[non_polymer_mask] = author_seq_ids[non_polymer_mask]
 
+    return atom_array
+
+
+def add_hydrogen_atom_positions(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+    """Add hydrogens using biotite supported hydride library
+
+    Args:
+        atom_array (AtomArray | AtomArrayStack): The atom array containing the chain information.
+
+    Returns:
+        AtomArray: The updated atom array with the polymer annotation added.
+    """
+    if isinstance(atom_array, AtomArrayStack):
+        for array in atom_array:
+            array = array[array.element != "H"]
+            # Add hydrogen atoms
+            array, mask = hydride.add_hydrogen(array)
+
+    if isinstance(atom_array, AtomArray):
+        atom_array = atom_array[atom_array.element != "H"]
+        # Add hydrogen atoms
+        atom_array, mask = hydride.add_hydrogen(atom_array)
     return atom_array
 
 

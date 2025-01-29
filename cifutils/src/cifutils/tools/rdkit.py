@@ -5,12 +5,13 @@ Tools for using RDKit with AtomArray objects.
 import copy
 import io
 import logging
+import warnings
 from collections import Counter
 from collections.abc import Callable
 from functools import cache, lru_cache, wraps
 from os import PathLike
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -348,11 +349,11 @@ def fix_mol(
 
 
 @preserve_annotations
-def add_hydrogens(mol: Mol) -> Mol:
+def add_hydrogens(mol: Mol, add_coords: bool = True) -> Mol:
     """
     Add explicit hydrogens to an RDKit molecule.
     """
-    return Chem.AddHs(mol)
+    return Chem.AddHs(mol, addCoords=add_coords)
 
 
 @preserve_annotations
@@ -596,7 +597,8 @@ def atom_array_to_rdkit(
     atom_array: AtomArray,
     *,
     set_coord: bool = False,
-    infer_hydrogens: bool = True,
+    infer_hydrogens: bool | None = None,
+    hydrogen_policy: Literal["infer", "remove", "keep"] = "infer",
     annotations_to_keep: list[str] = BIOTITE_DEFAULT_ANNOTATIONS,
     sanitize: bool = True,
     attempt_fixing_corrupted_molecules: bool = True,
@@ -609,6 +611,8 @@ def atom_array_to_rdkit(
         - atom_array (biotite.structure.AtomArray): The Biotite AtomArray to convert.
         - set_coord (bool): Whether to set atomic coordinates in the RDKit molecule.
         - infer_hydrogens (bool): Whether to infer hydrogens in the RDKit molecule.
+            WARNING: This is deprecated. Use `hydrogen_policy = 'infer'` instead.
+        - hydrogen_policy (Literal["infer", "remove", "keep"]): Whether to infer hydrogens in the RDKit molecule.
         - annotations_to_keep (list[str]): List of atom annotations to preserve from the AtomArray.
 
     Returns:
@@ -627,10 +631,21 @@ def atom_array_to_rdkit(
     #     (implicit hydrogens)
     rdkit_atom_ids = []
 
-    is_hydrogen = np.isin(atom_array.element, HYDROGEN_LIKE_SYMBOLS)
-    if np.any(is_hydrogen) and infer_hydrogens:
-        logger.debug(f"Found {np.sum(is_hydrogen)} hydrogen atoms in the AtomArray. Removing them.")
-    atom_array = atom_array[~is_hydrogen] if infer_hydrogens else atom_array
+    # ... deprecate 'infer_hydrogens'
+    if exists(infer_hydrogens):
+        warnings.warn(
+            "'infer_hydrogens' is deprecated. Use 'hydrogen_policy = 'infer' instead.",
+            category=DeprecationWarning,
+            stacklevel=1,
+        )
+        hydrogen_policy = "infer" if infer_hydrogens else "keep"
+
+    if hydrogen_policy in ("infer", "remove"):
+        atom_array = atom_array[not_isin(atom_array.element, HYDROGEN_LIKE_SYMBOLS)]
+    elif hydrogen_policy == "keep":
+        pass
+    else:
+        raise ValueError(f"Invalid hydrogen policy: {hydrogen_policy}. Must be 'infer', 'remove', or 'keep'.")
 
     for atom_id, atom in enumerate(atom_array):
         atomic_number = element_to_atomic_number(atom.element)
@@ -712,6 +727,9 @@ def atom_array_to_rdkit(
         if annotation in atom_array.get_annotation_categories():
             mol._annotations[annotation] = atom_array._annot[annotation]
 
+    if hydrogen_policy == "infer":
+        mol = add_hydrogens(mol, add_coords=set_coord)
+
     return mol
 
 
@@ -720,7 +738,7 @@ def ccd_code_to_rdkit(
     ccd_code: str,
     *,
     set_coord: bool = True,
-    infer_hydrogens: bool = True,
+    hydrogen_policy: Literal["infer", "remove", "keep"] = "keep",
     ccd_path: PathLike | None = CCD_MIRROR_PATH,
     **atom_array_to_rdkit_kwargs,
 ) -> Mol:
@@ -734,7 +752,7 @@ def ccd_code_to_rdkit(
     Args:
         ccd_code (str): The CCD code to convert. I.e, 'ALA', 'GLY', '9RH', etc.
         set_coord (bool): Whether to set coordinates for the molecule. Defaults to True.
-        infer_hydrogens (bool): Whether to infer missing hydrogens. Defaults to True.
+        hydrogen_policy (Literal["infer", "remove", "keep"]): Whether to infer missing hydrogens. Defaults to 'keep'.
         ccd_path (PathLike): Path to the local CCD directory. If None, Biotite's internal CCD is used.
         **atom_array_to_rdkit_kwargs: Additional keyword arguments passed to the `atom_array_to_rdkit` function.
 
@@ -744,10 +762,14 @@ def ccd_code_to_rdkit(
     if ccd_path is None:
         # ... use Biotite's internal CCD (WARNING: may be outdated, depending on when you/your dependency
         #    last computed your Biotite CCD)
+        try:
+            residue = struc.info.residue(ccd_code, allow_missing_coord=True)
+        except:  # noqa: E722
+            residue = struc.info.residue(ccd_code)
         return atom_array_to_rdkit(
-            struc.info.residue(ccd_code, allow_missing_coord=True),
+            residue,
             set_coord=set_coord,
-            infer_hydrogens=infer_hydrogens,
+            hydrogen_policy=hydrogen_policy,
             **atom_array_to_rdkit_kwargs,
         )
 
@@ -758,11 +780,16 @@ def ccd_code_to_rdkit(
         with open(path, encoding="utf-8") as file:
             cif_file = struc.io.pdbx.CIFFile.read(file)
 
+        try:
+            residue = struc.io.pdbx.get_component(cif_file, allow_missing_coord=True)
+        except:  # noqa: E722
+            residue = struc.io.pdbx.get_component(cif_file)
+
         return atom_array_to_rdkit(
             # See: https://github.com/biotite-dev/biotite/pull/730
-            struc.io.pdbx.get_component(cif_file, allow_missing_coord=True),
+            residue,
             set_coord=set_coord,
-            infer_hydrogens=infer_hydrogens,
+            hydrogen_policy=hydrogen_policy,
             **atom_array_to_rdkit_kwargs,
         )
     else:

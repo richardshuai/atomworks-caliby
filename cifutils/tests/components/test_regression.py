@@ -35,7 +35,7 @@ def test_regression_against_stored_result(pdb_id: str):
         build_assembly="all",
         fix_arginines=True,
         convert_mse_to_met=True,
-        remove_hydrogens=False,
+        hydrogen_policy="keep",
         model=None,
     )
     assert result is not None  # Check if processing runs through

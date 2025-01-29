@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import logging
 import os
+import warnings
 from pathlib import Path
 from typing import Any, Literal
 
@@ -58,7 +59,8 @@ def parse(
     fix_arginines: bool = True,
     fix_formal_charges: bool = True,
     convert_mse_to_met: bool = False,
-    remove_hydrogens: bool = False,
+    remove_hydrogens: bool | None = None,
+    hydrogen_policy: Literal["keep", "remove", "infer"] = "keep",
     model: int | None = None,
     build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
 ) -> dict[str, Any]:
@@ -109,8 +111,12 @@ def parse(
         convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE)
             residues to methionine (MET) residues. Defaults to False.
         remove_hydrogens (bool, optional): Whether to remove hydrogens from the structure
-            (e.g., when adding missing atoms). Defaults to False. Only has an effect if
-            `add_missing_atoms` is True.
+            (e.g., when adding missing atoms). Only has an effect if `add_missing_atoms` is True.
+            WARNING: This parameter is deprecated and will be removed in a future release.
+            Use `hydrogen_policy = 'remove'` instead.
+        hydrogen_policy (Literal, optional): Whether to keep, remove or infer hydrogens using
+            biotite-hydride (will remove existing hydrogens and infer fresh).
+            Defaults to "keep". Options: "keep", "remove", "infer".
         model (int, optional): The model number to parse from the CIF file for NMR entries.
             Defaults to all models (None).
         build_assembly (string, list, or tuple, optional): Specifies which assembly to build, if any. Options are None
@@ -144,6 +150,16 @@ def parse(
 
     if save_to_cache and not cache_dir:
         raise ValueError("Must provide a cache directory to save to cache")
+
+    ## hydrogen policy checks
+    # ... deprecation handling for `remove_hydrogens`
+    if remove_hydrogens is not None:
+        warnings.warn(
+            "'remove_hydrogens' is deprecated. Use `hydrogen_policy = 'remove'` or 'keep'` instead.",
+            category=DeprecationWarning,
+            stacklevel=1,
+        )
+        hydrogen_policy = "remove" if remove_hydrogens else "keep"
 
     file_type = file_type or infer_pdb_file_type(filename)
     is_buffer = isinstance(filename, io.StringIO | io.BytesIO)
@@ -201,6 +217,7 @@ def parse(
             fix_formal_charges=fix_formal_charges,
             convert_mse_to_met=convert_mse_to_met,
             remove_hydrogens=remove_hydrogens,
+            hydrogen_policy=hydrogen_policy,
             model=model,
             build_assembly=build_assembly,
         )
@@ -218,6 +235,7 @@ def parse(
             fix_formal_charges=fix_formal_charges,
             convert_mse_to_met=convert_mse_to_met,
             remove_hydrogens=remove_hydrogens,
+            hydrogen_policy=hydrogen_policy,
             model=model,
             build_assembly=build_assembly,
         )
@@ -293,9 +311,16 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
     if not isinstance(asym_unit_stack, AtomArrayStack):
         asym_unit_stack = struc.stack([asym_unit_stack])
 
-    if kwargs["remove_hydrogens"]:
-        # (Most examples, except NMR studies and small molecules, will not have any hydrogens)
+    # (Most examples, except NMR studies and small molecules, will not have any hydrogens)
+    if kwargs["hydrogen_policy"] == "keep":
+        pass
+    elif kwargs["hydrogen_policy"] == "remove":
         asym_unit_stack = ta.remove_hydrogens(asym_unit_stack)
+    elif kwargs["hydrogen_policy"] == "infer":
+        # infer hydrogens using biotite-hydride, will replace existing hydrogens
+        asym_unit_stack = ta.add_hydrogen_atom_positions(asym_unit_stack)
+    else:
+        raise ValueError(f"Invalid hydrogen policy: {kwargs['hydrogen_policy']}. Must be 'keep', 'remove', or 'infer'.")
 
     # ... remove any explicitly excluded residues (e.g., crystallization solvents, waters)
     if remove_ccds or kwargs["remove_waters"]:
@@ -351,7 +376,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
                 chain_info_dict=data_dict["chain_info"],
                 struct_conn_dict=category_to_dict(cif_file.block, "struct_conn"),
                 add_bond_types_from_struct_conn=kwargs["add_bond_types_from_struct_conn"],
-                remove_hydrogens=kwargs["remove_hydrogens"],
+                remove_hydrogens=kwargs["hydrogen_policy"] == "remove",
                 use_ccd_charges=True,
                 fix_formal_charges=kwargs["fix_formal_charges"],
             )

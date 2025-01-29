@@ -1,5 +1,6 @@
 import logging
 import os
+import warnings
 
 import numpy as np
 
@@ -9,6 +10,8 @@ from cifutils.parser import parse
 logger = logging.getLogger("cifutils")
 _log_level = os.environ.get("CIFUTILS_LOG_LEVEL", "WARNING").upper()
 logger.setLevel(_log_level)
+# ... ensure that deprecation warnings are not repeated
+warnings.filterwarnings("once", category=DeprecationWarning)
 
 
 def _get_versioning(repo_path: str) -> str:

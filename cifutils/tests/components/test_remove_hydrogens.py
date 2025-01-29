@@ -16,7 +16,7 @@ def test_remove_hydrogens(pdb_id: str):
     result_no_hydrogens = parse(
         filename=path,
         build_assembly="all",
-        remove_hydrogens=True,
+        hydrogen_policy="remove",
     )
     atom_array_no_hydrogens = result_no_hydrogens["assemblies"]["1"][0]  # First bioassembly, first model
 
@@ -27,7 +27,7 @@ def test_remove_hydrogens(pdb_id: str):
     result_with_hydrogens = parse(
         filename=path,
         build_assembly="all",
-        remove_hydrogens=False,
+        hydrogen_policy="keep",
     )
 
     # ...assert that there are hydrogens
@@ -43,6 +43,20 @@ def test_remove_hydrogens(pdb_id: str):
         atom_array_with_hydrogens_filtered,
         annotations_to_compare=["chain_id", "res_name", "res_id", "atom_name", "element"],
     )
+
+
+# test deprecation warning
+def test_remove_hydrogens_deprecation(pdb_id: str = "6lyz"):
+    path = get_pdb_path(pdb_id)
+
+    arr1 = parse(filename=path, remove_hydrogens=False)["assemblies"]["1"][0]
+    arr2 = parse(filename=path, hydrogen_policy="keep")["assemblies"]["1"][0]
+    assert_same_atom_array(arr1, arr2)
+
+    # remove
+    arr1 = parse(filename=path, remove_hydrogens=True)["assemblies"]["1"][0]
+    arr2 = parse(filename=path, hydrogen_policy="remove")["assemblies"]["1"][0]
+    assert_same_atom_array(arr1, arr2)
 
 
 if __name__ == "__main__":

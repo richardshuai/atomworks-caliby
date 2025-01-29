@@ -19,7 +19,7 @@ def test_load_with_all_resolved(path: str):
         filename=path,
         add_missing_atoms=True,
         remove_ccds=[],
-        remove_hydrogens=True,
+        hydrogen_policy="remove",
     )
     # Check if processing runs through
     assert result is not None
@@ -49,7 +49,7 @@ def test_bcif_example():
 def test_pdb_with_same_chain_poly_non_poly():
     result = parse(
         filename=DIR / "1qfe.pdb",
-        remove_hydrogens=True,
+        hydrogen_policy="remove",
     )
     # Check if processing runs through
     assert result is not None

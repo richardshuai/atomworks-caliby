@@ -166,7 +166,7 @@ def test_regenerate_and_add_chain_entity_annotation(test_case):
     - Add the chain entity annotation to the atom array
     """
     path = get_pdb_path(test_case["pdb_id"])
-    result = parse(filename=path, remove_hydrogens=True)
+    result = parse(filename=path, hydrogen_policy="remove")
     atom_array = result["assemblies"]["1"][0]  # First model, first assembly
 
     for equivalent_chains in test_case["equivalent_chains"]:

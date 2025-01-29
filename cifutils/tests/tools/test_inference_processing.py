@@ -334,7 +334,7 @@ def test_recover_bonds_from_cif(dict_inputs):
 def test_same_atom_array_from_cif_and_inference():
     """Tests if the bonds inferred from the components are the same as the bonds in the CIF file."""
     transformation_id = "1"
-    data = parse(get_pdb_path("7rxs"), remove_hydrogens=True)
+    data = parse(get_pdb_path("7rxs"), hydrogen_policy="remove")
     atom_array_from_cif = data["assemblies"][transformation_id][0]
 
     # ... extract the sequence and build inference input
