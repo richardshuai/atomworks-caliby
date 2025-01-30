@@ -243,7 +243,7 @@ def read_any(
 
 
 def _build_entity_poly(
-    atom_array: struc.AtomArray,
+    atom_array: struc.AtomArray | struc.AtomArrayStack,
 ) -> dict[str, dict[str, float | int | str | list | np.ndarray]]:
     """
     Build the entity_poly category for a CIF file from an AtomArray.
@@ -275,6 +275,9 @@ def _build_entity_poly(
         "pdbx_strand_id",
         "pdbx_target_identifier",
     )
+
+    if isinstance(atom_array, struc.AtomArrayStack):
+        atom_array = atom_array[0]  # Choose any model
 
     # ... get index of the first atom of each chain
     chain_starts = struc.get_chain_starts(atom_array)
