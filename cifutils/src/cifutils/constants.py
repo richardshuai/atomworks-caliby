@@ -574,7 +574,7 @@ STANDARD_PYRAMIDINE_RESIDUES: Final[tuple[str, ...]] = ("C", "U", "DC", "DT")
 STANDARD_PURINE_RESIDUES: Final[tuple[str, ...]] = ("A", "G", "DA", "DG")
 """Tuple of the CCD codes for the 4 standard purine nucleotides."""
 
-HYDROGEN_LIKE_SYMBOLS: Final[tuple[str, ...]] = ("H", "H2", "D", "T", "1", 1)
+HYDROGEN_LIKE_SYMBOLS: Final[tuple[str, ...]] = ("H", "H2", "D", "T")
 """
 A tuple of symbols for (isotopes of) hydrogen.
 

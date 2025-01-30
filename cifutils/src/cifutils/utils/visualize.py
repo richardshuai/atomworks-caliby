@@ -2,17 +2,22 @@
 
 __all__ = ["view"]
 
+import gzip
+import io
 import logging
+import os
 import uuid
 from itertools import cycle
+from pathlib import Path
 
 import biotite.structure as struc
 import numpy as np
 import py3Dmol
-from biotite.structure import AtomArray
+from biotite.structure import AtomArray, AtomArrayStack
+from biotite.structure.io import mol, pdb, pdbx
 
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, METAL_ELEMENTS
-from cifutils.utils.io_utils import to_cif_string
+from cifutils.utils.io_utils import read_any, to_cif_string
 
 logger = logging.getLogger("cifutils")
 
@@ -234,23 +239,31 @@ def get_pymol_session(hostname: str | None = None, port: int | None = None) -> "
 
 
 def view_pymol(
-    structure: AtomArray,
+    structure: AtomArray | AtomArrayStack | pdbx.CIFFile | pdbx.BinaryCIFFile | pdb.PDBFile | os.PathLike,
     id: str | None = None,
     hostname: str | None = None,
     port: int | None = None,
+    as_bcif: bool = False,
 ) -> str:
     """
     Visualizes an AtomArray structure in PyMOL by connecting to a PyMOL server and loading the structure. If no ID is
     provided, generates a unique identifier for the structure.
 
     Args:
-        - structure (AtomArray): The atomic structure to be visualized in PyMOL.
+        - structure (AtomArray | AtomArrayStack | CIFFile | BinaryCIFFile | PDBFile | PathLike): The atomic structure to be
+            visualized in PyMOL. For `PathLike`, the file extension is used to determine the format of the structure when
+            no `id` is provided.
         - id (str | None, optional): Unique identifier for the structure in PyMOL. If None, generates a random 9-character
             string in XXX-XXX-XXX format. Defaults to None.
         - hostname (str | None, optional): The hostname of the PyMOL server. If None, uses 'localhost' or attempts to reuse
             an existing connection. Defaults to None.
         - port (int | None, optional): The port number for the PyMOL server connection. If None, uses default port 9123 or
             attempts to reuse existing connection. Defaults to None.
+        - as_bcif (bool, optional): Whether to transport the structure as BCIF instead of CIF. This speeds up the
+            network transfer of the structure but reading bcif files is not supported by all pymol versions.
+            (pymol 2.6 (LTS) and 3.1+ support bcif, older versions do not).
+            This only takes effect if `structure` is an `AtomArray` or `AtomArrayStack`.
+            Defaults to False.
 
     Returns:
         str: The identifier used for the structure in PyMOL.
@@ -262,6 +275,10 @@ def view_pymol(
     # Establish a connection to the pymol server
     session = get_pymol_session(hostname, port)
 
+    if isinstance(structure, str | Path):
+        id = id or os.path.basename(structure).split(".")[0]
+        structure = read_any(structure)
+
     # Generate a unique ID for the structure if not provided
     if id is None:
         # Generate random 9-character string in 3-3-3 format
@@ -269,15 +286,43 @@ def view_pymol(
         id = f"{random_str[:3]}-{random_str[3:6]}-{random_str[6:]}"
 
     # Send to pymol
-    _tmp_cif_str = to_cif_string(
-        structure,
-        id=id,
-        _allow_ambiguous_bond_annotations=True,
-        include_entity_poly=True,
-        include_nan_coords=False,
-        include_bonds=True,
-        extra_fields=[],
-    )
-    session.set_state(_tmp_cif_str, object=id, format="cif")
+    if isinstance(structure, AtomArray | AtomArrayStack):
+        format = "bcif" if as_bcif else "cif"
+        buffer = to_cif_string(
+            structure,
+            id=id,
+            _allow_ambiguous_bond_annotations=True,
+            include_entity_poly=True,
+            include_nan_coords=False,
+            include_bonds=True,
+            extra_fields=[],
+            as_bcif=as_bcif,
+        )
+    elif isinstance(structure, pdbx.CIFFile | pdb.PDBFile | mol.SDFile):
+        format = {
+            pdbx.CIFFile: "cif",
+            pdb.PDBFile: "pdb",
+            mol.SDFile: "sdf",
+        }[type(structure)]
+        buffer = io.StringIO()
+        structure.write(buffer)
+        buffer = buffer.getvalue()
+    elif isinstance(structure, pdbx.BinaryCIFFile):
+        format = "bcif"
+        buffer = io.BytesIO()
+        structure.write(buffer)
+        buffer = buffer.getvalue()
+    else:
+        raise ValueError(
+            f"Unsupported structure type: {type(structure)}. Only AtomArray, AtomArrayStack, CIFFile, and BCIFFile are supported."
+        )
+
+    # turn str into bytes if it is not already
+    if not isinstance(buffer, bytes):
+        buffer = buffer.encode("utf-8")
+    # compress for faster network transfer
+    buffer = gzip.compress(buffer)
+
+    session.set_state(buffer=buffer, object=id, format=format)
 
     return id

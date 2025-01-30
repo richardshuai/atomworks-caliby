@@ -306,15 +306,12 @@ def add_hydrogen_atom_positions(atom_array: AtomArray | AtomArrayStack) -> AtomA
     Returns:
         AtomArray: The updated atom array with the polymer annotation added.
     """
+    array = remove_hydrogens(atom_array)
+
     if isinstance(atom_array, AtomArrayStack):
         for array in atom_array:
-            array = array[array.element != "H"]
-            # Add hydrogen atoms
             array, mask = hydride.add_hydrogen(array)
-
-    if isinstance(atom_array, AtomArray):
-        atom_array = atom_array[atom_array.element != "H"]
-        # Add hydrogen atoms
+    elif isinstance(atom_array, AtomArray):
         atom_array, mask = hydride.add_hydrogen(atom_array)
     return atom_array
 

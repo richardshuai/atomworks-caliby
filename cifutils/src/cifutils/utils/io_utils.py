@@ -8,6 +8,7 @@ import gzip
 import io
 import logging
 import os
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -15,8 +16,9 @@ from typing import Literal
 import biotite.structure as struc
 import biotite.structure.io.pdb as biotite_pdb
 import numpy as np
+from biotite.setup_ccd import _concatenate_blocks_into_category
 from biotite.structure import AtomArray, AtomArrayStack
-from biotite.structure.io import pdbx
+from biotite.structure.io import mol, pdbx
 
 from cifutils.common import exists
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
@@ -153,7 +155,7 @@ def get_structure(
     return atom_array_stack
 
 
-def infer_pdb_file_type(path_or_buffer: os.PathLike | io.StringIO | io.BytesIO) -> Literal["cif", "pdb", "bcif"]:
+def infer_pdb_file_type(path_or_buffer: os.PathLike | io.StringIO | io.BytesIO) -> Literal["cif", "pdb", "bcif", "sdf"]:
     """
     Infer the file type of a PDB file or buffer.
     """
@@ -184,13 +186,15 @@ def infer_pdb_file_type(path_or_buffer: os.PathLike | io.StringIO | io.BytesIO) 
         return "pdb"
     elif inferred_file_type == "bcif":
         return "bcif"
+    elif inferred_file_type == "sdf":
+        return "sdf"
     else:
         raise ValueError(f"Unsupported file type: {inferred_file_type}")
 
 
 def read_any(
     path_or_buffer: os.PathLike | io.StringIO | io.BytesIO,
-    file_type: Literal["cif", "pdb", "bcif"] | None = None,
+    file_type: Literal["cif", "pdb", "bcif", "sdf"] | None = None,
 ) -> pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile:
     """
     Reads any of the allowed file types into the appropriate Biotite file object.
@@ -210,13 +214,15 @@ def read_any(
     # Determine file type
     if file_type is None:
         file_type = infer_pdb_file_type(path_or_buffer)
+        open_mode = "rb" if file_type == "bcif" else "rt"
 
     # Convert string paths to Path objects and decompress if necessary
     if isinstance(path_or_buffer, str | Path):
         path_or_buffer = Path(path_or_buffer)
         if path_or_buffer.suffix in (".gz", ".gzip"):
-            with gzip.open(path_or_buffer, "rt") as f:
-                path_or_buffer = io.StringIO(f.read())
+            with gzip.open(path_or_buffer, open_mode) as f:
+                buffer_type = io.StringIO if open_mode == "rt" else io.BytesIO
+                path_or_buffer = buffer_type(f.read())
 
     # Determine the appropriate file object based on file type
     if file_type == "cif":
@@ -225,6 +231,10 @@ def read_any(
         file_cls = biotite_pdb.PDBFile
     elif file_type == "bcif":
         file_cls = pdbx.BinaryCIFFile
+    elif file_type == "sdf":
+        file_cls = mol.SDFile
+    else:
+        raise ValueError(f"Unsupported file type: {file_type}")
 
     # Load the file content
     file_obj = file_cls.read(path_or_buffer)
@@ -333,7 +343,22 @@ def _write_categories_to_block(
         block[category_name] = category
 
 
-def to_cif_buffer(
+def _cif_to_bcif(cif_file: pdbx.CIFFile | pdbx.BinaryCIFFile) -> pdbx.BinaryCIFFile:
+    """Convert a given CIF file to an optimized BCIF file."""
+    compressed_file = pdbx.BinaryCIFFile()
+    for block_name, block in cif_file.items():
+        compressed_block = pdbx.BinaryCIFBlock()
+        for category_name in block:
+            _tmp_cif_file = pdbx.CIFFile()
+            _tmp_cif_file[block_name] = block
+            compressed_block[category_name] = pdbx.compress(
+                _concatenate_blocks_into_category(_tmp_cif_file, category_name)
+            )
+        compressed_file[block_name] = compressed_block
+    return compressed_file
+
+
+def _to_cif_or_bcif(
     structure: AtomArray,
     *,
     id: str = "unknown_id",
@@ -345,29 +370,9 @@ def to_cif_buffer(
     include_bonds: bool = True,
     extra_fields: list[str] | Literal["all"] = [],
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
+    as_bcif: bool = False,
     _allow_ambiguous_bond_annotations: bool = False,
-) -> io.StringIO:
-    """Convert an AtomArray structure to a CIF formatted StringIO buffer.
-
-    Args:
-        structure (AtomArray): The atomic structure to be converted.
-        id (str): The ID of the entry. This will be used as the data block name.
-        author (str): The author of the entry.
-        date (str): The date of the entry.
-        time (str): The time of the entry.
-        include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
-        include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
-        include_bonds (bool): Whether to write bonds in the CIF file.
-        extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
-        extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
-            Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
-            Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
-        _allow_ambiguous_bond_annotations (bool, optional): Private argument, not meant for public use.
-            If True, allows ambiguous bond annotations.
-
-    Returns:
-        StringIO: A buffer containing the CIF formatted string representation of the structure.
-    """
+) -> pdbx.CIFFile | pdbx.BinaryCIFFile:
     structure = structure.copy()
     cif_file = pdbx.CIFFile()
 
@@ -429,7 +434,7 @@ def to_cif_buffer(
         extra_fields = list(set(structure.get_annotation_categories()) - _standard_cif_annotations)
 
     if not include_nan_coords:
-        has_nan_coords = np.any(np.isnan(structure.coord), axis=1)
+        has_nan_coords = np.any(np.isnan(structure.coord), axis=tuple(range(1, structure.coord.ndim)))
         structure = structure[~has_nan_coords]
 
     pdbx.set_structure(cif_file, structure, data_block=id, include_bonds=include_bonds, extra_fields=extra_fields)
@@ -438,9 +443,64 @@ def to_cif_buffer(
     if extra_categories:
         _write_categories_to_block(block, extra_categories)
 
-    # Serialize the CIF file to a string
-    buffer = io.StringIO()
-    cif_file.write(buffer)
+    if as_bcif:
+        cif_file = _cif_to_bcif(cif_file)
+    return cif_file
+
+
+def to_cif_buffer(
+    structure: AtomArray,
+    *,
+    id: str = "unknown_id",
+    author: str = _get_logged_in_user(),
+    date: str | None = None,
+    time: str | None = None,
+    include_entity_poly: bool = False,
+    include_nan_coords: bool = True,
+    include_bonds: bool = True,
+    extra_fields: list[str] | Literal["all"] = [],
+    extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
+    _allow_ambiguous_bond_annotations: bool = False,
+    as_bcif: bool = False,
+) -> io.StringIO | io.BytesIO:
+    """Convert an AtomArray structure to a CIF formatted StringIO buffer.
+
+    Args:
+        structure (AtomArray): The atomic structure to be converted.
+        id (str): The ID of the entry. This will be used as the data block name.
+        author (str): The author of the entry.
+        date (str): The date of the entry.
+        time (str): The time of the entry.
+        include_entity_poly (bool): Whether to write entity_poly category in the CIF file.
+        include_nan_coords (bool): Whether to write NaN coordinates in the CIF file.
+        include_bonds (bool): Whether to write bonds in the CIF file.
+        extra_fields (list[str] | Literal["all"]): Additional atom_array annotations to include in the CIF file.
+        extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
+            Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
+            Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
+        _allow_ambiguous_bond_annotations (bool, optional): Private argument, not meant for public use.
+            If True, allows ambiguous bond annotations.
+
+    Returns:
+        StringIO | BytesIO: A buffer containing the CIF/BCIF formatted string/bytes representation of the structure.
+    """
+    file_obj = _to_cif_or_bcif(
+        structure,
+        id=id,
+        author=author,
+        date=date,
+        time=time,
+        include_entity_poly=include_entity_poly,
+        include_nan_coords=include_nan_coords,
+        include_bonds=include_bonds,
+        extra_fields=extra_fields,
+        extra_categories=extra_categories,
+        as_bcif=as_bcif,
+        _allow_ambiguous_bond_annotations=_allow_ambiguous_bond_annotations,
+    )
+    buffer = io.BytesIO() if as_bcif else io.StringIO()
+    file_obj.write(buffer)
+    buffer.seek(0)
     return buffer
 
 
@@ -456,8 +516,9 @@ def to_cif_string(
     include_bonds: bool = True,
     extra_fields: list[str] | Literal["all"] = [],
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
+    as_bcif: bool = False,
     _allow_ambiguous_bond_annotations: bool = False,
-) -> str:
+) -> str | bytes:
     """Convert an AtomArray structure to a CIF formatted string.
 
     Args:
@@ -475,7 +536,7 @@ def to_cif_string(
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
 
     Returns:
-        str: The CIF formatted string representation of the structure.
+        str | bytes: The CIF/BCIF formatted string/bytes representation of the structure.
     """
     return to_cif_buffer(
         structure,
@@ -489,6 +550,7 @@ def to_cif_string(
         extra_fields=extra_fields,
         extra_categories=extra_categories,
         _allow_ambiguous_bond_annotations=_allow_ambiguous_bond_annotations,
+        as_bcif=as_bcif,
     ).getvalue()
 
 
@@ -496,7 +558,8 @@ def to_cif_file(
     structure: AtomArray,
     path: os.PathLike,
     *,
-    id: str = "unknown_id",
+    file_type: Literal["cif", "bcif", "cif.gz"] | None = None,
+    id: str | None = None,
     author: str = _get_logged_in_user(),
     date: str | None = None,
     time: str | None = None,
@@ -505,14 +568,18 @@ def to_cif_file(
     include_bonds: bool = True,
     extra_fields: list[str] | Literal["all"] = [],
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
-    gzip_output: bool = True,
+    _allow_ambiguous_bond_annotations: bool = False,
+    gzip_output: bool | None = None,
 ) -> os.PathLike:
-    """Convert an AtomArray structure to a CIF formatted file.
+    """Convert an AtomArray structure to a CIF/BCIF formatted file.
 
     Args:
         structure (AtomArray): The atomic structure to be converted.
         path (os.PathLike): The file path where the CIF formatted structure will be saved.
-        id (str): The ID of the entry. This will be used as the data block name.
+        file_type (Literal["cif", "bcif", "cif.gz"] | None): The file type to save the structure as.
+            If None, the file type will be inferred from the path.
+        id (str | None): The ID of the entry. This will be used as the data block name.
+            If None, the data block name will be inferred from the path.
         author (str): The author of the entry.
         date (str): The date of the entry.
         time (str): The time of the entry.
@@ -523,8 +590,8 @@ def to_cif_file(
         extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
-        gzip_output (bool): Whether to gzip the output file. Files compressed with gzip will have a `.cif.gz` extension.
-            Such files take significantly less space on disk, but can still be read by `cifutils` and PyMol.
+        gzip_output (bool | None): Whether to gzip the output file. If None, the file type will be inferred from the path.
+            WARNING: This option is deprecated. Please use `file_type` instead.
 
     Returns:
         str: The file path where the CIF formatted structure was saved.
@@ -532,15 +599,53 @@ def to_cif_file(
     Raises:
         IOError: If there's an issue writing to the specified file path.
     """
-    if not path:
-        raise ValueError("No file path specified.")
+    # turn any relative path into an absolute path
+    path = str(os.path.abspath(path))
 
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    # create the directory if it doesn't exist
+    os.makedirs(os.path.dirname(path), exist_ok=True)
 
-    cif_data = to_cif_buffer(
+    if gzip_output is not None:
+        warnings.warn(
+            "The `gzip_output` argument is deprecated. Please use `file_type` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if str(path).endswith(".cif"):
+            path = path.replace(".cif", ".cif.gz") if gzip_output else path
+        elif str(path).endswith(".cif.gz"):
+            pass
+        else:
+            path = path + ".cif.gz"
+
+        file_type = "gz" if gzip_output else "cif"
+
+    _file_type_map = {
+        # suffix: (as_bcif, open_func, open_mode, path_suffix)
+        "cif": (False, open, "wt", ".cif"),
+        "bcif": (True, open, "wb", ".bcif"),
+        "cif.gz": (False, gzip.open, "wt", ".cif.gz"),
+        "bcif.gz": (True, gzip.open, "wb", ".bcif.gz"),
+        # ... default if no suffix is provided
+        "": (False, gzip.open, "wt", ".cif.gz"),
+    }
+    if file_type is None:
+        file_name = os.path.basename(path)
+        file_type = file_name.split(".")[-1] if "." in file_name else ""
+        # ... with gz suffix by fetching the pre-gz suffix
+        file_type = file_name.split(".")[-2] + ".gz" if file_type == "gz" else file_type
+
+    as_bcif, open_func, open_mode, path_suffix = _file_type_map[file_type]
+
+    # ... check that the file ends with the correct suffix, otherwise mutate the path to end with the correct suffix
+    if not path.endswith(path_suffix):
+        path = path + path_suffix
+    # ... get the name minus the suffix
+    file_name = os.path.basename(path).replace(path_suffix, "")
+
+    file_obj = _to_cif_or_bcif(
         structure,
-        id=id,
+        id=id or file_name,
         author=author,
         date=date,
         time=time,
@@ -549,13 +654,12 @@ def to_cif_file(
         include_bonds=include_bonds,
         extra_fields=extra_fields,
         extra_categories=extra_categories,
-    ).getvalue()
+        _allow_ambiguous_bond_annotations=_allow_ambiguous_bond_annotations,
+        as_bcif=as_bcif,
+    )
 
-    open_func = gzip.open if gzip_output else open
-    path = str(path) + ".gz" if (gzip_output and not str(path).endswith(".gz")) else path
-
-    with open_func(path, mode="wt") as f:
-        f.write(cif_data)
+    with open_func(path, mode=open_mode) as f:
+        file_obj.write(f)
 
     return path
 
