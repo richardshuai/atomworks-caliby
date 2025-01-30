@@ -13,7 +13,7 @@ DEFAULT_CIF_PARSER_ARGS = {
     "add_bond_types_from_struct_conn": ["covale"],
     "remove_ccds": CRYSTALLIZATION_AIDS,
     "remove_waters": True,
-    "remove_hydrogens": True,
+    "hydrogen_policy": "remove",
     "fix_ligands_at_symmetry_centers": True,
     "convert_mse_to_met": True,
     "fix_arginines": True,

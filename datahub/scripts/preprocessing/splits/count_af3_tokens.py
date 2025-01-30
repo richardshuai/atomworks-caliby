@@ -25,7 +25,7 @@ from datahub.transforms.filters import (
     RemoveHydrogens,
     RemoveUnresolvedPNUnits,
 )
-from datahub.utils.testing import get_digs_path
+from datahub.utils.testing import get_pdb_mirror_path
 from datahub.utils.token import get_token_starts
 
 logging.basicConfig(
@@ -133,7 +133,7 @@ def count_tokens_for_pdb_id(row: pd.Series, cache_dir: PathLike) -> list[dict]:
         list[dict]: A list of dictionaries with token counts for each assembly_id.
     """
     pdb_id = row["pdb_id"]
-    file_path = get_digs_path(pdb_id)
+    file_path = get_pdb_mirror_path(pdb_id)
     assembly_ids = row["assembly_id"]
     counts = count_af3_style_tokens_in_atom_array_from_file(file_path, assembly_ids, cache_dir=cache_dir)
     results = []

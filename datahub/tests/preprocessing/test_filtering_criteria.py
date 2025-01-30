@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from datahub.utils.testing import get_digs_path
+from datahub.utils.testing import get_pdb_mirror_path
 from tests.preprocessing.conftest import DATA_PREPROCESSOR
 
 FILTERING_CRITERIA_TEST_CASES = [
@@ -37,7 +37,7 @@ FILTERING_CRITERIA_TEST_CASES = [
 @pytest.mark.parametrize("test_case", FILTERING_CRITERIA_TEST_CASES)
 def test_filtering_criteria(test_case: dict[str, Any]):
     pdb_id = test_case["pdb_id"]
-    path = get_digs_path(pdb_id)
+    path = get_pdb_mirror_path(pdb_id)
 
     rows = DATA_PREPROCESSOR.get_rows(path)
     df = pd.DataFrame(rows)

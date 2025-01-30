@@ -199,11 +199,15 @@ def get_af3_reference_molecule_features(
     _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
     _res_names = atom_array.res_name[_res_starts]
     res_stochiometry = dict(zip(*np.unique(_res_names, return_counts=True)))
+    _has_explicit_hydrogens = "H" in atom_array.element
 
     # ... get reference molecules with conformers for each residue
     # (We do not generate conformers for unknown CCD codes here, as we will do that later)
     ref_mols = _get_rdkit_mols_with_conformers(
-        res_stochiometry=res_stochiometry, timeout_seconds=conformer_generation_timeout, **generate_conformers_kwargs
+        res_stochiometry=res_stochiometry,
+        timeout_seconds=conformer_generation_timeout,
+        hydrogen_policy="auto" if _has_explicit_hydrogens else "remove",
+        **generate_conformers_kwargs,
     )
 
     # ... generate conformers for CCD codes that are unknown (including UNL)
@@ -215,6 +219,7 @@ def get_af3_reference_molecule_features(
                 generate_conformer_for_unknown_ccd(
                     atom_array[_res_starts[res_index] : _res_ends[res_index]],
                     timeout_seconds=conformer_generation_timeout,
+                    hydrogen_policy="auto",
                     **generate_conformers_kwargs,
                 )
             )

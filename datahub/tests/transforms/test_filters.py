@@ -113,7 +113,7 @@ def test_remove_hydrogens_original_pdb():
 
 @pytest.mark.parametrize("pdb_id", ["5ocm", "1b4y", "1tqn"])
 def test_remove_hydrogens_parsed_pdb(pdb_id: str):
-    data = cached_parse(pdb_id, remove_hydrogens=False)
+    data = cached_parse(pdb_id, hydrogen_policy="keep")
     atom_array = data["atom_array"]
     assert 1 in atom_array.atomic_number
 

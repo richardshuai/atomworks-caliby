@@ -154,7 +154,7 @@ def test_af3_pipeline_from_sequence_and_smiles(inference_components):
 
 def test_same_pipeline_outputs_from_cif_and_inference():
     transformation_id = "1"
-    data = cached_parse("7rxs", remove_hydrogens=True)
+    data = cached_parse("7rxs", hydrogen_policy="remove")
     atom_array_from_cif = data["assemblies"][transformation_id][0]
 
     pipeline = build_af3_transform_pipeline(
@@ -182,7 +182,7 @@ def test_same_pipeline_outputs_from_cif_and_inference():
     ]
     ligand = [{"smiles": "Cc1cc(cc(c1)Oc2nccc(n2)c3c(ncn3[C@H]4CCN(C4)CCN)c5ccc(cc5)I)C", "chain_id": "C"}]
     buffer = to_cif_buffer(components_to_atom_array(monomer + ligand), include_entity_poly=True)
-    pipeline_inputs_from_inference = parse(buffer, remove_hydrogens=True)
+    pipeline_inputs_from_inference = parse(buffer, hydrogen_policy="remove")
     atom_array_from_inference = pipeline_inputs_from_inference["assemblies"][transformation_id][0]
 
     annotations_to_compare = set(atom_array_from_cif.get_annotation_categories()) - {

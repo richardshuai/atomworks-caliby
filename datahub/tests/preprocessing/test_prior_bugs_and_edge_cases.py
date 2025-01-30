@@ -2,7 +2,7 @@
 
 import pytest
 
-from datahub.utils.testing import get_digs_path
+from datahub.utils.testing import get_pdb_mirror_path
 from tests.preprocessing.conftest import DATA_PREPROCESSOR
 
 """
@@ -66,11 +66,11 @@ EDGE_CASE_LIST = [
 @pytest.mark.parametrize("test_case", EDGE_CASE_LIST)
 def test_prior_bugs_and_edge_cases(test_case):
     """Runs data loading for a list of prior problematic entries to ensure they run through without error."""
-    rows = DATA_PREPROCESSOR.get_rows(get_digs_path(test_case))
+    rows = DATA_PREPROCESSOR.get_rows(get_pdb_mirror_path(test_case))
     assert rows is not None  # Check if the processing runs through
 
 
 def examine_specific_case(pdb_id):
     """Used for debugging"""
-    rows = DATA_PREPROCESSOR.get_rows(get_digs_path(pdb_id))
+    rows = DATA_PREPROCESSOR.get_rows(get_pdb_mirror_path(pdb_id))
     assert rows is not None  # Check if the processing runs through

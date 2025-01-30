@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from biotite.structure import AtomArray
@@ -36,6 +36,11 @@ RDLogger.DisableLog("rdApp.*")
 Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps)
 
 
+def _has_explicit_hydrogen(mol: Chem.Mol) -> bool:
+    """Check if the molecule has explicit hydrogens."""
+    return mol.GetNumAtoms() > mol.GetNumHeavyAtoms()
+
+
 @preserve_annotations
 @timeout_decorator(strategy="subprocess")
 def generate_conformers(
@@ -45,7 +50,7 @@ def generate_conformers(
     n_conformers: int = 1,
     method: str = "ETKDGv3",
     num_threads: int = 1,
-    infer_hydrogens: bool = True,
+    hydrogen_policy: Literal["infer", "remove", "keep", "auto"] = "auto",
     optimize: bool = False,
     attempts_with_distance_geometry: int = 10,
     attempts_with_random_coordinates: int = 10_000,
@@ -62,9 +67,11 @@ def generate_conformers(
             Allowed methods are: "ETDG", "ETKDG", "ETKDGv2", "ETKDGv3", "srETKDGv3"
             See https://rdkit.org/docs/RDKit_Book.html#conformer-generation for details.
         - num_threads (int): Number of threads to use for parallel computation. Default is 1.
-        - infer_hydrogens (bool): Whether to add hydrogens if they are not present. This is
-            recommended, since having hydrogens improves the accuracy of the conformer
-            generation. Default is True.
+        - hydrogen_policy (Literal["infer", "remove", "keep", "auto"]): Whether to add explicit
+            hydrogens to the molecule. If "remove", hydrogens are temporarily added for conformer
+            generation, but removed again before returning the molecule. If "keep" the molecule is
+            used as-is (without adding or removing hydrogens). If "auto", the policy is set to "keep"
+            if the molecule already has explicit hydrogens, otherwise it is set to "remove".
         - optimize (bool): Whether to optimize the generated conformers using UFF.
             Default is True.
         - **uff_optimize_kwargs (dict): Additional keyword arguments for UFF optimization:
@@ -78,11 +85,6 @@ def generate_conformers(
         rdkit.Chem.Mol: The molecule with generated conformations.
 
     Note:
-        - If `infer_hydrogens` is False, make sure the input molecule already has
-          the desired hydrogen representation.
-        - Adding hydrogens (infer_hydrogens=True) is generally recommended for more
-          accurate conformer generation, as it provides a more complete representation
-          of the molecule's structure.
         - Optimizing conformers (optimize_conformers=True) is recommended for obtaining
           more realistic and lower-energy conformations. However, it may increase
           computation time.
@@ -119,10 +121,16 @@ def generate_conformers(
     assert attempts_with_distance_geometry > 0, "Attempts with distance geometry must be greater than 0."
     assert attempts_with_random_coordinates > 0, "Attempts with random coordinates must be greater than 0."
 
-    # Infer hydrogens if needed, i.e. if they are not present in the molecule. Normally this should
-    # always be set to `True` to generate realistic conformations. The only reason to set this to `False`
-    # is if you are already providing hydrogens in the molecule.
-    mol = add_hydrogens(mol) if infer_hydrogens else mol
+    if hydrogen_policy == "auto":
+        hydrogen_policy = "keep" if _has_explicit_hydrogen(mol) else "remove"
+    if hydrogen_policy in ("infer", "remove"):
+        mol = remove_hydrogens(mol)
+        # ... temporarily add hydrogens for more realistic conformer generation
+        mol = add_hydrogens(mol)
+    elif hydrogen_policy == "keep":
+        pass
+    else:
+        raise ValueError(f"Invalid hydrogen policy: {hydrogen_policy}. Must be one of 'infer', 'remove', or 'keep'.")
 
     # Setup the parameters for the coordinate embedding
     params = getattr(rdDistGeom, method)()
@@ -157,7 +165,7 @@ def generate_conformers(
     if optimize:
         mol = optimize_conformers(mol, **uff_optimize_kwargs)
 
-    mol = remove_hydrogens(mol) if infer_hydrogens else mol
+    mol = remove_hydrogens(mol) if hydrogen_policy == "remove" else mol
     return mol
 
 
@@ -348,7 +356,7 @@ def sample_rdkit_conformer_for_atom_array(
         This function preserves the original atom order and properties of the input AtomArray.
     """
     atom_array = atom_array.copy()
-    mol = atom_array_to_rdkit(atom_array, infer_hydrogens=True)
+    mol = atom_array_to_rdkit(atom_array, hydrogen_policy="keep")
 
     set_coord_if_available = True
     try:
@@ -456,8 +464,8 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
     requires_previous_transforms = ["AtomizeByCCDName"]
     incompatible_previous_transforms = ["CropContiguousLikeAF3", "CropSpatialLikeAF3"]
 
-    def __init__(self, infer_hydrogens: bool = True):
-        self.infer_hydrogens = infer_hydrogens
+    def __init__(self, hydrogen_policy: Literal["infer", "remove", "keep"] = "keep"):
+        self.hydrogen_policy = hydrogen_policy
 
     def check_input(self, data: dict[str, Any]):
         check_contains_keys(data, ["atom_array"])
@@ -480,7 +488,7 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
             try:
                 rdmol = atom_array_to_rdkit(
                     molecule,
-                    infer_hydrogens=self.infer_hydrogens,
+                    hydrogen_policy=self.hydrogen_policy,
                     annotations_to_keep=["chain_id", "res_id", "res_name", "atom_name", "atom_id", "pn_unit_iid"],
                     sanitize=True,
                     attempt_fixing_corrupted_molecules=False,
@@ -493,7 +501,7 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
                 )
                 rdmol = atom_array_to_rdkit(
                     molecule,
-                    infer_hydrogens=self.infer_hydrogens,
+                    hydrogen_policy=self.hydrogen_policy,
                     annotations_to_keep=["chain_id", "res_id", "res_name", "atom_name", "atom_id", "pn_unit_iid"],
                     sanitize=True,
                     attempt_fixing_corrupted_molecules=True,
@@ -557,7 +565,7 @@ class GenerateRDKitConformers(Transform):
                     rdmol,
                     seed=random_seed,
                     n_conformers=self.n_conformers,
-                    infer_hydrogens=True,
+                    hydrogen_policy="auto",
                     optimize=self.optimize_conformers,
                     optimize_kwargs=self.optimize_kwargs,
                 )

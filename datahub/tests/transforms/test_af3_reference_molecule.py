@@ -26,7 +26,7 @@ def test_contrived_tyr():
     orig = add_global_token_id_annotation(orig)
     # Create reference molecule
     conformer = struc.info.residue("TYR")
-    automorphs = find_automorphisms_with_rdkit(atom_array_to_rdkit(conformer, infer_hydrogens=False))
+    automorphs = find_automorphisms_with_rdkit(atom_array_to_rdkit(conformer, hydrogen_policy="keep"))
 
     # Map reference molecule to residue
     ref_pos, ref_mask, ref_automorphs = _map_reference_conformer_to_residue(
@@ -118,6 +118,16 @@ def test_get_af3_reference_molecule_features_res(res_name):
 
     n_atom = len(atom_array)
 
+    # Check if we can compute features WITHOUT generating RDKit automorphisms (smoke test)
+    features_no_automorphs = get_af3_reference_molecule_features(
+        atom_array, should_generate_automorphisms_with_rdkit=False
+    )
+    assert "ref_pos" in features_no_automorphs
+    assert "ref_mask" in features_no_automorphs
+    assert "ref_element" in features_no_automorphs
+    assert "ref_charge" in features_no_automorphs
+    assert "ref_atom_name_chars" in features_no_automorphs
+
     seed = 42
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
         features = get_af3_reference_molecule_features(atom_array)
@@ -142,16 +152,6 @@ def test_get_af3_reference_molecule_features_res(res_name):
             len(features["ref_automorphs"]) == 1
         ), f"Expected 1 conformer for {res_name}, but got {len(features['ref_automorphs'])}"
     assert features["ref_pos"].shape == (n_atom, 3)
-
-    # Check if we can compute features WITHOUT generating RDKit automorphisms (smoke test)
-    features_no_automorphs = get_af3_reference_molecule_features(
-        atom_array, should_generate_automorphisms_with_rdkit=False
-    )
-    assert "ref_pos" in features_no_automorphs
-    assert "ref_mask" in features_no_automorphs
-    assert "ref_element" in features_no_automorphs
-    assert "ref_charge" in features_no_automorphs
-    assert "ref_atom_name_chars" in features_no_automorphs
 
 
 def test_get_af3_reference_molecule_features_chain():

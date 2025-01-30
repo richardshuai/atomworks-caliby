@@ -88,7 +88,7 @@ def test_find_automorphisms_within_entire_structure(pdb_id: str):
     Test the find_automorphisms_with_networkx function on an entire structure.
     Important to ensure that atoms are indexed correctly.
     """
-    inputs = cached_parse(pdb_id, remove_hydrogens=True)  # Example with covalent modifications, small molecules
+    inputs = cached_parse(pdb_id, hydrogen_policy="remove")  # Example with covalent modifications, small molecules
     atomize_transform = AtomizeByCCDName(
         atomize_by_default=True,
         res_names_to_ignore=AF3_TOKENS,

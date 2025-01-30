@@ -39,10 +39,7 @@ TEST_ATOM_ARRAYS = [struc.info.residue("ALA"), struc.info.residue("NAD")]
 @pytest.mark.parametrize("smiles", TEST_SMILES)
 def test_smiles_to_rdkit_with_conformer_to_atom_array(smiles):
     mol = smiles_to_rdkit(smiles)
-    mol = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize=True)
-
-    # remove the inferred hydrogens again
-    mol = Chem.RemoveHs(mol)
+    mol = generate_conformers(mol, seed=42, n_conformers=1, hydrogen_policy="auto", optimize=True)
 
     atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, remove_hydrogens=True)
 
@@ -69,8 +66,8 @@ def test_smiles_to_atom_array_to_conformer(smiles):
         }
     )
     atom_array = components_to_atom_array(inputs)
-    mol = atom_array_to_rdkit(atom_array, infer_hydrogens=True)
-    mol = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize=True)
+    mol = atom_array_to_rdkit(atom_array, hydrogen_policy="keep")
+    mol = generate_conformers(mol, seed=42, n_conformers=1, hydrogen_policy="auto", optimize=True)
     new_atom_array = atom_array_from_rdkit(mol, set_coord_if_available=True, remove_hydrogens=True)
 
     # Ensure we didn't drop any atoms
@@ -85,7 +82,7 @@ def test_generate_conformers_for_smiles(smiles):
     mol = smiles_to_rdkit(smiles)
 
     # Generate new conformer
-    mol_with_conf = generate_conformers(mol, seed=42, n_conformers=1, infer_hydrogens=True, optimize=True)
+    mol_with_conf = generate_conformers(mol, seed=42, n_conformers=1, hydrogen_policy="auto", optimize=True)
 
     assert mol_with_conf.GetNumConformers() == 1
 
@@ -146,7 +143,7 @@ def test_conformer_fallback_for_challenging_molecules():
 def test_conformer_generation_for_molecules_with_many_rotatable_bonds():
     # Test inspired by https://github.com/rdkit/rdkit/issues/1433#issuecomment-305097888
     mol = Chem.MolFromSmiles("CCCCCCCC[N+](CCCCCCCC)(CCCCCCCC)CCCCCCCC")
-    mol_with_conf = generate_conformers(mol, seed=42, n_conformers=10, infer_hydrogens=True, optimize=True)
+    mol_with_conf = generate_conformers(mol, seed=42, n_conformers=10, hydrogen_policy="auto", optimize=True)
     assert mol_with_conf.GetNumConformers() == 10
 
 

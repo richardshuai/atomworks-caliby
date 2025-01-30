@@ -154,7 +154,7 @@ def test_vs_openbabel_from_ccd(res_name):
         obmol = obutils.atom_array_to_openbabel(
             atom_array, infer_hydrogens=True
         )  # infer hydrogens removes explicit hydrogens
-        mol = atom_array_to_rdkit(atom_array, infer_hydrogens=True)
+        mol = atom_array_to_rdkit(atom_array, hydrogen_policy="remove")
 
         rdautos = find_automorphisms_with_rdkit(mol)
         obautos = obutils.find_automorphisms(obmol)
@@ -163,3 +163,7 @@ def test_vs_openbabel_from_ccd(res_name):
             assert rdauto in obautos, f"RDKit automorphism {rdauto} not found in OpenBabel automorphisms."
         for obauto in obautos:
             assert obauto in rdautos, f"OpenBabel automorphism {obauto} not found in RDKit automorphisms."
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

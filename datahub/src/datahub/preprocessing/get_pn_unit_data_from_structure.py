@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -50,7 +50,7 @@ class DataPreprocessor:
     build_assembly: str = "all"
     fix_arginines: bool = True
     convert_mse_to_met: bool = True
-    remove_hydrogens: bool = True
+    hydrogen_policy: Literal["remove", "infer", "keep"] = "remove"
 
     def __post_init__(self):
         logger.info(f"Initialized DataPreprocessor with the following parameters: {self.__dict__}")
@@ -69,11 +69,11 @@ class DataPreprocessor:
             build_assembly=self.build_assembly,
             add_missing_atoms=self.add_missing_atoms,
             remove_waters=self.remove_waters,
-            fix_ligands_at_symmetry_centers=self.fix_ligands_at_symmetry_centers,
-            convert_mse_to_met=self.convert_mse_to_met,
-            fix_arginines=self.fix_arginines,
-            remove_hydrogens=self.remove_hydrogens,
             remove_ccds=self.remove_ccds,
+            fix_ligands_at_symmetry_centers=self.fix_ligands_at_symmetry_centers,
+            fix_arginines=self.fix_arginines,
+            convert_mse_to_met=self.convert_mse_to_met,
+            hydrogen_policy=self.hydrogen_policy,
         )
 
     def _apply_filters(self, atom_array: AtomArray) -> AtomArray:
