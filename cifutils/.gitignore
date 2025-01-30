@@ -144,8 +144,12 @@ cython_debug/
 # Misc
 *.sif
 *.pkl
+*.parquet
+*.csv
 
 # Temporary test files
 tests/test_outputs
 dev.py
+dev.ipynb
 version.py
+tinker/

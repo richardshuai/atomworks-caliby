@@ -22,6 +22,7 @@ from rdkit.Chem import Mol, rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.DataStructs import ExplicitBitVect
 
+import cifutils.transforms.atom_array as ta
 from cifutils.common import exists, not_isin
 from cifutils.constants import (
     BIOTITE_DEFAULT_ANNOTATIONS,
@@ -603,7 +604,7 @@ def atom_array_to_rdkit(
     *,
     set_coord: bool = False,
     infer_hydrogens: bool | None = None,
-    hydrogen_policy: Literal["infer", "remove", "keep"] = "infer",
+    hydrogen_policy: Literal["infer", "remove", "keep"] = "keep",
     annotations_to_keep: list[str] = BIOTITE_DEFAULT_ANNOTATIONS,
     sanitize: bool = True,
     attempt_fixing_corrupted_molecules: bool = True,
@@ -646,7 +647,7 @@ def atom_array_to_rdkit(
         hydrogen_policy = "infer" if infer_hydrogens else "keep"
 
     if hydrogen_policy in ("infer", "remove"):
-        atom_array = atom_array[not_isin(atom_array.element, HYDROGEN_LIKE_SYMBOLS)]
+        atom_array = ta.remove_hydrogens(atom_array)
     elif hydrogen_policy == "keep":
         pass
     else:
