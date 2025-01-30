@@ -621,7 +621,7 @@ def to_cif_file(
         else:
             path = path + ".cif.gz"
 
-        file_type = "gz" if gzip_output else "cif"
+        file_type = ".cif.gz" if gzip_output else "cif"
 
     _file_type_map = {
         # suffix: (as_bcif, open_func, open_mode, path_suffix)
