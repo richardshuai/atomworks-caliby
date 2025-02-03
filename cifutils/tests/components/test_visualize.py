@@ -71,6 +71,13 @@ def test_view_surface_option(sample_atom_array, show_surface):
     assert isinstance(result, py3Dmol.view)
 
 
+@pytest.mark.parametrize("show_cartoon", [True, False])
+def test_view_cartoon_option(sample_atom_array, show_cartoon):
+    """Test the show_cartoon option."""
+    result = view(sample_atom_array, show_cartoon=show_cartoon)
+    assert isinstance(result, py3Dmol.view)
+
+
 @pytest.mark.parametrize("show_hover", [True, False])
 def test_view_hover_option(sample_atom_array, show_hover):
     """Test the show_hover option."""

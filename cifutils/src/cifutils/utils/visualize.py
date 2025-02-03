@@ -59,6 +59,7 @@ def view(
     zoom_to_selection: dict[str, int | str] | None = None,
     show_hover: bool = True,
     show_unoccupied: bool = False,
+    show_cartoon: bool = True,
     show_surface: bool = True,
     width: int = 600,
     height: int = 400,
@@ -80,6 +81,7 @@ def view(
         - show_hover (bool, optional): Whether to enable hover functionality to display atom details.
             Defaults to True.
         - show_unoccupied (bool, optional): Whether to show unoccupied atoms. Defaults to False.
+        - show_cartoon (bool, optional): Whether to show the cartoon. Defaults to True.
         - show_surface (bool, optional): Whether to show the surface. Defaults to False.
         - width (int, optional): The width of the visualization window. Defaults to 400.
         - height (int, optional): The height of the visualization window. Defaults to 300.
@@ -106,7 +108,6 @@ def view(
     )
     # ... add the structure model to the view in mmCIF format
     view.addModel(_tmp_cif_str, "structure", format="mmcif")
-
     # Get the chain IDs from the structure
     chain_ids = struc.get_chains(structure)
 
@@ -128,12 +129,15 @@ def view(
 
         if is_protein or is_nucleic:
             # Apply protein or nucleic acid style
+            style = {"stick": {"radius": polymer_sidechain_linewidth, "style": "outline"}}
+            if show_cartoon:
+                style["cartoon"] = {"color": color, "arrows": True}
+            view.setStyle({"chain": chain_id}, style)
+
+        elif is_ion:
             view.setStyle(
                 {"chain": chain_id},
-                {
-                    "cartoon": {"color": color, "arrows": True},
-                    "stick": {"radius": polymer_sidechain_linewidth, "style": "outline"},
-                },
+                {"stick": {"radius": polymer_sidechain_linewidth, "style": "outline"}},
             )
         elif is_ion:
             # Apply ion style
