@@ -248,6 +248,7 @@ def view_pymol(
     hostname: str | None = None,
     port: int | None = None,
     as_bcif: bool = False,
+    overwrite: bool = False,
 ) -> str:
     """
     Visualizes an AtomArray structure in PyMOL by connecting to a PyMOL server and loading the structure. If no ID is
@@ -268,6 +269,7 @@ def view_pymol(
             (pymol 2.6 (LTS) and 3.1+ support bcif, older versions do not).
             This only takes effect if `structure` is an `AtomArray` or `AtomArrayStack`.
             Defaults to False.
+        - overwrite (bool, optional): Whether to overwrite an existing object with the same ID. Defaults to False.
 
     Returns:
         str: The identifier used for the structure in PyMOL.
@@ -288,6 +290,13 @@ def view_pymol(
         # Generate random 9-character string in 3-3-3 format
         random_str = str(uuid.uuid4()).replace("-", "")[:9]
         id = f"{random_str[:3]}-{random_str[3:6]}-{random_str[6:]}"
+
+    if id in session.get_names():
+        if overwrite:
+            logger.warning(f"Object {id=} already exists in PyMOL, overwriting.")
+            session.delete(id)
+        else:
+            raise ValueError(f"Object {id=} already exists in PyMOL, set overwrite=True to overwrite.")
 
     # Send to pymol
     if isinstance(structure, AtomArray | AtomArrayStack):
