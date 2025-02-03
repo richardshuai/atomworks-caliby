@@ -427,7 +427,7 @@ def ccd_code_to_annotated_atom_array(
 def assign_res_name_from_atom_array_hash(atom_array: AtomArray, hash_to_id: KeyToIntMapper) -> AtomArray:
     """Assigns a residue name to an array based on its hash.
 
-    The residue names will be assigned as `#L{id}` where `id` is a unique integer assigned to each hash.
+    The residue names will be assigned as `L:{id}` where `id` is a unique integer assigned to each hash.
 
     Args:
         ligand_array (AtomArray): The ligand array to assign a residue name to.
@@ -435,7 +435,7 @@ def assign_res_name_from_atom_array_hash(atom_array: AtomArray, hash_to_id: KeyT
     """
     ligand_hash = hash_atom_array(atom_array, annotations=["element", "atom_name"], bond_order=True)
     ligand_id = hash_to_id(ligand_hash)
-    atom_array.res_name = np.full(atom_array.array_length(), f"#L{ligand_id}")
+    atom_array.res_name = np.full(atom_array.array_length(), f"L:{ligand_id}")
     return atom_array
 
 
