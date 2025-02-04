@@ -30,7 +30,7 @@ def annot_start_stop_idxs(
         >>> print(start_stop_idxs)
         [0, 5, 10, 15]
     """
-    if len(atom_array) == 0:
+    if atom_array.array_length() == 0:
         return np.array([], dtype=int)
 
     if isinstance(annots, str):
@@ -44,7 +44,7 @@ def annot_start_stop_idxs(
     start_stop_idxs = np.where(annots_differ)[0] + 1
 
     if add_exclusive_stop:
-        return np.concatenate(([0], start_stop_idxs, [len(atom_array)]))
+        return np.concatenate(([0], start_stop_idxs, [atom_array.array_length()]))
     return np.concatenate(([0], start_stop_idxs))
 
 
