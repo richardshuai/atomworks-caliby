@@ -1,6 +1,7 @@
 import gzip
 import hashlib
 import pickle
+import warnings
 from functools import wraps
 from os import PathLike
 from pathlib import Path
@@ -207,6 +208,13 @@ def convert_af3_model_output_to_atom_array_stack(
     Returns:
         - AtomArrayStack: Constructed AtomArrayStack.
     """
+    # Issue a deprecation warning
+    warnings.warn(
+        "`convert_af3_model_output_to_atom_array_stack` is deprecated in favor of overwriting the AtomArray coordinates directly and will be removed in future versions.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     atom_array = None
     chain_iid_residue_counts = {}
 

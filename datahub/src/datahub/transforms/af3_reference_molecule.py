@@ -369,6 +369,9 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         self.generate_conformers_kwargs = generate_conformers_kwargs
         self.use_element_for_atom_names_of_atomized_tokens = use_element_for_atom_names_of_atomized_tokens
 
+        if self.use_element_for_atom_names_of_atomized_tokens:
+            logger.warning("Using element type for atom names of atomized tokens.")
+
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)

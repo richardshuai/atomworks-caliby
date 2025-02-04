@@ -89,6 +89,7 @@ def build_af3_transform_pipeline(
     undesired_res_names: list[str] = AF3_EXCLUDED_LIGANDS,
     # Conformer generation params
     conformer_generation_timeout: float = 5.0,  # seconds
+    use_element_for_atom_names_of_atomized_tokens: bool = False,
     # Template params
     max_n_template: int = 20,  # Maximum number of templates to return from our template search (distinct from n_template)
     n_template: int = 4,
@@ -238,6 +239,7 @@ def build_af3_transform_pipeline(
         GetAF3ReferenceMoleculeFeatures(
             conformer_generation_timeout=conformer_generation_timeout,
             should_generate_automorphisms_with_rdkit=False,  # We use NetworkX for automorphisms instead of RDKit
+            use_element_for_atom_names_of_atomized_tokens=use_element_for_atom_names_of_atomized_tokens,
         ),
         FindAutomorphismsWithNetworkX(),  # Adds the  "automorphisms" key to the data dictionary
         ComputeAtomToTokenMap(),

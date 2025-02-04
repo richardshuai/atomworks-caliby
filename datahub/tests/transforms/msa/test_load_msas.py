@@ -4,6 +4,7 @@ import time
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import pytest
 from cifutils.enums import ChainType
 
@@ -158,23 +159,36 @@ def test_msa_coverage():
     PROTEIN_COVERAGE_THRESHOLD = 0.90  # NOTE: We will increase this threshold in the future
     RNA_COVERAGE_THRESHOLD = 0.10  # NOTE: We will increase this threshold in the future
 
+    result = _evaluate_coverage_for_df(PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS)
+
+    assert (
+        result["protein_coverage"] >= PROTEIN_COVERAGE_THRESHOLD
+    ), f"Protein MSA coverage of {result['protein_coverage']} is below the threshold of {PROTEIN_COVERAGE_THRESHOLD}"
+    assert (
+        result["rna_coverage"] >= RNA_COVERAGE_THRESHOLD
+    ), f"RNA MSA coverage of {result['rna_coverage']} is below the threshold of {RNA_COVERAGE_THRESHOLD}"
+
+
+def _evaluate_coverage_for_df(df: pd.DataFrame, protein_msa_dirs: list[str], rna_msa_dirs: list[str]):
+    """Utility function to evaluate the MSA coverage for a DataFrame path."""
     num_proteins = num_proteins_with_msas = num_rna = num_rna_with_msa = 0
 
-    for row in PN_UNITS_DF.itertuples():
+    for row in df.itertuples():
         chain_type = ChainType(row.q_pn_unit_type)
         if chain_type.is_protein():
             num_proteins += 1
-            if get_msa_path(row.q_pn_unit_processed_entity_non_canonical_sequence, PROTEIN_MSA_DIRS) is not None:
+            if get_msa_path(row.q_pn_unit_processed_entity_non_canonical_sequence, protein_msa_dirs) is not None:
                 num_proteins_with_msas += 1
         elif chain_type == ChainType.RNA:
             num_rna += 1
             # HACK: Replace U with T to match the RNA MSA file names (legacy issue)
             sequence = row.q_pn_unit_processed_entity_non_canonical_sequence.replace("U", "T")
-            if get_msa_path(sequence, RNA_MSA_DIRS) is not None:
+            if get_msa_path(sequence, rna_msa_dirs) is not None:
                 num_rna_with_msa += 1
-
-    assert num_proteins_with_msas / num_proteins >= PROTEIN_COVERAGE_THRESHOLD, "Protein MSA coverage is too low"
-    assert num_rna_with_msa / num_rna >= RNA_COVERAGE_THRESHOLD, "RNA MSA coverage is too low"
+    return {
+        "protein_coverage": num_proteins_with_msas / num_proteins,
+        "rna_coverage": num_rna_with_msa / num_rna,
+    }
 
 
 @pytest.mark.parametrize("test_case", MSA_TEST_CASES)
