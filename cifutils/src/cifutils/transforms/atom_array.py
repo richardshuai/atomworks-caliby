@@ -304,16 +304,40 @@ def add_hydrogen_atom_positions(atom_array: AtomArray | AtomArrayStack) -> AtomA
         atom_array (AtomArray | AtomArrayStack): The atom array containing the chain information.
 
     Returns:
-        AtomArray: The updated atom array with the polymer annotation added.
+        AtomArray: The updated atom array with hydrogens added.
     """
     array = remove_hydrogens(atom_array)
 
-    if isinstance(atom_array, AtomArrayStack):
-        for array in atom_array:
-            array, mask = hydride.add_hydrogen(array)
-    elif isinstance(atom_array, AtomArray):
-        atom_array, mask = hydride.add_hydrogen(atom_array)
-    return atom_array
+    fields_to_copy_from_residue_if_present = ["auth_seq_id", "label_entity_id"]  # fields to update in added hydrogens
+    fields_to_copy_from_residue_if_present = list(
+        set(fields_to_copy_from_residue_if_present).intersection(set(atom_array.get_annotation_categories()))
+    )
+
+    def _copy_missing_annotations_residue_wise(
+        arr_to_copy_from: AtomArray, arr_to_update: AtomArray, fields_to_copy_from_residue_if_present: list[str]
+    ) -> AtomArray:
+        """Copy specified annotations residue-wise from one AtomArray to another. Updates annotations in-place."""
+        residue_starts = struc.get_residue_starts(arr_to_copy_from)
+        residue_starts_atom_array = arr_to_copy_from[residue_starts]
+        annot = {item: getattr(residue_starts_atom_array, item) for item in fields_to_copy_from_residue_if_present}
+        for field in fields_to_copy_from_residue_if_present:
+            updated_field = struc.spread_residue_wise(arr_to_update, annot[field])
+            arr_to_update.set_annotation(field, updated_field)
+        return arr_to_update
+
+    if isinstance(array, AtomArrayStack):
+        updated_arrays = []
+        for old_arr in array:
+            arr, mask = hydride.add_hydrogen(old_arr)
+            arr = _copy_missing_annotations_residue_wise(old_arr, arr, fields_to_copy_from_residue_if_present)
+            updated_arrays.append(arr)
+
+        ret_array = struc.stack(updated_arrays)
+
+    elif isinstance(array, AtomArray):
+        arr, mask = hydride.add_hydrogen(array)
+        ret_array = _copy_missing_annotations_residue_wise(array, arr, fields_to_copy_from_residue_if_present)
+    return ret_array
 
 
 def add_pn_unit_id_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:

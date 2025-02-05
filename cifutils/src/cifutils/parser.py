@@ -302,15 +302,6 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
             extra_fields=common_extra_fields,
             model=1,
         )
-
-    # If occupancy is not an annotation, add it, defaulting to 1.0
-    if "occupancy" not in asym_unit_stack.get_annotation_categories():
-        asym_unit_stack.set_annotation("occupancy", np.ones(asym_unit_stack.array_length()))
-
-    # ... ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
-    if not isinstance(asym_unit_stack, AtomArrayStack):
-        asym_unit_stack = struc.stack([asym_unit_stack])
-
     # (Most examples, except NMR studies and small molecules, will not have any hydrogens)
     if kwargs["hydrogen_policy"] == "keep":
         pass
@@ -322,7 +313,15 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
     else:
         raise ValueError(f"Invalid hydrogen policy: {kwargs['hydrogen_policy']}. Must be 'keep', 'remove', or 'infer'.")
 
-    # ... remove any explicitly excluded residues (e.g., crystallization solvents, waters)
+    # If occupancy is not an annotation, add it, defaulting to 1.0
+    if "occupancy" not in asym_unit_stack.get_annotation_categories():
+        asym_unit_stack.set_annotation("occupancy", np.ones(asym_unit_stack.array_length()))
+
+    # ... ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
+    if not isinstance(asym_unit_stack, AtomArrayStack):
+        asym_unit_stack = struc.stack([asym_unit_stack])
+
+        # ... remove any explicitly excluded residues (e.g., crystallization solvents, waters)
     if remove_ccds or kwargs["remove_waters"]:
         # NOTE: If the excluded residues are part of a polymer chain, or part of a
         #  multi-chain ligand, this may create sequence gaps!
