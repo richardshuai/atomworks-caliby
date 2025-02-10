@@ -1,19 +1,11 @@
 from datahub.transforms._checks import check_contains_keys
 from datahub.transforms.base import Transform
 from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
-from datahub.utils.geometry import random_rigid_augmentation
-
-
-def center(coord_atom_lvl, mask_atom_lvl):
-    atoms = coord_atom_lvl[mask_atom_lvl]
-    center = atoms.mean(0)
-    coord_atom_lvl = coord_atom_lvl - center
-    return coord_atom_lvl
+from datahub.utils.geometry import masked_center, random_rigid_augmentation
 
 
 class CenterRandomAugmentation(Transform):
-    """
-    Centers coordinates and then randomly rotates and translates the input coordinates.
+    """Centers coordinates and then randomly rotates and translates the input coordinates.
 
     Args:
         batch_size (int): Number of samples in the batch.
@@ -40,7 +32,9 @@ class CenterRandomAugmentation(Transform):
         mask_atom_lvl_expanded = data["ground_truth"]["mask_atom_lvl"].expand(
             centered_coord_atom_lvl_to_be_noised.shape[0], -1
         )
-        centered_coord_atom_lvl_to_be_noised = center(centered_coord_atom_lvl_to_be_noised, mask_atom_lvl_expanded)
+        centered_coord_atom_lvl_to_be_noised = masked_center(
+            centered_coord_atom_lvl_to_be_noised, mask_atom_lvl_expanded
+        )
         centered_coord_atom_lvl_to_be_noised = random_rigid_augmentation(
             centered_coord_atom_lvl_to_be_noised, batch_size=self.batch_size, s=self.scale
         )

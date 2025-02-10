@@ -2,9 +2,9 @@ import pytest
 import torch
 
 from datahub.transforms.base import Compose
-from datahub.transforms.center_random_augmentation import CenterRandomAugmentation, center
+from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
 from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
-from datahub.utils.geometry import random_rigid_augmentation
+from datahub.utils.geometry import masked_center, random_rigid_augmentation
 
 
 def test_center():
@@ -13,7 +13,7 @@ def test_center():
     coord_atom_lvl = torch.randn(1, 10, 3)
     mask_atom_lvl = torch.tensor([0, 1, 1, 1, 1, 1, 1, 1, 1, 1])[None].bool()
 
-    coord_atom_lvl_center = center(coord_atom_lvl, mask_atom_lvl)
+    coord_atom_lvl_center = masked_center(coord_atom_lvl, mask_atom_lvl)
     assert torch.allclose(coord_atom_lvl_center[mask_atom_lvl].mean(0), torch.zeros(3), atol=1e-6, rtol=1e-6)
 
 

@@ -98,7 +98,7 @@ AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES = [
         {
             "seq": "IIGGHEAKPHSRPYMAYLQIMDEYSGSKKCGGFLIREDFVLTAAHCSGSKIQVTLGAHNIKEQEKMQQIIPVVKIIPHPAYNSKTISNDIMLLKLKSKAKRSSAVKPLNLPRRNVKVKPGDVCYVAGWGKLGPMGKYSDTLQEVELTVQEDQKCESYLKNYFDKANEICAGDPKIKRASFRGDSGGPLVCKKVAAGIVSYGQNDGSTPRAFTKVSTFLSWIKKTMKKSIEPD",
             "chain_type": "polypeptide(l)",
-            "msa_path": "tests/data/msa_for_inference.a3m",
+            "msa_path": f"{TEST_DATA_DIR}/msa_for_inference.a3m",
             "chain_id": "A",
         },
         {
@@ -111,7 +111,6 @@ AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES = [
 
 @pytest.mark.parametrize("inference_components", AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES)
 def test_af3_pipeline_from_sequence_and_smiles(inference_components):
-    # Load chai fasta
     atom_array, initialized_components = components_to_atom_array(inference_components, return_components=True)
     chain_info = initialize_chain_info_from_atom_array(atom_array)
 

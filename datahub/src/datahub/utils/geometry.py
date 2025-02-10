@@ -1,5 +1,6 @@
 """Various geometry utility functions to deal with rigid body transformations in 3D."""
 
+import numpy as np
 import torch
 from einops import einsum, rearrange
 from torch.nn.functional import normalize
@@ -286,3 +287,24 @@ def random_rigid_augmentation(coord_atom_lvl: torch.Tensor, batch_size: int, s: 
         rigid = rigid[0].unsqueeze(0), rigid[1].unsqueeze(0)
 
     return apply_batched_rigid(rigid, coord_atom_lvl)
+
+
+def masked_center(
+    coord_atom_lvl: np.ndarray | torch.Tensor, mask_atom_lvl: np.ndarray | torch.Tensor = None
+) -> np.ndarray | torch.Tensor:
+    """Center the coordinates of the atoms in coord_atom_lvl around the origin using the mask mask_atom_lvl.
+
+    Supports both NumPy and PyTorch tensors.
+    """
+    if mask_atom_lvl is None:
+        mask_atom_lvl = (
+            np.ones(coord_atom_lvl.shape[0], dtype=bool)
+            if isinstance(coord_atom_lvl, np.ndarray)
+            else torch.ones(coord_atom_lvl.shape[0], dtype=torch.bool)
+        )
+
+    atoms = coord_atom_lvl[mask_atom_lvl]
+    center = atoms.mean(axis=0) if isinstance(coord_atom_lvl, np.ndarray) else atoms.mean(dim=0)
+    coord_atom_lvl = coord_atom_lvl - center
+
+    return coord_atom_lvl

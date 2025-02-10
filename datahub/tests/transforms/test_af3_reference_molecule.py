@@ -3,18 +3,25 @@ import numpy as np
 import pytest
 import torch
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from cifutils.tools.inference import components_to_atom_array
 from cifutils.utils.selection import get_residue_starts
 
+from datahub.enums import GroundTruthConformerPolicy
 from datahub.transforms.af3_reference_molecule import (
+    GetAF3ReferenceMoleculeFeatures,
+    RandomReplaceNonPolymerConformerWithGroundTruth,
     _encode_atom_names_like_af3,
     _map_reference_conformer_to_residue,
     get_af3_reference_molecule_features,
 )
-from datahub.transforms.atom_array import add_global_token_id_annotation
+from datahub.transforms.atom_array import AddGlobalTokenIdAnnotation, add_global_token_id_annotation
 from datahub.transforms.atomize import atomize_by_ccd_name
+from datahub.transforms.base import Compose
 from datahub.transforms.rdkit_utils import atom_array_to_rdkit, find_automorphisms_with_rdkit
 from datahub.transforms.symmetry import apply_automorphs
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
+from datahub.utils.testing import cached_parse
+from tests.conftest import TEST_DATA_DIR
 
 
 def test_contrived_tyr():
@@ -244,3 +251,109 @@ def test_reference_conformer_generation_for_two_molecules_only_differing_by_tran
     atom_array.set_annotation("token_id", np.arange(len(atom_array)))
     features = get_af3_reference_molecule_features(atom_array)
     assert len(features) > 0, "Expected features to be non-empty"
+
+
+def _assert_ref_pos_matches_ground_truth(
+    ground_truth_coord: np.ndarray,
+    ref_pos: np.ndarray,
+    mask: np.ndarray,
+) -> None:
+    """Assert that the reference positions are correctly aligned with the ground truth."""
+    assert not np.any(
+        np.isclose(ref_pos, ground_truth_coord)
+    ), "Reference positions should differ from atom array coordinates under a transformation."
+
+    # Assert similar distances in masked positions
+    dist1 = np.linalg.norm(ground_truth_coord[mask][:, None] - ground_truth_coord[mask], axis=2)
+    dist2 = np.linalg.norm(ref_pos[mask][:, None] - ref_pos[mask], axis=2)
+    assert np.allclose(dist1, dist2), "Distances should be similar for masked positions regardless of transformation."
+
+
+def test_replace_conformer_with_ground_truth():
+    """Test that the ground truth conformer is used when indicated"""
+    atom_array = struc.info.residue("HEM")
+    atom_array = atom_array[atom_array.element != "H"]
+    atom_array = add_global_token_id_annotation(atom_array)
+    atom_array.set_annotation(
+        "ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.REPLACE)
+    )
+
+    features = get_af3_reference_molecule_features(
+        atom_array, should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=True
+    )
+
+    _assert_ref_pos_matches_ground_truth(
+        ground_truth_coord=atom_array.coord,
+        ref_pos=features["ref_pos"],
+        mask=features["ref_mask"],
+    )
+
+
+def test_random_replace_non_polymer_conformer_with_ground_truth():
+    """Test that we can randomly flag non-polymers to use the ground truth conformer"""
+    pdb_id_with_non_polymers = "5ocm"
+    data = cached_parse(pdb_id_with_non_polymers, remove_hydrogens=True)
+
+    pipe = Compose(
+        [
+            AddGlobalTokenIdAnnotation(),
+            RandomReplaceNonPolymerConformerWithGroundTruth(per_pn_unit_probability=0.5),
+            GetAF3ReferenceMoleculeFeatures(
+                should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=True
+            ),
+        ]
+    )
+    out = pipe(data)
+    feats = out["feats"]
+
+    assert np.all(
+        feats["ref_pos_is_ground_truth"]
+        == (out["atom_array"].ground_truth_conformer_policy == GroundTruthConformerPolicy.REPLACE)
+    )
+
+    # Ensure that not all non-polymers are using the ground truth conformer (should be around 50%)
+    non_polymer_mask = ~out["atom_array"].is_polymer
+    assert np.any(~feats["ref_pos_is_ground_truth"][non_polymer_mask])
+
+    ground_truth_coord = data["atom_array"].coord
+
+    for pn_unit_iid in np.unique(out["atom_array"].pn_unit_iid):
+        pn_unit_iid_mask = out["atom_array"].pn_unit_iid == pn_unit_iid
+        _assert_ref_pos_matches_ground_truth(
+            ground_truth_coord=ground_truth_coord[pn_unit_iid_mask],
+            ref_pos=feats["ref_pos"][pn_unit_iid_mask],
+            mask=feats["ref_pos_is_ground_truth"][pn_unit_iid_mask],
+        )
+
+
+def test_fallback_to_ground_truth_conformer_on_error():
+    """Test that we fallback to the ground truth conformer when an error occurs during RDKit conformer generation and the residue is not in the CCD"""
+    atom_array = components_to_atom_array([{"path": f"{TEST_DATA_DIR}/example_sdf.sdf"}])
+    atom_array.set_annotation(
+        "ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.FALLBACK)
+    )
+
+    pipe = Compose(
+        [
+            AddGlobalTokenIdAnnotation(),
+            RandomReplaceNonPolymerConformerWithGroundTruth(per_pn_unit_probability=0.5),
+            GetAF3ReferenceMoleculeFeatures(
+                should_generate_automorphisms_with_rdkit=False,
+                apply_random_rotation_and_translation=True,
+                conformer_generation_timeout=0.0,  # Force a timeout
+            ),
+        ]
+    )
+    out = pipe({"atom_array": atom_array})
+
+    # Ensure that the ground truth conformer is used
+    assert np.all(out["feats"]["ref_pos_is_ground_truth"])
+    _assert_ref_pos_matches_ground_truth(
+        ground_truth_coord=atom_array.coord,
+        ref_pos=out["feats"]["ref_pos"],
+        mask=torch.ones(len(atom_array), dtype=torch.bool),
+    )
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

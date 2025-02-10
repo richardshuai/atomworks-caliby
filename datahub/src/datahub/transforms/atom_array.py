@@ -29,8 +29,7 @@ logger = logging.getLogger(__name__)
 # Convenience utils
 # NOTE: We should move to the `utils` folder
 def get_chain_instance_starts(array: AtomArray, add_exclusive_stop: bool = False) -> np.ndarray:
-    """
-    Get indices for an atom array, each indicating the beginning of a new chain instance (chain_iid).
+    """Get indices for an atom array, each indicating the beginning of a new chain instance (chain_iid).
 
     Inspired by `biotite.strucutre.get_chain_starts`.
 
@@ -57,8 +56,8 @@ def get_chain_instance_starts(array: AtomArray, add_exclusive_stop: bool = False
 
 
 def chain_instance_iter(array: AtomArray) -> Iterator[AtomArray]:
-    """
-    Returns an iterator over the chain instances (chain_iid) in the atom array.
+    """Returns an iterator over the chain instances (chain_iid) in the atom array.
+
     This will match `biotite.structure.chain_iter` in the case where there are no transformations.
     """
     # The exclusive stop is appended to the residue starts
@@ -101,8 +100,8 @@ def apply_and_spread_chain_wise(
 
 
 class AddMoleculeSymmetricIdAnnotation(Transform):
-    """
-    Adds the `molecule_symmetric_id` annotation to the AtomArray.
+    """Adds the `molecule_symmetric_id` annotation to the AtomArray.
+
     For a molecule, the symmetric_id is a unique integer within the set of molecules that share the same molecule_entity.
 
     Example:
@@ -144,8 +143,7 @@ class AddMoleculeSymmetricIdAnnotation(Transform):
 
 
 class RenumberNonPolymerResidueIdx(Transform):
-    """
-    Re-numbers non-polymer residue indices to be one-indexed, similar to polymer residues.
+    """Re-numbers non-polymer residue indices to be one-indexed, similar to polymer residues.
 
     This transformation ensures that non-polymer residue indices start from 1, providing a consistent
     indexing scheme across both polymer and non-polymer residues. It addresses the issue where non-polymer
@@ -204,8 +202,9 @@ def get_within_poly_res_idx(atom_array: AtomArray) -> np.ndarray:
 
 
 def get_within_group_res_idx(atom_array: AtomArray, group_by: str) -> np.ndarray:
-    """
-    Get the within-group residue index for the atom array.
+    """Get the within-group residue index for the atom array.
+
+    Of note:
         - Groups do not need to be contiguous.
         - Groups are defined by the unique values of the `group_by` annotation.
     """
@@ -223,8 +222,9 @@ def get_within_group_res_idx(atom_array: AtomArray, group_by: str) -> np.ndarray
 
 
 def get_within_group_atom_idx(atom_array: AtomArray, group_by: str) -> np.ndarray:
-    """
-    Get the within-group atom index for the atom array.
+    """Get the within-group atom index for the atom array.
+
+    Of note:
         - Groups do not need to be contiguous.
         - Groups are defined by the unique values of the `group_by` annotation.
     """
@@ -243,8 +243,7 @@ def get_within_group_atom_idx(atom_array: AtomArray, group_by: str) -> np.ndarra
 def get_within_entity_idx(
     atom_array: AtomArray, level: Literal["chain", "pn_unit", "molecule"]
 ) -> tuple[np.ndarray, list[np.ndarray]]:
-    """
-    Get the within-entity instance index for the atom array.
+    """Get the within-entity instance index for the atom array.
         - Allowed levels are "chain", "pn_unit", or "molecule".
         - Entities do not need to be contiguous.
         - Entities are defined by the unique values of the `{level}_entity` annotation.
@@ -284,8 +283,7 @@ def get_within_entity_idx(
 
 
 class AddWithinPolyResIdxAnnotation(Transform):
-    """
-    Adds the `within_poly_res_idx` (within polymer residue index) annotation to the AtomArray.
+    """Adds the `within_poly_res_idx` (within polymer residue index) annotation to the AtomArray.
 
     For polymers, the `within_poly_res_idx` is a zero-indexed, continuous residue index within the chain.
     For non-polymers, the `within_poly_res_idx` is set to -1. This annotation is later used to index into the
@@ -320,8 +318,7 @@ class AddWithinPolyResIdxAnnotation(Transform):
 
 
 def copy_annotation(atom_array: AtomArray, annotation_to_copy: str, new_annotation: str) -> AtomArray:
-    """
-    Copies an existing annotation from the AtomArray and assigns it a new name.
+    """Copies an existing annotation from the AtomArray and assigns it a new name.
 
     Particularly useful for scenarios such as diffusive training, where the new annotation is altered (e.g., adding noise)
     without affecting the ground truth data.
@@ -379,9 +376,7 @@ class CopyAnnotation(Transform):
 
 
 class ApplyFunctionToAtomArray(Transform):
-    """
-    Apply a function to the atom array.
-    """
+    """Apply a function to the atom array."""
 
     def __init__(self, func: Callable[[AtomArray], AtomArray]):
         self.func = func
@@ -396,8 +391,7 @@ class ApplyFunctionToAtomArray(Transform):
 
 
 def add_protein_termini_annotation(atom_array: AtomArray) -> AtomArray:
-    """
-    Adds the annotation is_N_terminus and is_C_terminus to the respective residues in the atom array.
+    """Adds the annotation is_N_terminus and is_C_terminus to the respective residues in the atom array.
 
     Args:
         atom_array (AtomArray): The AtomArray that the annotations will be added to
@@ -425,9 +419,7 @@ def add_protein_termini_annotation(atom_array: AtomArray) -> AtomArray:
 
 
 class AddProteinTerminiAnnotation(Transform):
-    """
-    Annotate protein termini (i.e. N- and C-terminus) for protein chains in the atom array.
-    """
+    """Annotate protein termini (i.e. N- and C-terminus) for protein chains in the atom array."""
 
     incompatible_previous_transforms = ["CropContiguousLikeAF3", "CropSpatialLikeAF3"]
 
@@ -443,8 +435,8 @@ class AddProteinTerminiAnnotation(Transform):
 
 
 def add_global_atom_id_annotation(atom_array: AtomArray) -> AtomArray:
-    """
-    Adds a global atom ID annotation `atom_id` to the atom array.
+    """Adds a global atom ID annotation `atom_id` to the atom array.
+
     This annotation is useful for tracking atoms after operations such as cropping,
     slicing, or shuffling. The `atom_id` is generated as a sequence of integers
     corresponding to the number of atoms in the atom array.
@@ -460,8 +452,8 @@ def add_global_atom_id_annotation(atom_array: AtomArray) -> AtomArray:
 
 
 class AddGlobalAtomIdAnnotation(Transform):
-    """
-    Adds a global atom ID annotation to the atom array.
+    """Adds a global atom ID annotation to the atom array.
+
     Useful for keeping track of atoms after cropping, slicing or shuffling operations.
     """
 
@@ -481,8 +473,8 @@ class AddGlobalAtomIdAnnotation(Transform):
 
 
 def add_global_token_id_annotation(atom_array: AtomArray) -> AtomArray:
-    """
-    Adds a global token ID annotation `token_id` to the atom array.
+    """Adds a global token ID annotation `token_id` to the atom array.
+
     This annotation is useful for tracking tokens after operations such as cropping,
     slicing, or shuffling. The `token_id` is generated as a sequence of integers
     corresponding to the number of tokens in the atom array, and is spread across
@@ -500,8 +492,8 @@ def add_global_token_id_annotation(atom_array: AtomArray) -> AtomArray:
 
 
 class AddGlobalTokenIdAnnotation(Transform):
-    """
-    Adds a global token ID annotation `token_id` to the atom array.
+    """Adds a global token ID annotation `token_id` to the atom array.
+
     Useful for keeping track of tokens after cropping, slicing or shuffling operations.
     """
 
@@ -521,9 +513,7 @@ class AddGlobalTokenIdAnnotation(Transform):
 
 
 class AddWithinChainInstanceResIdx(Transform):
-    """
-    Add the within-chain instance residue index to the atom array (0-indexed).
-    """
+    """Add the within-chain instance residue index to the atom array (0-indexed)."""
 
     def check_input(self, data: dict[str, Any]):
         check_contains_keys(data, ["atom_array"])
@@ -542,8 +532,8 @@ class AddWithinChainInstanceResIdx(Transform):
 
 
 def sort_poly_then_non_poly(atom_array: AtomArray, treat_atomized_as_non_poly: bool = True) -> AtomArray:
-    """
-    Sort the atom array such that polymer chains are first, followed by non-polymer chains.
+    """Sort the atom array such that polymer chains are first, followed by non-polymer chains.
+
     The order within the `poly` and `non_poly` chains is preserved.
 
     This function is useful for ensuring that models like `RF2AA`, which expect the input to be
@@ -575,9 +565,7 @@ def sort_poly_then_non_poly(atom_array: AtomArray, treat_atomized_as_non_poly: b
 
 
 def sort_like_rf2aa(atom_array: AtomArray) -> AtomArray:
-    """
-    Sort the atom array such that non-polymer chains are sorted by their covalent bonds and PN unit IIDs.
-    """
+    """Sort the atom array such that non-polymer chains are sorted by their covalent bonds and PN unit IIDs."""
     is_atomized = np.zeros(len(atom_array), dtype=bool)
     if "atomize" in atom_array.get_annotation_categories():
         is_atomized = atom_array.atomize
@@ -623,8 +611,7 @@ def sort_like_rf2aa(atom_array: AtomArray) -> AtomArray:
 
 
 class SortLikeRF2AA(Transform):
-    """
-    Sort the atom array in 3 groups (in this order). Within each group the atoms are ordered by
+    """Sort the atom array in 3 groups (in this order). Within each group the atoms are ordered by
     their pn_unit_iid (and within a pn_unit their order is preserved).
         - (1) polymer atoms
         - (2) non-poly atoms of a pn-unit bonded to a polymer (covalent modifications)
@@ -652,8 +639,8 @@ class SortLikeRF2AA(Transform):
 
 
 class SortPolyThenNonPoly(Transform):
-    """
-    Sort the atom array such that polymer chains are first, followed by non-polymer chains.
+    """Sort the atom array such that polymer chains are first, followed by non-polymer chains.
+
     The order within the `poly` and `non_poly` chains is preserved.
 
     This transformation is useful for models like `RF2AA`, which expect the input to be formatted

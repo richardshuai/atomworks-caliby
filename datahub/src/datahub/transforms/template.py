@@ -946,8 +946,7 @@ def random_subsample_templates(
 
 
 class RandomSubsampleTemplates(Transform):
-    """
-    Subsample the templates for each chain in the template dictionary.
+    """Subsample the templates for each chain in the template dictionary.
 
     Args:
         n_template (int): The maximum possible number of templates to use. Default is 4.
