@@ -74,23 +74,51 @@ struc.get_residue_starts = get_residue_starts
 
 
 # Improve the AtomArray representation to be leaner, for debugging
-def _lean_atom_array_repr_(self: struc.AtomArray) -> str:
-    """Lean AtomArray representation that only shows at most 20 atoms (first 10 and last 10)."""
-    atoms = ""
-    n_atoms = self.array_length()
-    for i in range(0, n_atoms):
-        if len(atoms) == 0:
-            atoms = "\n\t" + self.get_atom(i).__repr__()
-        elif i >= 10 and i < (n_atoms - 10):
-            if i == 10:
-                atoms += "\n\t... (" + str(n_atoms - 21) + " not shown) ..."
-            continue
-        else:
-            atoms = atoms + ",\n\t" + self.get_atom(i).__repr__()
-    return f"AtomArray([{atoms}\n])"
+def _enable_lean_atom_array_repr():
+    if not getattr(struc.AtomArray, "_repr_lean", False):
+        original_repr = struc.AtomArray.__repr__
+
+        def lean_atom_array_repr(self: struc.AtomArray) -> str:
+            """Lean AtomArray representation that only shows at most 20 atoms (first 10 and last 10)."""
+            atoms = ""
+            n_atoms = self.array_length()
+            for i in range(0, n_atoms):
+                if len(atoms) == 0:
+                    atoms = "\n\t" + self.get_atom(i).__repr__()
+                elif i >= 10 and i < (n_atoms - 10):
+                    if i == 10:
+                        atoms += "\n\t... (" + str(n_atoms - 21) + " not shown) ..."
+                    continue
+                else:
+                    atoms = atoms + ",\n\t" + self.get_atom(i).__repr__()
+            return f"AtomArray([{atoms}\n])"
+
+        setattr(struc.AtomArray, "__repr__", lean_atom_array_repr)
+        setattr(struc.AtomArray, "_repr_original", original_repr)
+        setattr(struc.AtomArray, "_repr_lean", True)
 
 
-struc.AtomArray.__repr__ = _lean_atom_array_repr_
+_enable_lean_atom_array_repr()
+
+
+# Improve the AtomArray slicing to support SegmentSlices
+def _enable_segment_slices_in_atom_arrays():
+    from cifutils.utils.selection import SegmentSlice
+
+    if not getattr(struc.AtomArray, "_getitem_new", False):
+        original_getitem = struc.AtomArray.__getitem__
+
+        def getitem_with_segment_slices(self, item):
+            if isinstance(item, SegmentSlice):
+                item = item(self)
+            return original_getitem(self, item)
+
+        setattr(struc.AtomArray, "__getitem__", getitem_with_segment_slices)
+        setattr(struc.AtomArray, "_getitem_original", original_getitem)
+        setattr(struc.AtomArray, "_getitem_new", True)
+
+
+_enable_segment_slices_in_atom_arrays()
 
 # fmt: off
 # ruff: noqa

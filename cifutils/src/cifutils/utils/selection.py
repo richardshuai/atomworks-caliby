@@ -2,8 +2,10 @@
 
 __all__ = ["annot_start_stop_idxs", "get_annotation", "get_residue_starts"]
 
+from abc import ABC, abstractmethod
 from typing import Any
 
+import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
 
@@ -71,3 +73,89 @@ def get_annotation(atom_array: AtomArray | AtomArrayStack, annot: str, default: 
     if annot in atom_array.get_annotation_categories():
         return atom_array.get_annotation(annot)
     return default
+
+
+class SegmentSlice(ABC):
+    """
+    Abstract base class for slicing segments of an AtomArray or AtomArrayStack.
+
+    Provides functionality analogous to Python's built-in slice object but operates on structural segments
+    (e.g., residues or chains indices) rather than individual atom indices. To subclass, implement the
+    `_get_segment_bounds` method to return the start and stop indices of the segments.
+
+    For example:
+        - to slice residues 0-2: `atom_array[ResIdxSlice(0, 2)]`
+        - to slice chains 0-1: `atom_array[ChainIdxSlice(0, 2)]`
+        - to slice to the last two residues: `atom_array[ResIdxSlice(-2, None)]`
+
+    Args:
+        - start (int | None): The starting segment index. If None, starts from the beginning.
+        - stop (int | None): The ending segment index (exclusive). If None, continues to the end.
+    """
+
+    def __init__(self, start: int | None = None, stop: int | None = None):
+        self.start = start
+        self.stop = stop
+
+    @abstractmethod
+    def _get_segment_bounds(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
+        pass
+
+    def __call__(self, atom_array: AtomArray | AtomArrayStack) -> slice:
+        """
+        Creates a slice object for the specified segment range in the atom array.
+
+        Args:
+            - atom_array (AtomArray | AtomArrayStack): The structure to slice.
+
+        Returns:
+            - slice: A slice object that can be used to index the atom array.
+        """
+        seg_bounds = self._get_segment_bounds(atom_array)
+        n_segments = len(seg_bounds) - 1
+        if n_segments < 0:
+            # edge case: empty array
+            return slice(0, 0)
+
+        seg_slice = slice(self.start, self.stop)
+        start, stop, _ = seg_slice.indices(n_segments)
+
+        return slice(seg_bounds[start], seg_bounds[stop])
+
+
+class ResIdxSlice(SegmentSlice):
+    """
+    Slice atoms by residue indices.
+
+    Allows for selecting ranges of residues using Python slice-like syntax. Each residue is considered
+    as a segment, defined by changes in chain_id, res_name, res_id, ins_code, or transformation_id.
+
+    Example:
+        >>> atom_array = AtomArray(...)
+        >>> res_slice = ResIdxSlice(0, 2)
+        >>> sliced_atom_array = atom_array[
+        ...     res_slice
+        ... ]  # <-- returns a new AtomArray with the first two residues
+    """
+
+    def _get_segment_bounds(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
+        return get_residue_starts(atom_array, add_exclusive_stop=True)
+
+
+class ChainIdxSlice(SegmentSlice):
+    """
+    Slice atoms by chain indices.
+
+    Allows for selecting ranges of chains using Python slice-like syntax. Each chain is considered
+    as a segment, defined by changes in the chain_id annotation.
+
+    Example:
+        >>> atom_array = AtomArray(...)
+        >>> chain_slice = ChainIdxSlice(0, 1)
+        >>> sliced_atom_array = atom_array[
+        ...     chain_slice
+        ... ]  # <-- returns a new AtomArray with the first chain
+    """
+
+    def _get_segment_bounds(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
+        return struc.get_chain_starts(atom_array, add_exclusive_stop=True)
