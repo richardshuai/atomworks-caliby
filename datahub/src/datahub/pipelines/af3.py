@@ -109,7 +109,7 @@ def build_af3_transform_pipeline(
     diffusion_batch_size: int = 48,
     # Whether to include features for confidence head
     run_confidence_head: bool = False,
-    return_atom_array: bool = False,
+    return_atom_array: bool = True,
 ):
     """Build the AF3 pipeline with specified parameters.
 

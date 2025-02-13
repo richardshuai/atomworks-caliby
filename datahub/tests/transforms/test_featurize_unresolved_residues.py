@@ -10,7 +10,7 @@ from datahub.encoding_definitions import (
 from datahub.transforms.atom_array import CopyAnnotation
 from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
 from datahub.transforms.base import Compose
-from datahub.transforms.encoding import AddTokenAnnotation, EncodeAtomArray
+from datahub.transforms.encoding import EncodeAtomArray
 from datahub.transforms.featurize_unresolved_residues import (
     PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
@@ -19,12 +19,13 @@ from datahub.transforms.featurize_unresolved_residues import (
 from datahub.utils.testing import cached_parse
 from datahub.utils.token import (
     apply_and_spread_token_wise,
+    get_af3_token_center_idxs,
     get_af3_token_representative_coords,
-    get_af3_token_representative_masks,
+    get_af3_token_representative_idxs,
     token_iter,
 )
 
-FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES = ["6wtf", "7rcu"]
+FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES = ["6wtf", "7rcu", "8e83"]
 
 
 @pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
@@ -58,10 +59,10 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
     data = cached_parse(pdb_id)
     atom_array = data["atom_array"]
 
-    # ...check for unresolved polymer atoms (there will be lots of unresolved hydrogens, so we leave them in  as a test case)
+    # ... check for unresolved polymer atoms (there will be lots of unresolved hydrogens, so we leave them in  as a test case)
     unresolved_polymer_atoms = atom_array[(atom_array.is_polymer) & (atom_array.occupancy == 0)]
 
-    # ...same thing for unresolved non-polymer atoms (hydrogens will be unresolved)
+    # ... same thing for unresolved non-polymer atoms (hydrogens will be unresolved)
     unresolved_non_polymer_atoms = atom_array[(~atom_array.is_polymer) & (atom_array.occupancy == 0)]
 
     assert len(unresolved_polymer_atoms) > 0
@@ -72,7 +73,6 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
         [
             FlagNonPolymersForAtomization(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
-            AddTokenAnnotation(encoding),
             CopyAnnotation("coord", "coord_to_be_noised"),
             EncodeAtomArray(encoding),
             PlaceUnresolvedTokenAtomsOnRepresentativeAtom(annotation_to_update="coord_to_be_noised"),
@@ -81,7 +81,7 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
     output = pipe(data)
     output_atom_array = output["atom_array"]
 
-    # ...get the unresolved polymer atoms again, but applying atomization mask as well
+    # ... get the unresolved polymer atoms again, but applying atomization mask as well
     unresolved_polymer_atoms = output_atom_array[
         (output_atom_array.is_polymer) & (output_atom_array.occupancy == 0) & (~output_atom_array.atomize)
     ]
@@ -89,26 +89,39 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
         (~output_atom_array.is_polymer) & (output_atom_array.occupancy == 0) & (output_atom_array.atomize)
     ]
 
-    # ...loop through each unresolved polymer token, and ensure that the unresolved atoms have the same coordinates as the representative atom
+    # ... loop through each unresolved polymer token, and ensure that the unresolved atoms have the same coordinates as the representative atom
     for chain_id in np.unique(unresolved_polymer_atoms.chain_id):
         chain_atom_array = output_atom_array[(output_atom_array.chain_id == chain_id) & (~output_atom_array.atomize)]
         for res_id in np.unique(chain_atom_array.res_id):
             residue_atom_array = chain_atom_array[chain_atom_array.res_id == res_id]
             unresolved_atom_mask = residue_atom_array.occupancy == 0
-            representative_atom_mask = get_af3_token_representative_masks(residue_atom_array)
-            representative_atom_idx = np.where(representative_atom_mask)[0]
+
+            representative_atom_idx = get_af3_token_representative_idxs(residue_atom_array)
+            center_atom_idx = get_af3_token_center_idxs(residue_atom_array)
 
             output_atom_array_residue = output_atom_array[
                 (output_atom_array.chain_id == chain_id) & (output_atom_array.res_id == res_id)
             ]
-            assert np.allclose(
-                residue_atom_array.coord_to_be_noised[unresolved_atom_mask],
-                output_atom_array_residue.coord_to_be_noised[representative_atom_idx],
-                atol=1e-6,
-                equal_nan=True,
-            )
 
-    # ...loop through each unresolved non-polymer token, and ensure that nothing changed
+            if residue_atom_array.occupancy[representative_atom_idx]:
+                # If the representative atom is resolved, all coordinates should be at the representative atom
+                assert np.allclose(
+                    residue_atom_array.coord_to_be_noised[unresolved_atom_mask],
+                    output_atom_array_residue.coord_to_be_noised[representative_atom_idx],
+                    atol=1e-6,
+                    equal_nan=True,
+                )
+            else:
+                # Otherwise, all coordinates should be at the center atom
+                # (The NaN case is also handled by this check)
+                assert np.allclose(
+                    residue_atom_array.coord_to_be_noised[unresolved_atom_mask],
+                    output_atom_array_residue.coord_to_be_noised[center_atom_idx],
+                    atol=1e-6,
+                    equal_nan=True,
+                )
+
+    # ... loop through each unresolved non-polymer token, and ensure that nothing changed
     for chain_id in np.unique(unresolved_non_polymer_atoms.chain_id):
         output_chain_atom_array = output_atom_array[output_atom_array.chain_id == chain_id]
         input_chain_atom_array = atom_array[atom_array.chain_id == chain_id]
@@ -124,7 +137,6 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence(pdb_id):
         [
             FlagNonPolymersForAtomization(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
-            AddTokenAnnotation(encoding),
             EncodeAtomArray(encoding),
             PlaceUnresolvedTokenAtomsOnRepresentativeAtom(annotation_to_update="coord"),
         ],
@@ -185,5 +197,4 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence(pdb_id):
 
 
 if __name__ == "__main__":
-    # pytest.main(["-v", "-x", __file__])
-    test_place_unresolved_token_atoms_on_representative_atom("7rcu")
+    pytest.main(["-v", "-x", __file__])

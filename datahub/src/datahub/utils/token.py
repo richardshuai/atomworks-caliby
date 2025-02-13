@@ -216,8 +216,7 @@ def apply_segment_wise_2d(array: np.ndarray, segment_start_end_idxs: np.ndarray,
 
 
 def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
-    """
-    Returns a boolean mask indicating the representative atoms of the tokens in the atom array.
+    """Returns a boolean mask indicating the representative atoms of the tokens in the atom array.
 
     From the AF-3 supplement, section 4.4. (Distogram prediction):
         > ...where the pairwise token distances use the representative atom for each token: Cβ
@@ -291,8 +290,7 @@ def get_af3_token_representative_coords(atom_array: AtomArray) -> np.ndarray:
 
 
 def get_af3_token_center_masks(atom_array: AtomArray) -> np.ndarray:
-    """
-    Returns a boolean mask indicating the center atoms of the tokens in the atom array as per the AF3 definition.
+    """Returns a boolean mask indicating the center atoms of the tokens in the atom array as per the AF3 definition.
 
     NOTE: "Center" atoms are distinct from "representative" atoms, which are used during distogram prediction (and more closely represent the center of mass).
 

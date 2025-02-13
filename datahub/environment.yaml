@@ -26,7 +26,7 @@ dependencies:
     - scipy>=1.13.1,<2
     - einops==0.7.0
     # ... data tools
-    - pandas>=1.4.2,<2  # Data manipulation and analysis
+    - pandas>=2.2,<2.3  # Data manipulation and analysis
     - pyarrow==17.0.0  # Columnar data format for efficient data storage and processing
     - fastparquet==2024.5.0  # Fast Parquet file format implementation
     # ... bioinformatics

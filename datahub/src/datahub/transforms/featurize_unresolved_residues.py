@@ -15,6 +15,7 @@ from datahub.transforms.base import Transform
 from datahub.utils.numpy import get_nearest_true_index_for_each_false
 from datahub.utils.token import (
     apply_token_wise,
+    get_af3_token_center_masks,
     get_af3_token_representative_coords,
     get_af3_token_representative_masks,
     spread_token_wise,
@@ -140,8 +141,8 @@ def place_unresolved_token_on_closest_resolved_token_in_sequence(
 
 
 class PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(Transform):
-    """
-    Place fully unresolved tokens on their closest resolved neighbor in sequence space, breaking ties by choosing the "leftmost" neighbor.
+    """Place fully unresolved tokens on their closest resolved neighbor in sequence space, breaking ties by choosing the "leftmost" neighbor.
+
     This heuristic is helpful to avoid noising unresolved residue coordinates from the origin during diffusion training.
 
     Args:
@@ -178,9 +179,10 @@ class PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(Transform):
 def place_unresolved_token_atoms_on_token_representative_atom(
     atom_array: AtomArray, annotation_to_update: str = "coord_to_be_noised"
 ) -> AtomArray:
-    """
-    Place unresolved token atoms (e.g., side chain atoms) on the representative atom of the corresponding residue (token).
-    Helpful within diffusive models to avoid noising unresolved side-chain atoms from the origin.
+    """Place unresolved token atoms (e.g., side chain atoms) on the representative atom of the corresponding residue (token).
+
+    In cases where the representative atom is unresolved, we also try the token center atom (e.g., if the CB is unresolved but the CA is resolved, like in 8E83 for chain A, residue 194).
+    Helpful for diffusive models to avoid noising unresolved side-chain atoms from the origin.
 
     NOTE: For non-polymers, all atoms are considered tokens (and are atomized); in such cases this Transform will have no effect.
 
@@ -192,14 +194,17 @@ def place_unresolved_token_atoms_on_token_representative_atom(
     Returns:
         AtomArray: The modified atom array.
     """
-    # ...get a mask of all unresolved atoms
+    # ... get a mask of all unresolved atoms
     unresolved_atom_mask = atom_array.occupancy == 0
 
-    # ...get the unique chain IIDs of polymers with unresolved atoms (as this transform only applies to polymers; e.g., chains without full atomization)
+    # ... get the unique chain IIDs of polymers with unresolved atoms (as this transform only applies to polymers; e.g., chains without full atomization)
     chain_iids_with_unresolved_atoms = np.unique(atom_array.chain_iid[(unresolved_atom_mask) & (~atom_array.atomize)])
 
-    # ...prepare a mask of representative atoms for each residue
+    # ... prepare a mask of representative atoms for each residue
     representative_atom_mask = get_af3_token_representative_masks(atom_array)
+
+    # (For cases where the representative atom is unresolved, we also try the token center atom)
+    center_atom_mask = get_af3_token_center_masks(atom_array)
 
     for chain_iid in chain_iids_with_unresolved_atoms:
         # NOTE: We cannot rely on the `is_polymer` annotation, as in some instances (like acyl groups) we may have non-polymer tokens within a polymer chain (see: 7RCU)
@@ -207,32 +212,36 @@ def place_unresolved_token_atoms_on_token_representative_atom(
             atom_array.res_id[(atom_array.chain_iid == chain_iid) & unresolved_atom_mask & (~atom_array.atomize)]
         )
         for res_id in residues_with_unresolved_atoms:
-            # ...create a mask for the unresolved atoms in the residue
+            # ... create a mask for the unresolved atoms in the residue
             residue_mask = (atom_array.chain_iid == chain_iid) & (atom_array.res_id == res_id)
             unresolved_atoms_in_residue_mask = residue_mask & unresolved_atom_mask
 
-            # ...get a mask for the representative atom
-            representative_atom_in_residue_mask = representative_atom_mask & residue_mask
+            # ... get a mask indicating where to place unresolved atoms
+            placement_atom_mask = representative_atom_mask & residue_mask
 
-            # ...get the index of the representative atom (there should be exactly one instance of the chain)
-            assert np.sum(representative_atom_in_residue_mask) == 1
-            representative_atom_idx = np.where(representative_atom_in_residue_mask)[0]
+            # ... if the chosen atom (by default, the representative atom) is unresolved, try the center atom
+            if not np.any(placement_atom_mask & ~unresolved_atom_mask):
+                placement_atom_mask = center_atom_mask & residue_mask
 
-            # ...set the unresolved atom coordinates to the representative atom coordinates
+            # ... get the index of the representative atom (there should be exactly one instance of the chain)
+            assert np.sum(placement_atom_mask) == 1
+            placement_atom_idx = np.where(placement_atom_mask)[0]
+
+            # ... set the unresolved atom coordinates to the placment atom coordinates
             if annotation_to_update == "coord":
                 # (We must handle "coord" explicitly, as it is treated differently than other annotations)
-                atom_array.coord[unresolved_atoms_in_residue_mask] = atom_array.coord[representative_atom_idx]
+                atom_array.coord[unresolved_atoms_in_residue_mask] = atom_array.coord[placement_atom_idx]
             else:
                 atom_array.get_annotation(annotation_to_update)[unresolved_atoms_in_residue_mask] = (
-                    atom_array.get_annotation(annotation_to_update)[representative_atom_idx]
+                    atom_array.get_annotation(annotation_to_update)[placement_atom_idx]
                 )
 
     return atom_array
 
 
 class PlaceUnresolvedTokenAtomsOnRepresentativeAtom(Transform):
-    """
-    Place unresolved token atoms (e.g., side chain atoms) on the representative atom of the residue (token).
+    """Place unresolved token atoms (e.g., side chain atoms) on the representative atom of the residue (token).
+
     Note that this Transform has no impact on non-polymers, as all atoms are considered tokens.
 
     Args:
