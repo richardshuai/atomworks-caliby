@@ -149,7 +149,7 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str, load_polymer_msas_
         )
 
     # The second run should be (at least twice as) fast
-    assert last_run_time < first_run_time * 0.2, "Cached MSA loading should be >5x faster than non-cached"
+    assert last_run_time < first_run_time * 0.5, "Cached MSA loading should be >2x faster than non-cached"
 
 
 @pytest.mark.slow

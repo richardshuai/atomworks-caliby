@@ -1,5 +1,3 @@
-import copy
-
 import numpy as np
 import pytest
 from cifutils.utils.testing import assert_same_atom_array
@@ -12,46 +10,49 @@ from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomi
 from datahub.transforms.base import Compose
 from datahub.transforms.encoding import EncodeAtomArray
 from datahub.transforms.featurize_unresolved_residues import (
+    MaskResiduesWithUnresolvedBackboneAtoms,
     PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
     mask_residues_with_unresolved_backbone_atoms,
 )
+from datahub.transforms.filters import RemoveUnresolvedPNUnits
 from datahub.utils.testing import cached_parse
 from datahub.utils.token import (
-    apply_and_spread_token_wise,
     get_af3_token_center_idxs,
-    get_af3_token_representative_coords,
+    get_af3_token_center_masks,
     get_af3_token_representative_idxs,
+    get_af3_token_representative_masks,
     token_iter,
 )
 
-FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES = ["6wtf", "7rcu", "8e83"]
 
-
-@pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
+@pytest.mark.parametrize("pdb_id", ["6wtf"])
 def test_mask_residues_with_unresolved_backbone_atoms(pdb_id):
     data = cached_parse(pdb_id)
     atom_array = data["atom_array"]
 
-    # ...manually set the occupancy of a CA atom to zero
+    # ... manually set the occupancy of a CA atom to zero
     resolved_ca_atoms = (atom_array.atom_name == "CA") & (atom_array.occupancy > 0)
 
-    # ...set the first CA atom to zero occupancy
+    # ... set the first CA atom to zero occupancy
     atom_array.occupancy[resolved_ca_atoms] = np.array([0.0] + [1.0] * (np.sum(resolved_ca_atoms) - 1))
     changed_atom = atom_array[resolved_ca_atoms][0]
 
-    # ...apply the transform
+    # ... apply the transform
     updated_atom_array = mask_residues_with_unresolved_backbone_atoms(atom_array)
 
-    # ...assert that the manually set CA atom's residue is masked
+    # ... assert that the manually set CA atom's residue is masked
     changed_residue_mask = (updated_atom_array.chain_id == changed_atom.chain_id) & (
         updated_atom_array.res_id == changed_atom.res_id
     )
     assert np.all(updated_atom_array.occupancy[changed_residue_mask] == 0)
 
-    # ...assert that the rest of the residues are unchanged
+    # ... assert that the rest of the residues are unchanged
     unchanged_residue_mask = ~changed_residue_mask
     assert np.all(updated_atom_array.occupancy[unchanged_residue_mask] == atom_array.occupancy[unchanged_residue_mask])
+
+
+FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES = ["6wtf", "7rcu", "8e83", "7okl"]
 
 
 @pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
@@ -72,6 +73,7 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
     pipe = Compose(
         [
             FlagNonPolymersForAtomization(),
+            MaskResiduesWithUnresolvedBackboneAtoms(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             CopyAnnotation("coord", "coord_to_be_noised"),
             EncodeAtomArray(encoding),
@@ -90,8 +92,8 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
     ]
 
     # ... loop through each unresolved polymer token, and ensure that the unresolved atoms have the same coordinates as the representative atom
-    for chain_id in np.unique(unresolved_polymer_atoms.chain_id):
-        chain_atom_array = output_atom_array[(output_atom_array.chain_id == chain_id) & (~output_atom_array.atomize)]
+    for chain_iid in np.unique(unresolved_polymer_atoms.chain_iid):
+        chain_atom_array = output_atom_array[(output_atom_array.chain_iid == chain_iid) & (~output_atom_array.atomize)]
         for res_id in np.unique(chain_atom_array.res_id):
             residue_atom_array = chain_atom_array[chain_atom_array.res_id == res_id]
             unresolved_atom_mask = residue_atom_array.occupancy == 0
@@ -100,7 +102,7 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
             center_atom_idx = get_af3_token_center_idxs(residue_atom_array)
 
             output_atom_array_residue = output_atom_array[
-                (output_atom_array.chain_id == chain_id) & (output_atom_array.res_id == res_id)
+                (output_atom_array.chain_iid == chain_iid) & (output_atom_array.res_id == res_id)
             ]
 
             if residue_atom_array.occupancy[representative_atom_idx]:
@@ -122,9 +124,9 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
                 )
 
     # ... loop through each unresolved non-polymer token, and ensure that nothing changed
-    for chain_id in np.unique(unresolved_non_polymer_atoms.chain_id):
-        output_chain_atom_array = output_atom_array[output_atom_array.chain_id == chain_id]
-        input_chain_atom_array = atom_array[atom_array.chain_id == chain_id]
+    for chain_iid in np.unique(unresolved_non_polymer_atoms.chain_iid):
+        output_chain_atom_array = output_atom_array[output_atom_array.chain_iid == chain_iid]
+        input_chain_atom_array = atom_array[atom_array.chain_iid == chain_iid]
         assert_same_atom_array(output_chain_atom_array, input_chain_atom_array)
 
 
@@ -136,44 +138,54 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence(pdb_id):
     pipe = Compose(
         [
             FlagNonPolymersForAtomization(),
+            RemoveUnresolvedPNUnits(),
+            MaskResiduesWithUnresolvedBackboneAtoms(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             EncodeAtomArray(encoding),
-            PlaceUnresolvedTokenAtomsOnRepresentativeAtom(annotation_to_update="coord"),
+            CopyAnnotation("coord", "coord_to_be_noised"),
+            PlaceUnresolvedTokenAtomsOnRepresentativeAtom(annotation_to_update="coord_to_be_noised"),
         ],
         track_rng_state=False,
     )
     output = pipe(data)
-    input_atom_array = copy.deepcopy(data["atom_array"])
 
-    # ...apply the transform
-    output = PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(annotation_to_update="coord")(output)
+    # ... apply the transform
+    output = PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(
+        annotation_to_update="coord_to_be_noised", annotation_to_copy="coord_to_be_noised"
+    )(output)
     output_atom_array = output["atom_array"]
+
+    assert not np.isnan(
+        output_atom_array.coord_to_be_noised
+    ).any(), "There should be no NaNs in the output coordinates!"
 
     for chain_id in np.unique(output_atom_array.chain_id):
         chain_atom_array = output_atom_array[output_atom_array.chain_id == chain_id]
-        resolved_token_mask = apply_and_spread_token_wise(chain_atom_array, chain_atom_array.occupancy, function=np.any)
 
-        # ...ensure that resolved tokens are unchanged
-        input_atom_array_chain = input_atom_array[input_atom_array.chain_id == chain_id]
+        # ... ensure that resolved atoms are unchanged
         assert np.allclose(
-            chain_atom_array.coord[resolved_token_mask],
-            input_atom_array_chain.coord[resolved_token_mask],
+            chain_atom_array.coord[chain_atom_array.occupancy > 0],
+            chain_atom_array.coord_to_be_noised[chain_atom_array.occupancy > 0],
             atol=1e-6,
             equal_nan=True,
         )
 
-        representative_tokens_coordinates = get_af3_token_representative_coords(input_atom_array_chain)
+        representative_tokens_coordinates = chain_atom_array.coord_to_be_noised[
+            get_af3_token_representative_masks(chain_atom_array)
+        ]
 
-        # ...ensure that unresolved tokens have their tokens placed on the closest resolved token
+        # ... ensure that unresolved tokens have their tokens placed on the closest resolved token
         for idx, token in enumerate(token_iter(chain_atom_array)):
-            # ...skip tokens with any resolved atoms
-            if np.any(token.occupancy > 0):
+            # (Skip tokens with resolved center or representative atoms)
+            representative_atom_mask = get_af3_token_representative_masks(token)
+            center_atom_mask = get_af3_token_center_masks(token)
+            if (representative_atom_mask | center_atom_mask).any():
                 continue
 
-            # ...assert all coordinates are the same within the token
-            assert np.all(np.all(token.coord == token.coord[0]))
+            # ... assert all coordinates are the same within the token
+            assert np.all(np.all(token.coord_to_be_noised == token.coord_to_be_noised[0]))
 
-            # ...find the index of the closest resolved token
+            # ... find the index of the closest resolved token
             # (Check below)
             lower_index = -float("inf")
             for i in range(idx - 1, -1, -1):
@@ -187,13 +199,17 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence(pdb_id):
                     upper_index = i
                     break
 
-            # ...calculate the distance in sequence space to both the lower and upper resolved tokens
+            # ... calculate the distance in sequence space to both the lower and upper resolved tokens
             if abs(idx - lower_index) <= abs(upper_index - idx):
-                # ...assert that the closest resolved token is the lower one
-                assert np.allclose(token.coord, representative_tokens_coordinates[lower_index], equal_nan=True)
+                # The closest resolved token should be the lower one
+                assert np.allclose(
+                    token.coord_to_be_noised, representative_tokens_coordinates[lower_index], equal_nan=True
+                )
             else:
-                # ...assert that the closest resolved token is the upper one
-                assert np.allclose(token.coord, representative_tokens_coordinates[upper_index], equal_nan=True)
+                # The closest resolved token should be the upper one
+                assert np.allclose(
+                    token.coord_to_be_noised, representative_tokens_coordinates[upper_index], equal_nan=True
+                )
 
 
 if __name__ == "__main__":

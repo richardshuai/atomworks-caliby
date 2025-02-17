@@ -42,6 +42,7 @@ from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures, EncodeAtomA
 from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
 from datahub.transforms.feature_aggregation.confidence import PackageConfidenceFeats
 from datahub.transforms.featurize_unresolved_residues import (
+    MaskResiduesWithUnresolvedBackboneAtoms,
     PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
 )
@@ -163,8 +164,9 @@ def build_af3_transform_pipeline(
             extra_info_key_with_pn_unit_iids_to_keep="all_pn_unit_iids_after_processing"
         ),  # Filter to non-clashing PN units
         RemoveTerminalOxygen(),
-        RemoveUnresolvedPNUnits(),  # Remove PN units that are unresolved early (and also after cropping)
-        RemovePolymersWithTooFewResolvedResidues(min_residues=4),  # Remove polymers with too few resolved residues
+        RemoveUnresolvedPNUnits(),
+        RemovePolymersWithTooFewResolvedResidues(min_residues=4),
+        MaskResiduesWithUnresolvedBackboneAtoms(),
         # NOTE: For inference, we must keep UNL to support ligands that are not in the CCD
         HandleUndesiredResTokens(undesired_res_tokens=undesired_res_names),  # e.g., non-standard residues
         FlagAndReassignCovalentModifications(),
@@ -291,7 +293,9 @@ def build_af3_transform_pipeline(
         CopyAnnotation(annotation_to_copy="coord", new_annotation="coord_to_be_noised"),
         # ... handling of unresolved residues (note that these Transforms create the "atom_array_to_noise" dictionary, if not already present)
         PlaceUnresolvedTokenAtomsOnRepresentativeAtom(annotation_to_update="coord_to_be_noised"),
-        PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(annotation_to_update="coord_to_be_noised"),
+        PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(
+            annotation_to_update="coord_to_be_noised", annotation_to_copy="coord_to_be_noised"
+        ),
         # Feature aggregation
         AggregateFeaturesLikeAF3(),
         OneHotTemplateRestype(encoding=af3_sequence_encoding),
