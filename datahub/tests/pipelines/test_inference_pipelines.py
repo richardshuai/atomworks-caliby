@@ -105,7 +105,15 @@ AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES = [
             "smiles": "O=C1OCC(=C1)C5C4(C(O)CC3C(CCC2CC(O)CCC23C)C4(O)CC5)C",
             "chain_type": "non-polymer",
         },
-    ]
+    ],
+    [
+        {
+            "seq": "MTVDEMVAEAERAEAEGDRERAAELYNEAADKALEEGDVERWTELEVRRADVLERPQVKPYIEEAGEIAKEDPEAARRAWRAMREAAEEARRRREELLAEGMPEEEAEARRLELIREGMDRVAAASDERGRRFVEAIRKAFEALHA",
+            "chain_id": "A",
+        },
+        {"smiles": "ClC1(C(N(O)O)C=C(N(O)O)C=C1)", "chain_id": "B"},
+        {"smiles": "CCOC(=O)[CH](C#N)c1ccccc1", "chain_id": "C"},
+    ],
 ]
 
 
@@ -220,4 +228,5 @@ def test_same_pipeline_outputs_from_cif_and_inference():
 
 
 if __name__ == "__main__":
-    pytest.main(["-v", "-x", __file__])
+    # pytest.main(["-v", "-x", __file__])
+    test_af3_pipeline_from_sequence_and_smiles(AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES[1])
