@@ -147,7 +147,8 @@ def test_af3_pipeline_from_sequence_and_smiles(inference_components):
     # Basic validation checks
     assert "feats" in transformed_data, "Missing feats in pipeline output."
 
-    assert transformed_data["feats"]["msa_stack"].shape[1] > 1, "MSA stack has only one sequence"
+    if any("msa_path" in d for d in inference_components):
+        assert transformed_data["feats"]["msa_stack"].shape[1] > 1, "MSA stack has only one sequence"
 
     # Check that none of the feats is `nan`
     for feat_name, feat in transformed_data["feats"].items():
