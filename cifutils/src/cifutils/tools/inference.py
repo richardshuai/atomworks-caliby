@@ -509,10 +509,10 @@ def components_to_atom_array(
     chain_id_generator = create_chain_id_generator(chain_ids)
 
     atom_arrays = []
+    ligand_hash_to_id = KeyToIntMapper()  # ... to keep track of identical ligands
     for component in components:
         component.chain_id = component.chain_id or next(chain_id_generator)
 
-        ligand_hash_to_id = KeyToIntMapper()  # ... to keep track of identical ligands
         if isinstance(component, SequenceComponent):
             atom_arrays.append(sequence_to_annotated_atom_array(**component.as_dict()))
         elif isinstance(component, SmilesComponent):
