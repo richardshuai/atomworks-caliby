@@ -243,7 +243,14 @@ def get_pymol_session(hostname: str | None = None, port: int | None = None) -> "
 
 
 def view_pymol(
-    structure: AtomArray | AtomArrayStack | pdbx.CIFFile | pdbx.BinaryCIFFile | pdb.PDBFile | os.PathLike,
+    structure: AtomArray
+    | AtomArrayStack
+    | pdbx.CIFFile
+    | pdbx.BinaryCIFFile
+    | pdb.PDBFile
+    | pdbx.CIFBlock
+    | pdbx.BinaryCIFBlock
+    | os.PathLike,
     id: str | None = None,
     hostname: str | None = None,
     port: int | None = None,
@@ -255,9 +262,9 @@ def view_pymol(
     provided, generates a unique identifier for the structure.
 
     Args:
-        - structure (AtomArray | AtomArrayStack | CIFFile | BinaryCIFFile | PDBFile | PathLike): The atomic structure to be
-            visualized in PyMOL. For `PathLike`, the file extension is used to determine the format of the structure when
-            no `id` is provided.
+        - structure (AtomArray | AtomArrayStack | CIFFile | BinaryCIFFile | PDBFile | CIFBlock | BinaryCIFBlock | PathLike):
+            The atomic structure to be visualized in PyMOL. For `PathLike`, the file extension is used to determine the format
+            of the structure when no `id` is provided.
         - id (str | None, optional): Unique identifier for the structure in PyMOL. If None, generates a random 9-character
             string in XXX-XXX-XXX format. Defaults to None.
         - hostname (str | None, optional): The hostname of the PyMOL server. If None, uses 'localhost' or attempts to reuse
@@ -311,18 +318,27 @@ def view_pymol(
             extra_fields=[],
             as_bcif=as_bcif,
         )
-    elif isinstance(structure, pdbx.CIFFile | pdb.PDBFile | mol.SDFile):
+    elif isinstance(structure, pdbx.CIFFile | pdb.PDBFile | mol.SDFile | pdbx.CIFBlock):
         format = {
             pdbx.CIFFile: "cif",
             pdb.PDBFile: "pdb",
             mol.SDFile: "sdf",
+            pdbx.CIFBlock: "cif",
         }[type(structure)]
         buffer = io.StringIO()
+        if isinstance(structure, pdbx.CIFBlock):
+            _tmp = pdbx.CIFFile()
+            _tmp[id] = structure
+            structure = _tmp
         structure.write(buffer)
         buffer = buffer.getvalue()
-    elif isinstance(structure, pdbx.BinaryCIFFile):
+    elif isinstance(structure, pdbx.BinaryCIFFile | pdbx.BinaryCIFBlock):
         format = "bcif"
         buffer = io.BytesIO()
+        if isinstance(structure, pdbx.BinaryCIFBlock):
+            _tmp = pdbx.BinaryCIFFile()
+            _tmp[id] = structure
+            structure = _tmp
         structure.write(buffer)
         buffer = buffer.getvalue()
     else:
@@ -336,6 +352,6 @@ def view_pymol(
     # compress for faster network transfer
     buffer = gzip.compress(buffer)
 
-    session.set_state(buffer=buffer, object=id, format=format)
+    session.set_state(buffer, object=id, format=format)
 
     return id

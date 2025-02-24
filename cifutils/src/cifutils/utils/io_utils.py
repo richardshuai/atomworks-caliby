@@ -16,7 +16,6 @@ from typing import Literal
 import biotite.structure as struc
 import biotite.structure.io.pdb as biotite_pdb
 import numpy as np
-from biotite.setup_ccd import _concatenate_blocks_into_category
 from biotite.structure import AtomArray, AtomArrayStack
 from biotite.structure.io import mol, pdbx
 
@@ -348,6 +347,8 @@ def _write_categories_to_block(
 
 def _cif_to_bcif(cif_file: pdbx.CIFFile | pdbx.BinaryCIFFile) -> pdbx.BinaryCIFFile:
     """Convert a given CIF file to an optimized BCIF file."""
+    from biotite.setup_ccd import _concatenate_blocks_into_category
+
     compressed_file = pdbx.BinaryCIFFile()
     for block_name, block in cif_file.items():
         compressed_block = pdbx.BinaryCIFBlock()
@@ -557,6 +558,46 @@ def to_cif_string(
     ).getvalue()
 
 
+def _to_cif_file(
+    file_obj: pdbx.CIFFile | pdbx.BinaryCIFFile,
+    path: os.PathLike,
+    file_type: Literal["cif", "bcif", "cif.gz"] | None = None,
+) -> str:
+    # turn any relative path into an absolute path
+    path = str(os.path.abspath(path))
+
+    # create the directory if it doesn't exist
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    _file_type_map = {
+        # suffix: (open_func, open_mode, path_suffix)
+        "cif": (open, "wt", ".cif"),
+        "bcif": (open, "wb", ".bcif"),
+        "cif.gz": (gzip.open, "wt", ".cif.gz"),
+        "bcif.gz": (gzip.open, "wb", ".bcif.gz"),
+        # ... default if no suffix is provided
+        "": (gzip.open, "wt", ".cif.gz"),
+    }
+    if file_type is None:
+        file_name = os.path.basename(path)
+        file_type = file_name.split(".")[-1] if "." in file_name else ""
+        # ... with gz suffix by fetching the pre-gz suffix
+        file_type = file_name.split(".")[-2] + ".gz" if file_type == "gz" else file_type
+
+    open_func, open_mode, path_suffix = _file_type_map[file_type]
+
+    # ... check that the file ends with the correct suffix, otherwise mutate the path to end with the correct suffix
+    if not path.endswith(path_suffix):
+        path = path + path_suffix
+    # ... get the name minus the suffix
+    file_name = os.path.basename(path).replace(path_suffix, "")
+
+    with open_func(path, mode=open_mode) as f:
+        file_obj.write(f)
+
+    return path
+
+
 def to_cif_file(
     structure: AtomArray,
     path: os.PathLike,
@@ -604,9 +645,7 @@ def to_cif_file(
     """
     # turn any relative path into an absolute path
     path = str(os.path.abspath(path))
-
-    # create the directory if it doesn't exist
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    file_name = os.path.basename(path)
 
     if gzip_output is not None:
         warnings.warn(
@@ -623,29 +662,6 @@ def to_cif_file(
 
         file_type = ".cif.gz" if gzip_output else "cif"
 
-    _file_type_map = {
-        # suffix: (as_bcif, open_func, open_mode, path_suffix)
-        "cif": (False, open, "wt", ".cif"),
-        "bcif": (True, open, "wb", ".bcif"),
-        "cif.gz": (False, gzip.open, "wt", ".cif.gz"),
-        "bcif.gz": (True, gzip.open, "wb", ".bcif.gz"),
-        # ... default if no suffix is provided
-        "": (False, gzip.open, "wt", ".cif.gz"),
-    }
-    if file_type is None:
-        file_name = os.path.basename(path)
-        file_type = file_name.split(".")[-1] if "." in file_name else ""
-        # ... with gz suffix by fetching the pre-gz suffix
-        file_type = file_name.split(".")[-2] + ".gz" if file_type == "gz" else file_type
-
-    as_bcif, open_func, open_mode, path_suffix = _file_type_map[file_type]
-
-    # ... check that the file ends with the correct suffix, otherwise mutate the path to end with the correct suffix
-    if not path.endswith(path_suffix):
-        path = path + path_suffix
-    # ... get the name minus the suffix
-    file_name = os.path.basename(path).replace(path_suffix, "")
-
     file_obj = _to_cif_or_bcif(
         structure,
         id=id or file_name,
@@ -658,13 +674,10 @@ def to_cif_file(
         extra_fields=extra_fields,
         extra_categories=extra_categories,
         _allow_ambiguous_bond_annotations=_allow_ambiguous_bond_annotations,
-        as_bcif=as_bcif,
+        as_bcif=".bcif" in path,
     )
 
-    with open_func(path, mode=open_mode) as f:
-        file_obj.write(f)
-
-    return path
+    return _to_cif_file(file_obj, path, file_type=file_type)
 
 
 def to_pdb_buffer(
