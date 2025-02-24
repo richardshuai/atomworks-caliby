@@ -302,16 +302,6 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
             extra_fields=common_extra_fields,
             model=1,
         )
-    # (Most examples, except NMR studies and small molecules, will not have any hydrogens)
-    if kwargs["hydrogen_policy"] == "keep":
-        pass
-    elif kwargs["hydrogen_policy"] == "remove":
-        asym_unit_stack = ta.remove_hydrogens(asym_unit_stack)
-    elif kwargs["hydrogen_policy"] == "infer":
-        # infer hydrogens using biotite-hydride, will replace existing hydrogens
-        asym_unit_stack = ta.add_hydrogen_atom_positions(asym_unit_stack)
-    else:
-        raise ValueError(f"Invalid hydrogen policy: {kwargs['hydrogen_policy']}. Must be 'keep', 'remove', or 'infer'.")
 
     # If occupancy is not an annotation, add it, defaulting to 1.0
     if "occupancy" not in asym_unit_stack.get_annotation_categories():
@@ -362,6 +352,17 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
 
     # ... add the ChainType annotation to the AtomArray
     asym_unit_stack = ta.add_chain_type_annotation(asym_unit_stack, data_dict["chain_info"])
+
+    # (Most examples, except NMR studies and small molecules, will not have any hydrogens)
+    if kwargs["hydrogen_policy"] == "keep":
+        pass
+    elif kwargs["hydrogen_policy"] == "remove":
+        asym_unit_stack = ta.remove_hydrogens(asym_unit_stack)
+    elif kwargs["hydrogen_policy"] == "infer":
+        # infer hydrogens using biotite-hydride, will replace existing hydrogens
+        asym_unit_stack = ta.add_hydrogen_atom_positions(asym_unit_stack)
+    else:
+        raise ValueError(f"Invalid hydrogen policy: {kwargs['hydrogen_policy']}. Must be 'keep', 'remove', or 'infer'.")
 
     models = []
     for model_idx in range(asym_unit_stack.stack_depth()):
