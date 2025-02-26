@@ -5,10 +5,11 @@ Tools for using RDKit with AtomArray objects.
 import copy
 import io
 import logging
+import os
 import warnings
 from collections import Counter
 from collections.abc import Callable
-from functools import cache, lru_cache, wraps
+from functools import cache, wraps
 from os import PathLike
 from pathlib import Path
 from typing import Final, Literal
@@ -23,12 +24,13 @@ from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.DataStructs import ExplicitBitVect
 
 import cifutils.transforms.atom_array as ta
-from cifutils.common import exists, not_isin
+from cifutils.common import exists, immutable_lru_cache, not_isin
 from cifutils.constants import (
     BIOTITE_DEFAULT_ANNOTATIONS,
     CCD_MIRROR_PATH,
     HYDROGEN_LIKE_SYMBOLS,
     METAL_ELEMENTS,
+    PDB_ISOTOPE_SYMBOL_TO_ELEMENT_SYMBOL,
     UNKNOWN_LIGAND,
 )
 
@@ -125,12 +127,6 @@ class ChEMBLNormalizer:
 
 
 @cache
-def get_periodic_table() -> Chem.PeriodicTable:
-    """Cached RDKit periodic table."""
-    return Chem.GetPeriodicTable()
-
-
-@cache
 def get_valence_checker() -> rdMolStandardize.RDKitValidation:
     """Cached RDKit valence checker."""
     return rdMolStandardize.RDKitValidation()
@@ -143,12 +139,12 @@ def get_chembl_normalizer() -> rdMolStandardize.Normalizer:
 
 
 @cache
-def element_to_atomic_number(element: str | int) -> int:
+def element_to_atomic_number(element: str) -> int:
     """
     Convert an element string or atomic number to an atomic number.
 
     Args:
-        - element (str | int): The element symbol (e.g., 'C') or atomic number.
+        - element (str): The element symbol (e.g., 'C') or atomic number.
 
     Returns:
         - int: The atomic number of the element.
@@ -161,10 +157,8 @@ def element_to_atomic_number(element: str | int) -> int:
         >>> element_to_atomic_number(1)
         1
     """
-    try:
-        return int(element)
-    except ValueError:
-        return Chem.GetPeriodicTable().GetAtomicNumber(element.capitalize())
+    element = PDB_ISOTOPE_SYMBOL_TO_ELEMENT_SYMBOL.get(element, element)
+    return Chem.GetPeriodicTable().GetAtomicNumber(element.capitalize())
 
 
 def preserve_annotations(func: Callable[[Mol, ...], Mol]) -> Callable[[Mol, ...], Mol]:
@@ -215,7 +209,7 @@ def _calc_formal_charge_from_valence(rdatom: Chem.Atom) -> int:
     """
     Calculate the formal charge of an atom from its valence.
     """
-    num_valence_electrons = get_periodic_table().GetDefaultValence(
+    num_valence_electrons = Chem.GetPeriodicTable().GetDefaultValence(
         rdatom.GetSymbol()
     )  # ... how many electrons are missing to full outer shell
     num_electrons_in_bonds = (
@@ -602,24 +596,29 @@ def atom_array_from_rdkit(
 def atom_array_to_rdkit(
     atom_array: AtomArray,
     *,
-    set_coord: bool = False,
+    set_coord: bool | None = None,
     infer_hydrogens: bool | None = None,
     hydrogen_policy: Literal["infer", "remove", "keep"] = "keep",
     annotations_to_keep: list[str] = BIOTITE_DEFAULT_ANNOTATIONS,
     sanitize: bool = True,
     attempt_fixing_corrupted_molecules: bool = True,
-    assume_metal_bonds_are_dative: bool = False,  # NOTE: This messes up RDKit conformer generation
+    assume_metal_bonds_are_dative: bool = False,
 ) -> Mol:
     """
     Generate an RDKit molecule from a Biotite AtomArray object.
 
     Args:
         - atom_array (biotite.structure.AtomArray): The Biotite AtomArray to convert.
-        - set_coord (bool): Whether to set atomic coordinates in the RDKit molecule.
+        - set_coord (bool | None): Whether to set atomic coordinates in the RDKit molecule.
+            If None, coordinates are only set if they are not NaN.
         - infer_hydrogens (bool): Whether to infer hydrogens in the RDKit molecule.
             WARNING: This is deprecated. Use `hydrogen_policy = 'infer'` instead.
         - hydrogen_policy (Literal["infer", "remove", "keep"]): Whether to infer hydrogens in the RDKit molecule.
         - annotations_to_keep (list[str]): List of atom annotations to preserve from the AtomArray.
+        - sanitize (bool): Whether to sanitize the molecule during conversion. Default is True.
+        - attempt_fixing_corrupted_molecules (bool): Whether to attempt fixing corrupted molecules during conversion. Default is True.
+        - assume_metal_bonds_are_dative (bool): Whether to assume that all bonds with metals are dative bonds. Default is False.
+            WARNING: This messes up RDKit conformer generation.
 
     Returns:
         - rdkit.Chem.Mol: RDKit Molecule generated from the AtomArray.
@@ -637,7 +636,7 @@ def atom_array_to_rdkit(
     #     (implicit hydrogens)
     rdkit_atom_ids = []
 
-    # ... deprecate 'infer_hydrogens'
+    # DEPRECATE: Remove this in the next major release
     if exists(infer_hydrogens):
         warnings.warn(
             "'infer_hydrogens' is deprecated. Use 'hydrogen_policy = 'infer' instead.",
@@ -686,12 +685,19 @@ def atom_array_to_rdkit(
             _should_be_aromatic.union({atom1, atom2})
 
     # Set coordinates
+    set_coord = set_coord or not np.any(np.isnan(atom_array.coord))
     if set_coord:
         # ... add conformer (at id 0)
         conf_id = mol.AddConformer(Chem.Conformer(len(atom_array)), assignId=True)
         # ... fill in coordinates
-        for atom_id, coord in enumerate(atom_array.coord):
-            mol.GetConformer(conf_id).SetAtomPosition(atom_id, coord.tolist())
+        for atom_id, atom_coord in enumerate(atom_array.coord):
+            mol.GetConformer(conf_id).SetAtomPosition(atom_id, atom_coord.tolist())
+        # ... assign stereochemistry
+        try:
+            Chem.AssignStereochemistryFrom3D(mol)
+        except ValueError:
+            logger.warning("Failed to assign stereochemistry to molecule.")
+            pass
 
     # Clean up organometallics:
     # TODO: The CCD unfortunatley only supplies all metal bonds as single bonds. For now we assume
@@ -739,13 +745,12 @@ def atom_array_to_rdkit(
     return mol
 
 
-@lru_cache(maxsize=1000)
+@immutable_lru_cache(maxsize=1000)
 def ccd_code_to_rdkit(
     ccd_code: str,
     *,
-    set_coord: bool = True,
-    hydrogen_policy: Literal["infer", "remove", "keep"] = "keep",
     ccd_path: PathLike | None = CCD_MIRROR_PATH,
+    hydrogen_policy: Literal["infer", "remove", "keep"] = "keep",
     **atom_array_to_rdkit_kwargs,
 ) -> Mol:
     """
@@ -757,46 +762,55 @@ def ccd_code_to_rdkit(
 
     Args:
         ccd_code (str): The CCD code to convert. I.e, 'ALA', 'GLY', '9RH', etc.
-        set_coord (bool): Whether to set coordinates for the molecule. Defaults to True.
-        hydrogen_policy (Literal["infer", "remove", "keep"]): Whether to infer missing hydrogens. Defaults to 'keep'.
         ccd_path (PathLike): Path to the local CCD directory. If None, Biotite's internal CCD is used.
+        hydrogen_policy (Literal["infer", "remove", "keep"]): Whether to infer hydrogens in the RDKit molecule.
         **atom_array_to_rdkit_kwargs: Additional keyword arguments passed to the `atom_array_to_rdkit` function.
 
     Returns:
         Mol: The RDKit molecule corresponding to the given residue name.
     """
+    # DEPRECATE: Remove this argument in the next major release
+    if {"set_coord", "hydrogen_policy"}.issubset(atom_array_to_rdkit_kwargs):
+        warnings.warn(
+            "The 'set_coord' and 'hydrogen_policy' arguments are deprecated. They will be removed in the next major release."
+            "Coordinates will always be set from the CCD because they are needed for stereochemistry assignment."
+            "You can manually remove them after conversion if you don't want them.",
+            category=DeprecationWarning,
+            stacklevel=1,
+        )
+
     if ccd_path is None:
         # ... use Biotite's internal CCD (WARNING: may be outdated, depending on when you/your dependency
         #    last computed your Biotite CCD)
+        # DEPRECATE: Remove try-except once we updated to biotite 1.1.2+
         try:
             residue = struc.info.residue(ccd_code, allow_missing_coord=True)
-        except:  # noqa: E722
+        except TypeError:
             residue = struc.info.residue(ccd_code)
-        return atom_array_to_rdkit(
-            residue,
-            set_coord=set_coord,
-            hydrogen_policy=hydrogen_policy,
-            **atom_array_to_rdkit_kwargs,
-        )
-
-    ccd_path = Path(ccd_path)
-    if ccd_path.exists():
-        # ... use the specified CCD directory, which we assume is sharded by the first character of the res_name (as it should be, since we're using `rsync`)
-        path = ccd_path / ccd_code[0] / ccd_code / f"{ccd_code}.cif"
+    elif os.path.exists(ccd_path):
+        path = os.path.join(ccd_path, ccd_code[0], ccd_code, f"{ccd_code}.cif")
         with open(path, encoding="utf-8") as file:
             cif_file = struc.io.pdbx.CIFFile.read(file)
 
+        # DEPRECATE: Remove try-except once we updated to biotite 1.1.2+
         try:
             residue = struc.io.pdbx.get_component(cif_file, allow_missing_coord=True)
-        except:  # noqa: E722
+        except TypeError:
             residue = struc.io.pdbx.get_component(cif_file)
-
-        return atom_array_to_rdkit(
-            # See: https://github.com/biotite-dev/biotite/pull/730
-            residue,
-            set_coord=set_coord,
-            hydrogen_policy=hydrogen_policy,
-            **atom_array_to_rdkit_kwargs,
-        )
     else:
         raise FileNotFoundError(f"CCD directory not found: {ccd_path}")
+
+    mol = atom_array_to_rdkit(
+        residue,
+        set_coord=True,  # ... coordinate needed for stereochemistry assignment
+        hydrogen_policy=hydrogen_policy,  # ... hydrogens needed for stereochemistry assignment
+        **atom_array_to_rdkit_kwargs,
+    )
+    # ... assign stereochemistry
+    try:
+        Chem.AssignStereochemistryFrom3D(mol)
+    except ValueError:
+        logger.warning(f"Failed to assign stereochemistry to {ccd_code}. Returning unstereochem molecule.")
+        pass
+
+    return mol

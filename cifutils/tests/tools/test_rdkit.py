@@ -5,6 +5,7 @@ from assertpy import assert_that
 from biotite.structure import AtomArray
 from rdkit import Chem
 
+from cifutils.constants import STANDARD_AA
 from cifutils.tools.inference import components_to_atom_array
 from cifutils.tools.rdkit import (
     atom_array_from_rdkit,
@@ -162,6 +163,76 @@ def test_fingerprints(molecules):
     assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["CustomUNL"], fingerprints["Leucine"])).is_less_than(
         0.3
     )
+
+
+def test_chirality_detection_from_ccd():
+    # Check the 20 natural amino acids for the correct stereochemistry
+    for aa in STANDARD_AA:
+        if aa == "GLY":
+            assert Chem.FindMolChiralCenters(ccd_code_to_rdkit(aa)) == []
+        elif aa == "CYS":
+            # NOTE: For cystine the L-amino acid corresponds to na R-configuration
+            #  around the CA atom
+            assert Chem.FindMolChiralCenters(ccd_code_to_rdkit(aa)) == [(1, "R")]
+        elif aa == "ILE":
+            assert Chem.FindMolChiralCenters(ccd_code_to_rdkit(aa)) == [(1, "S"), (4, "S")]
+        elif aa == "THR":
+            assert Chem.FindMolChiralCenters(ccd_code_to_rdkit(aa)) == [(1, "S"), (4, "R")]
+        else:
+            assert Chem.FindMolChiralCenters(ccd_code_to_rdkit(aa)) == [(1, "S")]
+
+    # Check a handful of non-standard amino acids
+    assert Chem.FindMolChiralCenters(ccd_code_to_rdkit("DAL")) == [
+        (1, "R")
+    ], "D-alanine should have a R configuration at the CA atom"
+    assert Chem.FindMolChiralCenters(ccd_code_to_rdkit("DCY")) == [
+        (1, "S")
+    ], "D-cystine should have a S configuration at the CA atom"
+    assert Chem.FindMolChiralCenters(ccd_code_to_rdkit("DTH")) == [
+        (1, "R"),
+        (2, "S"),
+    ], "D-threonine should have a R configuration at the CA atom and a S configuration at the CB atom"
+
+
+def test_chirality_detection_from_smiles():
+    # Alanine (ALA)
+    mol = smiles_to_rdkit("C[C@@H](C(=O)O)N")
+    assert Chem.FindMolChiralCenters(mol) == [(1, "S")], "Alanine should have a S configuration at the CA atom"
+
+    # D-cystine (DCY)
+    mol = smiles_to_rdkit("C([C@H](C(=O)O)N)S")
+    assert Chem.FindMolChiralCenters(mol) == [(1, "S")], "D-cystine should have a S configuration at the CA atom"
+
+
+def test_chriality_in_spoofed_rdkit_molecules():
+    # fmt: off
+    dal_coord = np.array(
+      [[-1.564, -0.992,  0.101],
+       [-0.724,  0.176,  0.402],
+       [-1.205,  1.374, -0.42 ],
+       [ 0.709, -0.132,  0.051],
+       [ 1.001, -1.213, -0.403],
+       [ 1.66 ,  0.795,  0.243],
+       [-1.281, -1.723,  0.736],
+       [-2.509, -0.741,  0.351],
+       [-0.796,  0.411,  1.464],
+       [-1.133,  1.139, -1.481],
+       [-2.241,  1.597, -0.166],
+       [-0.582,  2.24 , -0.197],
+       [ 2.58 ,  0.598,  0.018]]
+    )
+    dal_coord[[2,3,4]] = dal_coord[[3,4,2]]  # ... adjust order to be C, O, CB (not CB, C, O as in CCD from where these coords are from)
+    # fmt: on
+
+    # Get ALA from the CCD
+    atom_array = struc.info.residue("ALA")
+    mol_ala = atom_array_to_rdkit(atom_array)
+    assert Chem.FindMolChiralCenters(mol_ala) == [(1, "S")]
+
+    # ... spoof the coordinates with DAL_COORD (which have inverted chirality)
+    atom_array.coord = dal_coord
+    mol_ala_inverted = atom_array_to_rdkit(atom_array)
+    assert Chem.FindMolChiralCenters(mol_ala_inverted) == [(1, "R")]
 
 
 if __name__ == "__main__":

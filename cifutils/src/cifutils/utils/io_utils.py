@@ -22,6 +22,7 @@ from biotite.structure.io import mol, pdbx
 from cifutils.common import exists
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from cifutils.enums import ChainType
+from cifutils.transforms.atom_array import remove_nan_coords
 from cifutils.utils.sequence import get_1_from_3_letter_code
 
 logger = logging.getLogger("cifutils")
@@ -438,8 +439,7 @@ def _to_cif_or_bcif(
         extra_fields = list(set(structure.get_annotation_categories()) - _standard_cif_annotations)
 
     if not include_nan_coords:
-        has_nan_coords = np.any(np.isnan(structure.coord), axis=tuple(range(1, structure.coord.ndim)))
-        structure = structure[~has_nan_coords]
+        structure = remove_nan_coords(structure)
 
     pdbx.set_structure(cif_file, structure, data_block=id, include_bonds=include_bonds, extra_fields=extra_fields)
 

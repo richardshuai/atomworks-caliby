@@ -3,6 +3,7 @@ import py3Dmol
 import pytest
 from biotite.structure import AtomArray
 
+from cifutils.transforms.atom_array import is_any_coord_nan
 from cifutils.utils.visualize import view
 
 
@@ -113,7 +114,7 @@ def test_view_pymol_remote(sample_atom_array):
     assert obj_name in session.get_object_list(), "Object not found in PyMOL session"
     session.get_state(obj_name, format="cif")
 
-    _is_nan_coords = np.isnan(array.coord).any(axis=1)
+    _is_nan_coords = is_any_coord_nan(array)
 
     array_not_nan = array[~_is_nan_coords]
     loaded_array = load_any(StringIO(session.get_state(obj_name, format="cif")), model=1)

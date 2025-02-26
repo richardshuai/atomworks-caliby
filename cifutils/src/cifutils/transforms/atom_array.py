@@ -38,6 +38,19 @@ def subset_atom_array(atom_array: AtomArray | AtomArrayStack, keep: np.ndarray) 
         return atom_array[keep]
 
 
+def is_any_coord_nan(atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
+    """Returns a boolean mask of shape [n_atoms] indicating whether any coordinate is NaN for each atom in the AtomArray or AtomArrayStack."""
+    if isinstance(atom_array, AtomArrayStack):
+        return np.isnan(atom_array.coord).any(axis=(0, -1))
+    else:
+        return np.isnan(atom_array.coord).any(axis=-1)
+
+
+def remove_nan_coords(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+    """Returns a copy of the AtomArray or AtomArrayStack with rows where any coordinate is NaN removed."""
+    return subset_atom_array(atom_array, ~is_any_coord_nan(atom_array))
+
+
 def remove_ccd_components(
     atom_array: AtomArray | AtomArrayStack, ccd_codes_to_remove: list[str]
 ) -> AtomArray | AtomArrayStack:
@@ -188,7 +201,7 @@ def maybe_fix_non_polymer_at_symmetry_center(
     atom_array = atom_array_stack[0]
 
     # Filter to only atoms with coordinates to avoid non-physical clashes at the origin
-    resolved_atom_array = atom_array[(atom_array.occupancy > 0) & (~np.isnan(atom_array.coord).any(axis=-1))]
+    resolved_atom_array = atom_array[(atom_array.occupancy > 0) & (~is_any_coord_nan(atom_array))]
 
     if not np.any(~resolved_atom_array.is_polymer):
         return atom_array_stack  # Early exit

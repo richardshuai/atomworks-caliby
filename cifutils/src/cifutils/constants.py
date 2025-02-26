@@ -591,3 +591,12 @@ WARNING: It is important that this remains a tuple, as it is used by `np.isin`
 
 PEPTIDE_MAX_RESIDUES: Final[int] = 20
 """The maximum number of residues until which we consider a protein-like sequence to be a peptide."""
+
+PDB_ISOTOPE_SYMBOL_TO_ELEMENT_SYMBOL: Final[dict[str, str]] = {
+    "D": "H",
+    "T": "H",
+}
+"""Map isotopes symbols used in the PDB to the element symbols.
+
+NOTE: Other isotopes like 14C do not have a special symbol in the PDB.
+"""
