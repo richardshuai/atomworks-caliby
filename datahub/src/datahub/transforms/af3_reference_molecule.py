@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import toolz
@@ -29,14 +29,19 @@ KNOWN_CCD_CODES = get_available_ccd_codes() - {UNKNOWN_LIGAND}
 
 
 def _get_rdkit_mols_with_conformers(
-    res_stochiometry: dict[str, int], timeout_seconds: float = 10.0, **generate_conformers_kwargs
+    res_stochiometry: dict[str, int],
+    timeout: float | None = 10.0,
+    timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
+    **generate_conformers_kwargs,
 ) -> dict[str, Chem.Mol]:
-    """Generate RDKit molecules with conformers for each residue (given the counts in `res_stochiometry`).
+    """Generate RDKit molecules with conformers for each residue in bulk (given the counts in `res_stochiometry`).
 
     Args:
         res_stochiometry (dict[str, int]): A dictionary mapping residue names to their count.
-        timeout_seconds (float, optional): Maximum time allowed for conformer generation per residue.
-            Defaults to 10.0 seconds.
+        timeout (float | None): The timeout for the automorphism search. If None, no timeout is applied and
+            the timeout strategy is ignored (no subprocesses will be spawned). Defaults to 10.0 seconds.
+        timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
+            Defaults to "subprocess".
         **generate_conformers_kwargs: Additional keyword arguments to pass to the
             generate_conformers function.
 
@@ -57,22 +62,11 @@ def _get_rdkit_mols_with_conformers(
             ref_mols[res_name] = None  # placeholder so that the unknown CCD codes are still counted later on
             continue
         mol = ccd_code_to_rdkit_with_conformers(
-            ccd_code=res_name, n_conformers=count, timeout_seconds=timeout_seconds, **generate_conformers_kwargs
+            ccd_code=res_name, n_conformers=count, timeout=timeout, **generate_conformers_kwargs
         )
         ref_mols[res_name] = mol
 
     return ref_mols
-
-
-def generate_conformer_for_unknown_ccd(
-    atom_array: AtomArray,
-    timeout_seconds: float = 10.0,
-    **generate_conformers_kwargs,
-):
-    atom_array = sample_rdkit_conformer_for_atom_array(
-        atom_array, timeout_seconds=timeout_seconds, **generate_conformers_kwargs
-    )
-    return atom_array
 
 
 def _encode_atom_names_like_af3(atom_names: np.ndarray) -> np.ndarray:
@@ -160,6 +154,7 @@ def get_af3_reference_molecule_features(
     should_generate_automorphisms_with_rdkit: bool = True,
     apply_random_rotation_and_translation: bool = True,
     use_element_for_atom_names_of_atomized_tokens: bool = False,
+    timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
     **generate_conformers_kwargs,
 ) -> dict[str, Any]:
     """Get AF3 reference features for each residue in the atom array.
@@ -167,10 +162,12 @@ def get_af3_reference_molecule_features(
     Args:
         - atom_array (AtomArray): The input atom array.
         - conformer_generation_timeout (float, optional): Maximum time allowed for conformer generation per residue.
-            Defaults to 10.0 seconds.
+            Defaults to 10.0 seconds. If None, no timeout is applied and the timeout strategy is ignored (no subprocesses will be spawned).
         - should_generate_automorphisms_with_rdkit (bool, optional): Whether to generate automorphisms using RDKit. For example,
             we may want to generate automorphisms directly with networkx instead. Defaults to True.
         - apply_random_rotation_and_translation (bool, optional): Whether to apply a random rotation and translation to each conformer (AF-3-style)
+        - timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
+            Defaults to "subprocess".
         - **generate_conformers_kwargs: Additional keyword arguments to pass to the generate_conformers function.
 
     Returns:
@@ -208,8 +205,9 @@ def get_af3_reference_molecule_features(
     # (We do not generate conformers for unknown CCD codes here, as we will do that later)
     ref_mols = _get_rdkit_mols_with_conformers(
         res_stochiometry=res_stochiometry,
-        timeout_seconds=conformer_generation_timeout,
         hydrogen_policy="auto" if _has_explicit_hydrogens else "remove",
+        timeout=conformer_generation_timeout,
+        timeout_strategy=timeout_strategy,
         **generate_conformers_kwargs,
     )
 
@@ -221,10 +219,10 @@ def get_af3_reference_molecule_features(
             res_name = _res_names[res_index]
 
             unknown_ccd_conformers[res_name].append(
-                generate_conformer_for_unknown_ccd(
+                sample_rdkit_conformer_for_atom_array(
                     atom_array[_res_starts[res_index] : _res_ends[res_index]],
-                    timeout_seconds=conformer_generation_timeout,
-                    hydrogen_policy="auto",
+                    timeout=conformer_generation_timeout,
+                    timeout_strategy=timeout_strategy,
                     **generate_conformers_kwargs,
                 )
             )

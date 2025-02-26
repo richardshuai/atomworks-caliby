@@ -13,11 +13,11 @@ import signal
 import time
 from enum import Enum
 from functools import wraps
-from multiprocessing import Process, Queue
+from multiprocessing import Queue
 from typing import Any, Callable, Literal
 
 
-def timeout(default_timeout: float | int | None = None, strategy: Literal["signal", "subprocess"] = "subprocess"):
+def timeout(timeout: float | int | None = None, strategy: Literal["signal", "subprocess"] = "subprocess"):
     """
     Decorator to apply a timeout to a function.
 
@@ -25,44 +25,73 @@ def timeout(default_timeout: float | int | None = None, strategy: Literal["signa
     (e.g. with some C dependencies like RDKit, on certain operating systems).
     The `subprocess` strategy is always available, but slightly slower and with a higher overhead.
     """
-
-    assert strategy in ["signal", "subprocess"]
-
+    if timeout is None:
+        return do_nothing()
     match strategy:
         case "signal":
             # timeout based on signal module
-            return _build_timeout_using_signal_decorator(default_timeout)
+            return timeout_using_signal(timeout)
         case "subprocess":
             # timeout based on subprocess module
-            return _build_timeout_using_subprocess_decorator(default_timeout)
+            return timeout_using_subprocess(timeout)
         case _:
             raise ValueError(f"Invalid strategy: {strategy}. Must be 'signal' or 'subprocess'.")
 
 
-def _build_timeout_using_signal_decorator(default_timeout: float | int | None) -> Callable:
+def do_nothing(*args, **kwargs) -> Callable:
+    """
+    A decorator that does nothing and simply returns the original function.
+
+    This decorator can be used as a placeholder or for testing purposes when you want
+    to conditionally apply decorators without changing the code structure.
+
+    Returns:
+        Callable: A decorator function that returns the original function unchanged.
+
+    Example:
+        ```python
+        @do_nothing_decorator()
+        def my_function():
+            return "Hello, World!"
+
+
+        # or:
+        do_nothing(bla=123, blub=456)(my_function)
+        ```
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapped_func(*args: Any, **kwargs: Any) -> Any:
+            return func(*args, **kwargs)
+
+        return wrapped_func
+
+    return decorator
+
+
+def timeout_using_signal(timeout: float | int | None) -> Callable:
     """
     Build a decorator that applies a timeout to a function using the signal module.
 
     This decorator sets up a signal handler to raise a TimeoutError if the decorated function
     exceeds the specified timeout duration. It uses the SIGALRM signal to implement the timeout.
 
+    Use for example as:
+    ```python
+    result = timeout_using_signal(timeout=10.0)(my_function)(*args, **kwargs)
+    ```
+
     Args:
-        - default_timeout (float | int | None): The default timeout duration in seconds.
+        timeout (float | int | None): The timeout duration in seconds.
 
     Returns:
-        - Callable: A decorator function that can be applied to other functions to add timeout functionality.
+        Callable: A decorator function that can be applied to other functions to add timeout functionality.
     """
 
     def decorate(func):
         @wraps(func)
         def wrapped_func(*args, **kwargs):
-            # ... allow overriding the timeout with a keyword argument
-            seconds = kwargs.pop("timeout", default_timeout)
-
-            # no timeout
-            if seconds is None:
-                return func(*args, **kwargs)
-
             _start_time = time.time()
 
             def _timeout_handler(*_):
@@ -73,7 +102,7 @@ def _build_timeout_using_signal_decorator(default_timeout: float | int | None) -
             # ... set the timeout handler and record the prior handler to restore later
             _prior_handler = signal.signal(signal.SIGALRM, _timeout_handler)
             # ... start the timer
-            signal.setitimer(signal.ITIMER_REAL, seconds)
+            signal.setitimer(signal.ITIMER_REAL, timeout)
             try:
                 return func(*args, **kwargs)
             finally:
@@ -89,7 +118,7 @@ def _build_timeout_using_signal_decorator(default_timeout: float | int | None) -
 
 def _timeout_handler(queue: Queue, func: Callable, args: Any, kwargs: Any) -> None:
     """
-    Util function to be used only in `_build_timeout_using_subprocess_decorator`.
+    Util function to be used only in `timeout_using_subprocess`.
     This util function is in the outer scope to allow pickling during ddp multiprocessing.
     """
     try:
@@ -99,7 +128,7 @@ def _timeout_handler(queue: Queue, func: Callable, args: Any, kwargs: Any) -> No
         queue.put((_TimeoutHandlerStatus.EXCEPTION, e))
 
 
-def _build_timeout_using_subprocess_decorator(default_timeout: float | int | None) -> Callable:
+def timeout_using_subprocess(timeout: float | int | None) -> Callable:
     """Force function to timeout after specified time.
 
     The returned decorator uses a subprocess to execute the function, allowing for timeout
@@ -119,30 +148,26 @@ def _build_timeout_using_subprocess_decorator(default_timeout: float | int | Non
     def decorator(func):
         @wraps(func)
         def wrapped_func(*args, **kwargs):
-            # ... allow overriding the timeout with a keyword argument
-            seconds = kwargs.pop("timeout", default_timeout)
-
-            # no timeout
-            if seconds is None:
-                return func(*args, **kwargs)
-
-            queue = Queue()
+            # NOTE: 'fork' context is useful to speed up the timeout handling,
+            #  as using 'spawn' instead will re-trigger imports that are needed to run the function
+            #  and understand the context in which it is used in, which can be slow.
+            ctx = multiprocessing.get_context("fork")
+            queue = ctx.Queue()
 
             # ... create subprocess to run the function
-            proc = Process(target=_timeout_handler, args=(queue, func, args, kwargs), daemon=True)
-
+            proc = ctx.Process(target=_timeout_handler, args=(queue, func, args, kwargs), daemon=True)
             # ... start the subprocess (ensure it is not a daemon to allow doing this in multiprocessing)
             with _AllowSubprocessForDeamonicProcess():
                 proc.start()
 
             # ... wait for the subprocess to finish and check if it timed out
-            proc.join(timeout=float(seconds))
+            proc.join(timeout=float(timeout))
 
             # ... if the subprocess is still running, terminate it and raise a TimeoutError
             if proc.is_alive():
                 proc.terminate()
                 proc.join()
-                raise TimeoutError(f"Function {func} timed out after {seconds} seconds")
+                raise TimeoutError(f"Function {func} timed out after {timeout} seconds")
 
             # ... try retrieving the result, if available
             try:

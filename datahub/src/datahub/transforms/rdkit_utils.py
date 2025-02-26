@@ -24,7 +24,7 @@ from datahub.transforms._checks import (
     check_nonzero_length,
 )
 from datahub.transforms.base import Transform
-from datahub.utils.timeout import timeout as timeout_decorator
+from datahub.utils import timer
 
 logger = logging.getLogger(__name__)
 # ... disable RDKit logging
@@ -41,8 +41,12 @@ def _has_explicit_hydrogen(mol: Chem.Mol) -> bool:
     return mol.GetNumAtoms() > mol.GetNumHeavyAtoms()
 
 
+def _get_random_seed() -> int:
+    """Get a random seed for RDKit. This needs to be a python 'int' to play well with RDKit."""
+    return int(np.random.randint(0, 2**31 - 1))
+
+
 @preserve_annotations
-@timeout_decorator(strategy="subprocess")
 def generate_conformers(
     mol: Mol,
     *,
@@ -135,7 +139,7 @@ def generate_conformers(
     # Setup the parameters for the coordinate embedding
     params = getattr(rdDistGeom, method)()
     params.clearConfs = True
-    params.randomSeed = default(seed, -1)
+    params.randomSeed = seed or _get_random_seed()
     params.enforceChirality = True
     params.useRandomCoords = False
     params.numThreads = num_threads
@@ -170,7 +174,6 @@ def generate_conformers(
 
 
 @preserve_annotations
-@timeout_decorator(strategy="subprocess")
 def optimize_conformers(
     mol: Mol,
     numThreads: int = 1,
@@ -258,7 +261,10 @@ def get_chiral_centers(mol: Mol) -> list[int]:
 
 
 def find_automorphisms_with_rdkit(
-    mol: Chem.Mol, max_automorphs: int = 1000, timeout: float | None = None
+    mol: Chem.Mol,
+    max_automorphs: int = 1000,
+    timeout: float | None = None,
+    timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
 ) -> np.ndarray:
     """
     Find automorphisms of a given RDKit molecule.
@@ -275,7 +281,10 @@ def find_automorphisms_with_rdkit(
             to be used (as done in this transform) as a model might otherwise be nudged towards a specific
             automorph in one training step, but that automorph then does not show up in the next training
             step, leading to a moving target problem.
-
+        timeout (float | None): The timeout for the automorphism search. If None, no timeout is applied and
+            the timeout strategy is ignored (no subprocesses will be spawned).
+        timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
+            Defaults to "subprocess".
     Returns:
         automorphs (np.ndarray): A numpy array of shape [n_automorphs, n_atoms, 2], where each element
             represents an automorphism as list of paired atom indices (from_idx, to_idx).
@@ -316,7 +325,7 @@ def find_automorphisms_with_rdkit(
     #  (c.f. https://sourceforge.net/p/rdkit/mailman/message/27902778/)
     #  but this would require using an underlying graph librarly like nauty to determine the automorphisms of
     #  the coloured graph. Until we run into performance issues, we will stick with the current approach.
-    @timeout_decorator(default_timeout=timeout, strategy="subprocess")
+    @timer.timeout(timeout=timeout, strategy=timeout_strategy)
     def _find_automorphisms() -> tuple:
         return mol.GetSubstructMatches(mol, uniquify=False, maxMatches=max_automorphs, useChirality=False)
 
@@ -337,17 +346,29 @@ def find_automorphisms_with_rdkit(
     return np.stack([identity, automorphs], axis=-1)
 
 
-@timeout_decorator(strategy="subprocess")
 def sample_rdkit_conformer_for_atom_array(
     atom_array: AtomArray,
     n_conformers: int = 1,
-    timeout_seconds: float = 2.0,
+    seed: int | None = None,
+    timeout: float | None = 2.0,
+    timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
     **generate_conformers_kwargs,
 ) -> AtomArray:
     """Sample a conformer for a Biotite AtomArray using RDKit.
 
     Args:
         - atom_array (AtomArray): The Biotite AtomArray to sample a conformer for.
+        - n_conformers (int): The number of conformers to sample.
+        - timeout (float | None): The timeout for conformer generation. If None,
+            no timeout is applied.
+        - seed (int | None): The seed for conformer generation. If None, a random seed
+            is generated using the global numpy RNG.
+        - timeout (float | None): The timeout for the automorphism search. If None, no timeout is applied and
+            the timeout strategy is ignored (no subprocesses will be spawned).
+        - timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
+            Defaults to "subprocess".
+        - **generate_conformers_kwargs: Additional keyword arguments to pass to the
+            generate_conformers function.
 
     Returns:
         - AtomArray: The AtomArray with updated coordinates from the sampled conformer.
@@ -355,12 +376,18 @@ def sample_rdkit_conformer_for_atom_array(
     Note:
         This function preserves the original atom order and properties of the input AtomArray.
     """
+    seed = seed or _get_random_seed()
     atom_array = atom_array.copy()
     mol = atom_array_to_rdkit(atom_array, hydrogen_policy="keep")
+    # ... remove RDKit's conformer if there is one
+    if mol.GetNumConformers() > 0:
+        mol.RemoveAllConformers()
+
+    generate_conformers_with_timeout = timer.timeout(timeout=timeout, strategy=timeout_strategy)(generate_conformers)
 
     set_coord_if_available = True
     try:
-        mol = generate_conformers(mol, n_conformers=n_conformers, timeout=timeout_seconds, **generate_conformers_kwargs)
+        mol = generate_conformers_with_timeout(mol, n_conformers=n_conformers, seed=seed, **generate_conformers_kwargs)
     except (TimeoutError, RuntimeError):
         set_coord_if_available = False
         logger.warning(f"Failed to generate conformers for {atom_array.res_name[0]}. Falling back to zeros.")
@@ -381,7 +408,13 @@ def sample_rdkit_conformer_for_atom_array(
 
 
 def ccd_code_to_rdkit_with_conformers(
-    ccd_code: str, n_conformers: int, *, timeout_seconds: float = 2.0, **generate_conformers_kwargs
+    ccd_code: str,
+    n_conformers: int,
+    *,
+    seed: int | None = None,
+    timeout: float | None = 2.0,
+    timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
+    **generate_conformers_kwargs,
 ) -> Chem.Mol:
     """
     Generate an RDKit molecule with conformers for a given residue name.
@@ -394,8 +427,12 @@ def ccd_code_to_rdkit_with_conformers(
     Args:
         ccd_code (str): The CCD code to generate conformers for. E.g. 'ALA' or 'GLY', '9RH' etc.
         n_conformers (int): The number of conformers to generate for the given CCD code.
-        timeout_seconds (float, optional): The maximum time allowed for conformer generation.
-            Defaults to 10.0 seconds, which is sufficient for most residues.
+        seed (int | None, optional): The seed for conformer generation. If None, a random seed
+            is generated using the global numpy RNG.
+        timeout (float | None): The timeout for the automorphism search. If None, no timeout is applied and
+            the timeout strategy is ignored (no subprocesses will be spawned).
+        timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
+            Defaults to "subprocess".
         **generate_conformers_kwargs: Additional keyword arguments to pass to the
             generate_conformers function.
 
@@ -409,8 +446,10 @@ def ccd_code_to_rdkit_with_conformers(
     idealized_conformer = Chem.Conformer(mol.GetConformer(0))  # creates a copy
 
     # ... try generating `count` conformers within a given time limit
+    generate_conformers_with_timeout = timer.timeout(timeout=timeout, strategy=timeout_strategy)(generate_conformers)
     try:
-        mol = generate_conformers(mol, n_conformers=n_conformers, timeout=timeout_seconds, **generate_conformers_kwargs)
+        seed = seed or _get_random_seed()
+        mol = generate_conformers_with_timeout(mol, n_conformers=n_conformers, seed=seed, **generate_conformers_kwargs)
     except (TimeoutError, RuntimeError) as e:
         logger.warning(
             f"Failed to generate conformers for {ccd_code=}. Falling back to idealized conformer from the CCD. Error message: {e}"
@@ -559,11 +598,11 @@ class GenerateRDKitConformers(Transform):
         for pn_unit_iid, rdmol in data["rdkit"].items():
             try:
                 # Generate a random seed using numpy's global RNG
-                random_seed = np.random.randint(0, 2**16 - 1)
+                seed = np.random.randint(0, 2**16 - 1)
 
                 rdmol_with_conformers = generate_conformers(
                     rdmol,
-                    seed=random_seed,
+                    seed=seed,
                     n_conformers=self.n_conformers,
                     hydrogen_policy="auto",
                     optimize=self.optimize_conformers,

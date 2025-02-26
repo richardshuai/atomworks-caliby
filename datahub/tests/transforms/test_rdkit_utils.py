@@ -121,7 +121,7 @@ def test_sample_rdkit_conformer_consistency(test_atom_array):
 )  # Ignore RDKit warnings about fork in subprocess: popen_fork.py:66: DeprecationWarning: This process (pid=145252) is multi-threaded, use of fork() may lead to deadlocks in the child.
 def test_conformer_generation_for_simple_molecules():
     start = time.time()
-    mol = ccd_code_to_rdkit_with_conformers("ALA", n_conformers=3, timeout_seconds=2)
+    mol = ccd_code_to_rdkit_with_conformers("ALA", n_conformers=3, timeout=2)
     end = time.time()
     assert mol.GetNumConformers() == 3
     _time_taken = end - start
@@ -133,7 +133,7 @@ def test_conformer_generation_for_simple_molecules():
 )  # Ignore RDKit warnings about fork in subprocess: popen_fork.py:66: DeprecationWarning: This process (pid=145252) is multi-threaded, use of fork() may lead to deadlocks in the child.
 def test_conformer_fallback_for_challenging_molecules():
     start = time.time()
-    mol = ccd_code_to_rdkit_with_conformers("HEM", n_conformers=3, timeout_seconds=2)
+    mol = ccd_code_to_rdkit_with_conformers("HEM", n_conformers=3, timeout=2)
     end = time.time()
     assert mol.GetNumConformers() == 3
     _time_taken = end - start
@@ -145,6 +145,34 @@ def test_conformer_generation_for_molecules_with_many_rotatable_bonds():
     mol = Chem.MolFromSmiles("CCCCCCCC[N+](CCCCCCCC)(CCCCCCCC)CCCCCCCC")
     mol_with_conf = generate_conformers(mol, seed=42, n_conformers=10, hydrogen_policy="auto", optimize=True)
     assert mol_with_conf.GetNumConformers() == 10
+
+
+CHIRAL_TEST_CASES = {
+    "ALA": [(1, "S")],
+    "DCY": [(1, "S")],
+    "GLY": [],  # Glycine has no chiral centers
+    "CYS": [(1, "R")],
+    "ILE": [(1, "S"), (4, "S")],
+    "THR": [(1, "S"), (4, "R")],
+}
+
+
+@pytest.mark.parametrize("ccd_code, target_chirality", CHIRAL_TEST_CASES.items())
+@pytest.mark.parametrize("strategy", ["signal", "subprocess"])
+def test_chirality_in_rdkit_conformer_generation(ccd_code, target_chirality, strategy):
+    np.random.seed(42)
+    n_iterations = 10
+    prev_coord = 0.0
+    for i in range(n_iterations):
+        mol = ccd_code_to_rdkit_with_conformers(ccd_code, n_conformers=1, timeout=2, strategy=strategy)
+        coord = mol.GetConformer(0).GetPositions()[0][0]
+        assert (
+            coord != prev_coord
+        ), f"Conformer {i} has the same coordinate as the previous conformer: {coord} at iteration {i}/{n_iterations}."
+        prev_coord = coord
+        assert (
+            Chem.FindMolChiralCenters(mol) == target_chirality
+        ), f"Chiral center assignment is incorrect for {ccd_code} at iteration {i}/{n_iterations}."
 
 
 if __name__ == "__main__":

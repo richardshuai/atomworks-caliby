@@ -2,11 +2,11 @@ import time
 
 import pytest
 
-from datahub.utils.timeout import timeout
+from datahub.utils.timer import timeout
 
 
 def test_timeout_wrapper_no_timeout():
-    @timeout(default_timeout=2)
+    @timeout(timeout=2)
     def fast_function():
         return "Success"
 
@@ -14,7 +14,7 @@ def test_timeout_wrapper_no_timeout():
 
 
 def test_timeout_wrapper_with_timeout():
-    @timeout(default_timeout=0.1)
+    @timeout(timeout=0.1)
     def slow_function():
         time.sleep(0.5)
         return "This should not be returned"
@@ -24,7 +24,7 @@ def test_timeout_wrapper_with_timeout():
 
 
 def test_timeout_wrapper_disable_timeout():
-    @timeout(default_timeout=None)
+    @timeout(timeout=None)
     def slow_function():
         time.sleep(0.5)
         return "Success"
@@ -33,7 +33,7 @@ def test_timeout_wrapper_disable_timeout():
 
 
 def test_timeout_wrapper_signal_strategy():
-    @timeout(default_timeout=0.1, strategy="signal")
+    @timeout(timeout=0.1, strategy="signal")
     def slow_function():
         time.sleep(0.5)
 
@@ -42,7 +42,7 @@ def test_timeout_wrapper_signal_strategy():
 
 
 def test_timeout_wrapper_subprocess_strategy():
-    @timeout(default_timeout=0.1, strategy="subprocess")
+    @timeout(timeout=0.1, strategy="subprocess")
     def slow_function():
         time.sleep(0.5)
 
@@ -51,9 +51,9 @@ def test_timeout_wrapper_subprocess_strategy():
 
 
 def test_timeout_wrapper_invalid_strategy():
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
 
-        @timeout(default_timeout=1, strategy="invalid")
+        @timeout(timeout=1, strategy="invalid")
         def function():
             pass
 
@@ -66,7 +66,7 @@ def test_timeout_on_rdkit():
     HEM_SMILES = "Cc1c2n3c(c1CCC(=O)O)C=C4C(=C(C5=[N]4[Fe]36[N]7=C(C=C8N6C(=C5)C(=C8C)C=C)C(=C(C7=C2)C)C=C)C)CCC(=O)O"
     mol = Chem.MolFromSmiles(HEM_SMILES)
 
-    @timeout(default_timeout=0.5, strategy="subprocess")
+    @timeout(timeout=0.5, strategy="subprocess")
     def generate_conformers(mol):
         # ... takes about 2 seconds to run
         mol = Chem.AddHs(mol)
