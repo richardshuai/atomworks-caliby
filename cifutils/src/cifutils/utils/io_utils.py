@@ -85,13 +85,28 @@ def load_any(
     file_or_buffer: os.PathLike | io.StringIO | io.BytesIO,
     file_type: Literal["cif", "mmcif", "pdbx", "pdb", "pdb1", "bcif"] | None = None,
     *,
-    extra_fields: list[str] = [],
+    extra_fields: list[str] | Literal["all"] = [],
     include_bonds: bool = True,
     model: int | None = None,
     altloc: Literal["first", "occupancy", "all"] = "occupancy",
 ) -> AtomArrayStack | AtomArray:
     """
     Convenience function for loading a structure from a file or buffer.
+
+    Args:
+        - file_or_buffer: Path to the file or buffer to load the structure from.
+        - file_type: Type of the file to load. If None, it will be inferred.
+        - extra_fields: List of extra fields to include as AtomArray annotations.
+            If "all", all fields in the 'atom_site' category of the file will be included.
+        - include_bonds: Whether to include bonds in the structure.
+        - model: The model number to use for loading the structure. If None, all models will be loaded.
+        - altloc: The altloc ID to use for loading the structure.
+
+    Returns:
+        AtomArrayStack: The loaded structure with the specified fields and assumptions.
+
+    Reference:
+        Biotite documentation (https://www.biotite-python.org/apidoc/biotite.structure.io.pdbx.get_structure.html#biotite.structure.io.pdbx.get_structure)
     """
     file_obj = read_any(file_or_buffer, file_type=file_type)
     return get_structure(
@@ -106,7 +121,7 @@ def load_any(
 def get_structure(
     file_obj: pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile | pdbx.CIFBlock,
     *,
-    extra_fields: list[str] = [],
+    extra_fields: list[str] | Literal["all"] = [],
     include_bonds: bool = True,
     model: int | None = None,
     altloc: Literal["first", "occupancy", "all"] = "occupancy",
@@ -116,7 +131,8 @@ def get_structure(
 
     Args:
        - file_obj (pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile): The file object to load with Biotite.
-       - extra_fields (list): List of extra fields to include as AtomArray annotations.
+       - extra_fields (list | Literal["all"]): List of extra fields to include as AtomArray annotations.
+            If "all", all fields in the 'atom_site' category of the file will be included.
        - model (int): The model number to use for loading the structure.
        - altloc (Literal["first", "occupancy", "all"]): The altloc ID to use for loading the structure.
 
@@ -131,6 +147,8 @@ def get_structure(
             # Filter extra annotations to fields that are actually present in the file
             if not isinstance(file_obj, pdbx.CIFBlock):
                 cif_block = file_obj.block
+            if extra_fields == "all":
+                extra_fields = list(cif_block["atom_site"].keys())
             extra_fields = _filter_extra_fields(extra_fields, cif_block["atom_site"])
 
             atom_array_stack = pdbx.get_structure(

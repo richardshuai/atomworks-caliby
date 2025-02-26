@@ -38,6 +38,29 @@ def test_af2_predicted_pdb_example():
     assert result is not None
 
 
+def test_af3_cond_design_cif_example():
+    result = parse(
+        filename=DIR / "example_conditional_generation_output.cif",
+        add_missing_atoms=False,
+        extra_fields="all",
+    )
+    # Check if processing runs through
+    assert result is not None
+
+    atom_array = result["assemblies"]["1"][0]
+    assert atom_array.condition_motif_index is not None
+    assert atom_array.condition_coords_gt_x is not None
+
+    result = parse(
+        filename=DIR / "example_conditional_generation_output.cif",
+        add_missing_atoms=False,
+        extra_fields=["condition_coords_gt_x"],
+    )
+    atom_array = result["assemblies"]["1"][0]
+    assert atom_array.condition_coords_gt_x is not None
+    assert "condition_coords_gt_y" not in atom_array._annot
+
+
 def test_bcif_example():
     result = parse(
         filename=DIR / "6lyz.bcif",

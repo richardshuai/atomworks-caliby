@@ -63,6 +63,7 @@ def parse(
     hydrogen_policy: Literal["keep", "remove", "infer"] = "keep",
     model: int | None = None,
     build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
+    extra_fields: list[str] | Literal["all"] | None = None,
 ) -> dict[str, Any]:
     """Entrypoint for general parsing of atomic-level structure files.
 
@@ -121,6 +122,8 @@ def parse(
             Defaults to all models (None).
         build_assembly (string, list, or tuple, optional): Specifies which assembly to build, if any. Options are None
             (e.g., asymmetric unit), "first", "all", or a list or tuple of assembly IDs. Defaults to "all".
+        extra_fields (list, optional): A list of extra fields to include in the AtomArrayStack. Defaults to None. "all" includes all fields.
+            only support cif files.
 
     Returns:
         dict: A dictionary containing the following keys:
@@ -238,6 +241,7 @@ def parse(
             hydrogen_policy=hydrogen_policy,
             model=model,
             build_assembly=build_assembly,
+            extra_fields=extra_fields,
         )
     else:
         raise ValueError(f"Unsupported file type: {filename}")
@@ -287,6 +291,12 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         "occupancy",
         "charge",
     ]
+
+    if kwargs["extra_fields"] is not None:
+        if kwargs["extra_fields"] != "all":
+            common_extra_fields += kwargs["extra_fields"]
+        else:
+            common_extra_fields = "all"
 
     try:
         asym_unit_stack = get_structure(
@@ -371,6 +381,12 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         # ... add any atoms that should be there based on the sequence information
         #     but may not be resolved. These will have occupancy 0.0 and `nan` coords.
         if kwargs["add_missing_atoms"]:
+            if kwargs["extra_fields"] is not None:
+                logger.warning(
+                    "Adding missing atoms will erase extra fields. If you just want to load a structure with the given extra fields, "
+                    "you should probably use the much faster 'load_any' function from cifutils.utils.io_utils instead of 'parse'. "
+                    "Parse is meant for cleaning up structures from the RCSB PDB."
+                )
             atom_array = template.add_missing_atoms(
                 atom_array,
                 chain_info_dict=data_dict["chain_info"],
@@ -510,6 +526,7 @@ def _parse_from_pdb(filename: os.PathLike, **parse_from_cif_kwargs) -> dict[str,
 
     # ...parse the CIF block into a dictionary
     parse_from_cif_kwargs["file_type"] = "pdb"
+    parse_from_cif_kwargs["extra_fields"] = None
     return _parse_from_cif(filename=cif_buffer, **parse_from_cif_kwargs)
 
 
