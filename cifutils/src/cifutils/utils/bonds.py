@@ -323,7 +323,7 @@ def get_struct_conn_bonds(
 
         if ((not in_res1.any()) or (not in_res2.any())) and raise_on_failure:
             raise ValueError(
-                f"Residue {chain_id1}:{res_id1}:{res_name1} or {chain_id2}:{res_id2}:{res_name2} "
+                f"Residue {chain_id1}/{res_id1}/{res_name1} or {chain_id2}/{res_id2}/{res_name2} "
                 "not found in the atom array!"
             )
         in_res1_start = global_atom_idx[in_res1][0]
@@ -340,14 +340,14 @@ def get_struct_conn_bonds(
         ):
             # skip, but warn
             logger.info(
-                f"Covalent bond involving residues {chain_id1}:{res_id1}:{res_name1} and "
-                f"{chain_id2}:{res_id2}:{res_name2} was found in `struct_conn`, but the "
+                f"Covalent bond involving residues {chain_id1}/{res_id1}/{res_name1} and "
+                f"{chain_id2}/{res_id2}/{res_name2} was found in `struct_conn`, but the "
                 f"residues are not present in the atom array. This is likely due to "
                 f"resolved sequence heterogeneity which removed one of the residues."
             )
             if raise_on_failure:
                 raise ValueError(
-                    f"Residue {chain_id1}:{res_id1}:{res_name1} or {chain_id2}:{res_id2}:{res_name2} "
+                    f"Residue {chain_id1}/{res_id1}/{res_name1} or {chain_id2}/{res_id2}/{res_name2} "
                     "not found in the atom array!"
                 )
             continue
@@ -647,7 +647,14 @@ def spoof_struct_conn_dict_from_string(bonds: list[tuple[str, str]]) -> dict[str
     Args:
         bonds (list[tuple[str, str]]): A list of bond strings.
             Each bond string should be in the format:
-            "CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME, CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME"
+            "CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME, CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME"
+
+            In PyMol, you can hover over an atom to display the relevant information.
+            For example, clicking a CA atom in PyMol prints in the console:
+            ```
+            >>>  You clicked /6wtf/A/A/ALA`294/CA
+            ```
+            We could then copy this information to specify an atom, "A/ALA/294/CA"
 
     Returns:
         dict[str, list[str]]: A dictionary in struct_conn format.
@@ -655,8 +662,8 @@ def spoof_struct_conn_dict_from_string(bonds: list[tuple[str, str]]) -> dict[str
     Example:
         ```
         >>> bonds = [
-        ...     ("A:THR:4:CG", "D:UNL:1:C5"),
-        ...     ("A:CYS:5:SG", "A:CYS:137:SG")
+        ...     ("A/THR/4/CG", "D/UNL/1/C5"),
+        ...     ("A/CYS/5/SG", "A/CYS/137/SG")
         ... ]
         >>> struct_conn_dict = spoof_struct_conn_dict_from_string(bonds)
         >>> print(struct_conn_dict)
@@ -692,14 +699,14 @@ def spoof_struct_conn_dict_from_string(bonds: list[tuple[str, str]]) -> dict[str
             ptnr1, ptnr2 = bond
 
             # Parse the first partner
-            ptnr1_chain_id, ptnr1_res_name, ptnr1_res_id, ptnr1_atom_name = ptnr1.split(":")
+            ptnr1_chain_id, ptnr1_res_name, ptnr1_res_id, ptnr1_atom_name = ptnr1.split("/")
             struct_conn_dict["ptnr1_label_asym_id"].append(ptnr1_chain_id)
             struct_conn_dict["ptnr1_label_comp_id"].append(ptnr1_res_name)
             struct_conn_dict["ptnr1_label_seq_id"].append(ptnr1_res_id)
             struct_conn_dict["ptnr1_label_atom_id"].append(ptnr1_atom_name)
 
             # Parse the second partner
-            ptnr2_chain_id, ptnr2_res_name, ptnr2_res_id, ptnr2_atom_name = ptnr2.split(":")
+            ptnr2_chain_id, ptnr2_res_name, ptnr2_res_id, ptnr2_atom_name = ptnr2.split("/")
             struct_conn_dict["ptnr2_label_asym_id"].append(ptnr2_chain_id)
             struct_conn_dict["ptnr2_label_comp_id"].append(ptnr2_res_name)
             struct_conn_dict["ptnr2_label_seq_id"].append(ptnr2_res_id)

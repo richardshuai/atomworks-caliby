@@ -105,7 +105,8 @@ def dict_inputs():
 @pytest.fixture
 def bonds():
     # Bond between the two NAG residues (O4 and C1 atoms) and NAG and the protein (ND2 on ASN and C1 on NAG)
-    return [("F:NAG:1:O4", "G:NAG:1:C1"), ("A:ASN:19:ND2", "F:NAG:1:C1")]
+    # For details on the bond API, see `bonds.py`
+    return [("F/NAG/1/O4", "G/NAG/1/C1"), ("A/ASN/19/ND2", "F/NAG/1/C1")]
 
 
 @pytest.fixture

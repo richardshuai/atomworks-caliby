@@ -12,7 +12,8 @@ import numpy as np
 from biotite.structure import AtomArray
 
 import cifutils.transforms.atom_array as ta
-from cifutils.common import KeyToIntMapper, exists
+from cifutils import parse
+from cifutils.common import KeyToIntMapper
 from cifutils.constants import (
     CCD_MIRROR_PATH,
     PEPTIDE_MAX_RESIDUES,
@@ -179,6 +180,7 @@ class SmilesComponent(LigandComponent):
     chain_type: ChainType | str = "non-polymer"
     is_polymer: bool = False
     chain_id: str | None = None
+    res_name: str = UNKNOWN_LIGAND
 
 
 @dataclass
@@ -187,12 +189,21 @@ class SDFComponent(LigandComponent):
     chain_type: ChainType | str = "non-polymer"
     is_polymer: bool = False
     chain_id: str | None = None
+    res_name: str = UNKNOWN_LIGAND
 
 
 @dataclass
 class CIFFileComponent(ChemicalComponent):
     path: os.PathLike | io.StringIO
     msa_paths: dict[str, os.PathLike] | None = None
+    assembly: int = "1"
+    model: int = 0
+
+    def __post_init__(self):
+        # Parse the file to set the AtomArray and extract the chain IDs
+        atom_array = parse(self.path, add_missing_atoms=False)["assemblies"][self.assembly][self.model]
+        self.chain_ids = np.unique(atom_array.chain_id)
+        self.atom_array = atom_array
 
 
 @dataclass
@@ -340,6 +351,7 @@ def smiles_to_annotated_atom_array(
     chain_type: ChainType | str = "non-polymer",
     is_polymer: bool = False,
     backend: Literal["openbabel", "rdkit"] = "rdkit",
+    res_name: str = UNKNOWN_LIGAND,
 ) -> AtomArray:
     if backend == "rdkit":
         from cifutils.tools.rdkit import atom_array_from_rdkit, smiles_to_rdkit
@@ -354,7 +366,7 @@ def smiles_to_annotated_atom_array(
     # Update annotations
     array.set_annotation("occupancy", np.ones(array.array_length()))
     array.set_annotation("hetero", np.full(array.array_length(), True))
-    array.set_annotation("res_name", np.full(array.array_length(), UNKNOWN_LIGAND))
+    array.set_annotation("res_name", np.full(array.array_length(), res_name))
     array.set_annotation("chain_id", np.full(array.array_length(), chain_id))
     array.set_annotation("is_polymer", np.full(array.array_length(), is_polymer))
     array.set_annotation("chain_type", np.full(array.array_length(), ChainType.as_enum(chain_type)))
@@ -371,6 +383,7 @@ def sdf_to_annotated_atom_array(
     *,
     chain_type: ChainType | str = "non-polymer",
     is_polymer: bool = False,
+    res_name: str = UNKNOWN_LIGAND,
     backend: Literal["openbabel", "rdkit"] = "rdkit",
 ) -> AtomArray:
     if backend == "rdkit":
@@ -386,7 +399,7 @@ def sdf_to_annotated_atom_array(
     # Update annotations
     array.set_annotation("occupancy", np.ones(array.array_length()))
     array.set_annotation("hetero", np.full(array.array_length(), True))
-    array.set_annotation("res_name", np.full(array.array_length(), UNKNOWN_LIGAND))
+    array.set_annotation("res_name", np.full(array.array_length(), res_name))
     array.set_annotation("chain_id", np.full(array.array_length(), chain_id))
     array.set_annotation("is_polymer", np.full(array.array_length(), is_polymer))
     array.set_annotation("chain_type", np.full(array.array_length(), ChainType.as_enum(chain_type)))
@@ -484,9 +497,9 @@ def components_to_atom_array(
         bonds (list[str]): List of tuples of atom ids to be bonded. We will add them like spoof `struct_conn` entries,
             ensuring that we remove leaving groups as appropriate. Bonds tuples must be in the format (1-indexed!):
             ```
-            (CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME, CHAIN_ID:RES_NAME:RES_ID:ATOM_NAME)
+            (CHAIN_ID / RES_NAME / RES_ID / ATOM_NAME, CHAIN_ID / RES_NAME / RES_ID / ATOM_NAME)
             ```
-            e.g., [("A:THR:4:CG", "D:UNL:0:O13"), ("A:CYS:5:SG",  "A:CYS:137:SG")]
+            e.g., [("A/THR/4/CG", "D/L:1/0/O13"), ("A/CYS/5/SG",  "A/CYS/137/SG")]
         return_components (bool): If True, return the components list as well as the AtomArray. Useful for e.g., mapping
             components to generated chain IDs or inferred chain types.
 
@@ -504,13 +517,25 @@ def components_to_atom_array(
         ChemicalComponent.from_dict(component) if isinstance(component, dict) else component for component in components
     ]
 
-    # Extract all chain ids
-    chain_ids = [component.chain_id for component in components if exists(component.chain_id)]
+    # Extract all assigned chain IDs
+    chain_ids = []
+    for component in components:
+        if hasattr(component, "chain_ids") and component.chain_ids:
+            chain_ids.extend(component.chain_ids)
+        elif hasattr(component, "chain_id") and component.chain_id:
+            chain_ids.append(component.chain_id)
+
     chain_id_generator = create_chain_id_generator(chain_ids)
 
     atom_arrays = []
     ligand_hash_to_id = KeyToIntMapper()  # ... to keep track of identical ligands
     for component in components:
+        if isinstance(component, CIFFileComponent):
+            # ... append and skip to the next component, as we already have the
+            # annotated AtomArray
+            atom_arrays.append(component.atom_array)
+            continue
+
         component.chain_id = component.chain_id or next(chain_id_generator)
 
         if isinstance(component, SequenceComponent):
