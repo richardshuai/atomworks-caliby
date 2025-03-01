@@ -162,8 +162,7 @@ def cache_to_disk_as_pickle(cache_dir: PathLike | None = None, use_gzip: bool = 
 
 
 def get_sharded_file_path(base_dir: Path, file_hash: str, extension: str, depth: int) -> Path:
-    """
-    Construct a nested file path based on the directory depth.
+    """Construct a nested file path based on the directory depth.
 
     Args:
         base_dir (Path): The base directory where the files are stored.

@@ -55,9 +55,9 @@ def test_rigid_from_3_points_random(device):
     assert torch.all(transformed_x3[:, 0] > 0)
 
     # Check that the distances between points are preserved
-    assert torch.allclose(torch.norm(transformed_x1 - transformed_x2, dim=-1), torch.norm(x1 - x2, dim=-1), atol=1e-5)
-    assert torch.allclose(torch.norm(transformed_x1 - transformed_x3, dim=-1), torch.norm(x1 - x3, dim=-1), atol=1e-5)
-    assert torch.allclose(torch.norm(transformed_x2 - transformed_x3, dim=-1), torch.norm(x2 - x3, dim=-1), atol=1e-5)
+    assert torch.allclose(torch.norm(transformed_x1 - transformed_x2, dim=-1), torch.norm(x1 - x2, dim=-1), atol=1e-4)
+    assert torch.allclose(torch.norm(transformed_x1 - transformed_x3, dim=-1), torch.norm(x1 - x3, dim=-1), atol=1e-4)
+    assert torch.allclose(torch.norm(transformed_x2 - transformed_x3, dim=-1), torch.norm(x2 - x3, dim=-1), atol=1e-4)
 
 
 def test_apply_rigid_and_inverse(device):

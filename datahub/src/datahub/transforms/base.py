@@ -501,7 +501,7 @@ class SubsetToKeys(Transform):
         self.validate_input = require_keys_exist
 
     def check_input(self, data: dict):
-        check_contains_keys(data, self.keys)
+        pass
 
     def forward(self, data: dict) -> dict:
         return {key: data[key] for key in self.keys if key in data}

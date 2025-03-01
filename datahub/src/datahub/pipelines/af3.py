@@ -336,6 +336,7 @@ def build_af3_transform_pipeline(
         "coord_atom_lvl_to_be_noised",
         "automorphisms",
         "symmetry_resolution",
+        "extra_info",
     ]
     if run_confidence_head:
         keys_to_keep.append("confidence_feats")

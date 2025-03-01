@@ -107,7 +107,7 @@ class GenericDFParser(MetadataRowParser):
 
     def __init__(
         self,
-        pn_unit_iid_colnames: str | list[str] | None = ["pn_unit_1_iid", "pn_unit_2_iid"],
+        pn_unit_iid_colnames: str | list[str] | None = None,
         example_id_colname: str = "example_id",
         path_colname: str = "path",
         assembly_id_colname: str | None = None,

@@ -141,6 +141,9 @@ def calculate_weights_for_pdb_dataset_df(
     # ...map the cluster sizes to the DataFrame
     dataset_df["cluster_size"] = dataset_df["cluster"].map(cluster_id_to_size_map)
 
+    # ... assert no NaN cluster sizes
+    assert not dataset_df["cluster_size"].isnull().any(), "Cluster sizes must not be NaN"
+
     # ...calculate weights using vectorized operations
     weights = calculate_af3_example_weights(dataset_df, alphas, beta).values
 
