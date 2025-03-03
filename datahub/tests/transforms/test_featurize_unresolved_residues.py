@@ -10,10 +10,10 @@ from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomi
 from datahub.transforms.base import Compose
 from datahub.transforms.encoding import EncodeAtomArray
 from datahub.transforms.featurize_unresolved_residues import (
-    MaskResiduesWithUnresolvedBackboneAtoms,
+    MaskPolymerResiduesWithUnresolvedFrameAtoms,
     PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
-    mask_residues_with_unresolved_backbone_atoms,
+    mask_polymer_residues_with_unresolved_frame_atoms,
 )
 from datahub.transforms.filters import RemoveUnresolvedPNUnits
 from datahub.utils.testing import cached_parse
@@ -39,7 +39,7 @@ def test_mask_residues_with_unresolved_backbone_atoms(pdb_id):
     changed_atom = atom_array[resolved_ca_atoms][0]
 
     # ... apply the transform
-    updated_atom_array = mask_residues_with_unresolved_backbone_atoms(atom_array)
+    updated_atom_array = mask_polymer_residues_with_unresolved_frame_atoms(atom_array)
 
     # ... assert that the manually set CA atom's residue is masked
     changed_residue_mask = (updated_atom_array.chain_id == changed_atom.chain_id) & (
@@ -52,7 +52,7 @@ def test_mask_residues_with_unresolved_backbone_atoms(pdb_id):
     assert np.all(updated_atom_array.occupancy[unchanged_residue_mask] == atom_array.occupancy[unchanged_residue_mask])
 
 
-FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES = ["6wtf", "7rcu", "8e83", "7okl"]
+FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES = ["6wtf", "7rcu", "8e83", "7okl", "7z24"]
 
 
 @pytest.mark.parametrize("pdb_id", FEATURIZE_UNRESOLVED_RESIDUES_TEST_CASES)
@@ -73,7 +73,7 @@ def test_place_unresolved_token_atoms_on_representative_atom(pdb_id):
     pipe = Compose(
         [
             FlagNonPolymersForAtomization(),
-            MaskResiduesWithUnresolvedBackboneAtoms(),
+            MaskPolymerResiduesWithUnresolvedFrameAtoms(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             CopyAnnotation("coord", "coord_to_be_noised"),
             EncodeAtomArray(encoding),
@@ -139,7 +139,7 @@ def test_place_unresolved_token_on_closest_resolved_token_in_sequence(pdb_id):
         [
             FlagNonPolymersForAtomization(),
             RemoveUnresolvedPNUnits(),
-            MaskResiduesWithUnresolvedBackboneAtoms(),
+            MaskPolymerResiduesWithUnresolvedFrameAtoms(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=encoding.tokens),
             EncodeAtomArray(encoding),
             CopyAnnotation("coord", "coord_to_be_noised"),

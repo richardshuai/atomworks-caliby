@@ -21,23 +21,39 @@ from datahub.utils.token import (
 )
 
 
-def mask_residues_with_unresolved_backbone_atoms(atom_array: AtomArray) -> AtomArray:
+def mask_polymer_residues_with_unresolved_frame_atoms(atom_array: AtomArray) -> AtomArray:
     """If a polymer residue has an unresolved backbone atom (occupancy == 0), set the occupancy of the entire residue to zero."""
-    backbone_atom_names = ["N", "CA", "C"]
+
+    # > "Protein tokens use their residue's backbone (N, CA, C) while DNA and RNA tokens use (C1', C3', C4') [to construct frame]"
+    protein_backbone_atom_names = ["N", "CA", "C"]
+    nucleic_acid_backbone_atom_names = ["C1'", "C3'", "C4'"]
 
     # ... subset to backbone atoms within polymers with unresolved coordinates
     # (We treat partially occupied atoms as occupied; e.g., those resolved from "altlocs")
-    protein_mask = (
-        np.isin(atom_array.chain_type, ChainTypeInfo.PROTEINS) if "chain_type" in atom_array else atom_array.is_polymer
-    )
-    unresolved_polymer_backbone_mask = (
-        protein_mask & np.isin(atom_array.atom_name, backbone_atom_names) & (atom_array.occupancy == 0)
-    )
+    if "chain_type" in atom_array.get_annotation_categories():
+        # ... proteins
+        protein_mask = np.isin(atom_array.chain_type, ChainTypeInfo.PROTEINS)
+        unresolved_backbone_mask = (
+            protein_mask & np.isin(atom_array.atom_name, protein_backbone_atom_names) & (atom_array.occupancy == 0)
+        )
 
-    # ... get the residue-wise mask for unresolved backbone atoms
-    unresolved_backbone_res_mask = apply_and_spread_residue_wise(
-        atom_array, unresolved_polymer_backbone_mask, function=np.any
-    )
+        # ... nucleic acids
+        nucleic_acid_mask = np.isin(atom_array.chain_type, ChainTypeInfo.NUCLEIC_ACIDS)
+        unresolved_backbone_mask |= (
+            nucleic_acid_mask
+            & np.isin(atom_array.atom_name, nucleic_acid_backbone_atom_names)
+            & (atom_array.occupancy == 0)
+        )
+    else:
+        # ... rely on atom names if chain type is not available
+        unresolved_backbone_mask = (
+            np.isin(atom_array.atom_name, protein_backbone_atom_names + nucleic_acid_backbone_atom_names)
+            & (atom_array.occupancy == 0)
+            & atom_array.is_polymer
+        )
+
+    # Residue-wise mask for unresolved backbone atoms
+    unresolved_backbone_res_mask = apply_and_spread_residue_wise(atom_array, unresolved_backbone_mask, function=np.any)
 
     # ... mask the occupancy of the entire residue
     atom_array.occupancy[unresolved_backbone_res_mask] = 0
@@ -45,14 +61,19 @@ def mask_residues_with_unresolved_backbone_atoms(atom_array: AtomArray) -> AtomA
     return atom_array
 
 
-class MaskResiduesWithUnresolvedBackboneAtoms(Transform):
-    """For residues with at least one unresolved backbone atom, mask (set to occupancy zero) the entire residue.
+class MaskPolymerResiduesWithUnresolvedFrameAtoms(Transform):
+    """For residues with at least one unresolved frame atom, mask (set to occupancy zero) the entire residue.
 
-    If we don't have backbone atoms, then:
-        - We cannot build backbone frames
+    If we don't have frame atoms, then:
+        - We cannot build residue frames
         - The local structure quality is likely poor
 
-    As an example, see PDB ID `6Z3R`, which has unresolved C and CA atoms.
+    We (and AF-3) consider the frame atoms to be:
+        - Proteins: N, CA, C
+        - Nucleic Acids: C1', C3', C4'
+
+    As an example for proteins, see PDB ID `6Z3R`, which has unresolved C and CA atoms.
+    As an example fo nucleic acids, see 7Z24, which has unresolved C1', C2', and C3' (but does have a resolved oxygen)
 
     NOTE: This transform must be applied before other transform that rely on the `occupancy` annotation.
     """
@@ -67,10 +88,10 @@ class MaskResiduesWithUnresolvedBackboneAtoms(Transform):
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
-        check_atom_array_annotation(data, ["occupancy"])
+        check_atom_array_annotation(data, ["occupancy", "chain_type"])
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        data["atom_array"] = mask_residues_with_unresolved_backbone_atoms(data["atom_array"])
+        data["atom_array"] = mask_polymer_residues_with_unresolved_frame_atoms(data["atom_array"])
         return data
 
 
@@ -272,7 +293,7 @@ class PlaceUnresolvedTokenAtomsOnRepresentativeAtom(Transform):
         or "coord_to_be_noised" (if we want to modify only the coordinates that will be noised).
     """
 
-    requires_previous_transforms = ["MaskResiduesWithUnresolvedBackboneAtoms", "AtomizeByCCDName"]
+    requires_previous_transforms = ["MaskPolymerResiduesWithUnresolvedFrameAtoms", "AtomizeByCCDName"]
 
     def __init__(self, annotation_to_update: str = "coord_to_be_noised") -> None:
         self.annotation_to_update = annotation_to_update

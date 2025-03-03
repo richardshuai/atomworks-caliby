@@ -29,7 +29,7 @@ from datahub.transforms.atom_array import (
 )
 from datahub.transforms.base import Transform
 from datahub.transforms.encoding import atom_array_from_encoding, atom_array_to_encoding
-from datahub.transforms.featurize_unresolved_residues import mask_residues_with_unresolved_backbone_atoms
+from datahub.transforms.featurize_unresolved_residues import mask_polymer_residues_with_unresolved_frame_atoms
 from datahub.utils.geometry import apply_inverse_rigid, rigid_from_3_points
 from datahub.utils.numpy import select_data_by_id
 from datahub.utils.token import get_token_count, get_token_starts
@@ -203,7 +203,7 @@ class RF2AATemplate:
         atom_array.set_annotation("alignment_confidence", struc.spread_residue_wise(atom_array, alignment_confidence))
 
         # ...mask residues with unresolved backbone atoms
-        atom_array = mask_residues_with_unresolved_backbone_atoms(atom_array)
+        atom_array = mask_polymer_residues_with_unresolved_frame_atoms(atom_array)
 
         return atom_array
 

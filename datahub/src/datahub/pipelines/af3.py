@@ -42,7 +42,7 @@ from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures, EncodeAtomA
 from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
 from datahub.transforms.feature_aggregation.confidence import PackageConfidenceFeats
 from datahub.transforms.featurize_unresolved_residues import (
-    MaskResiduesWithUnresolvedBackboneAtoms,
+    MaskPolymerResiduesWithUnresolvedFrameAtoms,
     PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
 )
@@ -166,7 +166,7 @@ def build_af3_transform_pipeline(
         RemoveTerminalOxygen(),
         RemoveUnresolvedPNUnits(),
         RemovePolymersWithTooFewResolvedResidues(min_residues=4),
-        MaskResiduesWithUnresolvedBackboneAtoms(),
+        MaskPolymerResiduesWithUnresolvedFrameAtoms(),
         # NOTE: For inference, we must keep UNL to support ligands that are not in the CCD
         HandleUndesiredResTokens(undesired_res_tokens=undesired_res_names),  # e.g., non-standard residues
         FlagAndReassignCovalentModifications(),
