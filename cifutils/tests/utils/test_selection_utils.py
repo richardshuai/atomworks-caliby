@@ -2,7 +2,14 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
-from cifutils.utils.selection import ChainIdxSlice, ResIdxSlice, get_residue_starts
+from cifutils.utils.selection import (
+    AtomSelection,
+    ChainIdxSlice,
+    ResIdxSlice,
+    get_mask_from_selection_string,
+    get_residue_starts,
+    parse_selection_string,
+)
 
 
 @pytest.fixture
@@ -125,3 +132,54 @@ def test_edge_cases() -> None:
     assert len(single_atom[ChainIdxSlice(0, 1)]) == 1
     assert list(single_atom[ResIdxSlice(0, 1)].res_id) == [1]
     assert list(single_atom[ChainIdxSlice(0, 1)].chain_id) == ["A"]
+
+
+def test_sequence_selection_init_and_repr():
+    # Test valid initialization and repr
+    selection = AtomSelection(chain_id="A", res_name="ARG", res_id="123", atom_name="CA")
+    assert repr(selection) == "A/ARG/123/CA"
+
+    # Test with some None values
+    selection = AtomSelection(chain_id="A", res_name="ARG")
+    assert repr(selection) == "A/ARG"
+
+    # Test with * for wildcards
+    selection = AtomSelection(chain_id="A", res_name="ARG", atom_name="CA")
+    assert repr(selection) == "A/ARG/*/CA"
+
+
+@pytest.mark.parametrize(
+    "selection_string, expected_selection",
+    [
+        ("A/ARG/123/CA", AtomSelection(chain_id="A", res_name="ARG", res_id="123", atom_name="CA")),
+        ("A/ARG", AtomSelection(chain_id="A", res_name="ARG")),
+        ("A/*/123/*", AtomSelection(chain_id="A", res_id="123")),
+    ],
+)
+def test_parse_selection_string(selection_string, expected_selection):
+    # Test parsing using parse_selection_string and AtomSelection.from_str
+    selection = parse_selection_string(selection_string)
+    assert selection == expected_selection
+    assert selection == AtomSelection.from_str(selection_string)
+
+
+def test_get_mask_from_selection_string(basic_atom_array: struc.AtomArray):
+    # Test full match
+    mask = get_mask_from_selection_string(basic_atom_array, "A/ALA/1/CA")
+    expected_mask = np.array([False, True, False, False, False, False], dtype=bool)
+    assert np.array_equal(mask, expected_mask)
+    assert np.array_equal(mask, AtomSelection.from_str("A/ALA/1/CA").get_mask(basic_atom_array))
+
+    # Test partial match
+    mask = get_mask_from_selection_string(basic_atom_array, "A/ALA")
+    expected_mask = np.array([True, True, False, False, False, False], dtype=bool)
+    assert np.array_equal(mask, expected_mask)
+    assert np.array_equal(mask, AtomSelection.from_str("A/ALA").get_mask(basic_atom_array))
+
+    # Test no match raises ValueError
+    with pytest.raises(ValueError, match="No atoms found for selection: A/VAL/1/CB"):
+        get_mask_from_selection_string(basic_atom_array, "A/VAL/1/CB")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

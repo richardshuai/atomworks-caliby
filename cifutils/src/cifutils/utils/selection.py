@@ -159,3 +159,134 @@ class ChainIdxSlice(SegmentSlice):
 
     def _get_segment_bounds(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
         return struc.get_chain_starts(atom_array, add_exclusive_stop=True)
+
+
+class AtomSelection:
+    """Class that represents a selection of atoms in a molecular structure.
+
+    We can specify a selection by chain_id, res_name, res_id, and atom_name.
+
+    For example:
+        - If we specify only chain_id, we will select all atoms in that chain
+        - If we specify chain_id and res_name, we will select all atoms in that chain and residue
+        - If we specify only atom_name, we will select all atoms with that name, regardless of chain or residue
+    """
+
+    def __init__(self, chain_id: str = "*", res_name: str = "*", res_id: int | str = "*", atom_name: str = "*"):
+        self.chain_id = chain_id
+        self.res_name = res_name
+        self.atom_name = atom_name
+        self.res_id = int(res_id) if res_id != "*" else res_id
+
+    def __str__(self) -> str:
+        parts = [self.chain_id, self.res_name, str(self.res_id), self.atom_name]
+
+        # Remove trailing '*' values
+        while parts and parts[-1] == "*":
+            parts.pop()
+
+        return "/".join(parts)
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, str):
+            # Convert the string to an AtomSelection for comparison
+            other = self.from_str(other)
+
+        if not isinstance(other, AtomSelection):
+            return False
+
+        return (
+            self.chain_id == other.chain_id
+            and self.res_name == other.res_name
+            and self.res_id == other.res_id
+            and self.atom_name == other.atom_name
+        )
+
+    @classmethod
+    def from_str(cls, selection_string: str) -> "AtomSelection":
+        """Create a new AtomSelection from a selection string.
+
+        Selection strings are of the form: `CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME`
+        We use "*" as a wildcard to select all atoms in a given granularity.
+
+        """
+        selection = parse_selection_string(selection_string)
+        return cls(
+            chain_id=selection.chain_id,
+            res_name=selection.res_name,
+            res_id=selection.res_id,
+            atom_name=selection.atom_name,
+        )
+
+    def get_mask(self, atom_array: AtomArray) -> np.ndarray:
+        """Create a boolean mask using this AtomSelection on an AtomArray."""
+        return get_mask_from_atom_selection(atom_array, self)
+
+    def get_idxs(self, atom_array: AtomArray) -> np.ndarray:
+        """Get the indices of atoms selected by this AtomSelection."""
+        return np.where(self.get_mask(atom_array))[0]
+
+
+def parse_selection_string(selection_string: str) -> AtomSelection:
+    """Convert a selection string into a AtomSelection dataclass.
+
+    Selection strings are of the form: `CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME`
+
+    We use "*" as a wildcard to select all atoms in a given granularity.
+
+    Example:
+        >>> parse_selection_string("A/ALA/1/CA")
+        AtomSelection(chain_id='A', res_name='ALA', res_id=1, atom_name='CA')
+        >>> parse_selection_string("*/ALA/*/CB")  # (select all CB atoms in ALA residues)
+        AtomSelection(chain_id='*', res_name='ALA', res_id='*', atom_name='CB')
+        >>> parse_selection_string("A/ALA/")
+        AtomSelection(chain_id='A', res_name='ALA')
+    """
+    granularity_tiers = ["chain_id", "res_name", "res_id", "atom_name"]
+    values = selection_string.split("/")
+
+    # Create a dictionary with available tiers and values
+    selection_dict = {tier: value for tier, value in zip(granularity_tiers, values, strict=False) if value != "*"}
+
+    return AtomSelection(**selection_dict)
+
+
+def get_mask_from_selection_string(atom_array: AtomArray, selection_string: str) -> np.ndarray:
+    """Create a boolean mask from an AtomArray sequence selection string.
+
+    Selection strings are of the form: `CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME`
+
+    We use "*" as a wildcard to select all atoms in a given granularity.
+
+    Example:
+        >>> atom_array = AtomArray(...)
+        >>> mask = get_mask_from_selection_string(atom_array, "A/ALA/1/CA")
+        [False, True, False, False, ...]
+    """
+    return get_mask_from_atom_selection(atom_array, parse_selection_string(selection_string))
+
+
+def get_mask_from_atom_selection(atom_array: AtomArray, atom_selection: AtomSelection) -> np.ndarray:
+    """Create a boolean mask from a AtomSelection dataclass."""
+    mask = np.ones(atom_array.array_length(), dtype=bool)
+
+    # ... add the masks
+    if atom_selection.chain_id and atom_selection.chain_id != "*":
+        mask &= atom_array.chain_id == atom_selection.chain_id
+
+    if atom_selection.res_name and atom_selection.res_name != "*":
+        mask &= atom_array.res_name == atom_selection.res_name
+
+    if atom_selection.res_id and atom_selection.res_id != "*":
+        mask &= atom_array.res_id == atom_selection.res_id
+
+    if atom_selection.atom_name and atom_selection.atom_name != "*":
+        mask &= atom_array.atom_name == atom_selection.atom_name
+
+    if not np.any(mask):
+        raise ValueError(f"No atoms found for selection: {atom_selection}")
+
+    return mask
