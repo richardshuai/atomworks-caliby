@@ -221,6 +221,23 @@ class AtomSelection:
             atom_name=selection.atom_name,
         )
 
+    @classmethod
+    def from_pymol_str(cls, pymol_string: str) -> "AtomSelection":
+        """Create a new AtomSelection from a PyMOL string.
+
+        PyMOL strings, found by clicking on an atom or residue, are of the form: CHAIN_ID/RES_NAME`RES_ID/ATOM_NAME
+        For example: "A/ASP`37/OD2"
+
+        We introduce "*" as a wildcard to select all atoms in a given granularity.
+        """
+        selection = parse_pymol_string(pymol_string)
+        return cls(
+            chain_id=selection.chain_id,
+            res_name=selection.res_name,
+            res_id=selection.res_id,
+            atom_name=selection.atom_name,
+        )
+
     def get_mask(self, atom_array: AtomArray) -> np.ndarray:
         """Create a boolean mask using this AtomSelection on an AtomArray."""
         return get_mask_from_atom_selection(atom_array, self)
@@ -252,6 +269,25 @@ def parse_selection_string(selection_string: str) -> AtomSelection:
     selection_dict = {tier: value for tier, value in zip(granularity_tiers, values, strict=False) if value != "*"}
 
     return AtomSelection(**selection_dict)
+
+
+def parse_pymol_string(pymol_string: str) -> AtomSelection:
+    """Convert a PyMOL selection string into an AtomSelection instance.
+
+    PyMOL selection strings are of the form: CHAIN_ID/RES_NAME`RES_ID/ATOM_NAME
+    Wildcards can be used with "*".
+
+    Examples:
+        >>> parse_pymol_string("A/ASP`37/OD2")
+        AtomSelection(chain_id='A', res_name='ASP', res_id=37, atom_name='OD2')
+        >>> parse_pymol_string("A/ASP")
+        AtomSelection(chain_id='A', res_name='ASP', res_id='*', atom_name='*')
+        >>> parse_pymol_string("*/ASP`*/OD2")
+        AtomSelection(chain_id='*', res_name='ASP', res_id='*', atom_name='OD2')
+    """
+    # Replace backtick with slash to standardize the format
+    standardized_string = pymol_string.replace("`", "/")
+    return parse_selection_string(standardized_string)
 
 
 def get_mask_from_selection_string(atom_array: AtomArray, selection_string: str) -> np.ndarray:

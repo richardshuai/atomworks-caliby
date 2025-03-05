@@ -8,6 +8,7 @@ from cifutils.utils.selection import (
     ResIdxSlice,
     get_mask_from_selection_string,
     get_residue_starts,
+    parse_pymol_string,
     parse_selection_string,
 )
 
@@ -149,18 +150,20 @@ def test_sequence_selection_init_and_repr():
 
 
 @pytest.mark.parametrize(
-    "selection_string, expected_selection",
+    "selection_string, pymol_string, expected_selection",
     [
-        ("A/ARG/123/CA", AtomSelection(chain_id="A", res_name="ARG", res_id="123", atom_name="CA")),
-        ("A/ARG", AtomSelection(chain_id="A", res_name="ARG")),
-        ("A/*/123/*", AtomSelection(chain_id="A", res_id="123")),
+        ("A/ARG/123/CA", "A/ARG`123/CA", AtomSelection(chain_id="A", res_name="ARG", res_id="123", atom_name="CA")),
+        ("A/ARG", "A/ARG", AtomSelection(chain_id="A", res_name="ARG")),
+        ("A/*/123/*", "A/*`123", AtomSelection(chain_id="A", res_id="123")),
     ],
 )
-def test_parse_selection_string(selection_string, expected_selection):
+def test_parse_selection_string(selection_string, pymol_string, expected_selection):
     # Test parsing using parse_selection_string and AtomSelection.from_str
-    selection = parse_selection_string(selection_string)
-    assert selection == expected_selection
-    assert selection == AtomSelection.from_str(selection_string)
+    from_selection_string = parse_selection_string(selection_string)
+    from_pymol_string = parse_pymol_string(pymol_string)
+    assert from_selection_string == expected_selection
+    assert from_pymol_string == expected_selection
+    assert from_selection_string == AtomSelection.from_str(selection_string)
 
 
 def test_get_mask_from_selection_string(basic_atom_array: struc.AtomArray):
