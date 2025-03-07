@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from typing import Any, Literal
 
+import biotite.structure as struc
 import numpy as np
 import toolz
 import torch
@@ -62,7 +63,11 @@ def _get_rdkit_mols_with_conformers(
             ref_mols[res_name] = None  # placeholder so that the unknown CCD codes are still counted later on
             continue
         mol = ccd_code_to_rdkit_with_conformers(
-            ccd_code=res_name, n_conformers=count, timeout=timeout, **generate_conformers_kwargs
+            ccd_code=res_name,
+            n_conformers=count,
+            timeout=timeout,
+            timeout_strategy=timeout_strategy,
+            **generate_conformers_kwargs,
         )
         ref_mols[res_name] = mol
 
@@ -341,7 +346,9 @@ def get_af3_reference_molecule_features(
         ref_atom_name_chars[atom_array.atomize] = _encode_atom_names_like_af3(atom_array.element[atom_array.atomize])
 
     # ... space uid (type conversion needed for some older torch versions)
-    ref_space_uid = atom_array.token_id.astype(np.int64)
+    #     we assign a unique integer for each residue instance:
+    ref_space_uid = struc.segments.spread_segment_wise(_res_start_ends, np.arange(len(_res_starts), dtype=np.int64))
+
     return {
         "ref_pos": ref_pos,  # (n_atoms, 3)
         "ref_mask": ref_mask,  # (n_atoms)
@@ -384,8 +391,6 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
 
-    requires_previous_transforms = ["AddGlobalTokenIdAnnotation"]
-
     def __init__(
         self,
         conformer_generation_timeout: float = 10.0,
@@ -406,7 +411,7 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
-        check_atom_array_annotation(data, ["res_name", "element", "charge", "atom_name", "token_id"])
+        check_atom_array_annotation(data, ["res_name", "element", "charge", "atom_name"])
 
         if self.use_element_for_atom_names_of_atomized_tokens:
             check_atom_array_annotation(data, ["atomize"])

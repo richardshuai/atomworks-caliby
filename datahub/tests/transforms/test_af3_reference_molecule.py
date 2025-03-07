@@ -355,5 +355,45 @@ def test_fallback_to_ground_truth_conformer_on_error():
     )
 
 
+def test_ref_space_uid():
+    def _prepare(res_name: str, chain_id: str, res_id: int, transformation_id: str) -> struc.AtomArray:
+        res = struc.info.residue(res_name)
+        res = res[res.atom_name != "OXT"]
+        res = res[res.element != "H"]
+        res.chain_id[:] = chain_id
+        res.res_id[:] = res_id
+        res.set_annotation("transformation_id", [transformation_id] * len(res))
+        return res
+
+    ala1 = _prepare("ALA", "A", 1, "1")
+    ala2 = _prepare("ALA", "A", 1, "2")
+    ala3 = _prepare("ALA", "A", 1, "3")
+    tyr1 = _prepare("TYR", "B", 1, "1")
+    eoh1 = _prepare("EOH", "C", 1, "1")
+    eoh2 = _prepare("EOH", "C", 1, "2")
+    atom_array = ala1 + tyr1 + ala2 + ala3 + eoh1 + eoh2
+
+    # fmt: off
+    expected_ref_space_uid = np.array(
+        [0] * len(ala1) + 
+        [1] * len(tyr1) + 
+        [2] * len(ala2) + 
+        [3] * len(ala3) + 
+        [4] * len(eoh1) + 
+        [5] * len(eoh2)
+    )
+    # fmt: on
+
+    # Run mini-pipeline
+    pipe = GetAF3ReferenceMoleculeFeatures(
+        should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=True
+    )
+    out = pipe({"atom_array": atom_array})
+
+    assert np.all(
+        out["feats"]["ref_space_uid"] == expected_ref_space_uid
+    ), f"{out['feats']['ref_space_uid']}, but expected {expected_ref_space_uid}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
