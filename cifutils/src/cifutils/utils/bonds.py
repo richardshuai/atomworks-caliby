@@ -227,9 +227,10 @@ def get_struct_conn_bonds(
                 - ptnr2_label_atom_id
 
         add_bond_types (list[str]): A list of bond types that should be added. Valid bond types
-            are: ["covale", "disulf", "metalc", "hydrog"]. Defaults to ["covale"], which is
-            the use-case in structure-prediction, where we would a-priori know covalent bonds
-            (except for disulfides).
+            are: ["covale", "disulf", "metalc"]. Hydrogen bonds are not supported since Biotite
+            does not have a BondType for these, so they would have to be stored as covalent single bonds,
+            which is incorrect. This argument defaults to ["covale"], which is the use-case in structure-prediction,
+            where we would a-priori know covalent bonds (except for disulfides).
         raise_on_failure(bool): If True, raise an error if specified bonds cannot be made (e.g.,
             if the atoms are missing). Defaults to False.
 
@@ -373,8 +374,12 @@ def get_struct_conn_bonds(
         atom2_global_idx = in_res2_start + atom2_local_idx
 
         # ... add the bond
-        bond_order = STRUCT_CONN_BOND_ORDER_TO_INT.get(row.get("pdbx_value_order"), 1)
-        bonds.append([atom1_global_idx, atom2_global_idx, struc.BondType(bond_order)])
+        # Metal coordination bonds don't have a `pdbx_value_order`, so these are handled separately
+        if row["conn_type_id"] == "metalc":
+            bonds.append([atom1_global_idx, atom2_global_idx, struc.BondType.COORDINATION])
+        else:
+            bond_order = STRUCT_CONN_BOND_ORDER_TO_INT.get(row.get("pdbx_value_order"), 1)
+            bonds.append([atom1_global_idx, atom2_global_idx, struc.BondType(bond_order)])
 
         # ... and identify the leaving atoms
         leaving_res1 = _get_leaving_atom_idxs_for(

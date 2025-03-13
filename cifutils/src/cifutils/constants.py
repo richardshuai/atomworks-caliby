@@ -245,7 +245,7 @@ CHEM_TYPE_POLYMERIZATION_ATOMS: Final[MappingProxyType[str, tuple[str, str]]] = 
 )
 """A mapping of chemical component types to the atoms that they link when part of a polymer."""
 
-STRUCT_CONN_BOND_TYPES: Final[frozenset[str]] = frozenset({"covale", "disulf", "metalc", "hydrog"})
+STRUCT_CONN_BOND_TYPES: Final[frozenset[str]] = frozenset({"covale", "disulf", "metalc"})
 """A set of bond types that are considered when adding bonds to the atom array.
 
 Reference:

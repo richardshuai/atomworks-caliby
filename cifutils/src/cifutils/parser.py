@@ -97,7 +97,7 @@ def parse(
             annotations to the structure. Defaults to True.
         add_bond_types_from_struct_conn (list, optional): A list of bond types to add to the structure
             from the `struct_conn` category. Defaults to `["covale"]`. This means that we will only
-            add covalent bonds to the structure (excluding disulfide bonds).
+            add covalent bonds to the structure (excluding metal coordination and disulfide bonds).
         remove_ccds (list, optional): A list of CCD codes (e.g. `ALA`, `HEM`, ...) to remove from
             the structure. Defaults to crystallization aids. NOTE: Exclusion of polymer
             residues and common multi-chain ligands must be done with care to avoid sequence gaps.
