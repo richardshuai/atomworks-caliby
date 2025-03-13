@@ -311,7 +311,7 @@ def get_af3_token_center_masks(atom_array: AtomArray) -> np.ndarray:
     """
     assert (
         "atomize" in atom_array.get_annotation_categories()
-    ), "Atomize annotation is missing. Run AtomizeByCCDName Transform for magical atomization of ligands"
+    ), "Atomize annotation is missing. Run AtomizeByCCDName Transform first!"
     return (
         atom_array.atomize  # the atom itself for un-atomized tokens
         | (atom_array.atom_name == "CA")  # CA for amino acids

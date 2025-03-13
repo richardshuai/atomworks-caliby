@@ -181,6 +181,8 @@ def set_sampler_epoch(sampler: Sampler, epoch: int, add_random_offset: bool = Fa
     if add_random_offset:
         epoch += torch.randint(-int(1e12), int(1e12), (1,)).item()
 
+    logger.info(f"Setting epoch for sampler {sampler} to {epoch}")
+
     if hasattr(sampler, "set_epoch"):
         sampler.set_epoch(epoch)
     elif hasattr(sampler, "generator"):
@@ -334,7 +336,6 @@ class DistributedMixedSampler(Sampler):
         ]
 
         # Convert to global indices
-        # TODO: Compute with tensor operations; faster, but less readable
         for i in range(1, len(indices)):
             indices[i] = [index + self.cumulative_lengths[i] for index in indices[i]]
 
