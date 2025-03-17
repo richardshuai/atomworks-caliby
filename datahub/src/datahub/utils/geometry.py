@@ -2,6 +2,7 @@
 
 import numpy as np
 import torch
+from biotite.structure import AtomArray, rmsd, superimpose
 from einops import einsum, rearrange
 from torch.nn.functional import normalize
 
@@ -308,3 +309,25 @@ def masked_center(
     coord_atom_lvl = coord_atom_lvl - center
 
     return coord_atom_lvl
+
+
+def align_atom_arrays(mbl_sele: AtomArray, tgt_sele: AtomArray, mbl_full: AtomArray) -> tuple[AtomArray, float]:
+    """
+    Computes the transformation that aligns mbl_sele to tgt_sele,
+    then applies that transformation to mbl_full and returns it along with aligment rmsd
+
+    Args:
+        mbl_sele (AtomArray): An atom array containing atomic coordinates of the array to
+                              be transformed, pre-masked to contain only the portion to be aligned.
+        tgt_sele (AtomArray): An atom array containing coordinates for mbl_sele to be aligned to.
+                              Must be the same size as mbl_sele; should be the same residues / molecules.
+        mbl_full (AtomArray): The full atom array to be transformed based on the alignment between
+                              mbl_sele and tgt_sle.
+
+    Returns:
+        AtomArray: an atom array of the same shape as mbl_full, containing the transformed coordinates.
+        float: the RMSD between mbl_sele and tgt_sele following alignment.
+    """
+    mbl_fitted, xform = superimpose(tgt_sele, mbl_sele)
+    mbl_full_xformed = xform.apply(mbl_full)
+    return mbl_full_xformed, rmsd(mbl_fitted, tgt_sele)

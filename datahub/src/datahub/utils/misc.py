@@ -414,3 +414,12 @@ def grouped_count(
     flat_counts.scatter_add_(dim=0, index=data.view(-1), src=_ONE.expand_as(data))
     # ... reshape the flat counts tensor to the final desired shape
     return flat_counts.view(*group_sizes, n_tokens)  # [n_group1, n_group2, ..., n_tokens]
+
+
+def _randomly_select_items_with_weights(weight_dict: dict, n: int = 1):
+    """Randomly select n items from a dictionary based on their weights."""
+    choices, weights = zip(*weight_dict.items())
+    weights = np.array(weights)
+    probabilities = weights / sum(weights)
+    chosen = np.random.choice(choices, size=n, p=probabilities)
+    return chosen[0] if n == 1 else chosen

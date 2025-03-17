@@ -99,6 +99,30 @@ def apply_and_spread_chain_wise(
     return struc.spread_chain_wise(atom_array, struc.apply_chain_wise(atom_array, data, function, axis))
 
 
+def _renumber_res_ids_around_reference(
+    atom_array: AtomArray, ref: AtomArray, where: Literal["before", "after"]
+) -> AtomArray:
+    """
+    Renumbers the residues in an AtomArray based on a reference.
+    Residues in the new atom array will be continuous, with either the beginning or end
+    lining up to the reference array's start or end.
+    Assumes that the reference has correct residue ids and order.
+    """
+    _res_start_stop_idxs = struc.get_residue_starts(atom_array, add_exclusive_stop=True)
+    n_res = len(_res_start_stop_idxs) - 1
+    if where == "before":
+        ref_idx = ref.res_id[0]
+        new_ids = np.arange(ref_idx - n_res, ref_idx)
+    elif where == "after":
+        ref_idx = ref.res_id[-1]
+        new_ids = np.arange(ref_idx + 1, ref_idx + n_res + 1)
+    else:
+        raise ValueError(f"{where=} is not allowed. Must be one of 'before', 'after'")
+
+    atom_array.res_id = struc.segments.spread_segment_wise(_res_start_stop_idxs, new_ids)
+    return atom_array
+
+
 class AddMoleculeSymmetricIdAnnotation(Transform):
     """Adds the `molecule_symmetric_id` annotation to the AtomArray.
 

@@ -1,8 +1,13 @@
 import os
 
+import numpy as np
+from biotite.structure import AtomArray, CellList
 from cifutils import parse
 from cifutils.common import immutable_lru_cache
 from cifutils.constants import PDB_MIRROR_PATH
+
+from datahub.preprocessing.constants import CELL_SIZE
+from datahub.preprocessing.utils.structure_utils import get_atom_mask_from_cell_list
 
 
 def get_pdb_mirror_path(pdbid: str, base_dir: str = PDB_MIRROR_PATH) -> str:
@@ -27,3 +32,15 @@ def cached_parse(pdb_id: str, **kwargs) -> dict:
         data["atom_array"] = data["assemblies"][assembly_ids[0]][0]
     data["pdb_id"] = pdb_id
     return data
+
+
+def is_clash(atom_array_1: AtomArray, atom_array_2: AtomArray, clash_distance: float = 1.0) -> bool:
+    """
+    Checks for clashes between two arrays. Based on datahub.preprocessing.process.DataPreprocessor.
+    Recommended to pass in minimal masks of arrays to check to reduce runtime.
+    """
+    cell_list = CellList(atom_array_1, cell_size=CELL_SIZE)
+
+    clashing_atom_mask = get_atom_mask_from_cell_list(atom_array_2.coord, cell_list, len(atom_array_1), clash_distance)
+
+    return np.any(clashing_atom_mask)
