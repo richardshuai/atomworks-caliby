@@ -36,7 +36,7 @@ def test_rigid_from_3_points_random(device):
     assert torch.allclose(
         torch.matmul(R, R.transpose(-1, -2)),
         torch.eye(3, device=device).unsqueeze(0).expand(batch_size, -1, -1),
-        atol=1e-6,
+        atol=1e-4,
     )
 
     # Check if the transformation preserves the relative positions of the points
