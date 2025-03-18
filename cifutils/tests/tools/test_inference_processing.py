@@ -272,7 +272,7 @@ def test_read_chai_fasta(chai_fasta_input):
     assert components[3].smiles == "CCCCCCCCCCCCCC(=O)O"
     assert components[3].chain_type == ChainType.NON_POLYMER
     assert components[1].chain_type == ChainType.POLYPEPTIDE_L
-    assert not components[2].is_polymer
+    assert components[2].is_polymer
     assert not components[3].is_polymer
 
 

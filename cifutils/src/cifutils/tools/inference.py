@@ -16,7 +16,6 @@ from cifutils import parse
 from cifutils.common import KeyToIntMapper
 from cifutils.constants import (
     CCD_MIRROR_PATH,
-    PEPTIDE_MAX_RESIDUES,
     STANDARD_AA_ONE_LETTER,
     STANDARD_DNA_ONE_LETTER,
     STANDARD_RNA,
@@ -103,11 +102,6 @@ class SequenceComponent(ChemicalComponent):
         raise ValueError(f"Could not infer chain type from sequence: {seq=}")
 
     @staticmethod
-    def infer_is_polymer(seq: str | list[str]) -> bool:
-        """Infer if the sequence is a polymer based on length. Arbitrarily choose 25 residues as threshold."""
-        return len(seq) > PEPTIDE_MAX_RESIDUES
-
-    @staticmethod
     def assert_valid_chain_type(seq: list[str], chain_type: ChainType) -> bool:
         ccd_codes = set(seq)
         chem_comp_types = {get_chem_comp_type(ccd_code) for ccd_code in ccd_codes}
@@ -121,7 +115,7 @@ class SequenceComponent(ChemicalComponent):
         seq: str | list[str], *, chain_type: ChainType | str = None, is_polymer: bool | None = None
     ) -> "SequenceComponent":
         chain_type = chain_type or SequenceComponent.infer_chain_type(seq)
-        is_polymer = is_polymer or SequenceComponent.infer_is_polymer(seq)
+        is_polymer = is_polymer or chain_type in ChainType.get_polymers()
 
         if chain_type in ChainTypeInfo.PROTEINS:
             return Protein(seq=seq, chain_type=chain_type, is_polymer=is_polymer)
@@ -138,7 +132,7 @@ class SequenceComponent(ChemicalComponent):
         self.chain_type = ChainType.as_enum(self.chain_type)
 
         # If the is_polymer is not provided, infer it from the sequence
-        self.is_polymer = self.is_polymer or SequenceComponent.infer_is_polymer(self.seq)
+        self.is_polymer = self.is_polymer or self.chain_type.is_polymer()
 
         # If the sequence is a string, split it into a list of one-letter codes
         if isinstance(self.seq, str):
@@ -287,7 +281,7 @@ def sequence_to_annotated_atom_array(
 
     chain_type = chain_type or SequenceComponent.infer_chain_type(seq)
     chain_type = ChainType.as_enum(chain_type)
-    is_polymer = is_polymer or SequenceComponent.infer_is_polymer(seq)
+    is_polymer = is_polymer or chain_type.is_polymer()
 
     # Ensure that the sequence is a valid combination of existing 3-letter CCD codes
     ccd_codes_in_seq = set(seq)
