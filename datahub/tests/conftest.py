@@ -26,6 +26,11 @@ PROTEIN_MSA_DIRS = [
         "extension": ".msa0.a3m.gz",
         "directory_depth": 2,
     },
+    {
+        "dir": "/projects/msa/nvidia_renamed_with_seq_hash/maxseq_10k",
+        "extension": ".a3m.gz",
+        "directory_depth": 2,
+    },
 ]
 
 RNA_MSA_DIRS = [

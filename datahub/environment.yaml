@@ -38,7 +38,7 @@ dependencies:
     - fair-esm
 
     # Local packages
-    - git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/baker-laboratory/cifutils.git@v2.13.1
+    - git+https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/baker-laboratory/cifutils.git@v2.15.1
 
     # Formatting & linting
     - ruff==0.8.3 # python linter & formatter

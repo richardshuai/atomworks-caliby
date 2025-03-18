@@ -349,14 +349,14 @@ class EncodeMSA(Transform):
     requires_previous_transforms = ["LoadPolymerMSAs"]
 
     def __init__(self, encoding: TokenEncoding | AF3SequenceEncoding, token_to_use_for_gap: int | None = None):
-        # ...create a lookup table to map from MSA integers to token indices
+        # ... create a lookup table to map from MSA integers to token indices
         lookup_for_encoding = np.zeros(len(MSA_INTEGER_TO_THREE_LETTER), dtype=int)
         for tmp_int, three_letter in MSA_INTEGER_TO_THREE_LETTER.items():
             if three_letter == GAP_THREE_LETTER and token_to_use_for_gap is not None:
-                # ...if we defined a substitute token for gaps, use it
+                # ... if we defined a substitute token for gaps, use it
                 lookup_for_encoding[tmp_int] = token_to_use_for_gap
             else:
-                # ...otherwise, we assume that the gap token is present in the encoding
+                # ... otherwise, we assume that the gap token is present in the encoding
                 lookup_for_encoding[tmp_int] = encoding.token_to_idx[three_letter]
 
         self.lookup_for_encoding = lookup_for_encoding

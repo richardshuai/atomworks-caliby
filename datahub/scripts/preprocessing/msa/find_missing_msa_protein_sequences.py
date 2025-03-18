@@ -36,7 +36,14 @@ def collect_filenames(msa_dirs: list[Path]) -> set:
     """
     filenames = set()
     for msa_dir in msa_dirs:
-        filenames.update({file.name for file in msa_dir.glob("**/*") if file.is_file()})
+        filenames.update(
+            {
+                file.name
+                for file in tqdm(msa_dir.rglob("*"), desc=f"Collecting files from {msa_dir.name}")
+                if file.is_file()
+            }
+        )
+
         logger.info(f"Collected {len(filenames)} filenames from {msa_dir}.")
     return filenames
 

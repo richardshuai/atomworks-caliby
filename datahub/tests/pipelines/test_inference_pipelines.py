@@ -229,5 +229,4 @@ def test_same_pipeline_outputs_from_cif_and_inference():
 
 
 if __name__ == "__main__":
-    # pytest.main(["-v", "-x", __file__])
-    test_af3_pipeline_from_sequence_and_smiles(AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES[1])
+    pytest.main(["-v", "-x", __file__])

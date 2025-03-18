@@ -156,8 +156,8 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str, load_polymer_msas_
 def test_msa_coverage():
     """Ensure the  MSA coverage for the test data set surpasses a certain threshold."""
 
-    PROTEIN_COVERAGE_THRESHOLD = 0.90  # NOTE: We will increase this threshold in the future
-    RNA_COVERAGE_THRESHOLD = 0.10  # NOTE: We will increase this threshold in the future
+    PROTEIN_COVERAGE_THRESHOLD = 0.95
+    RNA_COVERAGE_THRESHOLD = 0.40  # NOTE: We will increase this threshold in the future
 
     result = _evaluate_coverage_for_df(PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS)
 
