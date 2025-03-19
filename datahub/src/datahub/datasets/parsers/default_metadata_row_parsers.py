@@ -194,5 +194,5 @@ class GenericDFParser(MetadataRowParser):
             "path": path,
             "assembly_id": assembly_id,
             "query_pn_unit_iids": query_pn_unit_iids,
-            "extra_info": {k: v for k, v in row.items() if k not in exclude_cols},
+            "extra_info": {k: v for k, v in extra_info.items() if k not in exclude_cols},
         }
