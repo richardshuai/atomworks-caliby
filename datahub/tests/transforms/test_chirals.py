@@ -6,7 +6,6 @@ import pytest
 import torch
 from openbabel import openbabel, pybel
 
-from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
 from datahub.transforms.atomize import AtomizeByCCDName
@@ -24,7 +23,6 @@ from datahub.transforms.openbabel_utils import (
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
-from tests.conftest import PN_UNITS_DF
 
 
 # NOTE: The following section is copied directly from rf2aa to ensure repeatability
@@ -209,14 +207,6 @@ TEST_CASES_WITH_COVALENT_MODIFICATION = [
 
 @pytest.mark.parametrize("test_case", TEST_CASES_WITH_COVALENT_MODIFICATION)
 def test_chiral_featurization_with_covalent_modification(test_case: dict):
-    pdb_id = test_case["pdb_id"]
-    row = PN_UNITS_DF[
-        (PN_UNITS_DF["pdb_id"] == pdb_id)
-        & (PN_UNITS_DF["q_pn_unit_iid"] == test_case["residues_to_be_atomized"][0]["polymer_pn_unit_iid"])
-    ].iloc[0]  # Get the first row with the given pdb_id and q_pn_unit_iid
-
-    data = load_example_from_metadata_row(row, PNUnitsDFParser(), cif_parser_args={"hydrogen_policy": "keep"})
-
     pipe = Compose(
         [
             AddGlobalAtomIdAnnotation(),
@@ -230,7 +220,7 @@ def test_chiral_featurization_with_covalent_modification(test_case: dict):
         track_rng_state=False,
     )
 
-    data = pipe(data)
+    data = pipe(cached_parse(test_case["pdb_id"]))
 
     atom_array = data["atom_array"]
     spotcheck_atom_id = test_case["spotcheck_openbabel_molecule"]["atom_id"]

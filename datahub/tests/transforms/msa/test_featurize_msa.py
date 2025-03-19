@@ -9,7 +9,6 @@ import pytest
 import torch
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA, UNKNOWN_AA, UNKNOWN_DNA, UNKNOWN_RNA
 
-from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
@@ -36,9 +35,9 @@ from datahub.transforms.msa.msa import (
     get_full_msa_profile_and_insertion_mean,
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
+from datahub.utils.testing import cached_parse
 from datahub.utils.token import token_iter
 from tests.conftest import (
-    PN_UNITS_DF,
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,
 )
@@ -178,8 +177,7 @@ def test_fill_full_msa_from_encoded(pdb_id):
     - The corresponding MSA columns match (i.e., after fancy indexing)
     - The insertions match (i.e., we didn't lose any)
     """
-    row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
-    data = load_example_from_metadata_row(row, PNUnitsDFParser())
+    data = cached_parse(pdb_id, hydrogen_policy="remove")
 
     encoding = RF2AA_ATOM36_ENCODING
     res_names_to_ignore = encoding.tokens[
@@ -557,8 +555,7 @@ def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
     PAD_TOKEN = encoding.token_to_idx["UNK"]
 
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
-        row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
-        data = load_example_from_metadata_row(row, PNUnitsDFParser())
+        data = cached_parse(pdb_id, hydrogen_policy="remove")
         pipeline = Compose(
             [
                 RemoveHydrogens(),
@@ -648,8 +645,7 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
     PAD_TOKEN = encoding.token_to_idx["UNK"]
 
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
-        row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
-        data = load_example_from_metadata_row(row, PNUnitsDFParser())
+        data = cached_parse(pdb_id, hydrogen_policy="remove")
         pipeline = Compose(
             [
                 AddWithinPolyResIdxAnnotation(),

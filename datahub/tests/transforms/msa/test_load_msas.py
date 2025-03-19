@@ -15,7 +15,7 @@ from datahub.transforms.msa._msa_constants import (
 from datahub.transforms.msa._msa_loading_utils import get_msa_path
 from datahub.transforms.msa.msa import LoadPolymerMSAs
 from datahub.utils.testing import cached_parse
-from tests.conftest import PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS
+from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -153,13 +153,13 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str, load_polymer_msas_
 
 
 @pytest.mark.slow
-def test_msa_coverage():
+def test_msa_coverage(pn_units_df):
     """Ensure the  MSA coverage for the test data set surpasses a certain threshold."""
 
     PROTEIN_COVERAGE_THRESHOLD = 0.95
-    RNA_COVERAGE_THRESHOLD = 0.40  # NOTE: We will increase this threshold in the future
+    RNA_COVERAGE_THRESHOLD = 0.40
 
-    result = _evaluate_coverage_for_df(PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS)
+    result = _evaluate_coverage_for_df(pn_units_df, PROTEIN_MSA_DIRS, RNA_MSA_DIRS)
 
     assert (
         result["protein_coverage"] >= PROTEIN_COVERAGE_THRESHOLD

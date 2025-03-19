@@ -8,16 +8,28 @@ import numpy as np
 import pytest
 import torch
 
-from tests.datasets.conftest import AF3_AF2FB_DISTILLATION_CONCAT_DATASET, AF3_PDB_DATASET, TEST_DIFFUSION_BATCH_SIZE
+from tests.conftest import TEST_DIFFUSION_BATCH_SIZE
+
+
+@pytest.fixture
+def dataset_config(request):
+    """Return the dataset configuration based on the requested fixture."""
+    fixture_name = request.param
+    dataset = request.getfixturevalue(fixture_name)
+
+    return {"dataset": dataset, "name": fixture_name}
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("dataset", [AF3_PDB_DATASET, AF3_AF2FB_DISTILLATION_CONCAT_DATASET])
-def test_satisfies_af3_dataloading_assumptions(dataset):
+@pytest.mark.parametrize("dataset_config", ["af3_pdb_dataset", "af3_af2fb_distillation_concat_dataset"], indirect=True)
+def test_satisfies_af3_dataloading_assumptions(dataset_config):
     """
     Tests that the data loading pipeline outputs examples that satisfy the assumptions of the AF3 model.
     """
     NUM_RANDOM_EXAMPLES = 3
+
+    dataset = dataset_config["dataset"]
+    dataset_name = dataset_config["name"]
 
     # Set the seed for reproducibility
     seed = 42
@@ -38,7 +50,9 @@ def test_satisfies_af3_dataloading_assumptions(dataset):
         except AssertionError as e:
             # Update message with sample index
             rng_state_dict = dataset.get_dataset_by_idx(dataset.id_to_idx(example_id)).transform.latest_rng_state_dict
-            raise AssertionError(f"Assertion failed for sample {example_id}." + "\n" + f"{rng_state_dict}") from e
+            raise AssertionError(
+                f"Assertion failed for sample {example_id} in dataset {dataset_name}." + "\n" + f"{rng_state_dict}"
+            ) from e
 
 
 def assert_satisfies_af3_assumptions(sample):

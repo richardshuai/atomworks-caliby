@@ -9,11 +9,6 @@ from datahub.samplers import (
     MixedSampler,
     calculate_weights_for_pdb_dataset_df,
 )
-from tests.datasets.conftest import (
-    RF2AA_INTERFACES_DATASET,
-    RF2AA_PDB_DATASET,
-    RF2AA_PN_UNITS_DATASET,
-)
 
 
 def create_dummy_dataset(length: int, name: str, dataset_class: PandasDataset = PandasDataset):
@@ -24,6 +19,7 @@ def create_dummy_dataset(length: int, name: str, dataset_class: PandasDataset = 
             "col_2": [np.random.randint(0, 100) for _ in range(length)],
         }
     )
+    data.attrs = {"base_path": "/example/base/path"}
     return dataset_class(data=data, id_column="example_id", name=name)
 
 
@@ -53,9 +49,10 @@ def test_nested_dummy_datasets():
         _idx = row_and_idx["index"]
         assert all(row == dataset_1_2_3_4_5[idx])
         assert _idx == idx
+        assert row.attrs["base_path"] is not None
 
 
-def test_structural_datasets():
+def test_structural_datasets(rf2aa_interfaces_dataset, rf2aa_pn_units_dataset, rf2aa_pdb_dataset):
     # +------------------ Structural Dataset (PandasDataset wrapped with a StructuralDatasetWrapper) ------------------+
     num_examples_per_epoch = 100
 
@@ -69,10 +66,10 @@ def test_structural_datasets():
     }
 
     pn_units_dataset_weights = calculate_weights_for_pdb_dataset_df(
-        dataset_df=RF2AA_PN_UNITS_DATASET.data, alphas=alphas, beta=b_pn_unit
+        dataset_df=rf2aa_pn_units_dataset.data, alphas=alphas, beta=b_pn_unit
     )
     interfaces_dataset_weights = calculate_weights_for_pdb_dataset_df(
-        dataset_df=RF2AA_INTERFACES_DATASET.data, alphas=alphas, beta=b_interface
+        dataset_df=rf2aa_interfaces_dataset.data, alphas=alphas, beta=b_interface
     )
     pdb_dataset_weights = torch.cat([pn_units_dataset_weights, interfaces_dataset_weights])  # NOTE: Order matters!
 
@@ -89,15 +86,15 @@ def test_structural_datasets():
     datasets_info = [
         {
             "name": "pdb",
-            "dataset": RF2AA_PDB_DATASET,
+            "dataset": rf2aa_pdb_dataset,
             "sampler": pdb_sampler,
             "probability": 0.2,
         },
         {
             # NOTE: Illustrative; dataset overlaps with the PDB_DATASET. In actuality, this would be a different dataset (e.g., distillation)
             "name": "pn_units",
-            "dataset": RF2AA_PN_UNITS_DATASET,
-            "sampler": SequentialSampler(RF2AA_PN_UNITS_DATASET),
+            "dataset": rf2aa_pn_units_dataset,
+            "sampler": SequentialSampler(rf2aa_pn_units_dataset),
             "probability": 0.8,
         },
         # etc.
@@ -137,7 +134,7 @@ def test_structural_datasets():
 
     # Check that 80% of the indices are from the (second copy of) the pn_units dataset
     # ...all idxs >= len(pdb_dataset) should be from pn_units dataset
-    pn_unit_indices = [idx for idx in indices if idx >= len(RF2AA_PDB_DATASET)]
+    pn_unit_indices = [idx for idx in indices if idx >= len(rf2aa_pdb_dataset)]
     assert len(pn_unit_indices) == 80
 
     # Assert that the example_type is "pn_unit" for any example from the pn_units dataset
@@ -147,4 +144,4 @@ def test_structural_datasets():
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-m", ""])
+    pytest.main(["-v", "-x", "--log-cli-level=WARNING", __file__])

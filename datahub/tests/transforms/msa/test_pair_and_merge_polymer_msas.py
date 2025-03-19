@@ -3,7 +3,6 @@ import copy
 import numpy as np
 import pytest
 
-from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.transforms.base import Compose
 from datahub.transforms.msa._msa_pairing_utils import (
     _get_matched_indices,
@@ -14,7 +13,8 @@ from datahub.transforms.msa.msa import (
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
 )
-from tests.conftest import PN_UNITS_DF, PROTEIN_MSA_DIRS, RNA_MSA_DIRS
+from datahub.utils.testing import cached_parse
+from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 PAIR_MSA_TEST_CASES = [
     {
@@ -384,10 +384,6 @@ MSA_PAIRING_PIPELINE_TEST_CASES = ["3ejj", "1mna", "1hge"]
 
 @pytest.mark.parametrize("pdb_id", MSA_PAIRING_PIPELINE_TEST_CASES)
 def test_msa_pairing_pipline(pdb_id: str):
-    row = PN_UNITS_DF[PN_UNITS_DF["pdb_id"] == pdb_id].iloc[0]  # Get the first row; we don't care which we choose
-
-    data = load_example_from_metadata_row(row, PNUnitsDFParser())
-
     # Apply initial transforms
     # fmt: off
     pipeline = Compose([
@@ -395,7 +391,7 @@ def test_msa_pairing_pipline(pdb_id: str):
     ], track_rng_state=False)
     # fmt: on
 
-    output = pipeline(data)
+    output = pipeline(cached_parse(pdb_id))
     output_before_pairing = copy.deepcopy(output)
 
     # Pair and merge

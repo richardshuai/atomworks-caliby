@@ -9,6 +9,8 @@ from datahub.datasets.parsers import MetadataRowParser
 
 
 class AF2FB_DistillationParser(MetadataRowParser):
+    # TODO: Deprecate in favor of GenericDFParser
+
     """
     DEPRECATION WARNING: This parser is deprecated and will be removed in a future release.
     We should use the GenericDFParser instead, providing `path` and `example_id` columns.
@@ -92,6 +94,8 @@ class AF2FB_DistillationParser(MetadataRowParser):
 
 
 class ValidationDFParserLikeAF3(MetadataRowParser):
+    # TODO: Deprecate in favor of GenericDFParser
+
     """
     Parser for AF-3-style validation DataFrame rows.
 

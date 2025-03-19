@@ -9,6 +9,9 @@ from typing import Any, Callable, TextIO
 
 import biotite.structure as struc
 import numpy as np
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
     ATOMIC_NUMBER_TO_ELEMENT,
@@ -387,3 +390,59 @@ def filter_residue_atoms(
     raise ValueError(
         f"Could not find a matching AtomArray for residue {residue_atom_array.res_name[0]} with elements {elements}"
     )
+
+
+def to_parquet_with_metadata(df: pd.DataFrame, filepath: PathLike, **kwargs: Any) -> None:
+    """Convenience wrapper around df.to_parquet that saves table-wide metadata (df.attrs) to the parquet file.
+
+    Args:
+        df: pandas DataFrame to save.
+        filepath: Path where to save the parquet file.
+        **kwargs: Additional arguments to pass to df.to_parquet.
+    """
+    # Use df.attrs as metadata
+    metadata = df.attrs.copy() if hasattr(df, "attrs") else {}
+
+    # Convert metadata dictionary to strings
+    string_metadata = {str(key): str(value) for key, value in metadata.items()}
+
+    # Convert pandas DataFrame to Arrow Table
+    table = pa.Table.from_pandas(df)
+
+    # Add metadata to the table
+    table_metadata = table.schema.metadata
+    table_metadata.update({k.encode(): v.encode() for k, v in string_metadata.items()})
+
+    # Create new table with updated metadata
+    table = table.replace_schema_metadata(table_metadata)
+
+    # Write to parquet
+    pq.write_table(table, filepath, **kwargs)
+
+
+def read_parquet_with_metadata(filepath: PathLike, **kwargs: Any) -> pd.DataFrame:
+    """Convenience wrapper around pd.read_parquet that preserves metadata.
+
+    Args:
+        filepath: Path to the parquet file.
+        **kwargs: Additional arguments to pass to pd.read_parquet.
+
+    Returns:
+        pandas DataFrame with metadata in .attrs attribute
+    """
+    # Read the parquet file using pyarrow
+    table = pq.read_table(filepath)
+
+    # Extract metadata
+    raw_metadata = table.schema.metadata
+
+    # Convert bytes keys and values back to strings
+    metadata_dict = {k.decode(): v.decode() for k, v in raw_metadata.items() if k not in (b"pandas", b"pyarrow_schema")}
+
+    # Read the DataFrame using pandas
+    df = pd.read_parquet(filepath, **kwargs)
+
+    # Attach metadata to DataFrame's attrs
+    df.attrs = metadata_dict
+
+    return df

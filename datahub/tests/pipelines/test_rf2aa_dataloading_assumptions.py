@@ -12,7 +12,6 @@ import pytest
 import torch
 
 from datahub.transforms.rf2aa_assumptions import assert_satisfies_rf2aa_assumptions
-from tests.datasets.conftest import RF2AA_PDB_DATASET
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ def identity_collate_fn(batch):
 
 
 @pytest.mark.skip
-def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
+def test_satisfies_rf2aa_assumptions(rf2aa_pdb_dataset):
     """
     NOTE: This test is stochastic; it's results should only be interpreted in-context.
     """
@@ -36,18 +35,18 @@ def test_satisfies_rf2aa_assumptions(pdb_dataset=RF2AA_PDB_DATASET):
 
     # Select deterministic examples to profile
     # NOTE: TEST_FILTERS ensures we don't end up with any huge examples that would slow down the test
-    deterministic_indices = np.random.choice(len(pdb_dataset), NUM_RANDOM_EXAMPLES, replace=False)
+    deterministic_indices = np.random.choice(len(rf2aa_pdb_dataset), NUM_RANDOM_EXAMPLES, replace=False)
 
     for index in deterministic_indices:
-        sample = pdb_dataset[index]
+        sample = rf2aa_pdb_dataset[index]
         example_id = sample["example_id"]
 
         try:
             assert_satisfies_rf2aa_assumptions(sample["feats"])
         except AssertionError as e:
             # Update message with sample index
-            rng_state_dict = pdb_dataset.get_dataset_by_idx(
-                pdb_dataset.id_to_idx(example_id)
+            rng_state_dict = rf2aa_pdb_dataset.get_dataset_by_idx(
+                rf2aa_pdb_dataset.id_to_idx(example_id)
             ).transform.latest_rng_state_dict
             raise AssertionError(f"Assertion failed for sample {example_id}." + "\n" + f"{rng_state_dict}") from e
 

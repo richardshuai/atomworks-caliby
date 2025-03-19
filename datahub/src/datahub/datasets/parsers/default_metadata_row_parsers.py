@@ -10,6 +10,8 @@ from datahub.datasets.parsers import MetadataRowParser
 
 
 class PNUnitsDFParser(MetadataRowParser):
+    # TODO: Deprecate in favor of GenericDFParser
+
     """Parser for pn_units DataFrame rows.
 
     In addition to standard fields (example_id, path), this parser also includes:
@@ -46,6 +48,8 @@ class PNUnitsDFParser(MetadataRowParser):
 
 
 class InterfacesDFParser(MetadataRowParser):
+    # TODO: Deprecate in favor of GenericDFParser
+
     """Parser for interfaces DataFrame rows.
 
     In addition to standard fields (example_id, path), this parser also includes:
@@ -82,22 +86,41 @@ class InterfacesDFParser(MetadataRowParser):
 
 
 class GenericDFParser(MetadataRowParser):
-    """Generic parser for an interface- or chain-based dataframe.
+    """Generic dataframe parser for training or validation dataframes.
 
-    Any extra columns will be included in the "extra_info" key that is passed to the Transform pipeline.
+    We parse an input row (e.g., a Pandas Series) and return a dictionary containing pertinent information for the Transform pipeline.
 
-    NOTE: By convention, `example_id` values are generated with `datahub.common.generate_example_id`.
+    Args:
+        example_id_colname (str): Name of the column containing a unique identifier for each example (across ALL datasets, not just this dataset).
+            By convention, the columns values should be generated with `datahub.common.generate_example_id`. Default: "example_id"
+        path_colname (str): Name of the column containing paths (relative or absolute) to the relevant structure files. Default: "path"
+        pn_unit_iid_colnames (str | List[str]): The name(s) of the column(s) containing the CIFUtils pn_unit_iid(s); used for cropping.
+            If given as a list, should contain one element for a monomers dataset and two for an interfaces dataset.
+            Default: None (crop randomly)
+        assembly_id_colname (str | None): Optional parameter giving the name of the column containing the assembly ID.
+            If None, the assembly ID will be set to "1" for all examples. Default: None
+        base_path (str): The base path to the files, if not included in the path.
+        extension (str): The file extension of the structure files, if not included in the path.
+        attrs (dict): Additional attributes to be merged with the dataframe-level attributes stored in the DF (if present). Attributes
+            in this dictionary will take precedence over those in the dataset-level attributes and will be returned in the "extra_info" key.
+
+    Returns:
+        - example_id: The unique identifier for the example. Must be unique across all datasets.
+        - path: The composed path to the structure file, including the base path and extension if specified.
+        - query_pn_unit_iids: The pn_unit_iid(s) that inform where to crop the structure.
+            During TRAINING, we typically want to specify the chain(s) or interface at which to center our crop. If not given (i.e., None),
+                then we will crop the structure at a random location, if a crop is required.
+            During VALIDATION, then we do not crop, and query_pn_unit_iids should be None.
+        - assembly_id: The assembly ID. Used to load the correct assembly from the CIF file. If not given, the assembly ID will be set to "1".
+        - extra_info: A dictionary containing all additional information that should be passed to the Transform pipeline. Contains, in order of precedence:
+            - Any additional key-value pairs specified by the `attrs` parameter
+            - All unused dataframe columns (i.e., those not used for example_id, path, query_pn_unit_iids, or assembly_id)
+            - Dataset-level attributes (if present), found in the `attrs` attribute of the Dataframe (or Series)
+            For example, the "extra_info" key could contain information about which chain(s) to score during validation, metadata for specific metrics, etc.
+
     NOTE: We must avoid duplication of interfaces due to order inversion. If not using the preprocessing
         scripts in `datahub`, ensure that the interfaces dataframe has been checked for duplicates.
         For example, [A, B] and [B, A] should be considered the same interface.
-
-    Args:
-        example_id_colname (str): Name of the column containing a unique identifier for each example across all datasets
-        path_colname (str): Name of the column containing paths to the structure files.
-        pn_unit_iid_colnames (str | List[str]): The name(s) of the column(s) containing the cifutils pn_unit_iid(s).
-            If given as a list, this must contain one element for a monomers dataset and two for an interfaces dataset.
-        assembly_id_colname (str | None): Optional parameter giving the name of the column containing the assembly ID.
-            If None, the assembly ID will be set to "1" for all examples.
 
     Example dataframe:
         example_id                      path                      pn_unit_1_iid  pn_unit_2_iid
@@ -107,11 +130,15 @@ class GenericDFParser(MetadataRowParser):
 
     def __init__(
         self,
-        pn_unit_iid_colnames: str | list[str] | None = None,
         example_id_colname: str = "example_id",
         path_colname: str = "path",
+        pn_unit_iid_colnames: str | list[str] | None = None,
         assembly_id_colname: str | None = None,
+        base_path: str = "",
+        extension: str = "",
+        attrs: dict | None = None,
     ):
+        # Columns to extract
         self.example_id_colname = example_id_colname
         self.path_colname = path_colname
 
@@ -125,20 +152,47 @@ class GenericDFParser(MetadataRowParser):
 
         self.assembly_id_colname = assembly_id_colname
 
+        self.attrs = attrs.copy() if attrs else {}
+        # (For clarity, we explicitly expose base_path and extension, but just treat them as additional attributes)
+        if base_path and "base_path" not in self.attrs:
+            self.attrs["base_path"] = base_path
+        if extension and "extension" not in self.attrs:
+            self.attrs["extension"] = extension
+
     def _parse(self, row: pd.Series) -> dict[str, Any]:
+        # Compose the metadata (extra_info) dictionary
+        # (dataframe-level attributes; lowest precedence)
+        extra_info = row.attrs.copy() if hasattr(row, "attrs") else {}
+        # (row-level attributes)
+        extra_info.update(row.to_dict())
+        # (parser attributes; highest precedence)
+        extra_info.update(self.attrs or {})
+
         # Assemble input pn_units
         query_pn_unit_iids = [row[colname] for colname in self.pn_unit_iid_colnames]
 
         # Get the assembly ID if specified, otherwise default to "1"
-        if exists(self.assembly_id_colname):
-            assembly_id = row[self.assembly_id_colname]
-        else:
-            assembly_id = "1"
+        assembly_id = row[self.assembly_id_colname] if exists(self.assembly_id_colname) else "1"
+
+        # Compose the path to the structure file, including the base path and extension if specified
+        path = Path(row[self.path_colname])
+        if "base_path" in extra_info and extra_info["base_path"]:
+            path = Path(extra_info["base_path"]) / path
+        if "extension" in extra_info and extra_info["extension"]:
+            path = path.with_suffix(extra_info["extension"])
+
+        # (Exclude columns that we've already used)
+        exclude_cols = set(
+            self.pn_unit_iid_colnames
+            + [self.example_id_colname, self.path_colname]
+            + ([self.assembly_id_colname] if self.assembly_id_colname else [])
+            + ["base_path", "extension"]
+        )
 
         return {
             "example_id": row[self.example_id_colname],
-            "path": Path(row[self.path_colname]),
+            "path": path,
             "assembly_id": assembly_id,
             "query_pn_unit_iids": query_pn_unit_iids,
-            "extra_info": row.to_dict(),
+            "extra_info": {k: v for k, v in row.items() if k not in exclude_cols},
         }

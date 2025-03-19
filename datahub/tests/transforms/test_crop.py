@@ -1,5 +1,6 @@
 from copy import deepcopy
 from functools import cache
+from typing import Any
 
 import biotite.structure as struc
 import numpy as np
@@ -24,7 +25,6 @@ from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
 from datahub.utils.token import apply_and_spread_token_wise, get_token_count, get_token_starts
-from tests.datasets.conftest import RF2AA_PDB_DATASET
 
 # fmt: off
 INTERFACE_EXAMPLES = [
@@ -121,19 +121,21 @@ BENCHMARK_EXAMPLE_IDS = [example["id"] for example in BENCHMARK_EXAMPLES]
 
 # Cached loading from example to slightly speed up tests
 @cache
-def _get_example(example_id: str) -> dict:
-    row = get_row_and_index_by_example_id(RF2AA_PDB_DATASET, example_id)["row"]
+def _get_example(example_id: str, dataset: Any) -> dict:
+    row = get_row_and_index_by_example_id(dataset, example_id)["row"]
     dataset_parser = PNUnitsDFParser() if "pn_units" in example_id else InterfacesDFParser()
     return load_example_from_metadata_row(metadata_row=row, metadata_row_parser=dataset_parser)
 
 
-def get_example(example_id: str) -> dict:
-    data = _get_example(example_id)
+def get_example(example_id: str, dataset: Any) -> dict:
+    data = _get_example(example_id, dataset)
     return deepcopy(data)
 
 
 @pytest.mark.parametrize("example_id", BENCHMARK_EXAMPLE_IDS)
-def test_af3_like_spatial_crop_transform(example_id: str, np_seed: int = 1, crop_size: int = 384):
+def test_af3_like_spatial_crop_transform(
+    example_id: str, rf2aa_pdb_dataset: Any, np_seed: int = 1, crop_size: int = 384
+):
     prep_pipe = Compose(
         [
             AddGlobalAtomIdAnnotation(),
@@ -147,7 +149,7 @@ def test_af3_like_spatial_crop_transform(example_id: str, np_seed: int = 1, crop
     crop_pipe = CropSpatialLikeAF3(crop_size=crop_size)
 
     with rng_state(create_rng_state_from_seeds(np_seed=np_seed)):
-        data = get_example(example_id)
+        data = get_example(example_id, rf2aa_pdb_dataset)
         data = prep_pipe(data)
         pre_crop_atom_array = data["atom_array"]
         data = crop_pipe(data)
@@ -226,7 +228,9 @@ def test_af3_like_spatial_crop_transform(example_id: str, np_seed: int = 1, crop
 
 
 @pytest.mark.parametrize("example_id", BENCHMARK_EXAMPLE_IDS)
-def test_af3_like_contiguous_crop_transform(example_id: str, np_seed: int = 1, crop_size: int = 384):
+def test_af3_like_contiguous_crop_transform(
+    example_id: str, af3_pdb_dataset: Any, np_seed: int = 1, crop_size: int = 384
+):
     prep_pipe = Compose(
         [
             AddGlobalAtomIdAnnotation(),
@@ -242,7 +246,7 @@ def test_af3_like_contiguous_crop_transform(example_id: str, np_seed: int = 1, c
     crop_pipe = CropContiguousLikeAF3(crop_size=crop_size)
 
     with rng_state(create_rng_state_from_seeds(np_seed=np_seed)):
-        data = get_example(example_id)
+        data = get_example(example_id, af3_pdb_dataset)
         data = prep_pipe(data)
         pre_crop_atom_array = data["atom_array"]
         data = crop_pipe(data)
@@ -281,7 +285,9 @@ def test_af3_like_contiguous_crop_transform(example_id: str, np_seed: int = 1, c
 
 
 @pytest.mark.parametrize("example", BENCHMARK_EXAMPLES)
-def regression_test_af3_like_spatial_crop_transform(example: dict, np_seed: int = 1, crop_size: int = 60):
+def regression_test_af3_like_spatial_crop_transform(
+    example: dict, af3_pdb_dataset: Any, np_seed: int = 1, crop_size: int = 60
+):
     # UNCOMMENT CODE FOR EXAMPLE GENERATION
     # benchiter = iter(BENCHMARK_EXAMPLES)
     # example = next(benchiter)
@@ -300,7 +306,7 @@ def regression_test_af3_like_spatial_crop_transform(example: dict, np_seed: int 
     example_id = example["id"]
 
     with rng_state(create_rng_state_from_seeds(np_seed=np_seed)):
-        data = get_example(example_id)
+        data = get_example(example_id, af3_pdb_dataset)
         data = prep_pipe(data)
         data = crop_pipe(data)
         post_crop_atom_array = data["atom_array"]

@@ -18,6 +18,7 @@ from datahub.datasets.parsers import MetadataRowParser, load_example_from_metada
 from datahub.preprocessing.constants import NA_VALUES
 from datahub.transforms.base import Compose, Transform, TransformedDict
 from datahub.utils.debug import save_failed_example_to_disk
+from datahub.utils.io import read_parquet_with_metadata
 from datahub.utils.rng import capture_rng_states
 
 _USER = default(os.getenv("USER"), "")
@@ -262,7 +263,7 @@ class PandasDataset(BaseDataset):
         if path.suffix == ".csv":
             data = pd.read_csv(path, usecols=columns_to_load, keep_default_na=False, na_values=NA_VALUES, **load_kwargs)
         elif path.suffix == ".parquet":
-            data = pd.read_parquet(path, columns=columns_to_load, **load_kwargs)
+            data = read_parquet_with_metadata(path, columns=columns_to_load, **load_kwargs)
         else:
             raise ValueError(f"Unsupported file type: {path.suffix}")
         return data

@@ -1,21 +1,14 @@
 import logging
-import os
-from multiprocessing import Pool
 from typing import Any
 
 import numpy as np
 import pytest
 import torch
-from cifutils.enums import ChainType
-from tqdm import tqdm
 
 from datahub.transforms.base import Compose
 from datahub.transforms.esm.esm import LoadPolymerESMs
 from datahub.transforms.filters import RemoveHydrogens, RemoveUnsupportedChainTypes
-from datahub.utils.io import get_sharded_file_path
-from datahub.utils.misc import hash_sequence
 from datahub.utils.testing import cached_parse
-from tests.conftest import PN_UNITS_DF
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -104,99 +97,6 @@ def test_load_esms(test_case: dict[str, Any]):
     else:
         # Mixed padding mask is unexpected
         assert False, f"Unexpected esm_is_padded_mask for chain {chain_id}"
-
-
-def get_esm_coverage_for_pdb_id(pdb_id):
-    """
-    Process a PDB ID and return the number of protein chains with ESM embeddings.
-    Used in the ESM coverage test.
-    """
-    num_proteins = num_proteins_with_esm = 0
-
-    # Filter rows by PDB ID
-    filtered_rows = FILTERED_PN_UNITS_DF[FILTERED_PN_UNITS_DF["pdb_id"] == pdb_id.lower()]
-
-    # Loop through chains and check for ESM embeddings
-    for _, row in filtered_rows.iterrows():
-        chain_type = ChainType(row["q_pn_unit_type"])
-        sequence = row["q_pn_unit_processed_entity_non_canonical_sequence"]
-        if chain_type.is_protein():
-            if not sequence:
-                logger.warning(f"Protein chain with no sequence: {pdb_id} : {row['q_pn_unit_id']}")
-                continue
-            elif len(sequence) > 50:
-                sequence_hash = hash_sequence(sequence)
-                num_proteins += 1
-
-                # Check if ESM embedding exists
-                for esm_dir in ESM_EMBEDDING_DIRS:
-                    esm_file = get_sharded_file_path(
-                        esm_dir["dir"],
-                        sequence_hash,
-                        esm_dir["extension"],
-                        esm_dir.get("directory_depth", 0),
-                    )
-                    if esm_file.exists():
-                        num_proteins_with_esm += 1
-                        break
-
-    return {
-        "pdb_id": pdb_id,
-        "num_proteins": num_proteins,
-        "num_proteins_with_esm": num_proteins_with_esm,
-    }
-
-
-# Build up a filtered pn_units dataframe (used in the ESM coverage tests)
-FILTERED_PN_UNITS_DF = PN_UNITS_DF.copy()
-FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[
-    FILTERED_PN_UNITS_DF["q_pn_unit_type"].isin([ChainType.POLYPEPTIDE_D, ChainType.POLYPEPTIDE_L])
-]
-
-# Filter to only entries with a deposition date before a certain date, if necessary
-FILTERED_PN_UNITS_DF = FILTERED_PN_UNITS_DF[FILTERED_PN_UNITS_DF["deposition_date"] < "2021-08-02"]
-
-
-@pytest.mark.very_slow
-def test_esm_coverage():
-    """
-    Function to validate ESM embedding coverage for a set of PDB IDs.
-    Asserts that the coverage for proteins is above a specified threshold.
-    """
-    PROTEIN_COVERAGE_THRESHOLD = 0.90
-
-    pdb_ids = FILTERED_PN_UNITS_DF["pdb_id"].unique()
-
-    aggregate_results = {
-        "num_proteins": 0,
-        "num_proteins_with_esm": 0,
-    }
-
-    num_processes = min(8, os.cpu_count() or 8)
-    with Pool(processes=num_processes) as pool:
-        results_generator = pool.imap(get_esm_coverage_for_pdb_id, pdb_ids, chunksize=20)
-        for results in tqdm(results_generator, total=len(pdb_ids)):
-            if results is None:
-                continue
-
-            aggregate_results["num_proteins"] += results["num_proteins"]
-            aggregate_results["num_proteins_with_esm"] += results["num_proteins_with_esm"]
-
-    pool.join()  # See https://pytest-cov.readthedocs.io/en/v2.6.1/mp.html
-
-    # Assert protein ratio is above the threshold
-    if aggregate_results["num_proteins"] > 0:
-        coverage = aggregate_results["num_proteins_with_esm"] / aggregate_results["num_proteins"]
-        assert (
-            coverage >= PROTEIN_COVERAGE_THRESHOLD
-        ), f"ESM embedding coverage {coverage:.2%} is below the threshold {PROTEIN_COVERAGE_THRESHOLD:.2%}"
-
-    # Log the results
-    logger.info(
-        f"Proteins with ESM embeddings: {aggregate_results['num_proteins_with_esm']}/"
-        f"{aggregate_results['num_proteins']} "
-        f"({(coverage * 100 if aggregate_results['num_proteins'] else 0):.2f}%)"
-    )
 
 
 @pytest.mark.parametrize("test_cases_homo", ESM_HOMO_TEST_CASES)

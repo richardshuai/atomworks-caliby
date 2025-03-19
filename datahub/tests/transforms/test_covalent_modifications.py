@@ -3,10 +3,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.transforms.base import Compose
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from tests.conftest import PN_UNITS_DF
+from datahub.utils.testing import cached_parse
 
 COVALENT_MODIFICATION_TEST_CASES = [
     {
@@ -26,15 +25,7 @@ COVALENT_MODIFICATION_TEST_CASES = [
 
 @pytest.mark.parametrize("test_case", COVALENT_MODIFICATION_TEST_CASES)
 def test_covalent_modifications(test_case: dict[str, Any]):
-    pdb_id = test_case["pdb_id"]
-    row = PN_UNITS_DF[
-        (PN_UNITS_DF["pdb_id"] == pdb_id)
-        & (PN_UNITS_DF["q_pn_unit_iid"] == test_case["residues_to_be_atomized"][0]["polymer_pn_unit_iid"])
-    ].iloc[0]  # Get the first row with the given pdb_id and q_pn_unit_iid
-
-    assert row is not None
-
-    data = load_example_from_metadata_row(row, PNUnitsDFParser())
+    data = cached_parse(test_case["pdb_id"])
 
     # Apply transforms
     unprocessed_atom_array = data["atom_array"]

@@ -1,5 +1,6 @@
 import biotite.structure as struc
 import numpy as np
+import pandas as pd
 import pytest
 from biotite.structure import AtomArray
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
@@ -19,7 +20,6 @@ from datahub.transforms.filters import (
     RemoveUnsupportedChainTypes,
 )
 from datahub.utils.testing import cached_parse
-from tests.conftest import PN_UNITS_DF
 
 
 @pytest.mark.parametrize("test_case", [{"pdb_id": "1s2k"}])
@@ -132,9 +132,9 @@ UNSUPPORTED_CHAIN_TYPE_TEST_CASES = [
 
 
 @pytest.mark.parametrize("pdb_id", UNSUPPORTED_CHAIN_TYPE_TEST_CASES)
-def test_remove_unsupported_chain_types(pdb_id: str):
-    rows = PN_UNITS_DF[
-        (PN_UNITS_DF["pdb_id"] == pdb_id.lower()) & (PN_UNITS_DF["assembly_id"] == "1")
+def test_remove_unsupported_chain_types(pdb_id: str, pn_units_df: pd.DataFrame):
+    rows = pn_units_df[
+        (pn_units_df["pdb_id"] == pdb_id.lower()) & (pn_units_df["assembly_id"] == "1")
     ]  # We only need the first assembly for UNSUPPORTED_CHAIN_TYPE_TEST_CASES
 
     assert not rows.empty
@@ -247,11 +247,11 @@ CLASHING_PN_UNITS_TEST_CASES = [{"pdb_id": "1gt3", "assembly_id": "1"}]
 
 
 @pytest.mark.parametrize("test_case", CLASHING_PN_UNITS_TEST_CASES)
-def test_filter_to_specified_pn_units(test_case: str):
+def test_filter_to_specified_pn_units(test_case: str, pn_units_df: pd.DataFrame):
     pdb_id = test_case["pdb_id"]
     assembly_id = test_case["assembly_id"]
 
-    rows = PN_UNITS_DF[(PN_UNITS_DF["pdb_id"] == pdb_id.lower()) & (PN_UNITS_DF["assembly_id"] == assembly_id)]
+    rows = pn_units_df[(pn_units_df["pdb_id"] == pdb_id.lower()) & (pn_units_df["assembly_id"] == assembly_id)]
 
     assert not rows.empty
 

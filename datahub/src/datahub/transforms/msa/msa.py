@@ -53,13 +53,13 @@ class PairAndMergePolymerMSAs(Transform):
 
     Ensures that the query sequence is always the first sequence in the MSA.
 
-    Stores results in "merged_polymer_msa" in the data dictionary, with keys:
-        - msa: The merged MSA.
-        - ins: The merged insertion array.
-        - msa_is_padded_mask: A mask indicating whether a given position in the MSA is padded due to unpaired sequences (1) or not (0).
-        - tax_ids: The merged taxonomic IDs.
-        - any_paired: A boolean array indicating whether a sequence is paired with any other sequence.
-        - all_paired: A boolean array indicating whether a sequence is paired with all other sequences.
+    Stores results in "polymer_msas_by_chain_id" in the data dictionary, with keys:
+        - msa: The merged MSA
+        - ins: The merged insertion array
+        - msa_is_padded_mask: A mask indicating whether a given position in the MSA is padded due to unpaired sequences (1) or not (0)
+        - tax_ids: The merged taxonomic IDs
+        - any_paired: A boolean array indicating whether a sequence is paired with any other sequence
+        - all_paired: A boolean array indicating whether a sequence is paired with all other sequences
 
     Unpaired sequences can be handled in two ways:
         - Dense pairing: Unpaired sequences are densely packed at the bottom of the MSA (AF-3 style).
@@ -472,11 +472,11 @@ class FillFullMSAFromEncoded(Transform):
             data["polymer_msas_by_chain_id"][chain_id]["encoded_msa"].shape[0]
             == data["polymer_msas_by_chain_id"][first_chain_id]["encoded_msa"].shape[0]
             for chain_id in data["polymer_msas_by_chain_id"]
-        )  # ...but we check anyways
+        )  # ... but we check anyways
         first_encoded_msa = data["polymer_msas_by_chain_id"][first_chain_id]["encoded_msa"]
         n_rows = first_encoded_msa.shape[0]
 
-        # ...check that the given padding token matches the padding token used when padding unpaired MSA sequences, if applicable
+        # Check that the given padding token matches the padding token used when padding unpaired MSA sequences, if applicable
         existing_pad_tokens = data["polymer_msas_by_chain_id"][first_chain_id]["msa_is_padded_mask"] * first_encoded_msa
         if np.any(existing_pad_tokens):
             token = existing_pad_tokens.flat[np.flatnonzero(existing_pad_tokens)[0]]
@@ -484,7 +484,7 @@ class FillFullMSAFromEncoded(Transform):
                 token == self.PAD_TOKEN
             ), f"Given padding token {self.PAD_TOKEN} does not match existing padding token {token}"
 
-        # ...set up empty encoded msa (purely padded) for encoded msa
+        # Set up empty encoded msa (purely padded) for encoded msa
         token_count = get_token_count(atom_array)
         full_encoded_msa = np.full(
             (n_rows, token_count), self.PAD_TOKEN, dtype=int
@@ -494,10 +494,10 @@ class FillFullMSAFromEncoded(Transform):
         )  # [n_rows, n_tokens_across_chains] (bool) 1 = padded, 0 = not padded
         full_msa_ins = np.zeros((n_rows, token_count), dtype=int)  # [n_rows, n_tokens_across_chains] (int)
 
-        # ...create a mask indicating whether any atom in each token is atomized
+        # Create a mask indicating whether any atom in each token is atomized
         is_token_atomized = apply_token_wise(atom_array, atom_array.atomize, np.any)  # [n_tokens_across_chains] (bool)
 
-        # ...loop through all `chain_iids` (polymer/non-polymer) and populate relevant columns in encoding
+        # Loop through all `chain_iids` (polymer/non-polymer) and populate relevant columns in encoding
         token_idx_has_msa = np.zeros(get_token_count(atom_array), dtype=bool)  # [n_tokens_across_chains] (bool)
         for chain_iid in np.unique(atom_array.chain_iid):
             is_atom_in_chain = atom_array.chain_iid == chain_iid  # [n_atoms_total] (bool)
@@ -505,9 +505,9 @@ class FillFullMSAFromEncoded(Transform):
             chain_instance_atom_array = atom_array[is_atom_in_chain]
             chain_id = chain_instance_atom_array.chain_id[0]
 
-            # ...check if we have an MSA for this chain
+            # Check if we have an MSA for this chain
             if chain_id in data["polymer_msas_by_chain_id"]:
-                # ...if so, get the encoded MSA and the mask
+                # ... if so, get the encoded MSA and the mask
                 chain_encoded_msa = data["polymer_msas_by_chain_id"][chain_id][
                     "encoded_msa"
                 ]  # [n_rows, n_res_in_chain] (int)
@@ -516,15 +516,15 @@ class FillFullMSAFromEncoded(Transform):
                 ]  # [n_rows, n_res_in_chain] (bool)
                 msa_ins = data["polymer_msas_by_chain_id"][chain_id]["ins"]  # [n_rows, n_res_in_chain] (int)
 
-                # ...create a global mask to indicate whether any atom in each token is in this chain
+                # ... create a global mask to indicate whether any atom in each token is in this chain
                 global_is_token_in_chain = apply_token_wise(
                     atom_array, is_atom_in_chain, np.any
                 )  # [n_tokens_across_chains] (bool)
 
-                # ...index into the MSA, dropping the atomized pieces, and any residues that may have been cropped or otherwise removed
+                # ... index into the MSA, dropping the atomized pieces, and any residues that may have been cropped or otherwise removed
                 non_atomized_atoms = chain_instance_atom_array[~chain_instance_atom_array.atomize]
                 if len(non_atomized_atoms) == 0:
-                    # ... skip if there are no non-atomized atoms in this chain
+                    # (Skip if there are no non-atomized atoms in this chain)
                     continue
 
                 within_poly_res_idx = non_atomized_atoms[
@@ -538,7 +538,7 @@ class FillFullMSAFromEncoded(Transform):
                 ]  # [n_rows, n_non_atomized_res_in_chain] (bool)
                 subselected_msa_ins = msa_ins[:, within_poly_res_idx]  # [n_rows, n_non_atomized_res_in_chain] (int)
 
-                # ...set all non-atomized tokens in this chain (e.g., full residues) to the subselected MSA
+                # ... set all non-atomized tokens in this chain (e.g., full residues) to the subselected MSA
                 mask = global_is_token_in_chain & (~is_token_atomized)  # [n_tokens_across_chains] (bool)
                 full_encoded_msa[:, mask] = subselected_encoded_msa  # [n_rows, n_tokens_across_chains] (int)
                 full_msa_is_padded_mask[:, mask] = (
@@ -547,7 +547,7 @@ class FillFullMSAFromEncoded(Transform):
                 full_msa_ins[:, mask] = subselected_msa_ins  # [n_rows, n_tokens_across_chains] (int)
                 token_idx_has_msa[mask] = True  # [n_tokens_across_chains] (bool)
 
-        # ...for the first row, set the tokens directly from the output of the `Atomize` transform (i.e., the atomized tokens, and anything without an MSA)
+        # ... for the first row, set the tokens directly from the output of the `Atomize` transform (i.e., the atomized tokens, and anything without an MSA)
         # (Note that this also handles setting the MSA for polymers without MSAs, and non-polymers)
         full_encoded_msa[0] = data["encoded"]["seq"]  # [n_tokens_across_chains] (int)
         full_msa_is_padded_mask[0] = False  # [n_tokens_across_chains] (bool)
@@ -625,7 +625,7 @@ class FeaturizeMSALikeRF2AA(Transform):
         check_contains_keys(data, ["encoded", "full_msa_details"])
 
     def forward(self, data: dict) -> dict:
-        # ...unpack
+        # (Unpack)
         encoded_msa = data["encoded"]["msa"]  # [n_rows, n_tokens_across_chains] (int)
         token_idx_has_msa = data["full_msa_details"]["token_idx_has_msa"]  # [n_tokens_across_chains] (bool)
         msa_is_padded_mask = data["full_msa_details"]["msa_is_padded_mask"]  # [n_rows, n_tokens_across_chains] (bool)
