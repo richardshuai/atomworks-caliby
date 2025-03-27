@@ -79,17 +79,19 @@ def initialize_chain_info_from_category(cif_block: CIFBlock, atom_array: AtomArr
 
     # From `entity_poly`
     polymer_df = category_to_df(cif_block, "entity_poly")
-    polymer_df = polymer_df[
-        ["entity_id", "type", "pdbx_seq_one_letter_code", "pdbx_seq_one_letter_code_can", "pdbx_strand_id"]
-    ]
-    polymer_df.rename(
-        columns={
-            "type": "polymer_type",
-            "pdbx_seq_one_letter_code": "non_canonical_sequence",
-            "pdbx_seq_one_letter_code_can": "canonical_sequence",
-        },
-        inplace=True,
-    )
+
+    required_columns = ["entity_id", "type", "pdbx_strand_id"]
+    optional_columns = ["pdbx_seq_one_letter_code", "pdbx_seq_one_letter_code_can"]
+    polymer_df = polymer_df[required_columns + [col for col in optional_columns if col in polymer_df.columns]]
+
+    # Rename columns if they exist
+    rename_map = {
+        "type": "polymer_type",
+        "pdbx_seq_one_letter_code": "non_canonical_sequence",
+        "pdbx_seq_one_letter_code_can": "canonical_sequence",
+    }
+    polymer_df.rename(columns=rename_map, inplace=True)
+
     polymer_df["entity_id"] = polymer_df["entity_id"].astype(str)
     polymer_dict = polymer_df.set_index("entity_id").to_dict(orient="index")
 

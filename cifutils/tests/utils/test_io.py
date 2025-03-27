@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from biotite.database import rcsb
 from biotite.structure import AtomArray, AtomArrayStack
-from conftest import TEST_DATA_DIR
+from conftest import TEST_DATA_DIR, get_pdb_path
 
 from cifutils import parse
 from cifutils.tools.inference import build_msa_paths_by_chain_id_from_component_list, components_to_atom_array
@@ -261,6 +261,30 @@ def test_inject_msa_information_into_chain_info():
 
     assert out["chain_info"]["A"]["msa_path"] == Path("sequence_1.a3m")
     assert out["chain_info"]["B"]["msa_path"] == Path("sequence_2.a3m")
+
+
+def test_load_from_af3_output():
+    cif_path_af3 = TEST_DATA_DIR / "8cjg_from_af3.cif"
+    cif_path_rcsb = get_pdb_path("8cjg")
+
+    # Parse the structure without CCD mirror path
+    atom_array_from_af3 = parse(cif_path_af3, hydrogen_policy="remove")["assemblies"]["1"][0]
+    atom_array_from_rcsb = parse(cif_path_rcsb, hydrogen_policy="remove")["assemblies"]["1"][0]
+
+    # ...rename chain ID's to match the original structure
+    assert len(atom_array_from_af3) == len(atom_array_from_rcsb), "Atom arrays are not the same length"
+
+    # Ensure full occupancy from AF-3
+    assert np.all(atom_array_from_af3.occupancy == 1)
+
+    # Check that annotations match, where applicable (may have different chain ID's)
+    assert len(np.unique(atom_array_from_af3.chain_id)) == len(np.unique(atom_array_from_rcsb.chain_id))
+    assert np.array_equal(
+        np.sort(np.unique(atom_array_from_af3.res_name)), np.sort(np.unique(atom_array_from_rcsb.res_name))
+    )
+    assert np.array_equal(
+        np.sort(np.unique(atom_array_from_af3.atom_name)), np.sort(np.unique(atom_array_from_rcsb.atom_name))
+    )
 
 
 if __name__ == "__main__":
