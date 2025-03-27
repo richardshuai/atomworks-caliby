@@ -395,7 +395,11 @@ class PadDNA(Transform):
             return None
 
         # next, generate ideal B-form DNA with the desired final sequence using x3dna
-        array_ideal = generate_bform_dna(new_seq)
+        try:
+            array_ideal = generate_bform_dna(new_seq)
+        except AssertionError:
+            logger.warning("PadDNA failed. Attempted to generate invalid DNA sequence with x3dna.")
+            return None
 
         # correct or add in annotations like chain_id, pn_unit_id, etc. for the generated AtomArray
         array_ideal_A = array_ideal[ResIdxSlice(None, len(new_seq))]
@@ -520,8 +524,14 @@ class PadDNA(Transform):
         annotations = ("base_id", "is_base_paired", "is_chain_paired", "is_overhang")
         for chain_iids in chain_pair_iids_in_duplex:
             chain1_iid, chain2_iid = chain_iids
-            chain1 = _get_residue_info_for_dna_chains(dna_array[dna_array.chain_iid == chain1_iid], annotations)
-            chain2 = _get_residue_info_for_dna_chains(dna_array[dna_array.chain_iid == chain2_iid], annotations)
+            try:
+                chain1 = _get_residue_info_for_dna_chains(dna_array[dna_array.chain_iid == chain1_iid], annotations)
+                chain2 = _get_residue_info_for_dna_chains(dna_array[dna_array.chain_iid == chain2_iid], annotations)
+            except AssertionError:
+                logger.warning(
+                    f"In PadDNA, _get_residue_info_for_dna_chains() failed for duplex {chain1_iid}:{chain2_iid}. Skipping."
+                )
+                continue
 
             ### TODO: Move into function
             # ... skip if desired duplex is already of the desired length
@@ -558,6 +568,7 @@ class PadDNA(Transform):
             #  completed chain 1 (fwd):  C - CAGGT  - CT
             #
             # NOTE: seq1_lhs & seq2_rhs as well as seq1_rhs & seq2_lhs are mutually exclusive.
+            # skip if either pair is present
 
             seq1_lhs = "".join(chain1["canonical_seq"][: chain1_overhang[0]])
             seq1_paired = "".join(chain1["canonical_seq"][chain1["is_base_paired"]])
@@ -566,11 +577,17 @@ class PadDNA(Transform):
             seq2_paired = "".join(chain2["canonical_seq"][chain2["is_base_paired"]])
             seq2_rhs = "".join(chain2["canonical_seq"][-chain2_overhang[1] :])
 
-            assert seq1_paired == to_reverse_complement(
-                seq2_paired
-            ), "sequences to be joined must be reverse-complements of each other"
-            assert seq1_lhs == "" or seq2_rhs == "", "overhang1_lhs and overhang1_rhs are mutually exclusive"
-            assert seq1_rhs == "" or seq2_lhs == "", "overhang2_lhs and overhang2_rhs are mutually exclusive"
+            try:
+                assert seq1_paired == to_reverse_complement(
+                    seq2_paired
+                ), "sequences to be joined must be reverse-complements of each other"
+                assert seq1_lhs == "" or seq2_rhs == "", "overhang1_lhs and overhang1_rhs are mutually exclusive"
+                assert seq1_rhs == "" or seq2_lhs == "", "overhang2_lhs and overhang2_rhs are mutually exclusive"
+            except AssertionError:
+                logger.warning(
+                    "DNA duplex {chain1_iid}:{chain2_iid} has mutually exclusive overhangs. Skipping in PadDNA."
+                )
+                continue
 
             # NOTE: at least one of the first two elements & at least one of the last two elements are
             #  guaranteed to be empty strings due to the above assertions, so we can safely sum the lists
