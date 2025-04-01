@@ -188,7 +188,8 @@ def load_polymer_msas(
     cached_load_msa_data_from_path = cache_to_disk_as_pickle(msa_cache_dir)(load_msa_data_from_path)
 
     for chain_id in np.unique(atom_array.chain_id[np.isin(atom_array.chain_type, ChainType.get_polymers())]):
-        sequence = chain_info[chain_id]["processed_entity_non_canonical_sequence"]
+        non_canonical_sequence = chain_info[chain_id]["processed_entity_non_canonical_sequence"]
+        canonical_sequence = chain_info[chain_id]["processed_entity_canonical_sequence"]
         chain_type = chain_info[chain_id]["chain_type"]
 
         # Set the query chain tax_id to "query" to avoid pairing issues downstream (we force all query sequences to be paired with themselves)
@@ -202,14 +203,19 @@ def load_polymer_msas(
             and "msa_path" in chain_info[chain_id]
             and chain_info[chain_id]["msa_path"] is not None
         ):
+            # Use provided path
             msa_file_path = Path(chain_info[chain_id]["msa_path"])
         else:
-            if chain_type.is_protein():
-                msa_file_path = get_msa_path(sequence, protein_msa_dirs)
-            elif chain_type == ChainType.RNA:
-                sequence = sequence.replace("U", "T")
-                # NOTE: We replace "U" with "T" for RNA sequences to match the MSA file names, which is a legacy behavior
-                msa_file_path = get_msa_path(sequence.replace("U", "T"), rna_msa_dirs)
+            # Check both canonical and non-canonical sequences
+            for sequence in [non_canonical_sequence, canonical_sequence]:
+                if chain_type.is_protein() and protein_msa_dirs:
+                    msa_file_path = get_msa_path(sequence, protein_msa_dirs)
+                elif chain_type == ChainType.RNA and rna_msa_dirs:
+                    sequence = sequence.replace("U", "T")
+                    # NOTE: We replace "U" with "T" for RNA sequences to match the MSA file names, which is a legacy behavior
+                    msa_file_path = get_msa_path(sequence.replace("U", "T"), rna_msa_dirs)
+                if msa_file_path:
+                    break
 
         if msa_file_path is None:
             # If no MSA file path is found, we skip this chain
@@ -244,6 +250,8 @@ class LoadPolymerMSAs(Transform):
     Note that MSAs may be found in two ways:
         (1) By loading from the MSA files on disk based on the sequence hash(e.g., for training data).
         (2) By using specific MSA paths provided in the chain_info dictionary (e.g., for inference).
+
+    We check both the canonical and non-canonical sequences for MSAs, preferring the canonical sequence if both are present.
 
     Args:
         protein_msa_dirs (list[dict]): The directories containing the protein MSAs and

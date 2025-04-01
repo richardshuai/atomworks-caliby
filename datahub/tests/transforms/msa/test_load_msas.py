@@ -100,7 +100,7 @@ def test_load_msas(test_case: dict[str, Any], load_polymer_msas_transform: LoadP
 
     We will check that the MSA has a minimum number of sequences, that the query sequence is correct, and that a spot check is correct.
     """
-    data = cached_parse(test_case["pdb_id"])
+    data = cached_parse(test_case["pdb_id"], convert_mse_to_met=True)
     chain_type = data["chain_info"][test_case["chain_id"]]["chain_type"]
     output = load_polymer_msas_transform(data)
 
@@ -113,7 +113,7 @@ def test_load_msas(test_case: dict[str, Any], load_polymer_msas_transform: LoadP
 @pytest.mark.parametrize("test_case", MSA_TEST_CASES)
 def test_cache_msas(test_case: dict[str, Any], tmp_path: str, load_polymer_msas_transform):
     """Tests the MSA caching functionality by loading the same MSA with and without caching and comparing the results."""
-    data = cached_parse(test_case["pdb_id"])
+    data = cached_parse(test_case["pdb_id"], convert_mse_to_met=True)
 
     # Load with caching turned off
     start_time = time.time()
@@ -150,6 +150,56 @@ def test_cache_msas(test_case: dict[str, Any], tmp_path: str, load_polymer_msas_
 
     # The second run should be (at least twice as) fast
     assert last_run_time < first_run_time * 0.5, "Cached MSA loading should be >2x faster than non-cached"
+
+
+def _check_coverage_for_pdb_id(
+    pdb_id: str, protein_msa_dirs: list[str] | None = None, rna_msa_dirs: list[str] | None = None
+):
+    """Utility function to evaluate the MSA coverage for a single PDB ID."""
+    data = cached_parse(pdb_id, convert_mse_to_met=True)
+
+    example_n_proteins = example_n_proteins_with_msas = 0
+    example_n_rna = example_n_rna_with_msa = 0
+
+    # Count polymers
+    chain_ids = np.unique(data["atom_array"].chain_id)
+    for chain_id in chain_ids:
+        if data["chain_info"][chain_id]["chain_type"].is_protein():
+            # Skip peptides
+            if len(data["chain_info"]["A"]["res_id"]) > 10:
+                example_n_proteins += 1
+        elif data["chain_info"][chain_id]["chain_type"] == ChainType.RNA:
+            example_n_rna += 1
+
+    # Load MSAs
+    load_polymer_msas_transform = LoadPolymerMSAs(
+        protein_msa_dirs=protein_msa_dirs, rna_msa_dirs=rna_msa_dirs, max_msa_sequences=2_000, msa_cache_dir=None
+    )
+    output = load_polymer_msas_transform(data)
+
+    # Count MSAs
+    for chain_id, msa in output["polymer_msas_by_chain_id"].items():
+        if data["chain_info"][chain_id]["chain_type"].is_protein():
+            if msa["msa"].shape[0] > 1 and msa["msa"].shape[1] > 10:
+                example_n_proteins_with_msas += 1
+        elif data["chain_info"][chain_id]["chain_type"] == ChainType.RNA:
+            if msa["msa"].shape[0] > 1:
+                example_n_rna_with_msa += 1
+
+    return {
+        "n_proteins": example_n_proteins,
+        "n_proteins_with_msas": example_n_proteins_with_msas,
+        "n_rna": example_n_rna,
+        "n_rna_with_msa": example_n_rna_with_msa,
+    }
+
+
+def test_msas_with_mse():
+    """Check that we correctly find MSAs for proteins with selenomethisone residues."""
+    results = _check_coverage_for_pdb_id("7dsu", PROTEIN_MSA_DIRS, RNA_MSA_DIRS)
+    assert (
+        results["n_proteins_with_msas"] == results["n_proteins"]
+    ), "All proteins should have MSAs after MSE conversion"
 
 
 @pytest.mark.slow
@@ -194,7 +244,7 @@ def _evaluate_coverage_for_df(df: pd.DataFrame, protein_msa_dirs: list[str], rna
 @pytest.mark.parametrize("test_case", MSA_TEST_CASES)
 def test_inference_msa_transform(test_case):
     """Test the LoadPolymerMSAsInference transformation pipeline, where we provide MSAs through the `chain_info` field"""
-    data = cached_parse(test_case["pdb_id"])
+    data = cached_parse(test_case["pdb_id"], convert_mse_to_met=True)
     chain_id = test_case["chain_id"]
     chain_type = data["chain_info"][chain_id]["chain_type"]
 
