@@ -54,7 +54,7 @@ def generate_conformers(
     n_conformers: int = 1,
     method: str = "ETKDGv3",
     num_threads: int = 1,
-    hydrogen_policy: Literal["infer", "remove", "keep", "auto"] = "auto",
+    hydrogen_policy: Literal["infer", "remove", "keep", "auto"] = "remove",
     optimize: bool = False,
     attempts_with_distance_geometry: int = 10,
     attempts_with_random_coordinates: int = 10_000,
@@ -208,10 +208,9 @@ def optimize_conformers(
 
 
 def get_chiral_centers(mol: Mol) -> list[int]:
-    """
-    Identify and return the tetrahedral chiral centers in an RDKit molecule.
+    """Identify and return the tetrahedral chiral centers in an RDKit molecule.
 
-    This function finds all tetrahedral chiral centers in the given molecule
+    Finds all tetrahedral chiral centers in the given molecule
     and returns their information, including the chiral center atom index and
     the indices of the atoms bonded to it.
 
@@ -249,11 +248,21 @@ def get_chiral_centers(mol: Mol) -> list[int]:
             atom.GetChiralTag() == Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW
             or atom.GetChiralTag() == Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW
         ):
+            chiral_center_atom_name = atom.GetProp("atom_name") if atom.HasProp("atom_name") else None
             tetrahedral_chiral_centers.append(
                 {
                     "chiral_center_idx": idx,
                     "bonded_explicit_atom_idxs": [bond.GetOtherAtomIdx(idx) for bond in atom.GetBonds()],
                     "chirality": chirality,
+                    # For debugging - currently unused by the pipeline
+                    "chiral_center_atom_name": chiral_center_atom_name,
+                    "bonded_explicit_atom_names": [
+                        mol.GetAtomWithIdx(bond.GetOtherAtomIdx(idx)).GetProp("atom_name")
+                        for bond in atom.GetBonds()
+                        if chiral_center_atom_name
+                    ]
+                    if chiral_center_atom_name
+                    else None,
                 }
             )
 
@@ -352,6 +361,7 @@ def sample_rdkit_conformer_for_atom_array(
     seed: int | None = None,
     timeout: float | None = 2.0,
     timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
+    return_mol: bool = False,
     **generate_conformers_kwargs,
 ) -> AtomArray:
     """Sample a conformer for a Biotite AtomArray using RDKit.
@@ -372,13 +382,14 @@ def sample_rdkit_conformer_for_atom_array(
 
     Returns:
         - AtomArray: The AtomArray with updated coordinates from the sampled conformer.
+        - Chem.Mol: The RDKit molecule with the generated conformer.
 
     Note:
         This function preserves the original atom order and properties of the input AtomArray.
     """
     seed = seed or _get_random_seed()
     atom_array = atom_array.copy()
-    mol = atom_array_to_rdkit(atom_array, hydrogen_policy="keep")
+    mol = atom_array_to_rdkit(atom_array, hydrogen_policy="remove")
     # ... remove RDKit's conformer if there is one
     if mol.GetNumConformers() > 0:
         mol.RemoveAllConformers()
@@ -404,6 +415,10 @@ def sample_rdkit_conformer_for_atom_array(
     assert np.all(new_atom_array.res_id == atom_array.res_id)
     assert np.all(new_atom_array.res_name == atom_array.res_name)
     atom_array.coord = new_atom_array.coord
+
+    if return_mol:
+        return atom_array, mol
+
     return atom_array
 
 
@@ -440,7 +455,7 @@ def ccd_code_to_rdkit_with_conformers(
         Chem.Mol: An RDKit molecule with the specified number of conformers.
     """
     # ... get molecule from CCD with its idealized conformer (default conformer 0)
-    mol = ccd_code_to_rdkit(ccd_code)
+    mol = ccd_code_to_rdkit(ccd_code, hydrogen_policy="remove")
 
     # ... get idealized conformer from CCD entry
     idealized_conformer = Chem.Conformer(mol.GetConformer(0))  # creates a copy
@@ -611,5 +626,53 @@ class GenerateRDKitConformers(Transform):
                 data["rdkit"][pn_unit_iid] = rdmol_with_conformers
             except Exception as e:
                 logger.warning(f"Failed to generate conformers for molecule {pn_unit_iid}: {e}")
+
+        return data
+
+
+class GetRDKitChiralCenters(Transform):
+    """
+    Identify chiral centers in the RDKit molecules stored in the `data["rdkit"]` dictionary.
+    Returns a dictionary mapping each residue name to a list of chiral centers, e.g:
+      data["chiral_centers"] = {
+          ...
+          "ILE": [
+              {'chiral_center_idx': 1, 'bonded_explicit_atom_idxs': [0, 2, 4], 'chirality': 'S'},
+              {'chiral_center_idx': 4, 'bonded_explicit_atom_idxs': [1, 5, 6], 'chirality': 'S'}
+          ],
+          ...
+      }
+    Each chiral center is a dict with a center atom index, 3 or 4 bonded atom indices, and the
+    RDKit-determined chirality.
+
+    Uses RDKit molecules first computed in GetAF3ReferenceMoleculeFeatures.
+
+    Args:
+        data (dict[str, Any]): A dictionary containing the input data, including RDKit molecules
+            under the `"rdkit"` key.
+
+    Returns:
+        dict[str, Any]: The updated `data` dictionary with `chiral_centers` containing chiral
+            centers for each molecule.
+    """
+
+    requires_previous_transforms = ["GetAF3ReferenceMoleculeFeatures"]
+
+    def check_input(self, data: dict[str, Any]):
+        check_contains_keys(data, ["rdkit"])
+        check_is_instance(data, "rdkit", dict)
+        check_nonzero_length(data, "rdkit")
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        data["chiral_centers"] = {}
+        # Get chiral centers for all rdkit mols
+        for resname, rdmol in data["rdkit"].items():
+            try:
+                # Get the chiral centers (returned are the indices of the chiral center atoms
+                #  within the `obmol` object)
+                data["chiral_centers"][resname] = get_chiral_centers(rdmol)
+
+            except Exception as e:
+                logger.warning(f"Failed to find chiral centers for molecule {resname}: {e}")
 
         return data

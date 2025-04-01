@@ -34,6 +34,7 @@ from datahub.transforms.base import (
 )
 from datahub.transforms.bonds import AddAF3TokenBondFeatures
 from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
+from datahub.transforms.chirals import AddAF3ChiralFeatures
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
@@ -62,6 +63,7 @@ from datahub.transforms.msa.msa import (
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
 )
+from datahub.transforms.rdkit_utils import GetRDKitChiralCenters
 from datahub.transforms.symmetry import FindAutomorphismsWithNetworkX
 from datahub.transforms.template import (
     AddRFTemplates,
@@ -245,6 +247,8 @@ def build_af3_transform_pipeline(
         ),
         FindAutomorphismsWithNetworkX(),  # Adds the  "automorphisms" key to the data dictionary
         ComputeAtomToTokenMap(),
+        GetRDKitChiralCenters(),
+        AddAF3ChiralFeatures(),
         ConditionalRoute(
             condition_func=lambda data: data["is_inference"],
             transform_map={

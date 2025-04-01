@@ -7,10 +7,11 @@ import torch
 from openbabel import openbabel, pybel
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
+from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
+from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, AddGlobalTokenIdAnnotation, ComputeAtomToTokenMap
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
-from datahub.transforms.chirals import AddRF2AAChiralFeatures, get_dih, get_rf2aa_chiral_features
+from datahub.transforms.chirals import AddAF3ChiralFeatures, AddRF2AAChiralFeatures, get_dih, get_rf2aa_chiral_features
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.crop import CropSpatialLikeAF3
 from datahub.transforms.filters import RemoveHydrogens
@@ -21,6 +22,7 @@ from datahub.transforms.openbabel_utils import (
     get_chiral_centers,
     smiles_to_openbabel,
 )
+from datahub.transforms.rdkit_utils import GetRDKitChiralCenters
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
 
@@ -267,6 +269,38 @@ def test_chiral_featurize_after_cropping():
 
     assert data["chiral_feats"].shape == (3, 5)
     assert torch.allclose(data["chiral_feats"], expected, atol=1e-3)
+
+
+TEST_CASES_RDKIT = [
+    {"pdb_id": "5ocm", "expected_chiral_feats_shape": (1830, 5), "expected_positive_chirals": 1200},
+    {"pdb_id": "6lyz", "expected_chiral_feats_shape": (390, 5), "expected_positive_chirals": 260},
+]
+
+
+@pytest.mark.parametrize("test_case", TEST_CASES_RDKIT)
+def test_rdkit_chiral_featurization(test_case: dict):
+    pdb_id = test_case["pdb_id"]
+    data = cached_parse(pdb_id)
+
+    pipe = Compose(
+        [
+            RemoveHydrogens(),
+            AddGlobalTokenIdAnnotation(),
+            GetAF3ReferenceMoleculeFeatures(
+                conformer_generation_timeout=2,
+                should_generate_automorphisms_with_rdkit=False,
+            ),
+            ComputeAtomToTokenMap(),
+            GetRDKitChiralCenters(),
+            AddAF3ChiralFeatures(),
+        ],
+        track_rng_state=False,
+    )
+
+    data = pipe(data)
+
+    assert data["feats"]["chiral_feats"].shape == test_case["expected_chiral_feats_shape"]
+    assert (data["feats"]["chiral_feats"][:, -1] > 0).sum() == test_case["expected_positive_chirals"]
 
 
 if __name__ == "__main__":

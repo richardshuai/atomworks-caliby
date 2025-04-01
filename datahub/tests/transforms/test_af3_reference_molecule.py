@@ -126,7 +126,7 @@ def test_get_af3_reference_molecule_features_res(res_name):
     n_atom = len(atom_array)
 
     # Check if we can compute features WITHOUT generating RDKit automorphisms (smoke test)
-    features_no_automorphs = get_af3_reference_molecule_features(
+    features_no_automorphs, _ = get_af3_reference_molecule_features(
         atom_array, should_generate_automorphisms_with_rdkit=False
     )
     assert "ref_pos" in features_no_automorphs
@@ -137,7 +137,7 @@ def test_get_af3_reference_molecule_features_res(res_name):
 
     seed = 42
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
-        features = get_af3_reference_molecule_features(atom_array)
+        features, _ = get_af3_reference_molecule_features(atom_array)
 
     assert "ref_pos" in features
     assert "ref_mask" in features
@@ -175,8 +175,8 @@ def test_get_af3_reference_molecule_features_chain():
 
     seed = 42
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
-        features = get_af3_reference_molecule_features(atom_array, apply_random_rotation_and_translation=False)
-        features_with_elements_for_atomized_atom_names = get_af3_reference_molecule_features(
+        features, _ = get_af3_reference_molecule_features(atom_array, apply_random_rotation_and_translation=False)
+        features_with_elements_for_atomized_atom_names, _ = get_af3_reference_molecule_features(
             atom_array, apply_random_rotation_and_translation=False, use_element_for_atom_names_of_atomized_tokens=True
         )
 
@@ -210,7 +210,7 @@ def test_get_af3_reference_molecule_features_chain():
     assert features["ref_automorphs"].shape == (1000, n_atoms, 2)
 
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
-        features__with_random_rototranslation = get_af3_reference_molecule_features(
+        features__with_random_rototranslation, _ = get_af3_reference_molecule_features(
             atom_array, apply_random_rotation_and_translation=True
         )
 
@@ -249,7 +249,7 @@ def test_reference_conformer_generation_for_two_molecules_only_differing_by_tran
 
     assert len(get_residue_starts(atom_array)) == 2
     atom_array.set_annotation("token_id", np.arange(len(atom_array)))
-    features = get_af3_reference_molecule_features(atom_array)
+    features, _ = get_af3_reference_molecule_features(atom_array)
     assert len(features) > 0, "Expected features to be non-empty"
 
 
@@ -278,7 +278,7 @@ def test_replace_conformer_with_ground_truth():
         "ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.REPLACE)
     )
 
-    features = get_af3_reference_molecule_features(
+    features, _ = get_af3_reference_molecule_features(
         atom_array, should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=True
     )
 

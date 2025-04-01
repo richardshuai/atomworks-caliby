@@ -3,6 +3,7 @@ import logging
 import pytest
 
 from datahub.pipelines.af3 import build_af3_transform_pipeline
+from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
 from tests.conftest import (
     PROTEIN_MSA_DIRS,
@@ -24,14 +25,18 @@ PRIOR_PIPELINE_BUGS_AF3 = ["7qbs", "5epq", "2g37", "4v4s"]
 @pytest.mark.slow
 def test_prior_pipeline_bugs_af3(pdb_id: str):
     """Run a single example through the pipeline. Useful for debugging specific examples."""
+
     input = cached_parse(pdb_id)
     input["example_id"] = pdb_id
-    pipe = build_af3_transform_pipeline(
-        protein_msa_dirs=PROTEIN_MSA_DIRS,
-        rna_msa_dirs=RNA_MSA_DIRS,
-        is_inference=False,
-    )
-    output = pipe(input)
+
+    seed = 3
+    with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
+        pipe = build_af3_transform_pipeline(
+            protein_msa_dirs=PROTEIN_MSA_DIRS,
+            rna_msa_dirs=RNA_MSA_DIRS,
+            is_inference=False,
+        )
+        output = pipe(input)
 
     assert output is not None
 

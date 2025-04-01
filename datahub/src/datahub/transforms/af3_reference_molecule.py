@@ -176,7 +176,8 @@ def get_af3_reference_molecule_features(
         - **generate_conformers_kwargs: Additional keyword arguments to pass to the generate_conformers function.
 
     Returns:
-        dict[str, Any]: A dictionary containing the generated reference features.
+        - ref_conformer (dict[str, Any]): A dictionary containing the generated reference features.
+        - ref_mols_with_unk (dict[str, Any]): A dictionary containing all RDKit molecules, including those with unknown CCD codes.
 
     This function generates the following reference features for AF3:
         - ref_pos: [N_atoms, 3] Atom positions in the reference conformer, with a random rotation and
@@ -204,33 +205,34 @@ def get_af3_reference_molecule_features(
     _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
     _res_names = atom_array.res_name[_res_starts]
     res_stochiometry = dict(zip(*np.unique(_res_names, return_counts=True)))
-    _has_explicit_hydrogens = "H" in atom_array.element
 
     # ... get reference molecules with conformers for each residue
     # (We do not generate conformers for unknown CCD codes here, as we will do that later)
     ref_mols = _get_rdkit_mols_with_conformers(
         res_stochiometry=res_stochiometry,
-        hydrogen_policy="auto" if _has_explicit_hydrogens else "remove",
+        hydrogen_policy="remove",
         timeout=conformer_generation_timeout,
         timeout_strategy=timeout_strategy,
         **generate_conformers_kwargs,
     )
 
-    # ... generate conformers for CCD codes that are unknown (e.g., any custom small molecules & UNL)
+    # ... generate conformers for CCD codes that are unknown (including UNL)
     unknown_ccd_conformers = defaultdict(list)
+    ref_mols_with_unk = ref_mols.copy()
     if not all(res_name in KNOWN_CCD_CODES for res_name in res_stochiometry):
         res_indices_with_unknown = np.where(~np.isin(_res_names, list(KNOWN_CCD_CODES)))[0]
         for res_index in res_indices_with_unknown:
             res_name = _res_names[res_index]
 
-            unknown_ccd_conformers[res_name].append(
-                sample_rdkit_conformer_for_atom_array(
-                    atom_array[_res_starts[res_index] : _res_ends[res_index]],
-                    timeout=conformer_generation_timeout,
-                    timeout_strategy=timeout_strategy,
-                    **generate_conformers_kwargs,
-                )
+            conf_i, mol_i = sample_rdkit_conformer_for_atom_array(
+                atom_array[_res_starts[res_index] : _res_ends[res_index]],
+                timeout=conformer_generation_timeout,
+                timeout_strategy=timeout_strategy,
+                return_mol=True,
+                **generate_conformers_kwargs,
             )
+            unknown_ccd_conformers[res_name].append(conf_i)
+            ref_mols_with_unk[res_name] = mol_i
 
     # ... initialize automorphism-related variables (which we may or may not be needed)
     ref_mol_automorphs = None
@@ -349,7 +351,7 @@ def get_af3_reference_molecule_features(
     #     we assign a unique integer for each residue instance:
     ref_space_uid = struc.segments.spread_segment_wise(_res_start_ends, np.arange(len(_res_starts), dtype=np.int64))
 
-    return {
+    ref_conformer = {
         "ref_pos": ref_pos,  # (n_atoms, 3)
         "ref_mask": ref_mask,  # (n_atoms)
         "ref_element": ref_element,  # (n_atoms)
@@ -361,10 +363,11 @@ def get_af3_reference_molecule_features(
         "ref_pos_is_ground_truth": ref_pos_is_ground_truth,  # (n_atoms)
     }
 
+    return ref_conformer, ref_mols_with_unk
+
 
 class GetAF3ReferenceMoleculeFeatures(Transform):
-    """
-    Generate AF3 reference molecule features for each residue in the atom array.
+    """Generate AF3 reference molecule features for each residue in the atom array.
 
     This transform adds the following features to the data dictionary under the 'feats' key:
         - ref_pos: [N_atoms, 3] Atom positions in the reference conformer, with a random rotation and
@@ -395,12 +398,15 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         self,
         conformer_generation_timeout: float = 10.0,
         should_generate_automorphisms_with_rdkit: bool = True,
+        save_rdkit_mols: bool = True,
         use_element_for_atom_names_of_atomized_tokens: bool = False,
         apply_random_rotation_and_translation: bool = True,
         **generate_conformers_kwargs,
     ):
         self.conformer_generation_timeout = conformer_generation_timeout
         self.should_generate_automorphisms_with_rdkit = should_generate_automorphisms_with_rdkit
+        self.generate_conformers_kwargs = generate_conformers_kwargs
+        self.save_rdkit_mols = save_rdkit_mols
         self.use_element_for_atom_names_of_atomized_tokens = use_element_for_atom_names_of_atomized_tokens
         self.apply_random_rotation_and_translation = apply_random_rotation_and_translation
         self.generate_conformers_kwargs = generate_conformers_kwargs
@@ -419,7 +425,7 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
         # Generate reference features
-        reference_features = get_af3_reference_molecule_features(
+        reference_features, rdkit_mols = get_af3_reference_molecule_features(
             atom_array,
             conformer_generation_timeout=self.conformer_generation_timeout,
             should_generate_automorphisms_with_rdkit=self.should_generate_automorphisms_with_rdkit,
@@ -432,6 +438,11 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         if "feats" not in data:
             data["feats"] = {}
         data["feats"].update(reference_features)
+
+        if self.save_rdkit_mols:
+            if "rdkit" not in data:
+                data["rdkit"] = {}
+            data["rdkit"].update(rdkit_mols)
 
         return data
 
