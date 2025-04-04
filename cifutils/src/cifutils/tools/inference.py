@@ -10,6 +10,8 @@ from typing import Literal
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
+from rdkit import Chem
+from rdkit.Chem import AllChem
 
 import cifutils.transforms.atom_array as ta
 from cifutils import parse
@@ -351,6 +353,17 @@ def smiles_to_annotated_atom_array(
         from cifutils.tools.rdkit import atom_array_from_rdkit, smiles_to_rdkit
 
         mol = smiles_to_rdkit(smiles)
+        try:
+            # ... generate a conformer to keep the stereochemistry encoded in the SMILES
+            #   NOTE: This may stall for 40ish seconds for some difficult molecules like HEM
+            #   TODO: Migrate the timeout utils to cifutils so we can timeout here.
+            mol = Chem.AddHs(mol)
+            params = AllChem.ETKDGv3()
+            params.maxAttempts = 1
+            AllChem.EmbedMultipleConfs(mol, numConfs=1, params=params)
+        except Exception:
+            pass
+
         array = atom_array_from_rdkit(mol)
     elif backend == "openbabel":
         raise NotImplementedError("Openbabel backend not yet implemented.")
