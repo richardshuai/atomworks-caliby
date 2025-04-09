@@ -9,7 +9,6 @@ from datahub.transforms.dna.pad_dna import PadDNA, generate_bform_dna, to_revers
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
 
-# TODO: Read via env variable
 X3DNA_PATH = os.environ.get("X3DNA", "/projects/ml/prot_dna/x3dna-v2.4")
 
 

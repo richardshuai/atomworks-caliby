@@ -39,6 +39,7 @@ from datahub.transforms.covalent_modifications import FlagAndReassignCovalentMod
 from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
 from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 from datahub.transforms.diffusion.edm import SampleEDMNoise
+from datahub.transforms.dna.pad_dna import PadDNA
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures, EncodeAtomArray
 from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
 from datahub.transforms.feature_aggregation.confidence import PackageConfidenceFeats
@@ -113,6 +114,8 @@ def build_af3_transform_pipeline(
     # Whether to include features for confidence head
     run_confidence_head: bool = False,
     return_atom_array: bool = True,
+    # DNA
+    pad_dna_p_skip: float = 0.0,
 ):
     """Build the AF3 pipeline with specified parameters.
 
@@ -171,6 +174,14 @@ def build_af3_transform_pipeline(
         MaskPolymerResiduesWithUnresolvedFrameAtoms(),
         # NOTE: For inference, we must keep UNL to support ligands that are not in the CCD
         HandleUndesiredResTokens(undesired_res_tokens=undesired_res_names),  # e.g., non-standard residues
+        ConditionalRoute(
+            condition_func=lambda data: data.get("is_inference", False),
+            transform_map={
+                True: Identity(),
+                False: PadDNA(p_skip=pad_dna_p_skip),
+            },
+        ),
+        FlagAndReassignCovalentModifications(),
         FlagAndReassignCovalentModifications(),
         FlagNonPolymersForAtomization(),
         AddGlobalAtomIdAnnotation(),
