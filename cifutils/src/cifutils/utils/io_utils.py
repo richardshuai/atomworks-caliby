@@ -90,8 +90,7 @@ def load_any(
     model: int | None = None,
     altloc: Literal["first", "occupancy", "all"] = "occupancy",
 ) -> AtomArrayStack | AtomArray:
-    """
-    Convenience function for loading a structure from a file or buffer.
+    """Convenience function for loading a structure from a file or buffer.
 
     Args:
         - file_or_buffer: Path to the file or buffer to load the structure from.

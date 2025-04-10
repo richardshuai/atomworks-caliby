@@ -164,22 +164,30 @@ class ChainIdxSlice(SegmentSlice):
 class AtomSelection:
     """Class that represents a selection of atoms in a molecular structure.
 
-    We can specify a selection by chain_id, res_name, res_id, and atom_name.
+    We can specify a selection by chain_id, res_name, res_id, atom_name, and (optionally) transformation_id.
 
     For example:
-        - If we specify only chain_id, we will select all atoms in that chain
+        - If we specify only chain_id, we will select all atoms in that chain (across all transformations)
         - If we specify chain_id and res_name, we will select all atoms in that chain and residue
         - If we specify only atom_name, we will select all atoms with that name, regardless of chain or residue
     """
 
-    def __init__(self, chain_id: str = "*", res_name: str = "*", res_id: int | str = "*", atom_name: str = "*"):
+    def __init__(
+        self,
+        chain_id: str = "*",
+        res_name: str = "*",
+        res_id: int | str = "*",
+        atom_name: str = "*",
+        transformation_id: int | str = "*",
+    ):
         self.chain_id = chain_id
         self.res_name = res_name
         self.atom_name = atom_name
         self.res_id = int(res_id) if res_id != "*" else res_id
+        self.transformation_id = str(transformation_id)
 
     def __str__(self) -> str:
-        parts = [self.chain_id, self.res_name, str(self.res_id), self.atom_name]
+        parts = [self.chain_id, self.res_name, str(self.res_id), self.atom_name, str(self.transformation_id)]
 
         # Remove trailing '*' values
         while parts and parts[-1] == "*":
@@ -203,13 +211,14 @@ class AtomSelection:
             and self.res_name == other.res_name
             and self.res_id == other.res_id
             and self.atom_name == other.atom_name
+            and self.transformation_id == other.transformation_id
         )
 
     @classmethod
     def from_str(cls, selection_string: str) -> "AtomSelection":
         """Create a new AtomSelection from a selection string.
 
-        Selection strings are of the form: `CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME`
+        Selection strings are of the form: `CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME/TRANSFORMATION_ID`
         We use "*" as a wildcard to select all atoms in a given granularity.
 
         """
@@ -219,6 +228,7 @@ class AtomSelection:
             res_name=selection.res_name,
             res_id=selection.res_id,
             atom_name=selection.atom_name,
+            transformation_id=selection.transformation_id,
         )
 
     @classmethod
@@ -250,7 +260,7 @@ class AtomSelection:
 def parse_selection_string(selection_string: str) -> AtomSelection:
     """Convert a selection string into a AtomSelection dataclass.
 
-    Selection strings are of the form: `CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME`
+    Selection strings are of the form: `CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME/TRANSFORMATION_ID`
 
     We use "*" as a wildcard to select all atoms in a given granularity.
 
@@ -261,8 +271,10 @@ def parse_selection_string(selection_string: str) -> AtomSelection:
         AtomSelection(chain_id='*', res_name='ALA', res_id='*', atom_name='CB')
         >>> parse_selection_string("A/ALA/")
         AtomSelection(chain_id='A', res_name='ALA')
+        >>> parse_selection_string("A/*/*/*/1")
+        AtomSelection(chain_id='A', res_name='*', res_id='*', atom_name='*', transformation_id=1)
     """
-    granularity_tiers = ["chain_id", "res_name", "res_id", "atom_name"]
+    granularity_tiers = ["chain_id", "res_name", "res_id", "atom_name", "transformation_id"]
     values = selection_string.split("/")
 
     # Create a dictionary with available tiers and values
@@ -276,6 +288,8 @@ def parse_pymol_string(pymol_string: str) -> AtomSelection:
 
     PyMOL selection strings are of the form: CHAIN_ID/RES_NAME`RES_ID/ATOM_NAME
     Wildcards can be used with "*".
+
+    PyMOL selection strings do not support transformation_id.
 
     Examples:
         >>> parse_pymol_string("A/ASP`37/OD2")
@@ -293,7 +307,7 @@ def parse_pymol_string(pymol_string: str) -> AtomSelection:
 def get_mask_from_selection_string(atom_array: AtomArray, selection_string: str) -> np.ndarray:
     """Create a boolean mask from an AtomArray sequence selection string.
 
-    Selection strings are of the form: `CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME`
+    Selection strings are of the form: `CHAIN_ID/RES_NAME/RES_ID/ATOM_NAME/TRANSFORMATION_ID`
 
     We use "*" as a wildcard to select all atoms in a given granularity.
 
@@ -321,6 +335,9 @@ def get_mask_from_atom_selection(atom_array: AtomArray, atom_selection: AtomSele
 
     if atom_selection.atom_name and atom_selection.atom_name != "*":
         mask &= atom_array.atom_name == atom_selection.atom_name
+
+    if atom_selection.transformation_id and atom_selection.transformation_id != "*":
+        mask &= atom_array.transformation_id == atom_selection.transformation_id
 
     if not np.any(mask):
         raise ValueError(f"No atoms found for selection: {atom_selection}")
