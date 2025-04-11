@@ -150,7 +150,7 @@ def generate_conformers(
         if len(successful_cids) < n_conformers:
             logger.warning(
                 f"Initial conformer generation based on distance geometry failed. Successful: {len(successful_cids)}. "
-                "Falling back to generating a conformer generation starting from random coordinates."
+                "Falling back to generating a conformer starting from random coordinates."
             )
             raise RuntimeError("Failed to generate enough conformers.")
     except RuntimeError:
