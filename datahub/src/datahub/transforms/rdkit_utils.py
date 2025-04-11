@@ -150,7 +150,7 @@ def generate_conformers(
         if len(successful_cids) < n_conformers:
             logger.warning(
                 f"Initial conformer generation based on distance geometry failed. Successful: {len(successful_cids)}. "
-                "Falling back to generating a conformer starting from random coordinates."
+                "Falling back to generating a conformer generation starting from random coordinates."
             )
             raise RuntimeError("Failed to generate enough conformers.")
     except RuntimeError:
@@ -239,6 +239,19 @@ def get_chiral_centers(mol: Mol) -> list[int]:
     # Identify chiral centers
     chiral_centers = Chem.FindMolChiralCenters(mol, includeUnassigned=True)
 
+    def _should_exclude_chiral_center(atom: Chem.Atom) -> bool:
+        """Exclude edge cases for chiral centers."""
+        # CASE 1: The chiral center is a Phosphorous (P, 15) or Sulfur (S, 16) atom bonded to 2 Oxygens (O, 8)
+        # For an example of where this case occurs, see the CCD ligand `NAP` (e.g., in `5OCM`)
+        if atom.GetAtomicNum() == 15 or atom.GetAtomicNum() == 16:
+            # ... get the atomic numbers of the bonded atoms
+            atomic_nums_of_bonded_atoms = [bond.GetOtherAtom(atom).GetAtomicNum() for bond in atom.GetBonds()]
+            # ... check if there are 2 Oxygens (O, 8) bonded to the chiral center
+            if atomic_nums_of_bonded_atoms.count(8) >= 2:
+                return True
+
+        return False
+
     # Filter chiral centers with tetrahedral geometry
     tetrahedral_chiral_centers = []
     for center in chiral_centers:
@@ -249,22 +262,25 @@ def get_chiral_centers(mol: Mol) -> list[int]:
             or atom.GetChiralTag() == Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW
         ):
             chiral_center_atom_name = atom.GetProp("atom_name") if atom.HasProp("atom_name") else None
-            tetrahedral_chiral_centers.append(
-                {
-                    "chiral_center_idx": idx,
-                    "bonded_explicit_atom_idxs": [bond.GetOtherAtomIdx(idx) for bond in atom.GetBonds()],
-                    "chirality": chirality,
-                    # For debugging - currently unused by the pipeline
-                    "chiral_center_atom_name": chiral_center_atom_name,
-                    "bonded_explicit_atom_names": [
-                        mol.GetAtomWithIdx(bond.GetOtherAtomIdx(idx)).GetProp("atom_name")
-                        for bond in atom.GetBonds()
+            if not _should_exclude_chiral_center(atom):
+                tetrahedral_chiral_centers.append(
+                    {
+                        "chiral_center_idx": idx,
+                        "bonded_explicit_atom_idxs": [bond.GetOtherAtomIdx(idx) for bond in atom.GetBonds()],
+                        "chirality": chirality,
+                        # For debugging - currently unused by the pipeline
+                        "chiral_center_atom_name": chiral_center_atom_name,
+                        "bonded_explicit_atom_names": [
+                            mol.GetAtomWithIdx(bond.GetOtherAtomIdx(idx)).GetProp("atom_name")
+                            for bond in atom.GetBonds()
+                            if chiral_center_atom_name
+                        ]
                         if chiral_center_atom_name
-                    ]
-                    if chiral_center_atom_name
-                    else None,
-                }
-            )
+                        else None,
+                    }
+                )
+
+    # Remove chiral centers that are R or S bonded to 2 O
 
     return tetrahedral_chiral_centers
 
@@ -630,6 +646,26 @@ class GenerateRDKitConformers(Transform):
         return data
 
 
+def get_rdkit_chiral_centers(rdkit_mols: dict[str, Mol]) -> dict:
+    """Computes the chiral centers for a dictionary of RDKit molecules.
+
+    See the `GetRDKitChiralCenters` transform for more details.
+    """
+    chiral_centers = {}
+
+    # Get chiral centers for all rdkit mols
+    for resname, rdmol in rdkit_mols.items():
+        try:
+            # Get the chiral centers (returned are the indices of the chiral center atoms
+            #  within the `obmol` object)
+            chiral_centers[resname] = get_chiral_centers(rdmol)
+
+        except Exception as e:
+            logger.warning(f"Failed to find chiral centers for molecule {resname}: {e}")
+
+    return chiral_centers
+
+
 class GetRDKitChiralCenters(Transform):
     """
     Identify chiral centers in the RDKit molecules stored in the `data["rdkit"]` dictionary.
@@ -664,15 +700,6 @@ class GetRDKitChiralCenters(Transform):
         check_nonzero_length(data, "rdkit")
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        data["chiral_centers"] = {}
-        # Get chiral centers for all rdkit mols
-        for resname, rdmol in data["rdkit"].items():
-            try:
-                # Get the chiral centers (returned are the indices of the chiral center atoms
-                #  within the `obmol` object)
-                data["chiral_centers"][resname] = get_chiral_centers(rdmol)
-
-            except Exception as e:
-                logger.warning(f"Failed to find chiral centers for molecule {resname}: {e}")
+        data["chiral_centers"] = get_rdkit_chiral_centers(data["rdkit"])
 
         return data

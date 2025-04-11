@@ -8,7 +8,7 @@ from openbabel import openbabel, pybel
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
 from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
-from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, AddGlobalTokenIdAnnotation, ComputeAtomToTokenMap
+from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.transforms.chirals import AddAF3ChiralFeatures, AddRF2AAChiralFeatures, get_dih, get_rf2aa_chiral_features
@@ -272,7 +272,7 @@ def test_chiral_featurize_after_cropping():
 
 
 TEST_CASES_RDKIT = [
-    {"pdb_id": "5ocm", "expected_chiral_feats_shape": (1830, 5), "expected_positive_chirals": 1200},
+    {"pdb_id": "5ocm", "expected_chiral_feats_shape": (1782, 5), "expected_positive_chirals": 1176},
     {"pdb_id": "6lyz", "expected_chiral_feats_shape": (390, 5), "expected_positive_chirals": 260},
 ]
 
@@ -285,12 +285,10 @@ def test_rdkit_chiral_featurization(test_case: dict):
     pipe = Compose(
         [
             RemoveHydrogens(),
-            AddGlobalTokenIdAnnotation(),
             GetAF3ReferenceMoleculeFeatures(
                 conformer_generation_timeout=2,
                 should_generate_automorphisms_with_rdkit=False,
             ),
-            ComputeAtomToTokenMap(),
             GetRDKitChiralCenters(),
             AddAF3ChiralFeatures(),
         ],

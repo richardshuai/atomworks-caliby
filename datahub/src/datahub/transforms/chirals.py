@@ -9,6 +9,7 @@ import torch
 from biotite.structure import AtomArray
 from cifutils.tools.rdkit import atom_array_from_rdkit
 from cifutils.utils.selection import get_residue_starts
+from rdkit.Chem import Mol
 
 from datahub.transforms._checks import (
     check_atom_array_annotation,
@@ -326,6 +327,56 @@ def _get_reference_conformer_to_residue_mapping(atom_names: np.ndarray, conforme
     return to_within_res_idx  # [n_atoms_in_conf]
 
 
+def add_af3_chiral_features(atom_array: AtomArray, chiral_centers: dict, rdkit_mols: dict[str, Mol]) -> torch.Tensor:
+    """Computes chiral features from atom array, chiral centers, and RDKit molecules.
+
+    See `AddAF3ChiralFeatures` for more details.
+    """
+    # We're going to use the same logic we do in GetAF3ReferenceMoleculeFeatures
+    # ... get residue-level stochiometry
+    _res_start_ends = get_residue_starts(atom_array, add_exclusive_stop=True)
+    _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
+
+    all_chirals = []
+    for res_start, res_end in zip(_res_starts, _res_ends):
+        res_name = atom_array.res_name[res_start]
+
+        chirals = chiral_centers[res_name]
+        if len(chirals) == 0:
+            continue
+
+        # get rdkit->atomarray mapping
+        conformer = atom_array_from_rdkit(
+            rdkit_mols[res_name],
+            conformer_id=0,
+            remove_hydrogens=True,
+        )
+        _ref_to_conf_map = _get_reference_conformer_to_residue_mapping(
+            atom_names=atom_array.atom_name[res_start:res_end], conformer=conformer
+        )
+
+        # calculate chirals from reference conformer
+        chirals = get_rf2aa_chiral_features(chirals, torch.tensor(conformer.coord))
+
+        # remap reference conformer to native index
+        chirals[:, :4] = torch.tensor(_ref_to_conf_map)[chirals[:, :4].long()]
+
+        # remove unmasked chirals
+        mask = (chirals[:, :4] >= 0).all(dim=1)
+        chirals = chirals[mask]
+
+        # add atom offset
+        chirals[:, :4] = chirals[:, :4] + res_start
+
+        all_chirals.append(chirals)
+
+    if all_chirals:
+        return torch.cat(all_chirals, dim=0)
+    else:
+        # Return empty tensor with correct shape if no chiral centers found
+        return torch.zeros((0, 5))
+
+
 class AddAF3ChiralFeatures(Transform):
     """Adds chiral features into the `feats` dictionary.
 
@@ -351,48 +402,10 @@ class AddAF3ChiralFeatures(Transform):
         check_nonzero_length(data, "atom_array")
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        atom_array: AtomArray = data["atom_array"]
+        chiral_feats = add_af3_chiral_features(
+            atom_array=data["atom_array"], chiral_centers=data["chiral_centers"], rdkit_mols=data["rdkit"]
+        )
 
-        # We're going to use the same logic we do in GetAF3ReferenceMoleculeFeatures
-        # ... get residue-level stochiometry
-        _res_start_ends = get_residue_starts(atom_array, add_exclusive_stop=True)
-        _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
-
-        all_chirals = []
-        for res_start, res_end in zip(_res_starts, _res_ends):
-            res_name = atom_array.res_name[res_start]
-
-            chirals = data["chiral_centers"][res_name]
-            if len(chirals) == 0:
-                continue
-
-            # get rdkit->atomarray mapping
-            conformer = atom_array_from_rdkit(
-                data["rdkit"][res_name],
-                conformer_id=0,
-                remove_hydrogens=True,
-            )
-            _ref_to_conf_map = _get_reference_conformer_to_residue_mapping(
-                atom_names=atom_array.atom_name[res_start:res_end], conformer=conformer
-            )
-
-            # calculate chirals from reference conformer
-            chirals = get_rf2aa_chiral_features(chirals, torch.tensor(conformer.coord))
-
-            # remap reference conformer to native index
-            chirals[:, :4] = torch.tensor(_ref_to_conf_map)[chirals[:, :4].long()]
-
-            # remove unmasked chirals
-            mask = (chirals[:, :4] >= 0).all(dim=1)
-            chirals = chirals[mask]
-
-            # add atom offset
-            chirals[:, :4] = chirals[:, :4] + res_start
-
-            all_chirals.append(chirals)
-
-        all_chirals = torch.cat(all_chirals, dim=0)
-
-        data.setdefault("feats", {})["chiral_feats"] = all_chirals  # [n_chirals, 5]
+        data.setdefault("feats", {})["chiral_feats"] = chiral_feats  # [n_chirals, 5]
 
         return data
