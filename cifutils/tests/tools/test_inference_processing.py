@@ -61,7 +61,7 @@ def dict_inputs():
 
     custom_residues = [
         {
-            "seq": "G(pg2$)G(SEP)G",
+            "seq": "G(L:0)G(SEP)G",
             "chain_type": "polypeptide(l)",
         }
     ]
@@ -120,7 +120,7 @@ def bonds():
 @pytest.fixture
 def custom_residues():
     return {
-        "pg2$": {
+        "L:0": {
             "path": f"{TEST_DATA_DIR}/example_ncaa.cif",
             "chain_type": "polypeptide(l)",
         }
@@ -358,7 +358,7 @@ def test_sdf_input(dict_inputs):
 
 def test_custom_residues(dict_inputs, custom_residues):
     # (Name of the custom residue within the CIF file)
-    custom_residue_name = "pg2$"
+    custom_residue_name = "L:0"
 
     atom_array = components_to_atom_array(dict_inputs["custom_residues"], custom_residues=custom_residues)
 
