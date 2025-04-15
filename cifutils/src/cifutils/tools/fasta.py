@@ -35,7 +35,7 @@ def split_generalized_fasta_sequence(sequence: str) -> list[str]:
 
 
 def one_letter_to_ccd_code(
-    seq: list[str], chain_type: ChainType, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH
+    seq: list[str], chain_type: ChainType, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, check_ccd_codes: bool = True
 ) -> list[str]:
     """
     Convert a sequence of one-letter codes or parenthesized full CCD IDs to full CCD IDs.
@@ -45,9 +45,10 @@ def one_letter_to_ccd_code(
     both standard amino acids and non-standard chemical components.
 
     Args:
-        - seq (list[str]): A list of one-letter codes or parenthesized CCD IDs.
-        - chain_type (ChainType): The type of chain (e.g., POLYPEPTIDE_L, DNA, RNA) to determine the correct
+        seq (list[str]): A list of one-letter codes or parenthesized CCD IDs.
+        chain_type (ChainType): The type of chain (e.g., POLYPEPTIDE_L, DNA, RNA) to determine the correct
             conversion for one-letter codes.
+        check_ccd_codes (bool): If True, check if the CCD IDs are available in the CCD mirror.
 
     Returns:
         - list[str]: A list of full CCD IDs corresponding to the input sequence.
@@ -71,7 +72,8 @@ def one_letter_to_ccd_code(
             chem_comp_id = chem_comp_id.strip("()")
 
             # ... ensure it is contained in the CCD mirror
-            check_ccd_codes_are_available([chem_comp_id], ccd_mirror_path=ccd_mirror_path, mode="raise")
+            if check_ccd_codes:
+                check_ccd_codes_are_available([chem_comp_id], ccd_mirror_path=ccd_mirror_path, mode="raise")
 
         else:
             chem_comp_id = get_3_from_1_letter_code(chem_comp_id, chain_type=chain_type)

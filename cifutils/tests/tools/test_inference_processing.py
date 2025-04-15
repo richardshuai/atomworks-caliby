@@ -59,6 +59,13 @@ def dict_inputs():
         }
     ]
 
+    custom_residues = [
+        {
+            "seq": "G(pg2$)G(SEP)G",
+            "chain_type": "polypeptide(l)",
+        }
+    ]
+
     ligand = [
         {
             "smiles": "O=C1OCC(=C1)C5C4(C(O)CC3C(CCC2CC(O)CCC23C)C4(O)CC5)C",
@@ -95,6 +102,7 @@ def dict_inputs():
         "monomer": monomer,
         "dimer": dimer,
         "noncanonical": noncanonical,
+        "custom_residues": custom_residues,
         "ligand": ligand,
         "glycan_1": glycan_1,
         "glycan_2": glycan_2,
@@ -107,6 +115,16 @@ def bonds():
     # Bond between the two NAG residues (O4 and C1 atoms) and NAG and the protein (ND2 on ASN and C1 on NAG)
     # For details on the bond API, see `bonds.py`
     return [("F/NAG/1/O4", "G/NAG/1/C1"), ("A/ASN/19/ND2", "F/NAG/1/C1")]
+
+
+@pytest.fixture
+def custom_residues():
+    return {
+        "pg2$": {
+            "path": f"{TEST_DATA_DIR}/example_ncaa.cif",
+            "chain_type": "polypeptide(l)",
+        }
+    }
 
 
 @pytest.fixture
@@ -301,9 +319,11 @@ def test_full_chai_input(chai_fasta_input):
     assert np.unique(atom_array.chain_id).shape[0] == 4
 
 
-def test_full_components_input(dict_inputs):
+def test_full_components_input(dict_inputs, custom_residues):
     components = sum(dict_inputs.values(), start=[])
-    atom_array, components = components_to_atom_array(components, return_components=True)
+    atom_array, components = components_to_atom_array(
+        components, return_components=True, custom_residues=custom_residues
+    )
 
     # Assert that the extracted chain IDs match the values recovered from the components
     extracted_chain_ids = [entry.get("chain_id", "") for entries in dict_inputs.values() for entry in entries]
@@ -318,9 +338,9 @@ def test_full_components_input(dict_inputs):
     # Sanity check outputs
     assert isinstance(atom_array, AtomArray)
     assert (
-        np.unique(atom_array.chain_id).shape[0] == 8
+        np.unique(atom_array.chain_id).shape[0] == 9
     )  # 1 monomer, 2 dimers, 1 noncanonical, 1 ligand, 2 glycans, 1 SDF (HEM)
-    assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E", "F", "G", "H"}
+    assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E", "F", "G", "H", "I"}
     assert set(np.unique(atom_array.chain_type)) == {ChainType.POLYPEPTIDE_L, ChainType.NON_POLYMER}
 
     # Assert full occupancy
@@ -336,9 +356,34 @@ def test_sdf_input(dict_inputs):
     assert not np.any(np.isnan(non_polymer_atom_array.coord))
 
 
+def test_custom_residues(dict_inputs, custom_residues):
+    # (Name of the custom residue within the CIF file)
+    custom_residue_name = "pg2$"
+
+    atom_array = components_to_atom_array(dict_inputs["custom_residues"], custom_residues=custom_residues)
+
+    # ... all atoms should be part of the same chain (only one chain in the example)
+    assert len(np.unique(atom_array.chain_id)) == 1
+
+    # ... all atoms should be polymers
+    assert np.all(atom_array.chain_type == ChainType.POLYPEPTIDE_L)
+    assert np.all(atom_array.is_polymer)
+
+    # (Bonds)
+    # ... get inter-residue bonds
+    bonds = atom_array.bonds.as_array()
+    inter_residue_bond_mask = atom_array.res_name[bonds[:, 0]] != atom_array.res_name[bonds[:, 1]]
+
+    # ... ensure the custom residue is present
+    atoms_a = atom_array[bonds[inter_residue_bond_mask, 0]]
+    atoms_b = atom_array[bonds[inter_residue_bond_mask, 1]]
+    assert np.any(atoms_a.res_name == custom_residue_name)
+    assert np.any(atoms_b.res_name == custom_residue_name)
+
+
 def test_recover_bonds_from_cif(dict_inputs):
     data = parse(
-        "tests/data/test_unl_ligand_with_bonds.cif",
+        filename=TEST_DATA_DIR / "test_unl_ligand_with_bonds.cif",
         fix_ligands_at_symmetry_centers=False,
     )
     atom_array = data["asym_unit"][0]

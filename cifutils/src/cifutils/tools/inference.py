@@ -104,9 +104,20 @@ class SequenceComponent(ChemicalComponent):
         raise ValueError(f"Could not infer chain type from sequence: {seq=}")
 
     @staticmethod
-    def assert_valid_chain_type(seq: list[str], chain_type: ChainType) -> bool:
+    def assert_valid_chain_type(seq: list[str], chain_type: ChainType, allow_other: bool = False) -> bool:
+        """Asserts that all the CCD codes in the sequence are valid for the given chain type.
+
+        Args:
+            seq (list[str]): List of three-letter CCD codes.
+            chain_type (ChainType): The chain type to check against.
+            allow_other (bool): If True, allow non-CCD codes (e.g., custom NCAA) to be valid.
+
+        Ignore non-CCD codes (e.g., custom NCAA) which are presumed to be valid (and are mapped to "other")
+        """
         ccd_codes = set(seq)
         chem_comp_types = {get_chem_comp_type(ccd_code) for ccd_code in ccd_codes}
+        if allow_other:
+            chem_comp_types.discard("OTHER")
 
         valid_chem_comp_types = ChainTypeInfo.VALID_CHEM_COMP_TYPES.get(chain_type, chem_comp_types)
         if not chem_comp_types.issubset(valid_chem_comp_types):
@@ -144,10 +155,10 @@ class SequenceComponent(ChemicalComponent):
         if isinstance(self.seq, str):
             self.seq = split_generalized_fasta_sequence(self.seq)
 
-        self.seq = one_letter_to_ccd_code(self.seq, self.chain_type)
+        self.seq = one_letter_to_ccd_code(self.seq, self.chain_type, check_ccd_codes=False)
 
         # Validate chain type
-        SequenceComponent.assert_valid_chain_type(self.seq, self.chain_type)
+        SequenceComponent.assert_valid_chain_type(self.seq, self.chain_type, allow_other=True)
 
 
 @dataclass
@@ -194,11 +205,18 @@ class CIFFileComponent(ChemicalComponent):
     msa_paths: dict[str, os.PathLike] | None = None
     assembly: int = "1"
     model: int = 0
+    chain_type: ChainType | str | None = None
 
     def __post_init__(self):
-        # Parse the file to set the AtomArray and extract the chain IDs
+        # Parse the file to set the AtomArray
         atom_array = parse(self.path, add_missing_atoms=False)["assemblies"][self.assembly][self.model]
+        # ... extract chain IDs
         self.chain_ids = np.unique(atom_array.chain_id)
+        # ... set the chain type
+        # (If mixed chain types, use chain_type=None)
+        if self.chain_type:
+            self.chain_type = ChainType.as_enum(self.chain_type)
+
         self.atom_array = atom_array
 
 
@@ -273,10 +291,13 @@ def sequence_to_annotated_atom_array(
     chain_type: ChainType | str = None,
     is_polymer: bool | None = None,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
+    custom_residues: dict[str, AtomArray] | None = None,
     **kwargs,
 ) -> AtomArray:
     if isinstance(seq, str) and is_polymer:
-        seq = one_letter_to_ccd_code(split_generalized_fasta_sequence(seq), chain_type=chain_type)
+        seq = one_letter_to_ccd_code(
+            split_generalized_fasta_sequence(seq), chain_type=chain_type, check_ccd_codes=False
+        )
 
     # Turn the sequence into a numpy array
     seq = np.asarray(seq)
@@ -292,7 +313,9 @@ def sequence_to_annotated_atom_array(
             f"Unknown ligand `{UNKNOWN_LIGAND}` found in sequence. If you want to pass a ligand, that "
             f"is not in the CCD, use a SMILES string or SDF file instead."
         )
-    check_ccd_codes_are_available(ccd_codes_in_seq, ccd_mirror_path=ccd_mirror_path, mode="raise")
+
+    codes_to_check = ccd_codes_in_seq - set(custom_residues.keys()) if custom_residues else ccd_codes_in_seq
+    check_ccd_codes_are_available(codes_to_check, ccd_mirror_path=ccd_mirror_path, mode="raise")
 
     # ... create a list of atoms based on the reference CCD entries
     atom_array = build_template_atom_array(
@@ -308,6 +331,7 @@ def sequence_to_annotated_atom_array(
         remove_hydrogens=False,  # we keep hydrogens here, to allow fixing formal charges
         use_ccd_charges=True,
         ccd_mirror_path=ccd_mirror_path,
+        custom_residues=custom_residues,
     )
 
     # ... add the atomic number annotation (vs. element, which is a string)
@@ -495,8 +519,9 @@ def components_to_atom_array(
     components: list[ChemicalComponent | dict],
     bonds: list[str] | None = None,
     return_components: bool = False,
+    custom_residues: dict[str, AtomArray | SDFComponent | dict] | None = None,
 ) -> AtomArray | list[ChemicalComponent]:
-    """Build an AtomArray from a list of ChemicalComponent objects and, optionally, a list of bonds.
+    """Build an AtomArray from a list of ChemicalComponent objects and supporting details (bonds, custom residues).
 
     Args:
         components (list[ChemicalComponent | dict]): List of ChemicalComponent objects or dictionaries that can be
@@ -509,6 +534,8 @@ def components_to_atom_array(
             e.g., [("A/THR/4/CG", "D/L:1/0/O13"), ("A/CYS/5/SG",  "A/CYS/137/SG")]
         return_components (bool): If True, return the components list as well as the AtomArray. Useful for e.g., mapping
             components to generated chain IDs or inferred chain types.
+        custom_residues: A dictionary of custom residues to be used as "spoof" CCD entries. Can be given either as
+            AtomArrays directly or as dictionary specifying paths to CIF files (must include atom names).
 
     NOTE: If manually specifying bonds, we recommend visualizing the bond graph with `matplotlib` to ensure that the bonds are correctly
     NOTE: The res_id numbering follows the RCSB convention (1-indexed)
@@ -516,9 +543,6 @@ def components_to_atom_array(
     Returns:
         AtomArray: The assembled AtomArray, used for visualization or inference.
     """
-    # TODO: Add support for chiral specifications
-    # TODO: Add support for cif/pdb
-
     # Ensure that all components are ChemicalComponent objects
     components = [
         ChemicalComponent.from_dict(component) if isinstance(component, dict) else component for component in components
@@ -534,6 +558,18 @@ def components_to_atom_array(
 
     chain_id_generator = create_chain_id_generator(chain_ids)
 
+    # Convert the custom_residues to a dictionary mapping strings to AtomArrays, if given
+    if custom_residues:
+        for key, value in custom_residues.items():
+            if isinstance(value, dict):
+                chemical_component = ChemicalComponent.from_dict(value)
+                atom_array = chemical_component.atom_array
+
+                # Delete the res_id annotation (otherwise users must set it correctly)
+                atom_array.del_annotation("res_id")
+
+                custom_residues[key] = atom_array
+
     atom_arrays = []
     ligand_hash_to_id = KeyToIntMapper()  # ... to keep track of identical ligands
     for component in components:
@@ -546,7 +582,7 @@ def components_to_atom_array(
         component.chain_id = component.chain_id or next(chain_id_generator)
 
         if isinstance(component, SequenceComponent):
-            atom_arrays.append(sequence_to_annotated_atom_array(**component.as_dict()))
+            atom_arrays.append(sequence_to_annotated_atom_array(**component.as_dict(), custom_residues=custom_residues))
         elif isinstance(component, SmilesComponent):
             ligand_array = smiles_to_annotated_atom_array(**component.as_dict())
             atom_arrays.append(assign_res_name_from_atom_array_hash(ligand_array, ligand_hash_to_id))

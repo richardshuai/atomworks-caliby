@@ -156,6 +156,7 @@ def build_template_atom_array(
     remove_hydrogens: bool = True,
     use_ccd_charges: bool = True,
     ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
+    custom_residues: dict[str, AtomArray] | None = None,
 ) -> AtomArray:
     """
     Builds a template AtomArray by matching residues to CCD templates and copying coordinates/annotations from an existing
@@ -164,19 +165,21 @@ def build_template_atom_array(
     For each residue in chain_info_dict, creates a template from the Chemical Component Dictionary (CCD) and either:
     1. Copies coordinates and annotations from matching atoms in atom_array, or
     2. Leaves coordinates as NaN if no matching atoms exist, or
-    3. Copies atoms verbatim from atom_array if no CCD template exists (e.g., for UNL) or for CCD codes that are not available
+    3. Copies atoms verbatim from atom_array / custom_residues dictionary if no CCD template exists (e.g., for UNL) or for CCD codes that
         we want to ignore for matching (e.g., for water molecules)
 
     Args:
-        - chain_info_dict (dict): Dictionary mapping chain IDs to dicts containing residue information with keys:
+        chain_info_dict (dict): Dictionary mapping chain IDs to dicts containing residue information with keys:
             - 'res_id': List of residue IDs
             - 'res_name': List of residue names (CCD codes)
             - 'is_polymer': Boolean indicating if chain is polymeric
             - 'chain_type': Chain type enum value
-        - atom_array (AtomArray, optional): Structure containing coordinates and annotations to copy. Defaults to None.
-        - remove_hydrogens (bool, optional): Whether to remove hydrogens from CCD templates. Defaults to True.
-        - use_ccd_charges (bool, optional): Whether to use charges from CCD (True) or atom_array (False). Defaults to True.
-        - ccd_mirror_path (os.PathLike, optional): Path to local CCD mirror. Defaults to CCD_MIRROR_PATH.
+        atom_array (AtomArray, optional): Structure containing coordinates and annotations to copy. Defaults to None.
+        remove_hydrogens (bool, optional): Whether to remove hydrogens from CCD templates. Defaults to True.
+        use_ccd_charges (bool, optional): Whether to use charges from CCD (True) or atom_array (False). Defaults to True.
+        ccd_mirror_path (os.PathLike, optional): Path to local CCD mirror. Defaults to CCD_MIRROR_PATH.
+        custom_residues (dict, optional): Dictionary mapping CCD codes to custom AtomArrays. Can be thought as "expanding"
+            the CCD to include additional residues (e.g., during inference with custom NCAA). Defaults to None.
 
     Returns:
         AtomArray: Template structure with coordinates and annotations copied from atom_array where available.
@@ -220,19 +223,25 @@ def build_template_atom_array(
             # ... and corresponding mask
             res_mask = (chain_ids == chain_id) & (res_names == ccd_code) & (res_ids == res_id_original)
 
-            # ... if we cannot get a template from the CCD (e.g., UNL), we copy over the atoms from the atom_array verbatim
+            # ... if we cannot get a template from the CCD (e.g., UNL), we check if the code was provided via the `custom_residues` argument,
+            # or copy over the atoms from the atom_array verbatim
             if (ccd_code in DO_NOT_MATCH_CCD) or not check_ccd_codes_are_available(
                 [ccd_code], ccd_mirror_path, mode="warn"
             ):
-                if not res_mask.any():
-                    # ... skip if we cannot find the residue in the reference atom_array
-                    logger.warning(
-                        f"No atoms found for residue {ccd_code} in chain {chain_id} with ID {res_id_original}!"
-                    )
-                    continue
+                if custom_residues and ccd_code in custom_residues:
+                    # (Use the provided custom residue if it exists)
+                    real = custom_residues[ccd_code]
+                else:
+                    if not res_mask.any():
+                        # ... skip if we cannot find the residue in the reference atom_array
+                        logger.warning(
+                            f"No atoms found for residue {ccd_code} in chain {chain_id} with ID {res_id_original}!"
+                        )
+                        continue
 
-                # ... otherwise, we copy over the atoms from the atom_array
-                real = atom_array[res_mask]
+                    # (Copy from the given AtomArray)
+                    real = atom_array[res_mask]
+
                 n_atoms = real.array_length()
                 real.set_annotation("stereo", np.full(n_atoms, fill_value="N", dtype="<U1"))
                 real.set_annotation("is_leaving_atom", all_false(n_atoms))
@@ -241,8 +250,14 @@ def build_template_atom_array(
                 real.set_annotation("is_c_terminal_atom", all_false(n_atoms))
                 real.set_annotation("uses_alt_atom_id", all_false(n_atoms))
                 real.set_annotation("chain_type", [chain_type] * n_atoms)
+                real.set_annotation("chain_id", [chain_id] * n_atoms)
                 real.set_annotation("charge", get_annotation(real, "charge", default=np.zeros(n_atoms)))
                 real.set_annotation("is_polymer", [chain_is_polymer] * n_atoms)
+
+                if "res_id" not in real.get_annotation_categories():
+                    # ... if the res_id annotation does not exist, we create it
+                    real.set_annotation("res_id", [res_id_original] * n_atoms)
+
                 template_residues.append(real)
                 continue
 
