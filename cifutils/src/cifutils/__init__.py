@@ -52,7 +52,7 @@ def _get_versioning(repo_path: str) -> str:
 __version__ = None
 __version_tuple__ = None
 try:
-    __version__ = _get_versioning(os.path.dirname(os.path.abspath(__file__)))
+    __version__ = _get_versioning(os.path.dirname(os.path.realpath(__file__)))
     assert __version__ is not None
 except Exception as e:
     try:
