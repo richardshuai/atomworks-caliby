@@ -353,9 +353,11 @@ def build_af3_transform_pipeline(
         "symmetry_resolution",
         "extra_info",
     ]
+
     if run_confidence_head:
         keys_to_keep.append("confidence_feats")
-    if return_atom_array:
+
+    if return_atom_array and is_inference:
         keys_to_keep.append("atom_array")
 
     transforms += [

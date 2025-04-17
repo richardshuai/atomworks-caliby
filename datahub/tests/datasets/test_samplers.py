@@ -39,42 +39,44 @@ def test_distributed_mixed_sampler(dummy_datasets):
     sampler_1 = SequentialSampler(dataset1)
     sampler_2 = SequentialSampler(dataset2)
 
+    # Nested mixed sampler
     datasets_info_1 = [
         {"sampler": sampler_1, "dataset": dataset1, "probability": 0.9},
         {"sampler": sampler_2, "dataset": dataset2, "probability": 0.1},
     ]
-    # First mixed sampler
-    datasets_1_2_concat = ConcatDataset([dataset1, dataset2])
     mixed_sampler = MixedSampler(datasets_info=datasets_info_1)
 
-    # Second mixed sampler
+    # Outer mixed (distributed) sampler
     sampler_3 = SequentialSampler(dataset3)
+    datasets_1_2_concat = ConcatDataset([dataset1, dataset2])
     datasets_info_2 = [
-        {"sampler": mixed_sampler, "dataset": datasets_1_2_concat, "probability": 0.5},
-        {"sampler": sampler_3, "dataset": dataset3, "probability": 0.5},
+        {"sampler": mixed_sampler, "dataset": datasets_1_2_concat, "probability": 0.4},
+        {"sampler": sampler_3, "dataset": dataset3, "probability": 0.6},
     ]
     datasets_1_2_3_concat = ConcatDataset([datasets_1_2_concat, dataset3])
     dist_mixed_sampler_rank_0 = DistributedMixedSampler(
         datasets_info=datasets_info_2,
-        n_examples_per_epoch=100,
+        n_examples_per_epoch=101,  # Odd number to test rounding
         num_replicas=2,
         rank=0,
         shuffle=True,
+        drop_last=False,  # False is the more complex case
     )
 
     dist_mixed_sampler_rank_1 = DistributedMixedSampler(
         datasets_info=datasets_info_2,
-        n_examples_per_epoch=100,
+        n_examples_per_epoch=101,
         num_replicas=2,
         rank=1,
         shuffle=True,
+        drop_last=False,  # False is the more complex case
     )
 
     indices_node_0 = list(dist_mixed_sampler_rank_0)
     indices_node_1 = list(dist_mixed_sampler_rank_1)
 
-    assert len(indices_node_0) == 50
-    assert len(indices_node_1) == 50
+    assert len(indices_node_0) == 51  # Rounding (based on 101 examples and 2 replicas, without drop_last)
+    assert len(indices_node_1) == 51
 
     # Ensure the slices are different
     assert set(indices_node_0).isdisjoint(set(indices_node_1))
@@ -87,9 +89,9 @@ def test_distributed_mixed_sampler(dummy_datasets):
     dataset2_count = sum(1 for idx in combined_indices if 100 <= idx < 200)
     dataset3_count = sum(1 for idx in combined_indices if idx >= 200)
 
-    assert dataset1_count == 45  # 50% * 90% = 45
-    assert dataset2_count == 5  # 50% * 10% = 5
-    assert dataset3_count == 50  # 50% of the samples should be from dataset3
+    assert dataset1_count == 37  # 40% * 90% = 37-ish
+    assert dataset2_count == 4  # 40% * 10% = 4-ish
+    assert dataset3_count == 61  # 60% of the samples should be from dataset3
 
     # Load indices from the concat_dataset and ensure they are in the expected range
     for idx in indices_node_0[:10] + indices_node_1[:10]:  # Check a few indices from each node

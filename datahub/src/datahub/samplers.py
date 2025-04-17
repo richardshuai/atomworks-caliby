@@ -340,11 +340,11 @@ class DistributedMixedSampler(Sampler):
             indices[i] = [index + self.cumulative_lengths[i] for index in indices[i]]
 
         # Flatten the list of local indices
-        indices = [index for indices in indices for index in indices]
+        indices = [index for sublist in indices for index in sublist]
 
-        if not self.drop_last:
+        padding_size = self.total_size - len(indices)
+        if not self.drop_last and padding_size > 0:
             # Add extra samples to make it evenly divisible
-            padding_size = self.total_size - len(indices)
             if padding_size <= len(indices):
                 indices += indices[:padding_size]
             else:
@@ -515,11 +515,12 @@ class LoadBalancedDistributedSampler(DistributedSampler):
         if not self.drop_last:
             # Add extra samples to make it evenly divisible
             padding_size = self.total_size - len(indices)
-            if padding_size > 0:
-                if padding_size <= len(indices):
-                    indices += indices[-padding_size:]  # Add from the end of the list, which are the smallest examples
-                else:
-                    indices += indices[-1:] * padding_size
+            assert padding_size >= 0, "Padding size must be non-negative; please report this issue to the developers."
+
+            if padding_size <= len(indices):
+                indices += indices[-padding_size:]  # Add from the end of the list, which are the smallest examples
+            else:
+                indices += indices[-1:] * padding_size
         else:
             # Remove tail of data to make it evenly divisible.
             indices = indices[: self.total_size]

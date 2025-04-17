@@ -1,3 +1,4 @@
+import pytest
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 
 from datahub.datasets.datasets import ConcatDatasetWithID, FallbackDatasetWrapper, PandasDataset
@@ -159,3 +160,7 @@ def test_multifallback_dataset():
             assert all(wrapped_dataset[(idx, 5, 15, 2)] == faulty_fallback_dataset[2]), 15
         else:
             assert all(wrapped_dataset[(idx, idx)] == faulty_primary_dataset[idx]), idx
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

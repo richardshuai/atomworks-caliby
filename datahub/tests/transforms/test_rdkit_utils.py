@@ -164,7 +164,7 @@ def test_chirality_in_rdkit_conformer_generation(ccd_code, target_chirality, str
     n_iterations = 10
     prev_coord = 0.0
     for i in range(n_iterations):
-        mol = ccd_code_to_rdkit_with_conformers(ccd_code, n_conformers=1, timeout=2, strategy=strategy)
+        mol = ccd_code_to_rdkit_with_conformers(ccd_code, n_conformers=1, timeout=2, timeout_strategy=strategy)
         coord = mol.GetConformer(0).GetPositions()[0][0]
         assert (
             coord != prev_coord
