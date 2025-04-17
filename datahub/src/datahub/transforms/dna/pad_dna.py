@@ -14,6 +14,9 @@ from os import PathLike
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
+from biotite.structure.basepairs import _check_dssr_criteria, _get_proximate_residues
+from biotite.structure.filter import filter_nucleotides
+from biotite.structure.residues import get_residue_masks, get_residue_starts_for
 from cifutils.utils.io_utils import load_any
 from cifutils.utils.selection import ResIdxSlice
 from cifutils.utils.sequence import get_1_from_3_letter_code
@@ -125,6 +128,90 @@ def _get_overhang_lengths(is_overhang: np.ndarray) -> np.ndarray:
     return np.array([left, right])
 
 
+# reimplementation of biotite base_pairs
+def base_pairs(atom_array, min_atoms_per_base=3, unique=True, no_hbond_dist_cut=4.0):
+    # Get the nucleotides for the given atom_array
+    nucleotides_boolean = filter_nucleotides(atom_array)
+
+    # Disregard the phosphate-backbone
+    non_phosphate_boolean = ~np.isin(atom_array.atom_name, ["O5'", "P", "OP1", "OP2", "OP3", "HOP2", "HOP3"])
+
+    # Combine the two boolean masks
+    boolean_mask = nucleotides_boolean & non_phosphate_boolean
+
+    # Get only nucleosides
+    nucleosides = atom_array[boolean_mask]
+
+    # Get the base pair candidates according to a N/O cutoff distance,
+    # where each base is identified as the first index of its respective
+    # residue
+    n_o_mask = np.isin(nucleosides.element, ["N", "O"])
+    basepair_candidates, n_o_matches = _get_proximate_residues(nucleosides, n_o_mask, no_hbond_dist_cut)
+
+    # Contains the plausible base pairs
+    basepairs = []
+    # Contains the number of hydrogens for each plausible base pair
+    basepairs_hbonds = []
+
+    # Get the residue masks for each residue
+    base_masks = get_residue_masks(nucleosides, basepair_candidates.flatten())
+
+    # Group every two masks together for easy iteration (each 'row' is
+    # respective to a row in ``basepair_candidates``)
+    base_masks = base_masks.reshape((basepair_candidates.shape[0], 2, nucleosides.shape[0]))
+
+    for (base1_index, base2_index), (base1_mask, base2_mask), n_o_pairs in zip(
+        basepair_candidates, base_masks, n_o_matches
+    ):
+        base1 = nucleosides[base1_mask]
+        base2 = nucleosides[base2_mask]
+
+        hbonds = _check_dssr_criteria((base1, base2), min_atoms_per_base, unique)
+
+        # If no hydrogens are present use the number N/O pairs to
+        # decide between multiple pairing possibilities.
+
+        if hbonds is None:
+            # Each N/O-pair is detected twice. Thus, the number of
+            # matches must be divided by two.
+            hbonds = n_o_pairs / 2
+        if hbonds != -1:
+            basepairs.append((base1_index, base2_index))
+            if unique:
+                basepairs_hbonds.append(hbonds)
+
+    basepair_array = np.array(basepairs)
+
+    if unique:
+        # Contains all non-unique base pairs that are flagged to be
+        # removed
+        to_remove = []
+
+        # Get all bases that have non-unique pairing interactions
+        base_indices, occurrences = np.unique(basepairs, return_counts=True)
+        for base_index, occurrence in zip(base_indices, occurrences):
+            if occurrence > 1:
+                # Write the non-unique base pairs to a dictionary as
+                # 'index: number of hydrogen bonds'
+                remove_candidates = {}
+                for i, row in enumerate(np.asarray(basepair_array == base_index)):
+                    if np.any(row):
+                        remove_candidates[i] = basepairs_hbonds[i]
+                # Flag all non-unique base pairs for removal except the
+                # one that has the most hydrogen bonds
+                del remove_candidates[max(remove_candidates, key=remove_candidates.get)]
+                to_remove += list(remove_candidates.keys())
+        # Remove all flagged base pairs from the output `ndarray`
+        basepair_array = np.delete(basepair_array, to_remove, axis=0)
+
+    # Remap values to original atom array
+    if len(basepair_array) > 0:
+        basepair_array = np.where(boolean_mask)[0][basepair_array]
+        for i, row in enumerate(basepair_array):
+            basepair_array[i] = get_residue_starts_for(atom_array, row)
+    return basepair_array
+
+
 class PadDNA(Transform):
     """
     Structurally pads DNA duplexes by extending them with randomly sampled DNA in B-form conformation.
@@ -189,6 +276,7 @@ class PadDNA(Transform):
         pad_type_weights: dict = {"none": 0, "pdb": 0, "uniform": 1},
         pad_nt_weights: dict = {"A": 1, "C": 1, "G": 1, "T": 1},
         align_len_weights: dict = {1: 1},
+        no_hbond_dist_cut: float = 4.0,
     ):
         """
         Args:
@@ -236,6 +324,7 @@ class PadDNA(Transform):
         self.pad_type_weights = pad_type_weights
         self.pad_nt_weights = pad_nt_weights
         self.align_len_weights = align_len_weights
+        self.no_hbond_dist_cut = no_hbond_dist_cut
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array", "chain_info"])
@@ -499,7 +588,7 @@ class PadDNA(Transform):
 
         # ... compute all base-pairs based on the structure
         dna_array_no_nan = remove_nan_coords(dna_array)
-        _base_pair_idxs = struc.base_pairs(dna_array_no_nan)
+        _base_pair_idxs = struc.base_pairs(dna_array_no_nan, no_hbond_dist_cut=self.no_hbond_dist_cut)
         base_pair_ids = dna_array_no_nan.get_annotation("base_id")[_base_pair_idxs]  # (n_base_pairs, 2)
         chain_pair_iids = np.unique(dna_array_no_nan.chain_iid[_base_pair_idxs], axis=0)  # (n_chain_pairs, 2)
 
@@ -572,10 +661,16 @@ class PadDNA(Transform):
 
             seq1_lhs = "".join(chain1["canonical_seq"][: chain1_overhang[0]])
             seq1_paired = "".join(chain1["canonical_seq"][chain1["is_base_paired"]])
-            seq1_rhs = "".join(chain1["canonical_seq"][-chain1_overhang[1] :])
+            if chain1_overhang[1] == 0:  # -0 index does not behave as expected
+                seq1_rhs = ""
+            else:
+                seq1_rhs = "".join(chain1["canonical_seq"][-chain1_overhang[1] :])
             seq2_lhs = "".join(chain2["canonical_seq"][: chain2_overhang[0]])
             seq2_paired = "".join(chain2["canonical_seq"][chain2["is_base_paired"]])
-            seq2_rhs = "".join(chain2["canonical_seq"][-chain2_overhang[1] :])
+            if chain2_overhang[1] == 0:  # -0 index does not behave as expected
+                seq2_rhs = ""
+            else:
+                seq2_rhs = "".join(chain2["canonical_seq"][-chain2_overhang[1] :])
 
             try:
                 assert seq1_paired == to_reverse_complement(
