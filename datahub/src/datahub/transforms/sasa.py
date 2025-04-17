@@ -46,6 +46,55 @@ def calculate_atomwise_sasa(
     return full_sasa
 
 
+def calculate_atomwise_rasa(
+    atom_array: AtomArray,
+    probe_radius: float = 1.4,
+    atom_radii: str | np.ndarray = "ProtOr",
+    point_number: int = 100,
+) -> np.ndarray:
+    """
+    Calculate the Relative Solvent-Accessible Surface Area (RASA) for each atom in `atom_array`.
+    The RASA is defined as the ratio of the SASA of a residue in a protein structure
+    to the SASA of the same residue in an extended conformation.
+    The output will have the same length as the input AtomArray, with NaN values for excluded (invalid) atoms.
+    Args:
+        atom_array (AtomArray): The input AtomArray containing the atomic coordinates.
+        probe_radius (float, optional): Van-der-Waals radius of the probe in Angstrom. Defaults to 1.4 (for water).
+        atom_radii (str | np.ndarray, optional): Atom radii set to use for calculation. Defaults to "ProtOr". "ProtOr" will not get sasa's for hydrogen atoms and some other atoms, like ions or certain atoms with charges
+        point_number (int, optional): Number of points in the Shrake-Rupley algorithm to sample for calculating SASA. Defaults to 100.
+    """
+    DEFAULT_VDW_RADIUS = 1.8
+    # 1) Calculate the SASA for each atom in the atom array
+    sasa = calculate_atomwise_sasa(
+        atom_array,
+        probe_radius=probe_radius,
+        atom_radii=atom_radii,
+        point_number=point_number,
+    )
+    # 2) Calculate the SASA for each atom in an extended conformation
+    max_value = np.zeros(atom_array.array_length(), dtype=float)
+    for i, row in enumerate(atom_array):
+        # get the residue name and atom name
+        res_name = row.res_name
+        atom_name = row.atom_name
+        # get the vdw radius
+        try:
+            vdw_radius = struc.info.radii.vdw_radius_protor(res_name, atom_name)
+        except Exception:
+            # if the residue name and atom name are not found, set vdw_radius to 1.8
+            vdw_radius = DEFAULT_VDW_RADIUS
+        if vdw_radius is None:
+            # if the vdw radius is None, set it to 1.8
+            vdw_radius = DEFAULT_VDW_RADIUS
+        # calculate the extended conformation
+        extended_conformation = 4 * np.pi * (vdw_radius + probe_radius) ** 2
+        # set the extended conformation to the sasa
+        max_value[i] = extended_conformation
+    # 3) Calculate the RASA
+    rasa = sasa / max_value
+    return rasa
+
+
 class CalculateSASA(Transform):
     """Transform for calculating Solvent-Accessible Surface Area (SASA) for each atom in an AtomArray."""
 
