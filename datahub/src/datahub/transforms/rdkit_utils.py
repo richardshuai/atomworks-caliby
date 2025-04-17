@@ -55,7 +55,7 @@ def generate_conformers(
     method: str = "ETKDGv3",
     num_threads: int = 1,
     hydrogen_policy: Literal["infer", "remove", "keep", "auto"] = "remove",
-    optimize: bool = False,
+    optimize: bool = True,
     attempts_with_distance_geometry: int = 10,
     attempts_with_random_coordinates: int = 10_000,
     **uff_optimize_kwargs: dict,
@@ -241,7 +241,7 @@ def get_chiral_centers(mol: Mol) -> list[int]:
 
     def _should_exclude_chiral_center(atom: Chem.Atom) -> bool:
         """Exclude edge cases for chiral centers."""
-        # CASE 1: The chiral center is a Phosphorous (P, 15) or Sulfur (S, 16) atom bonded to 2 Oxygens (O, 8)
+        # EDGE CASE: The chiral center is a Phosphorous (P, 15) or Sulfur (S, 16) atom bonded to 2 Oxygens (O, 8)
         # For an example of where this case occurs, see the CCD ligand `NAP` (e.g., in `5OCM`)
         if atom.GetAtomicNum() == 15 or atom.GetAtomicNum() == 16:
             # ... get the atomic numbers of the bonded atoms

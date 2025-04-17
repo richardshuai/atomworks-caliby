@@ -137,7 +137,7 @@ def test_get_af3_reference_molecule_features_res(res_name):
 
     seed = 42
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
-        features, _ = get_af3_reference_molecule_features(atom_array)
+        features, _ = get_af3_reference_molecule_features(atom_array, should_generate_automorphisms_with_rdkit=True)
 
     assert "ref_pos" in features
     assert "ref_mask" in features
@@ -175,7 +175,9 @@ def test_get_af3_reference_molecule_features_chain():
 
     seed = 42
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
-        features, _ = get_af3_reference_molecule_features(atom_array, apply_random_rotation_and_translation=False)
+        features, _ = get_af3_reference_molecule_features(
+            atom_array, apply_random_rotation_and_translation=False, should_generate_automorphisms_with_rdkit=True
+        )
         features_with_elements_for_atomized_atom_names, _ = get_af3_reference_molecule_features(
             atom_array, apply_random_rotation_and_translation=False, use_element_for_atom_names_of_atomized_tokens=True
         )
@@ -210,13 +212,13 @@ def test_get_af3_reference_molecule_features_chain():
     assert features["ref_automorphs"].shape == (1000, n_atoms, 2)
 
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
-        features__with_random_rototranslation, _ = get_af3_reference_molecule_features(
+        features_with_random_rototranslation, _ = get_af3_reference_molecule_features(
             atom_array, apply_random_rotation_and_translation=True
         )
 
         # Assert that the features are different
-        assert not np.allclose(features["ref_pos"], features__with_random_rototranslation["ref_pos"])
-        assert np.allclose(features["ref_mask"], features__with_random_rototranslation["ref_mask"])
+        assert not np.allclose(features["ref_pos"], features_with_random_rototranslation["ref_pos"])
+        assert np.allclose(features["ref_mask"], features_with_random_rototranslation["ref_mask"])
 
     # Inspect automorphs visually:
     # import matplotlib.pyplot as plt

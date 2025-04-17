@@ -156,7 +156,7 @@ def _map_reference_conformer_to_residue(
 def get_af3_reference_molecule_features(
     atom_array: AtomArray,
     conformer_generation_timeout: float = 10.0,
-    should_generate_automorphisms_with_rdkit: bool = True,
+    should_generate_automorphisms_with_rdkit: bool = False,
     apply_random_rotation_and_translation: bool = True,
     use_element_for_atom_names_of_atomized_tokens: bool = False,
     timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
@@ -165,15 +165,16 @@ def get_af3_reference_molecule_features(
     """Get AF3 reference features for each residue in the atom array.
 
     Args:
-        - atom_array (AtomArray): The input atom array.
-        - conformer_generation_timeout (float, optional): Maximum time allowed for conformer generation per residue.
+        atom_array (AtomArray): The input atom array.
+        conformer_generation_timeout (float, optional): Maximum time allowed for conformer generation per residue.
             Defaults to 10.0 seconds. If None, no timeout is applied and the timeout strategy is ignored (no subprocesses will be spawned).
-        - should_generate_automorphisms_with_rdkit (bool, optional): Whether to generate automorphisms using RDKit. For example,
-            we may want to generate automorphisms directly with networkx instead. Defaults to True.
-        - apply_random_rotation_and_translation (bool, optional): Whether to apply a random rotation and translation to each conformer (AF-3-style)
-        - timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
-            Defaults to "subprocess".
-        - **generate_conformers_kwargs: Additional keyword arguments to pass to the generate_conformers function.
+        should_generate_automorphisms_with_rdkit (bool, optional): Whether to generate automorphisms using RDKit. For example,
+            we may want to generate automorphisms directly with NetworkX instead (since RDKit automorphism generation
+            is unreliable due to kekulization). Defaults to False.
+        apply_random_rotation_and_translation (bool, optional): Whether to apply a random rotation and translation to each conformer (AF-3-style)
+        timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
+            Defaults to "subprocess" (which is the most reliable choice).
+        **generate_conformers_kwargs: Additional keyword arguments to pass to the generate_conformers function.
 
     Returns:
         - ref_conformer (dict[str, Any]): A dictionary containing the generated reference features.
@@ -199,6 +200,7 @@ def get_af3_reference_molecule_features(
         - Section 2.8 of the AF3 supplementary information
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
+
     # Generate reference conformers for each residue (if cropped, each residue that has tokens in the crop)
     # ... get residue-level stochiometry
     _res_start_ends = get_residue_starts(atom_array, add_exclusive_stop=True)
@@ -397,7 +399,7 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
     def __init__(
         self,
         conformer_generation_timeout: float = 10.0,
-        should_generate_automorphisms_with_rdkit: bool = True,
+        should_generate_automorphisms_with_rdkit: bool = False,
         save_rdkit_mols: bool = True,
         use_element_for_atom_names_of_atomized_tokens: bool = False,
         apply_random_rotation_and_translation: bool = True,

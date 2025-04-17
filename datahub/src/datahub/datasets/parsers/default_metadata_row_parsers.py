@@ -124,8 +124,8 @@ class GenericDFParser(MetadataRowParser):
 
     Example dataframe:
         example_id                      path                      pn_unit_1_iid  pn_unit_2_iid
-        {['my-dataset']}{1}{[A_1,B_1]}  /path/to/structure_1.cif  A_1            B_1
-        {['my-dataset']}{2}{[C_1,B_1]}  /path/to/structure_2.cif  C_1            B_1
+        {['my-dataset']}{ex_1}{1}{[A_1,B_1]}  /path/to/structure_1.cif  A_1            B_1
+        {['my-dataset']}{ex_2}{2}{[C_1,B_1]}  /path/to/structure_2.cif  C_1            B_1
     """
 
     def __init__(
@@ -160,15 +160,15 @@ class GenericDFParser(MetadataRowParser):
             self.attrs["extension"] = extension
 
     def _parse(self, row: pd.Series) -> dict[str, Any]:
-        # Compose the metadata (extra_info) dictionary
-        # (dataframe-level attributes; lowest precedence)
+        # Compose the metadata (extra_info) dictionary:
+        # ... dataframe-level attributes; lowest precedence
         extra_info = row.attrs.copy() if hasattr(row, "attrs") else {}
-        # (row-level attributes)
+        # ... row-level attributes
         extra_info.update(row.to_dict())
-        # (parser attributes; highest precedence)
+        # ... parser attributes; highest precedence
         extra_info.update(self.attrs or {})
 
-        # Assemble input pn_units
+        # Assemble input pn_units (to inform cropping)
         query_pn_unit_iids = [row[colname] for colname in self.pn_unit_iid_colnames]
 
         # Get the assembly ID if specified, otherwise default to "1"
@@ -181,7 +181,7 @@ class GenericDFParser(MetadataRowParser):
         if "extension" in extra_info and extra_info["extension"]:
             path = path.with_suffix(extra_info["extension"])
 
-        # (Exclude columns that we've already used)
+        # (Exclude columns that we've already used from the extra_info dictionary)
         exclude_cols = set(
             self.pn_unit_iid_colnames
             + [self.example_id_colname, self.path_colname]
