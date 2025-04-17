@@ -102,8 +102,7 @@ class Transform(ABC):
     previous_transforms_order_matters: bool = False
     _track_transform_history: bool = True
 
-    # To be implemented by subclasses
-    @abstractmethod
+    # To be implemented by subclasses (optional)
     def check_input(self, data: dict[str, Any]) -> None:
         """
         Check if the input dictionary is valid for the transform. Raises an error if the input is invalid.
@@ -620,9 +619,6 @@ class Identity(Transform):
     validate_input = False
     raise_if_invalid_input = False
     _track_transform_history = False
-
-    def check_input(self, data: dict[str, Any]) -> None:
-        pass
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         return data
