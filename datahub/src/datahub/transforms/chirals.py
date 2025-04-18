@@ -18,7 +18,7 @@ from datahub.transforms._checks import (
     check_nonzero_length,
 )
 from datahub.transforms.base import Transform
-from datahub.utils.token import get_token_count, spread_token_wise
+from datahub.utils.token import get_af3_token_center_coords, get_token_count, spread_token_wise
 
 logger = logging.getLogger(__name__)
 
@@ -295,7 +295,9 @@ class AddRF2AAChiralFeatures(Transform):
                 {"chiral_center_idx": chiral_center_idx, "bonded_explicit_atom_idxs": bonded_atom_idxs}
             )
 
-        chiral_feats = get_rf2aa_chiral_features(chiral_centers_by_idx, torch.tensor(atom_array.coord))
+        chiral_feats = get_rf2aa_chiral_features(
+            chiral_centers_by_idx, torch.tensor(get_af3_token_center_coords(atom_array))
+        )
         data["chiral_feats"] = chiral_feats  # [n_chirals, 5]
 
         return data
