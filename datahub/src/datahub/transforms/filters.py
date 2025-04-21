@@ -107,8 +107,6 @@ class RemoveUnsupportedChainTypes(Transform):
         self.supported_chain_types = supported_chain_types
 
     def check_input(self, data: dict):
-        check_contains_keys(data, ["atom_array"])
-        check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_type", "pn_unit_iid"])
 
     def forward(self, data: dict) -> dict:

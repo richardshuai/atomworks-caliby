@@ -13,6 +13,7 @@ from cifutils.utils.ccd import get_available_ccd_codes
 from cifutils.utils.selection import get_residue_starts
 from rdkit import Chem
 
+from datahub.common import exists
 from datahub.enums import GroundTruthConformerPolicy
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
 from datahub.transforms.base import Transform
@@ -100,8 +101,7 @@ def _encode_atom_names_like_af3(atom_names: np.ndarray) -> np.ndarray:
 def _map_reference_conformer_to_residue(
     res_name: str, atom_names: np.ndarray, conformer: AtomArray, automorphs: np.ndarray = None
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Maps the coordinate and automorphism information from a reference conformer to a
+    """Maps the coordinate and automorphism information from a reference conformer to a
     given residue, dropping all atoms that are not in the residue.
 
     Args:
@@ -135,7 +135,7 @@ def _map_reference_conformer_to_residue(
     ref_pos = coord  # [n_atoms_in_res, 3]
     ref_mask = np.isfinite(coord).all(axis=-1)  # [n_atoms_in_res]
 
-    if automorphs is not None:
+    if exists(automorphs):
         # ... filter the automorphs to only keep the ones that are relevant
         # ... 1. change the 'in-conformer' index to the 'in-residue' index,
         #        dropping any atoms that are not in the residue
@@ -161,7 +161,7 @@ def get_af3_reference_molecule_features(
     use_element_for_atom_names_of_atomized_tokens: bool = False,
     timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
     **generate_conformers_kwargs,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, Chem.Mol]]:
     """Get AF3 reference features for each residue in the atom array.
 
     Args:
@@ -177,10 +177,10 @@ def get_af3_reference_molecule_features(
         **generate_conformers_kwargs: Additional keyword arguments to pass to the generate_conformers function.
 
     Returns:
-        - ref_conformer (dict[str, Any]): A dictionary containing the generated reference features.
-        - ref_mols_with_unk (dict[str, Any]): A dictionary containing all RDKit molecules, including those with unknown CCD codes.
+        ref_conformer (dict[str, Any]): A dictionary containing the generated reference features.
+        ref_mols (dict[str, Any]): A dictionary containing all generated RDKit molecules, including those with unknown CCD codes.
 
-    This function generates the following reference features for AF3:
+    This function generates the following reference features, following AF3:
         - ref_pos: [N_atoms, 3] Atom positions in the reference conformer, with a random rotation and
             translation applied. Atom positions are given in Å.
         - ref_mask: [N_atoms] Mask indicating which atom slots are used in the reference conformer.
@@ -191,15 +191,24 @@ def get_af3_reference_molecule_features(
             Each character is encoded as ord(c) - 32, and names are padded to length 4.
         - ref_space_uid: [N_atoms] Numerical encoding of the chain id and residue index associated with
             this reference conformer. Each (chain id, residue index) tuple is assigned an integer on first appearance.
-        - ref_automorphs: A dictionary mapping the `ref_space_uid` to the automorphisms
-            of the reference conformer.
+
+    (Optionally) The following custom features, helpful for extra conditioning:
         - ref_pos_is_ground_truth (optional): [N_atoms] Whether the reference conformer is the ground-truth conformer.
             Determined by the `ground_truth_conformer_policy` annotation.
+        - ref_pos_ground_truth (optional): [N_atoms, 3] The ground-truth conformer positions.
+            Determined by the `ground_truth_conformer_policy` annotation.
+
+    (Optionally) The following features for automorphism resolution:
+        - ref_automorphs: [N_automorphs, N_atoms, 2] Automorphisms of the reference conformer.
+          Each automorphism is a mapping from one atom to another. The first column is the source atom index,
+          and the second column is the target atom index. The automorphisms are given in residue-local indices.
+        - ref_automorphs_mask: [N_automorphs, N_atoms] Mask indicating which atom slots are used in the automorphisms.
 
     Reference:
         - Section 2.8 of the AF3 supplementary information
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
+    _has_ground_truth_conformer_policy = "ground_truth_conformer_policy" in atom_array.get_annotation_categories()
 
     # Generate reference conformers for each residue (if cropped, each residue that has tokens in the crop)
     # ... get residue-level stochiometry
@@ -220,7 +229,6 @@ def get_af3_reference_molecule_features(
 
     # ... generate conformers for CCD codes that are unknown (including UNL)
     unknown_ccd_conformers = defaultdict(list)
-    ref_mols_with_unk = ref_mols.copy()
     if not all(res_name in KNOWN_CCD_CODES for res_name in res_stochiometry):
         res_indices_with_unknown = np.where(~np.isin(_res_names, list(KNOWN_CCD_CODES)))[0]
         for res_index in res_indices_with_unknown:
@@ -234,7 +242,7 @@ def get_af3_reference_molecule_features(
                 **generate_conformers_kwargs,
             )
             unknown_ccd_conformers[res_name].append(conf_i)
-            ref_mols_with_unk[res_name] = mol_i
+            ref_mols[res_name] = mol_i
 
     # ... initialize automorphism-related variables (which we may or may not be needed)
     ref_mol_automorphs = None
@@ -245,14 +253,17 @@ def get_af3_reference_molecule_features(
         # ... get automorphisms
         ref_mol_automorphs = toolz.valmap(find_automorphisms_with_rdkit, ref_mols)
         _max_automorphs = max(map(len, ref_mol_automorphs.values()))
-        # ...initialize tensors to store automorphisms and masks
+        # ... initialize tensors to store automorphisms and masks
         ref_automorphs = np.zeros((_max_automorphs, len(atom_array), 2), dtype=int)
         ref_automorphs_mask = np.zeros((_max_automorphs, len(atom_array)), dtype=bool)
 
     # ... initialize reference features
     ref_pos = np.zeros((len(atom_array), 3), dtype=np.float32)
     ref_mask = np.zeros(len(atom_array), dtype=bool)
-    ref_pos_is_ground_truth = np.zeros(len(atom_array), dtype=bool)
+
+    if _has_ground_truth_conformer_policy:
+        ref_pos_is_ground_truth = np.zeros(len(atom_array), dtype=bool)
+        ref_pos_ground_truth = np.zeros((len(atom_array), 3), dtype=np.float32)
 
     # Fill `ref_pos` and `ref_mask` arrays
     # ... helper variable to keep track of the next conformer to use for each residue type
@@ -275,29 +286,44 @@ def get_af3_reference_molecule_features(
                 remove_hydrogens=True,
             )
 
-        if "ground_truth_conformer_policy" in atom_array.get_annotation_categories():
-            # We replace the generated conformer with the ground-truth conformer if either:
-            # (a) the ground-truth conformer policy is set to "replace" for all atoms in the residue
-            # (b) the current conformer is all 0's/NaN's (i.e., the conformer generation failed), and the policy is set to "fallback" for all atoms in the residue
-            if np.all(
-                atom_array.ground_truth_conformer_policy[res_start:res_end] == GroundTruthConformerPolicy.REPLACE
-            ) or (
-                np.all(np.nan_to_num(conformer.coord) == 0)
-                and np.all(
-                    atom_array.ground_truth_conformer_policy[res_start:res_end] == GroundTruthConformerPolicy.FALLBACK
+        if _has_ground_truth_conformer_policy:
+            _has_valid_ground_truth = ~np.isnan(atom_array.coord[res_start:res_end]).any()
+            ground_truth_conformer = None
+            if not _has_valid_ground_truth:
+                logger.debug(
+                    "Ground-truth conformer policy set, but NaNs found in the atom array. Conformer policy will be treated as IGNORE."
                 )
-            ):
-                # NOTE: Inefficient since we generate with RDKit, and then discard, the conformer; however, this replacement-based approach is more interpretable and thus preferred
-                if np.isnan(atom_array.coord[res_start:res_end]).any():
-                    logger.warning(
-                        "Ground-truth conformer requested, but NaNs found in the atom array. Conformer will not be replaced with ground truth."
+            else:
+                # We REPLACE the generated conformer with the ground-truth conformer if either:
+                # (a) the ground-truth conformer policy is set to "REPLACE" for all atoms in the residue
+                # (b) the current conformer is all 0's/NaN's (i.e., the conformer generation failed), and the policy is set to "FALLBACK" for all atoms in the residue
+                if np.all(
+                    atom_array.ground_truth_conformer_policy[res_start:res_end] == GroundTruthConformerPolicy.REPLACE
+                ) or (
+                    np.all(np.nan_to_num(conformer.coord) == 0)
+                    and np.all(
+                        atom_array.ground_truth_conformer_policy[res_start:res_end]
+                        == GroundTruthConformerPolicy.FALLBACK
                     )
-                else:
+                ):
+                    # NOTE: Inefficient since we generate with RDKit, and then discard, the conformer; however, this replacement-based approach is more interpretable and thus preferred
                     # ... use the ground-truth AtomArray (e.g., during inference if we provide a SDF, or if we want to leak ligand geometry)
                     conformer = atom_array[res_start:res_end]
                     # (Center around the origin to avoid leaking 1D information)
                     conformer.coord = masked_center(conformer.coord)
                     ref_pos_is_ground_truth[res_start:res_end] = True
+
+                # We ADD another feature, `ref_pos_ground_truth`, if the policy is set to "ADD" for all atoms in the residue
+                if np.all(
+                    atom_array.ground_truth_conformer_policy[res_start:res_end] == GroundTruthConformerPolicy.ADD
+                ):
+                    if np.isnan(atom_array.coord[res_start:res_end]).any():
+                        logger.warning(
+                            "Ground-truth conformer requested, but NaNs found in the atom array. Conformer will not be replaced with ground truth."
+                        )
+                    else:
+                        ground_truth_conformer = atom_array[res_start:res_end]
+                        ground_truth_conformer.coord = masked_center(ground_truth_conformer.coord)
 
         # ... map the reference conformer information to the given residue
         _ref_pos, _ref_mask, _ref_automorphs = _map_reference_conformer_to_residue(
@@ -316,8 +342,21 @@ def get_af3_reference_molecule_features(
         ref_pos[res_start:res_end] = _ref_pos
         ref_mask[res_start:res_end] = _ref_mask
 
+        # (Repeat for the ground truth conformer, if adding through an additional feature)
+        if _has_ground_truth_conformer_policy and exists(ground_truth_conformer):
+            _ref_pos_ground_truth, _, _ = _map_reference_conformer_to_residue(
+                res_name=res_name,
+                atom_names=atom_array.atom_name[res_start:res_end],
+                conformer=ground_truth_conformer,
+            )
+            if apply_random_rotation_and_translation:
+                _ref_pos_ground_truth = random_rigid_augmentation(
+                    torch.from_numpy(_ref_pos_ground_truth[np.newaxis, :]), batch_size=1
+                ).numpy()
+            ref_pos_ground_truth[res_start:res_end] = _ref_pos_ground_truth
+
         # ... fill the automorphisms for this residue, generating automorphisms from RDKit
-        if _ref_automorphs is not None:
+        if exists(_ref_automorphs):
             ref_automorphs[: len(_ref_automorphs), res_start:res_end] = _ref_automorphs
             ref_automorphs_mask[: len(_ref_automorphs), res_start:res_end] = True
             max_automorphs = max(max_automorphs, len(_ref_automorphs))
@@ -326,7 +365,7 @@ def get_af3_reference_molecule_features(
         _next_conf_idx[res_name] += 1
 
     # ... resize the reference automorphism arrays to the maximum number of automorphisms
-    if ref_automorphs is not None:
+    if exists(ref_automorphs):
         ref_automorphs = ref_automorphs[:max_automorphs]
         ref_automorphs_mask = ref_automorphs_mask[:max_automorphs]
 
@@ -360,18 +399,23 @@ def get_af3_reference_molecule_features(
         "ref_charge": ref_charge,  # (n_atoms)
         "ref_atom_name_chars": ref_atom_name_chars,  # (n_atoms, 4)
         "ref_space_uid": ref_space_uid,  # (n_atoms)
-        "ref_automorphs": ref_automorphs,  # (max_automorphs, n_atoms, 2), residue-local indices
-        "ref_automorphs_mask": ref_automorphs_mask,  # (max_automorphs, n_atoms)
-        "ref_pos_is_ground_truth": ref_pos_is_ground_truth,  # (n_atoms)
     }
 
-    return ref_conformer, ref_mols_with_unk
+    if should_generate_automorphisms_with_rdkit:
+        ref_conformer["ref_automorphs"] = ref_automorphs  # (max_automorphs, n_atoms, 2), residue-local indices
+        ref_conformer["ref_automorphs_mask"] = ref_automorphs_mask  # (max_automorphs, n_atoms)
+
+    if _has_ground_truth_conformer_policy:
+        ref_conformer["ref_pos_ground_truth"] = ref_pos_ground_truth  # (n_atoms, 3)
+        ref_conformer["ref_pos_is_ground_truth"] = ref_pos_is_ground_truth  # (n_atoms)
+
+    return ref_conformer, ref_mols
 
 
 class GetAF3ReferenceMoleculeFeatures(Transform):
     """Generate AF3 reference molecule features for each residue in the atom array.
 
-    This transform adds the following features to the data dictionary under the 'feats' key:
+    This transform adds the following features to the data dictionary under the 'feats' key, following AF3:
         - ref_pos: [N_atoms, 3] Atom positions in the reference conformer, with a random rotation and
           translation applied. Atom positions are given in Å.
         - ref_mask: [N_atoms] Mask indicating which atom slots are used in the reference conformer.
@@ -382,6 +426,12 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
           Each character is encoded as ord(c) - 32, and names are padded to length 4.
         - ref_space_uid: [N_atoms] Numerical encoding of the chain id and residue index associated with
           this reference conformer. Each (chain id, residue index) tuple is assigned an integer on first appearance.
+
+    And the following custom features, helpful for extra conditioning:
+        - ref_pos_is_ground_truth: [N_atoms] Whether the reference conformer is the ground-truth conformer.
+          Determined by the `ground_truth_conformer_policy` annotation.
+        - ref_pos_ground_truth: [N_atoms, 3] The ground-truth conformer positions.
+          Determined by the `ground_truth_conformer_policy` annotation.
 
     Optionally, the following features can be added as well:
         - ref_automorphs: [N_automorphs, N_atoms, 2] Automorphisms of the reference conformer.
@@ -449,57 +499,107 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         return data
 
 
-def random_replace_non_polymer_conformer_with_ground_truth(atom_array: AtomArray, per_pn_unit_probability: float = 1.0):
-    """With some probability, flags non-polymer residues to use the ground-truth coordinates as the reference conformer.
+def random_apply_ground_truth_conformer_by_chain_type(
+    atom_array: AtomArray,
+    chain_type_probabilities: dict = None,
+    default_probability: float = 0.0,
+    policy: GroundTruthConformerPolicy = GroundTruthConformerPolicy.REPLACE,
+):
+    """Apply ground truth conformer policy with configurable probabilities per chain type.
 
     Adds the `ground_truth_conformer_policy` annotation to the AtomArray if it does not already exist.
     This annotation indicates if/how residues should use the ground-truth coordinates (i.e., the coordinates from the original structure) as the reference conformer.
 
     Possible values are (as defined in the GroundTruthConformerPolicy enum):
-        -  REPLACE: Use the ground-truth coordinates as the reference conformer.
+        -  REPLACE: Use the ground-truth coordinates as the reference conformer (replacing the RDKit-generated conformer in-place)
+        -  ADD: Use the ground-truth coordinates as an additional feature (rather than replacing the RDKit-generated conformer)
         -  FALLBACK: Use the ground-truth coordinates only if our standard conformer generation pipeline fails (e.g., we cannot generate a conformer with RDKit,
-            and the molecule is either not in the CCD or the CCD entry is invalid).
-        -  IGNORE: Do not use the ground-truth coordinates as the reference conformer, under any circumstances.
+            and the molecule is either not in the CCD or the CCD entry is invalid)
+        -  IGNORE: Do not use the ground-truth coordinates as the reference conformer, under any circumstances
 
     Args:
         atom_array (AtomArray): The input atom array.
-        per_pn_unit_probability (float, optional): The probability that a non-polymer pn_unit (chain) will use the ground-truth conformer. Defaults to 1.0.
+        chain_type_probabilities (dict, optional): Dictionary mapping chain types to their probability
+            of using ground truth conformer. Defaults to None.
+        default_probability (float, optional): Default probability for any chain type not explicitly specified.
+            Defaults to 0.0.
+        policy (GroundTruthConformerPolicy, optional): Which ground truth conformer policy to apply when selected.
+            Defaults to GroundTruthConformerPolicy.REPLACE.
 
     Returns:
-        AtomArray: The input atom array with the `ground_truth_conformer_policy` annotation added.
+        AtomArray: The input atom array with the `ground_truth_conformer_policy` annotation updated.
     """
-    # ... add the annotation if it does not already exist, defaulting to all False
+    # ... add the annotation if it does not already exist, defaulting to IGNORE
     if "ground_truth_conformer_policy" not in atom_array.get_annotation_categories():
         atom_array.set_annotation(
             "ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.IGNORE, dtype=np.int8)
         )
 
-    # ... loop over all ligands and set the `ground_truth_conformer_policy` annotation to "replace" with some probability
-    non_polymer_pn_unit_iids = np.unique(atom_array.pn_unit_iid[~atom_array.is_polymer])
-    for pn_unit_iid in non_polymer_pn_unit_iids:
-        mask = atom_array.pn_unit_iid == pn_unit_iid
+    # ... loop through all ChainTypes in the AtomArray and set the appropriate probability
+    probabilities = np.full(len(atom_array), default_probability, dtype=np.float32)
+    for chain_type in np.unique(atom_array.chain_type):
+        if chain_type in chain_type_probabilities:
+            # (Probability for this chain type)
+            probabilities[atom_array.chain_type == chain_type] = chain_type_probabilities[chain_type]
 
-        # (With some probability, use the ground-truth conformer)
-        if np.random.rand() < per_pn_unit_probability:
-            atom_array.ground_truth_conformer_policy[mask] = GroundTruthConformerPolicy.REPLACE
+    # ... sample Bernoulli random variables for each atom (1 = apply policy, 0 = don't apply))
+    # (We will only consider the first atom in each residue for the policy)
+    apply_policy = np.random.random(len(atom_array)) < probabilities  # [n_atoms]
+    _res_start_ends = get_residue_starts(atom_array, add_exclusive_stop=True)
+    _res_starts = _res_start_ends[:-1]
+
+    _should_apply_policy = struc.segments.spread_segment_wise(_res_start_ends, apply_policy[_res_starts])  # [n_atoms]
+
+    atom_array.ground_truth_conformer_policy = np.where(
+        _should_apply_policy == 1,
+        policy,
+        atom_array.ground_truth_conformer_policy,
+    )
 
     return atom_array
 
 
-class RandomReplaceNonPolymerConformerWithGroundTruth(Transform):
-    """With some probability, flags non-polymer residues to use the ground-truth coordinates as the reference conformer."""
+class RandomApplyGroundTruthConformerByChainType(Transform):
+    """Apply ground truth conformer policy with configurable probabilities per chain type."""
 
     incompatible_previous_transforms = ["GetAF3ReferenceMoleculeFeatures"]
 
-    def __init__(self, per_pn_unit_probability: float = 1.0):
-        self.per_pn_unit_probability = per_pn_unit_probability
+    def __init__(
+        self,
+        chain_type_probabilities: dict = None,
+        default_probability: float = 0.0,
+        policy: GroundTruthConformerPolicy = GroundTruthConformerPolicy.REPLACE,
+    ):
+        """
+        Args:
+            chain_type_probabilities: Dictionary mapping chain types or groups of chain types
+                to their probability of using ground truth conformer. For example:
+                {
+                    ChainType.NON_POLYMER: 0.8,
+                    (ChainType.POLYPEPTIDE_L, ChainType.POLYPEPTIDE_D): 0.2,
+                }
+            default_probability: Default probability for any chain type not explicitly specified
+            policy: Which ground truth conformer policy to apply when selected
+        """
+        self.chain_type_probabilities = chain_type_probabilities or {}
+        self.default_probability = default_probability
+        self.policy = policy
 
-    def check_input(self, data: dict):
-        check_contains_keys(data, ["atom_array"])
-        check_is_instance(data, "atom_array", AtomArray)
+        self._expanded_probabilities = {}
+        for chain_type_key, prob in self.chain_type_probabilities.items():
+            if isinstance(chain_type_key, tuple):
+                # If it's a tuple of chain types, apply the same probability to each
+                for ct in chain_type_key:
+                    self._expanded_probabilities[ct] = prob
+            else:
+                # Single chain type
+                self._expanded_probabilities[chain_type_key] = prob
 
     def forward(self, data: dict) -> dict:
-        data["atom_array"] = random_replace_non_polymer_conformer_with_ground_truth(
-            data["atom_array"], self.per_pn_unit_probability
+        data["atom_array"] = random_apply_ground_truth_conformer_by_chain_type(
+            data["atom_array"],
+            chain_type_probabilities=self._expanded_probabilities,
+            default_probability=self.default_probability,
+            policy=self.policy,
         )
         return data

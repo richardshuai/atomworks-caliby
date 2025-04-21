@@ -3,18 +3,19 @@ import numpy as np
 import pytest
 import torch
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from cifutils.enums import ChainType
 from cifutils.tools.inference import components_to_atom_array
 from cifutils.utils.selection import get_residue_starts
 
 from datahub.enums import GroundTruthConformerPolicy
 from datahub.transforms.af3_reference_molecule import (
     GetAF3ReferenceMoleculeFeatures,
-    RandomReplaceNonPolymerConformerWithGroundTruth,
+    RandomApplyGroundTruthConformerByChainType,
     _encode_atom_names_like_af3,
     _map_reference_conformer_to_residue,
     get_af3_reference_molecule_features,
 )
-from datahub.transforms.atom_array import AddGlobalTokenIdAnnotation, add_global_token_id_annotation
+from datahub.transforms.atom_array import add_global_token_id_annotation
 from datahub.transforms.atomize import atomize_by_ccd_name
 from datahub.transforms.base import Compose
 from datahub.transforms.rdkit_utils import atom_array_to_rdkit, find_automorphisms_with_rdkit
@@ -275,7 +276,6 @@ def test_replace_conformer_with_ground_truth():
     """Test that the ground truth conformer is used when indicated"""
     atom_array = struc.info.residue("HEM")
     atom_array = atom_array[atom_array.element != "H"]
-    atom_array = add_global_token_id_annotation(atom_array)
     atom_array.set_annotation(
         "ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.REPLACE)
     )
@@ -291,41 +291,65 @@ def test_replace_conformer_with_ground_truth():
     )
 
 
-def test_random_replace_non_polymer_conformer_with_ground_truth():
+def test_random_apply_ground_truth_conformer_by_chain_type(seed: int = 42):
     """Test that we can randomly flag non-polymers to use the ground truth conformer"""
-    pdb_id_with_non_polymers = "5ocm"
-    data = cached_parse(pdb_id_with_non_polymers, remove_hydrogens=True)
+    pdb_id = "5ocm"
+    data = cached_parse(pdb_id, remove_hydrogens=True)
+
+    # Define probabilities for different chain types
+    chain_type_probabilities = {
+        tuple(ChainType.get_non_polymers()): 0.8,
+    }
 
     pipe = Compose(
         [
-            AddGlobalTokenIdAnnotation(),
-            RandomReplaceNonPolymerConformerWithGroundTruth(per_pn_unit_probability=0.5),
+            RandomApplyGroundTruthConformerByChainType(
+                chain_type_probabilities=chain_type_probabilities,
+                default_probability=0.0,
+                policy=GroundTruthConformerPolicy.REPLACE,
+            ),
             GetAF3ReferenceMoleculeFeatures(
                 should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=True
             ),
         ]
     )
-    out = pipe(data)
+
+    with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
+        out = pipe(data)
+
     feats = out["feats"]
+    atom_array = out["atom_array"]
 
+    # Assert that all polymer atoms have the IGNORE policy
+    polymer_mask = atom_array.is_polymer
     assert np.all(
-        feats["ref_pos_is_ground_truth"]
-        == (out["atom_array"].ground_truth_conformer_policy == GroundTruthConformerPolicy.REPLACE)
-    )
+        atom_array.ground_truth_conformer_policy[polymer_mask] == GroundTruthConformerPolicy.IGNORE
+    ), f"Expected all polymer atoms to have IGNORE policy, but got {atom_array.ground_truth_conformer_policy[polymer_mask]}"
 
-    # Ensure that not all non-polymers are using the ground truth conformer (should be around 50%)
-    non_polymer_mask = ~out["atom_array"].is_polymer
-    assert np.any(~feats["ref_pos_is_ground_truth"][non_polymer_mask])
+    # Assert that most non-polymer atoms have the REPLACE policy...
+    non_polymer_mask = ~polymer_mask
+    assert (
+        np.sum(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE)
+        > 0.5 * np.sum(non_polymer_mask)
+    ), f"Expected most non-polymer atoms to have REPLACE policy, but got {np.sum(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE)}"
+    # ... but not all
+    assert np.any(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.IGNORE)
 
-    ground_truth_coord = data["atom_array"].coord
+    # (Get the start and stop indices of each residue)
+    _res_start_ends = get_residue_starts(atom_array, add_exclusive_stop=True)
+    _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
 
-    for pn_unit_iid in np.unique(out["atom_array"].pn_unit_iid):
-        pn_unit_iid_mask = out["atom_array"].pn_unit_iid == pn_unit_iid
-        _assert_ref_pos_matches_ground_truth(
-            ground_truth_coord=ground_truth_coord[pn_unit_iid_mask],
-            ref_pos=feats["ref_pos"][pn_unit_iid_mask],
-            mask=feats["ref_pos_is_ground_truth"][pn_unit_iid_mask],
-        )
+    for i, residue in enumerate(struc.residue_iter(atom_array)):
+        # ... check that the GroundTruthConformerPolicy is the same for all atoms in the residue
+        assert np.all(residue.ground_truth_conformer_policy == residue.ground_truth_conformer_policy[0])
+
+        if residue.ground_truth_conformer_policy[0] == GroundTruthConformerPolicy.REPLACE:
+            # ... check that the reference positions are aligned with the ground truth
+            _assert_ref_pos_matches_ground_truth(
+                ground_truth_coord=residue.coord,
+                ref_pos=feats["ref_pos"][_res_starts[i] : _res_ends[i]],
+                mask=feats["ref_mask"][_res_starts[i] : _res_ends[i]],
+            )
 
 
 def test_fallback_to_ground_truth_conformer_on_error():
@@ -337,8 +361,6 @@ def test_fallback_to_ground_truth_conformer_on_error():
 
     pipe = Compose(
         [
-            AddGlobalTokenIdAnnotation(),
-            RandomReplaceNonPolymerConformerWithGroundTruth(per_pn_unit_probability=0.5),
             GetAF3ReferenceMoleculeFeatures(
                 should_generate_automorphisms_with_rdkit=False,
                 apply_random_rotation_and_translation=True,
@@ -354,6 +376,31 @@ def test_fallback_to_ground_truth_conformer_on_error():
         ground_truth_coord=atom_array.coord,
         ref_pos=out["feats"]["ref_pos"],
         mask=torch.ones(len(atom_array), dtype=torch.bool),
+    )
+
+
+def test_add_ground_truth_conformer_as_feature():
+    """Test that we can add the ground truth conformer as an additional feature"""
+    atom_array = struc.info.residue("HEM")
+    atom_array = atom_array[atom_array.element != "H"]
+
+    # Set policy to ADD for all atoms
+    atom_array.set_annotation("ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.ADD))
+
+    features, _ = get_af3_reference_molecule_features(
+        atom_array, should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=False
+    )
+
+    # Verify that ref_pos_ground_truth exists and contains the ground truth coordinates
+    assert "ref_pos_ground_truth" in features
+
+    # The reference positions should NOT be the ground truth (since we used ADD not REPLACE)...
+    assert not np.any(features["ref_pos_is_ground_truth"])
+
+    _assert_ref_pos_matches_ground_truth(
+        ground_truth_coord=atom_array.coord,
+        ref_pos=features["ref_pos_ground_truth"],
+        mask=features["ref_mask"],
     )
 
 
