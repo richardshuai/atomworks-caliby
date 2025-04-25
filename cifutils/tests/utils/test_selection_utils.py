@@ -4,6 +4,7 @@ import pytest
 
 from cifutils.utils.selection import (
     AtomSelection,
+    AtomSelectionStack,
     ChainIdxSlice,
     ResIdxSlice,
     get_mask_from_selection_string,
@@ -182,6 +183,33 @@ def test_get_mask_from_selection_string(basic_atom_array: struc.AtomArray):
     # Test no match raises ValueError
     with pytest.raises(ValueError, match="No atoms found for selection: A/VAL/1/CB"):
         get_mask_from_selection_string(basic_atom_array, "A/VAL/1/CB")
+
+
+CONTIG_TEST_CASES = [
+    ("A1-2", 2),
+    ("A1-2, B3-3", 3),
+]
+
+
+@pytest.mark.parametrize("contig_test_case", CONTIG_TEST_CASES)
+def test_get_mask_from_contig_string(contig_test_case: str):
+    contig_string, expected_length = contig_test_case
+    selection_stack = AtomSelectionStack.from_contig_string(contig_string)
+
+    assert isinstance(selection_stack, AtomSelectionStack)
+    assert len(selection_stack.selections) == expected_length
+
+
+@pytest.mark.parametrize("contig_test_case", CONTIG_TEST_CASES)
+def test_get_mask_from_contig_string_with_atom_array(basic_atom_array: struc.AtomArray, contig_test_case: str):
+    contig_string, expected_length = contig_test_case
+    selection_stack = AtomSelectionStack.from_contig_string(contig_string)
+    residue_starts = get_residue_starts(basic_atom_array)
+    mask = selection_stack.get_mask(basic_atom_array)
+
+    assert isinstance(mask, np.ndarray)
+    assert len(mask) == len(basic_atom_array)
+    assert np.sum(mask[residue_starts]) == expected_length
 
 
 if __name__ == "__main__":

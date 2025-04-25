@@ -2,7 +2,9 @@
 
 __all__ = ["annot_start_stop_idxs", "get_annotation", "get_residue_starts"]
 
+import re
 from abc import ABC, abstractmethod
+from functools import reduce
 from typing import Any
 
 import biotite.structure as struc
@@ -343,3 +345,35 @@ def get_mask_from_atom_selection(atom_array: AtomArray, atom_selection: AtomSele
         raise ValueError(f"No atoms found for selection: {atom_selection}")
 
     return mask
+
+
+class AtomSelectionStack:
+    """
+    Class that represents a stack of AtomSelections.
+    This class is useful for managing multiple selections and applying them to an AtomArrayStack.
+    Notably, this enables the use of a single selection string to select multiple segments.
+    """
+
+    def __init__(self, selections: list[AtomSelection]):
+        self.selections = selections
+
+    @classmethod
+    def from_contig_string(cls, contig_string: str) -> "AtomSelectionStack":
+        # First define a regex that matches the elements of the contig string
+        CONTIG_REGEX = re.compile(r"([A-Za-z]+)(\d+)-(\d+)")  # noqa
+        selections = []
+        for selection in contig_string.replace(" ", "").split(","):
+            match = CONTIG_REGEX.match(selection)
+            if not match:
+                raise ValueError(f"Invalid contig string: {selection}")
+            chain_id, start, stop = match.groups()
+            # Create a new AtomSelection for each match
+            for i in range(int(start), int(stop) + 1):
+                # Create a new AtomSelection for each residue in the range
+                atom_selection = AtomSelection(chain_id=chain_id, res_id=i)
+                selections.append(atom_selection)
+        return cls(selections)
+
+    def get_mask(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
+        """Create a boolean mask using this AtomSelection on an AtomArray."""
+        return reduce(np.logical_or, [selection.get_mask(atom_array) for selection in self.selections])
