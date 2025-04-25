@@ -7,6 +7,7 @@ import logging
 import os
 import pickle
 import pprint
+import re
 import time
 from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, Callable, Iterable, Type
@@ -221,10 +222,16 @@ class Transform(ABC):
         indices = []
         for t in self.requires_previous_transforms:
             t = self._transform_to_str(t)
-            idx = history.index(t) if t in history else None
-            if idx is None:
+            pattern = re.compile(t)
+            matches = [index for index, t in enumerate(history) if pattern.search(t)]
+            if len(matches) == 0:
                 raise ValueError(f"Transform `{t}` is missing from the transform history, which is {history}.")
-            indices.append(idx)
+            elif len(matches) > 1:
+                raise ValueError(
+                    f"Transform `{t}` appears multiple times in the transform history, which is {history}."
+                )
+            assert len(matches) == 1
+            indices.append(matches[0])
 
         # check if the indices are in the correct order
         if self.previous_transforms_order_matters and (indices != sorted(indices)):

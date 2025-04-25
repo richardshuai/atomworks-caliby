@@ -2,6 +2,7 @@
 
 import logging
 import os
+from collections import defaultdict
 from dataclasses import dataclass
 from functools import cache
 from os import PathLike
@@ -838,15 +839,17 @@ def featurize_templates_like_af3(
             )
 
             # ... fill the template_unit_vector
+
+            residues_with_resolved_n_ca_c = struc.spread_residue_wise(template, _has_n_ca_c_resolved)
             template_frames = rigid_from_3_points(
-                x1=template_coords[template.atom_name == "N"],
-                x2=template_coords[template.atom_name == "CA"],
-                x3=template_coords[template.atom_name == "C"],
+                x1=template_coords[(template.atom_name == "N") & (residues_with_resolved_n_ca_c)],
+                x2=template_coords[(template.atom_name == "CA") & (residues_with_resolved_n_ca_c)],
+                x3=template_coords[(template.atom_name == "C") & (residues_with_resolved_n_ca_c)],
             )  # (n_template_res, 3, 3), (n_template_res, 3)
             # ... get CA coords in the respective frames
             ca_coords_in_frames = apply_inverse_rigid(
                 rigid=(template_frames[0][:, None, :, :], template_frames[1][:, None, :]),
-                points=template_coords[template.atom_name == "CA"],
+                points=template_coords[(template.atom_name == "CA") & (residues_with_resolved_n_ca_c)],
             )  # (n_template_res, n_template_res, 3)
             ca_direction_in_frames = normalize(ca_coords_in_frames, dim=-1, eps=1e-3)
             # ... reset diagonal to 0 (can be non-zero due to normalization & numerical error)
@@ -895,7 +898,11 @@ class FeaturizeTemplatesLikeAF3(Transform):
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-021-03819-2/MediaObjects/41586_2021_3819_MOESM1_ESM.pdf
     """
 
-    requires_previous_transforms = ["AddRFTemplates", "AddWithinChainInstanceResIdx"]
+    requires_previous_transforms = [
+        "AddRFTemplates|AddInputFileTemplate",
+        "AddWithinChainInstanceResIdx",
+        "AddGlobalTokenIdAnnotation",
+    ]
 
     def __init__(
         self,
@@ -1009,4 +1016,62 @@ class OneHotTemplateRestype(Transform):
         # Add the one-hot encoded template restype to the `feats` dict
         data["feats"]["template_restype"] = template_restype_onehot
 
+        return data
+
+
+def add_input_file_template(
+    atom_array: AtomArray,
+):
+    template = defaultdict(list)
+    for chain in chain_instance_iter(atom_array):
+        # Check for allowable chain types
+        if chain.chain_type[0] not in [ChainType.POLYPEPTIDE_L, ChainType.RNA]:
+            # Only fill templates for proteins
+            continue
+
+        # Check for chains where templates exist
+        if np.sum(chain.is_input_file_templated) == 0:
+            # Early exit if there are no templates for this chain
+            logger.debug(f"No templates for chain {chain.chain_id[0]}.")
+            continue
+
+        chain_id = chain.chain_id[0]
+        template_chain = atom_array[atom_array.is_input_file_templated]
+        # add extra template annotations to the template
+        # aligned_query_res_idx, alignment_confidence
+        template_chain.set_annotation("aligned_query_res_idx", template_chain.res_id)
+        template_chain.set_annotation("alignment_confidence", np.ones(len(template_chain), dtype=float))
+        template[chain_id].append(
+            {
+                "id": None,
+                "pdb_id": None,
+                "chain_id": None,
+                "template_lookup_id": None,
+                "seq_similarity": 100.0,
+                "atom_array": template_chain,
+                "n_res": len(np.unique(template_chain.res_id)),
+            }
+        )
+    return template
+
+
+class AddInputFileTemplate(Transform):
+    """
+    If atoms from the input file have been marked as templates, add them to the template dictionary.
+    This is useful for when users want to use a part of their design as a template using
+    the template_selection_syntax argument in the inference script.
+    """
+
+    def check_input(self, data):
+        check_atom_array_annotation(data, ["is_input_file_templated"])
+        return super().check_input(data)
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        atom_array = data["atom_array"]
+        template = add_input_file_template(atom_array)
+        # Add the templates to the data
+        if "template" in data:
+            raise ValueError("Template already exists in data. Cannot add input file template.")
+        data["template"] = template
+        logger.info("Templating from input file.")
         return data

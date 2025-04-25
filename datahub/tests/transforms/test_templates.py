@@ -1,21 +1,27 @@
 import copy
 
+import numpy as np
 import pytest
 import torch
 
 from datahub.encoding_definitions import RF2_ATOM36_ENCODING, RF2AA_ATOM36_ENCODING
 from datahub.transforms.atom_array import (
     AddGlobalTokenIdAnnotation,
+    AddWithinChainInstanceResIdx,
     AddWithinPolyResIdxAnnotation,
+    get_chain_instance_starts,
 )
 from datahub.transforms.base import Compose
-from datahub.transforms.encoding import EncodeAtomArray, TokenEncoding
+from datahub.transforms.encoding import AF3SequenceEncoding, EncodeAtomArray, TokenEncoding
 from datahub.transforms.filters import FilterToProteins, RemoveHydrogens, RemoveTerminalOxygen
 from datahub.transforms.template import (
+    AddInputFileTemplate,
     AddRFTemplates,
+    FeaturizeTemplatesLikeAF3,
     FeaturizeTemplatesLikeRF2AA,
     RandomSubsampleTemplates,
     RF2AATemplate,
+    add_input_file_template,
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
@@ -174,3 +180,111 @@ def test_featurize_rf_templates(test_case: dict, encoding: TokenEncoding, n_temp
 
     # Ensure that at least something was filled in
     assert torch.any(mask_template), "Expected at least one token to be filled in"
+
+
+@pytest.mark.parametrize("test_case", TEST_CASES)
+def test_add_input_file_template(test_case: dict):
+    pdb_id = test_case["pdb_id"]
+    data = cached_parse(pdb_id)
+    data = AddRFTemplates(
+        max_n_template=1000, pick_top=False, min_seq_similarity=10, max_seq_similarity=100, min_template_length=10
+    )(data)
+
+    # first modify the atom_array to have the is_input_file_template annotation
+    # get a mask that is true for all atoms in the first polymer chain
+    atom_array = data["atom_array"]
+    atom_array.set_annotation("is_input_file_templated", np.zeros(len(atom_array), dtype=bool))
+    chain_starts = get_chain_instance_starts(atom_array)
+    chain_ends = chain_starts[1:]
+    chain_ends = np.append(chain_ends, len(atom_array))
+    chosen_chain_to_template = None
+    for start, end in zip(chain_starts, chain_ends):
+        if atom_array.is_polymer[start]:
+            atom_array.is_input_file_templated[start:end] = True
+            chosen_chain_to_template = atom_array.chain_id[start]
+            break
+
+    input_file_template = add_input_file_template(atom_array)
+    training_pipeline_template = data["template"]
+
+    # check that the template has the same fields as the template from AddRFTemplates
+    assert (
+        set(input_file_template[chosen_chain_to_template][0].keys())
+        == training_pipeline_template[chosen_chain_to_template][0].keys()
+    ), f"Expected input file template to have the same keys as the training pipeline template, but got {set(input_file_template[chosen_chain_to_template][0].keys())} and {set(training_pipeline_template[chosen_chain_to_template][0].keys())}"
+
+    # check that the template has the same fields as the template from AddRFTemplates
+    required_annotations = [
+        "aligned_query_res_idx",
+        "alignment_confidence",
+    ]
+    input_file_template_annotations = input_file_template[chosen_chain_to_template][0][
+        "atom_array"
+    ].get_annotation_categories()
+    training_pipeline_template_annotations = training_pipeline_template[chosen_chain_to_template][0][
+        "atom_array"
+    ].get_annotation_categories()
+    assert set(
+        required_annotations
+    ).issubset(
+        input_file_template_annotations
+    ), f"Input file template is missing the following annotations: {set(required_annotations) - set(input_file_template_annotations)}"
+    assert set(
+        required_annotations
+    ).issubset(
+        training_pipeline_template_annotations
+    ), f"Training pipeline template is missing the following annotations: {set(required_annotations) - set(training_pipeline_template_annotations)}"
+
+    # check that one template has added for the first polymer chain
+    assert (
+        len(input_file_template[chosen_chain_to_template]) == 1
+    ), f"Expected input file template to have one template, but got {len(input_file_template[chosen_chain_to_template])}"
+
+    assert np.all(
+        input_file_template[chosen_chain_to_template][0]["atom_array"].alignment_confidence == 1
+    ), f"Expected input file template to have template confidence of 1, but got {input_file_template[chosen_chain_to_template][0]['atom_array'].alignment_confidence}"
+
+    assert np.all(
+        input_file_template[chosen_chain_to_template][0]["atom_array"].aligned_query_res_idx
+        == input_file_template[chosen_chain_to_template][0]["atom_array"].res_id
+    ), f"Expected input file template to have aligned query res idx equal to res id, but got {input_file_template[chosen_chain_to_template][0]['atom_array'].aligned_query_res_idx} and {input_file_template[chosen_chain_to_template][0]['atom_array'].res_id}"
+
+
+@pytest.mark.parametrize("test_case", TEST_CASES)
+def test_featurize_input_templates(test_case):
+    pdb_id = test_case["pdb_id"]
+    data = cached_parse(pdb_id)
+
+    af3_sequence_encoding = AF3SequenceEncoding()
+    # first modify the atom_array to have the is_input_file_template annotation
+    # get a mask that is true for all atoms in the first polymer chain
+    atom_array = data["atom_array"]
+    atom_array.set_annotation("is_input_file_templated", np.zeros(len(atom_array), dtype=bool))
+    chain_starts = get_chain_instance_starts(atom_array)
+    chain_ends = chain_starts[1:]
+    chain_ends = np.append(chain_ends, len(atom_array))
+    for start, end in zip(chain_starts, chain_ends):
+        if atom_array.is_polymer[start]:
+            atom_array.is_input_file_templated[start:end] = True
+            break
+    pipeline = Compose(
+        [
+            AddWithinChainInstanceResIdx(),
+            AddGlobalTokenIdAnnotation(),
+            AddInputFileTemplate(),
+            FeaturizeTemplatesLikeAF3(
+                sequence_encoding=af3_sequence_encoding,
+            ),
+        ]
+    )
+    data = pipeline(data)
+    expected_template_features = [
+        "template_restype",
+        "template_pseudo_beta_mask",
+        "template_backbone_frame_mask",
+        "template_distogram",
+        "template_unit_vector",
+    ]
+    assert set(expected_template_features).issubset(
+        data["feats"].keys()
+    ), f"Expected template features to be present, but got {set(data['feats'].keys())} instead"
