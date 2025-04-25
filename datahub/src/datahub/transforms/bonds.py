@@ -286,9 +286,8 @@ def get_af3_token_bond_features(atom_array: AtomArray, distance_cutoff: float = 
     np.fill_diagonal(token_bonds, False)
 
     # remove poly-poly bonds
-    is_poly_poly_bond = np.outer(atom_array.is_polymer[token_starts], atom_array.is_polymer[token_starts])
+    is_poly_poly_bond = np.outer(~atom_array.atomize[token_starts], ~atom_array.atomize[token_starts])
     token_bonds[is_poly_poly_bond] = False
-
     return token_bonds
 
 

@@ -20,6 +20,7 @@ from datahub.transforms.bonds import (
 )
 from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
+from datahub.transforms.filters import RemoveHydrogens
 from datahub.utils.testing import cached_parse
 from datahub.utils.token import get_token_starts
 
@@ -281,8 +282,10 @@ def test_generate_rf2aa_traversal_distance_matrix(test_case):
 AF3_TOKEN_BOND_FEATURES_TEST_CASES = [
     {
         "pdb_id": "5epq",
-        "ligand-ligand-bonds": 288,  # 144 * 2
-        "protein-ligand-bonds": 8,  # 4 * 2
+        "ligand-ligand-bonds": 352,  # include token bonds for atomized residues
+        # NOTE: protein-ligand bonds should be 16, 4 ASNs, 2 bonds (one to the previous residue, one to the next)
+        # and the bond matrix is symmetric, so we count each bond twice
+        "protein-ligand-bonds": 16,
     }
 ]
 
@@ -292,6 +295,7 @@ def test_af3_token_bond_features(test_case: dict):
     data = cached_parse(test_case["pdb_id"])
     pipe = Compose(
         [
+            RemoveHydrogens(),
             FlagAndReassignCovalentModifications(),
             AtomizeByCCDName(
                 atomize_by_default=True,
@@ -309,18 +313,23 @@ def test_af3_token_bond_features(test_case: dict):
     data = pipe(data)
     feats = data["feats"]
 
+    # check that the token bond adjacency matrix is symmetric
+    assert torch.all(feats["token_bonds"] == feats["token_bonds"].T), "Token bond adjacency matrix is not symmetric"
+
     # Check that there are no protein-protein bonds
-    protein_protein_bonds = torch.outer(feats["is_protein"], feats["is_protein"])
-    protein_protein_bond_idxs = torch.where(protein_protein_bonds)
-    assert torch.sum(feats["token_bonds"][protein_protein_bond_idxs]) == 0
+    token_starts = get_token_starts(data["atom_array"])
+    not_atomized_token = torch.tensor(~data["atom_array"].atomize[token_starts])
+    not_atomized_token_2d = torch.outer(not_atomized_token, not_atomized_token)
+    assert torch.sum(feats["token_bonds"][not_atomized_token_2d]) == 0
 
     # Check that the number of ligand-ligand bonds is correct
-    ligand_ligand_bonds = torch.outer(feats["is_ligand"], feats["is_ligand"])
-    ligand_ligand_bond_idxs = torch.where(ligand_ligand_bonds)
-    assert torch.sum(feats["token_bonds"][ligand_ligand_bond_idxs]) == test_case["ligand-ligand-bonds"]
+    is_atomized_token = torch.tensor(data["atom_array"].atomize[token_starts])
+    is_atomized_token_2d = torch.outer(is_atomized_token, is_atomized_token)
+
+    assert torch.sum(feats["token_bonds"][is_atomized_token_2d]) == test_case["ligand-ligand-bonds"]
 
     # Check that the number of protein-ligand bonds is correct
-    feats["token_bonds"][ligand_ligand_bonds] = False
+    feats["token_bonds"][is_atomized_token_2d] = False
     assert torch.sum(feats["token_bonds"]) == test_case["protein-ligand-bonds"]
 
 
