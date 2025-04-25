@@ -504,6 +504,7 @@ def random_apply_ground_truth_conformer_by_chain_type(
     chain_type_probabilities: dict = None,
     default_probability: float = 0.0,
     policy: GroundTruthConformerPolicy = GroundTruthConformerPolicy.REPLACE,
+    is_unconditional: bool = False,
 ):
     """Apply ground truth conformer policy with configurable probabilities per chain type.
 
@@ -525,6 +526,7 @@ def random_apply_ground_truth_conformer_by_chain_type(
             Defaults to 0.0.
         policy (GroundTruthConformerPolicy, optional): Which ground truth conformer policy to apply when selected.
             Defaults to GroundTruthConformerPolicy.REPLACE.
+        is_unconditional (bool, optional): Whether we are sampling unconditionally (and thus should not apply the policy).
 
     Returns:
         AtomArray: The input atom array with the `ground_truth_conformer_policy` annotation updated.
@@ -534,6 +536,10 @@ def random_apply_ground_truth_conformer_by_chain_type(
         atom_array.set_annotation(
             "ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.IGNORE, dtype=np.int8)
         )
+
+    if is_unconditional:
+        # (If we are sampling unconditionally, we should not use the ground truth conformer at all)
+        return atom_array
 
     # ... loop through all ChainTypes in the AtomArray and set the appropriate probability
     probabilities = np.full(len(atom_array), default_probability, dtype=np.float32)
@@ -596,10 +602,12 @@ class RandomApplyGroundTruthConformerByChainType(Transform):
                 self._expanded_probabilities[chain_type_key] = prob
 
     def forward(self, data: dict) -> dict:
+        is_unconditional = data.get("is_unconditional", False)
         data["atom_array"] = random_apply_ground_truth_conformer_by_chain_type(
             data["atom_array"],
             chain_type_probabilities=self._expanded_probabilities,
             default_probability=self.default_probability,
             policy=self.policy,
+            is_unconditional=is_unconditional,
         )
         return data

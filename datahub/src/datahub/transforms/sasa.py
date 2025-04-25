@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -54,9 +54,12 @@ def calculate_atomwise_rasa(
 ) -> np.ndarray:
     """
     Calculate the Relative Solvent-Accessible Surface Area (RASA) for each atom in `atom_array`.
+
     The RASA is defined as the ratio of the SASA of a residue in a protein structure
     to the SASA of the same residue in an extended conformation.
+
     The output will have the same length as the input AtomArray, with NaN values for excluded (invalid) atoms.
+
     Args:
         atom_array (AtomArray): The input AtomArray containing the atomic coordinates.
         probe_radius (float, optional): Van-der-Waals radius of the probe in Angstrom. Defaults to 1.4 (for water).
@@ -101,7 +104,7 @@ class CalculateSASA(Transform):
     def __init__(
         self,
         probe_radius: float = 1.4,
-        atom_radii: str | np.ndarray = "ProtOr",
+        atom_radii: Literal["ProtOr"] | np.ndarray = "ProtOr",
         point_number: int = 100,
     ):
         """
