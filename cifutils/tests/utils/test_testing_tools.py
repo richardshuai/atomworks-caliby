@@ -3,7 +3,7 @@ import pytest
 from conftest import TEST_DATA_DIR
 
 from cifutils.utils.io_utils import load_any
-from cifutils.utils.testing import assert_same_atom_array
+from cifutils.utils.testing import assert_same_atom_array, is_same_in_segment
 
 
 @pytest.fixture
@@ -75,3 +75,31 @@ def test_scrambled_order(atom_array):
     with pytest.raises(AssertionError):
         assert_same_atom_array(atom_array, atom_array2, enforce_order=True, compare_coords=False)
     assert_same_atom_array(atom_array, atom_array2, enforce_order=False, compare_coords=False)
+
+
+def test_is_same_in_segment():
+    # Test with simple segments where all elements in each segment are the same
+    segment_start_stop = np.array([0, 3, 6, 8])  # 3 segments
+    data = np.array([1, 1, 1, 2, 2, 2, 3, 3, 3])  # Each segment has same value
+    result = is_same_in_segment(segment_start_stop, data)
+    assert np.array_equal(result, np.array([True, True, True]))
+
+    data = np.array([True, True, True, False, False, False, True, True, True])
+    result = is_same_in_segment(segment_start_stop, data)
+    assert np.array_equal(result, np.array([True, True, True]))
+
+    data = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0])
+    result = is_same_in_segment(segment_start_stop, data)
+    assert np.array_equal(result, np.array([True, True, True]))
+
+    # Test with segments where not all elements are the same
+    segment_start_stop = np.array([0, 3, 6, 8])
+    data = np.array([1, 1, 1, 2, 3, 2, 3, 3, 3])  # Middle segment has different values
+    result = is_same_in_segment(segment_start_stop, data)
+    assert np.array_equal(result, np.array([True, False, True]))
+
+    # Test with single-element segments
+    segment_start_stop = np.array([0, 1, 2, 3])
+    data = np.array([1, 2, 3])
+    result = is_same_in_segment(segment_start_stop, data)
+    assert np.array_equal(result, np.array([True, True, True]))

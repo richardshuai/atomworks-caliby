@@ -10,6 +10,25 @@ from biotite.structure.atoms import AtomArray, AtomArrayStack
 from cifutils.utils.bonds import hash_atom_array
 
 
+def is_same_in_segment(segment_start_stop: np.ndarray, data: np.ndarray) -> np.ndarray:
+    """Check if all elements in a segment are the same.
+
+    Args:
+        segment_start_stop (np.ndarray): Array of segment start and stop indices (end of segment is inclusive),
+            as obtained from `struc.get_residue_starts(... add_exclusive_stop=True)` for example.
+        data (np.ndarray): Data array to check for sameness within segments.
+
+    Returns:
+        np.ndarray: Boolean array indicating whether all elements in each segment are the same.
+    """
+    all_same = lambda x: np.all(x == x[0])  # noqa: E731
+    return struc.segments.apply_segment_wise(
+        segment_start_stop,
+        data=data,
+        function=all_same,
+    )
+
+
 def _get_atom_array_stats(arr: AtomArray) -> str:
     msg = f"AtomArray: {len(arr)} atoms, {struc.get_residue_count(arr)} residues, {struc.get_chain_count(arr)} chains\n"
     msg += f"\t... unique chain ids: {np.unique(arr.chain_id)}\n"
