@@ -138,3 +138,12 @@ def test_calculate_rasa(test_case: dict[str, Any]):
     assert np.isnan(data["atom_array"][atom_mask].rasa).all()
     assert np.all(data["atom_array"][~atom_mask].rasa >= 0), "RASA should be >= 0 for heavy atoms"
     assert np.all(data["atom_array"][~atom_mask].rasa <= 1), "RASA should be <= 1 for heavy atoms"
+
+
+def test_calculate_rasa_failure():
+    data = cached_parse("7eeu")
+    atom_array = data["atom_array"]
+    rasa = calculate_atomwise_rasa(
+        atom_array,
+    )
+    assert np.isnan(rasa).all(), "RASA should be NaN for all atoms in this case"

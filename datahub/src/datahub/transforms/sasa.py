@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Literal
 
 import biotite.structure as struc
@@ -10,6 +11,8 @@ from datahub.transforms._checks import (
     check_is_instance,
 )
 from datahub.transforms.base import Transform
+
+logger = logging.getLogger("datahub")
 
 
 def calculate_atomwise_sasa(
@@ -68,12 +71,17 @@ def calculate_atomwise_rasa(
     """
     DEFAULT_VDW_RADIUS = 1.8
     # 1) Calculate the SASA for each atom in the atom array
-    sasa = calculate_atomwise_sasa(
-        atom_array,
-        probe_radius=probe_radius,
-        atom_radii=atom_radii,
-        point_number=point_number,
-    )
+    try:
+        sasa = calculate_atomwise_sasa(
+            atom_array,
+            probe_radius=probe_radius,
+            atom_radii=atom_radii,
+            point_number=point_number,
+        )
+    except Exception as e:
+        logger.error(f"Error calculating SASA: {e}. Defaulting to NaN.")
+        return np.full(atom_array.array_length(), np.nan, dtype=float)
+
     # 2) Calculate the SASA for each atom in an extended conformation
     max_value = np.zeros(atom_array.array_length(), dtype=float)
     for i, row in enumerate(atom_array):
