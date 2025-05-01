@@ -147,7 +147,6 @@ class GenericDFParser(MetadataRowParser):
         elif pn_unit_iid_colnames is None:
             self.pn_unit_iid_colnames = []
         else:
-            assert isinstance(pn_unit_iid_colnames, list)
             self.pn_unit_iid_colnames = pn_unit_iid_colnames
 
         self.assembly_id_colname = assembly_id_colname
