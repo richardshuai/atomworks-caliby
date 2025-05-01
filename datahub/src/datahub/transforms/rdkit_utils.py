@@ -143,7 +143,12 @@ def generate_conformers(
     params.enforceChirality = True
     params.useRandomCoords = False
     params.numThreads = num_threads
-    params.maxAttempts = attempts_with_distance_geometry
+
+    # Newer RDKit version have renamed this parameter
+    if hasattr(params, "maxAttempts"):
+        params.maxAttempts = attempts_with_distance_geometry
+    else:
+        params.maxIterations = attempts_with_distance_geometry
 
     try:
         successful_cids = rdDistGeom.EmbedMultipleConfs(mol, numConfs=int(n_conformers), params=params)
@@ -159,7 +164,10 @@ def generate_conformers(
         # https://github.com/rdkit/rdkit/issues/1433#issuecomment-305097888
         params.useRandomCoords = True
         params.enforceChirality = False
-        params.maxAttempts = attempts_with_random_coordinates
+        if hasattr(params, "maxAttempts"):
+            params.maxAttempts = attempts_with_random_coordinates
+        else:
+            params.maxIterations = attempts_with_random_coordinates
         successful_cids = rdDistGeom.EmbedMultipleConfs(mol, numConfs=int(n_conformers), params=params)
         if len(successful_cids) < n_conformers:
             raise RuntimeError(
