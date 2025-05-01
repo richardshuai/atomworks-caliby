@@ -348,10 +348,10 @@ def get_mask_from_atom_selection(atom_array: AtomArray, atom_selection: AtomSele
 
 
 class AtomSelectionStack:
-    """
-    Class that represents a stack of AtomSelections.
-    This class is useful for managing multiple selections and applying them to an AtomArrayStack.
-    Notably, this enables the use of a single selection string to select multiple segments.
+    """Class that represents a stack of AtomSelections.
+
+    Useful for managing multiple selections and applying them to an AtomArrayStack.
+    Notably, enables the use of a single selection string to select multiple segments.
     """
 
     def __init__(self, selections: list[AtomSelection]):

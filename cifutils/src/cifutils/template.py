@@ -210,7 +210,7 @@ def build_template_atom_array(
 
     # ... create a list of atoms based on the reference CCD entries
     template_residues = []
-    for chain_id in chain_info_dict:
+    for chain_id in list(dict.fromkeys(chain_info_dict)):
         chain_res_ids = chain_id_to_res_ids[chain_id]
         chain_res_names = chain_id_to_res_names[chain_id]
         chain_is_polymer = chain_id_to_is_polymer[chain_id]
