@@ -215,7 +215,8 @@ def get_within_poly_res_idx(atom_array: AtomArray) -> np.ndarray:
         chain_mask = atom_array.chain_iid == chain_iid
 
         # Spread residue-wise
-        new_res_idx = struc.spread_residue_wise(atom_array[chain_mask], np.arange(0, np.sum(chain_mask)))
+        residue_count = len(struc.get_residue_starts(atom_array[chain_mask], add_exclusive_stop=False))
+        new_res_idx = struc.spread_residue_wise(atom_array[chain_mask], np.arange(0, residue_count))
 
         # Update the atom_array with the generated res_ids, indexing into the full atom array
         within_poly_res_idx[chain_mask] = new_res_idx
@@ -235,9 +236,14 @@ def get_within_group_res_idx(atom_array: AtomArray, group_by: str) -> np.ndarray
 
     group_annotation = atom_array.get_annotation(group_by)
 
+    # NOTE: We have overwritten struc.get_residue_starts in cifutils to handle the presence of multiple transformation_ids
+    # If this disagrees with the biotite computation of residue starts, spread_residue_wise will fail
+    # However, this indicates a case in which biotite would have given the incorrect solution
+    # If this becomes an issue for some use-case, we will have to re-implement spread_residue_wise
     for group_id in np.unique(group_annotation):
         group_mask = group_annotation == group_id
-        in_group_res_idx = struc.spread_residue_wise(atom_array[group_mask], np.arange(0, np.sum(group_mask)))
+        residue_count = len(struc.get_residue_starts(atom_array[group_mask], add_exclusive_stop=False))
+        in_group_res_idx = struc.spread_residue_wise(atom_array[group_mask], np.arange(0, residue_count))
         within_group_res_idx[group_mask] = in_group_res_idx
 
     return within_group_res_idx
