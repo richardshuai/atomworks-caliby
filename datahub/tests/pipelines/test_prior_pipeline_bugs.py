@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # ------------------- AF3 Pipeline -----------------------#
 ##########################################################
 
-PRIOR_PIPELINE_BUGS_AF3 = ["7qbs", "5epq", "2g37", "4v4s"]
+PRIOR_PIPELINE_BUGS_AF3 = ["6raz", "7qbs", "5epq", "2g37", "4v4s"]
 
 
 @pytest.mark.parametrize("pdb_id", PRIOR_PIPELINE_BUGS_AF3)
@@ -29,7 +29,7 @@ def test_prior_pipeline_bugs_af3(pdb_id: str):
     input = cached_parse(pdb_id)
     input["example_id"] = pdb_id
 
-    seed = 3
+    seed = 42
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
         pipe = build_af3_transform_pipeline(
             protein_msa_dirs=PROTEIN_MSA_DIRS,

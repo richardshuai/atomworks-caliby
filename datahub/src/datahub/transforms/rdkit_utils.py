@@ -489,7 +489,7 @@ def ccd_code_to_rdkit_with_conformers(
     try:
         seed = seed or _get_random_seed()
         mol = generate_conformers_with_timeout(mol, n_conformers=n_conformers, seed=seed, **generate_conformers_kwargs)
-    except (TimeoutError, RuntimeError) as e:
+    except (TimeoutError, RuntimeError, Chem.MolSanitizeException) as e:
         logger.warning(
             f"Failed to generate conformers for {ccd_code=}. Falling back to idealized conformer from the CCD. Error message: {e}"
         )

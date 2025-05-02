@@ -589,6 +589,12 @@ class PadDNA(Transform):
         # ... compute all base-pairs based on the structure
         dna_array_no_nan = remove_nan_coords(dna_array)
         _base_pair_idxs = struc.base_pairs(dna_array_no_nan, no_hbond_dist_cut=self.no_hbond_dist_cut)
+
+        if not len(_base_pair_idxs):
+            # ... early stop if no base-pairs are found
+            logger.warning("PadDNA found no base pairs in the input structure.")
+            return data
+
         base_pair_ids = dna_array_no_nan.get_annotation("base_id")[_base_pair_idxs]  # (n_base_pairs, 2)
         chain_pair_iids = np.unique(dna_array_no_nan.chain_iid[_base_pair_idxs], axis=0)  # (n_chain_pairs, 2)
 
