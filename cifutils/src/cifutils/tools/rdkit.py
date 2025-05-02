@@ -274,8 +274,7 @@ def fix_mol(
     in_place: bool = True,
     raise_on_failure: bool = True,
 ) -> Mol:
-    """
-    Fix an RDKit molecule (in-place).
+    """Fix an RDKit molecule (in-place).
 
     This function attempts to infer aromaticity, valences, implicit hydrogens, and
     formal charges to result in a molecule that can be successfully sanitized. It
@@ -604,8 +603,7 @@ def atom_array_to_rdkit(
     attempt_fixing_corrupted_molecules: bool = True,
     assume_metal_bonds_are_dative: bool = False,
 ) -> Mol:
-    """
-    Generate an RDKit molecule from a Biotite AtomArray object.
+    """Generate an RDKit molecule from a Biotite AtomArray object.
 
     Args:
         - atom_array (biotite.structure.AtomArray): The Biotite AtomArray to convert.
@@ -700,7 +698,7 @@ def atom_array_to_rdkit(
             pass
 
     # Clean up organometallics:
-    # TODO: The CCD unfortunatley only supplies all metal bonds as single bonds. For now we assume
+    # TODO: The CCD unfortunately only supplies all metal bonds as single bonds. For now we assume
     #  all bonds with metals are coordination bonds in the PDB. This will
     #  likely be true for most ligands but not all. Revisit this later.
     # Change all bonds to a metal to be dative bonds (= coordination bonds)
@@ -722,7 +720,12 @@ def atom_array_to_rdkit(
     #  (we always sanitize when attempting to fix corrupted molecules)
     if sanitize or attempt_fixing_corrupted_molecules:
         # ... verify validity of the molecule (according to Lewis octet rule)
-        Chem.SanitizeMol(mol)
+        try:
+            Chem.SanitizeMol(mol)
+        except Chem.MolSanitizeException as e:
+            logger.warning(
+                f"Failed final sanitzation of molecule with error: {e}! It may not satisfy the octet rule, for example. Catching error and ignoring..."
+            )
 
         # ... verify that atoms that are labelled as `_should_be_aromatic` are aromatic
         for atom_idx in _should_be_aromatic:
@@ -758,6 +761,7 @@ def ccd_code_to_rdkit(
 
     This function retrieves an RDKit molecule corresponding to a given CCD residue name.
     If `ccd_dir` is not provided, Biotite's internal CCD is used. Otherwise, the specified local CCD directory is used.
+
     By default, the function returns the 'ideal' conformer from the CCD entry.
 
     Args:
@@ -806,6 +810,7 @@ def ccd_code_to_rdkit(
         hydrogen_policy=hydrogen_policy,  # ... hydrogens needed for stereochemistry assignment
         **atom_array_to_rdkit_kwargs,
     )
+
     # ... assign stereochemistry
     try:
         Chem.AssignStereochemistryFrom3D(mol)
