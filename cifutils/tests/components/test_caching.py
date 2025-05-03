@@ -11,28 +11,33 @@ TEST_CASES = [
 ]
 
 
+@pytest.mark.xdist_group(name="test_caching")  # Ensure if running tests in parallel, they are run in the same group
 @pytest.mark.parametrize("pdb_id", TEST_CASES)
 def test_caching(pdb_id: str, tmp_path):
     path = get_pdb_path(pdb_id)
 
-    # First, we load normally, tracking how long it takes...
-    start_time = time.time()
-    normal_result = parse(
-        # Caching arguments
-        load_from_cache=False,
-        save_to_cache=False,
-        cache_dir=None,
-        # Standard arguments
-        filename=path,
-        build_assembly="all",
-    )
-    end_time = time.time()
-    normal_elapsed_time = end_time - start_time
-    assert normal_result is not None  # Check if processing runs through
-    assert normal_elapsed_time > 0  # Check if processing time is non-zero
+    # First, we load normally, tracking how long it takes
+    def normal_parse():
+        return parse(
+            # Caching arguments
+            load_from_cache=False,
+            save_to_cache=False,
+            cache_dir=None,
+            # Standard arguments
+            filename=path,
+            build_assembly="all",
+        )
 
-    # ...then we load, saving to the cache
-    save_cache_result = parse(
+    # Warmup
+    _ = normal_parse()
+
+    start_time = time.time()
+    normal_result = normal_parse()
+    normal_elapsed_time = time.time() - start_time
+    assert normal_result is not None  # Check if processing runs through
+
+    # Load from CIF, saving to the cache
+    _ = parse(
         # Caching arguments
         load_from_cache=False,
         save_to_cache=True,
@@ -42,19 +47,44 @@ def test_caching(pdb_id: str, tmp_path):
         build_assembly="all",
     )
 
-    # ...then, we load from the cache, and keep track of how long it takes
+    # Load from the cache, and keep track of how long it takes
+    def cached_parse():
+        return parse(
+            # Caching arguments
+            load_from_cache=True,
+            save_to_cache=False,
+            cache_dir=tmp_path,
+            # Standard arguments
+            filename=path,
+            build_assembly="all",
+        )
+
     start_time = time.time()
-    cached_result = parse(
-        # Caching arguments
-        load_from_cache=True,
-        save_to_cache=False,
-        cache_dir=tmp_path,
-        # Standard arguments
-        filename=path,
-        build_assembly="all",
-    )
-    end_time = time.time()
-    cached_elapsed_time = end_time - start_time
+    cached_result = cached_parse()
+    cached_elapsed_time = time.time() - start_time
+
+    # Check that metadata fields are present and correct
+    assert "metadata" in cached_result
+    assert "parse_arguments" in cached_result["metadata"]
+    assert "cifutils_version" in cached_result["metadata"]
+    assert isinstance(cached_result["metadata"]["cifutils_version"], str)
+
+    # Load with different parsing arguments
+    def different_args_parse():
+        return parse(
+            # Caching arguments
+            load_from_cache=True,
+            save_to_cache=False,
+            cache_dir=tmp_path,
+            # Standard arguments
+            filename=path,
+            build_assembly="all",
+            fix_ligands_at_symmetry_centers=False,
+        )
+
+    start_time = time.time()
+    _ = different_args_parse()
+    different_args_elapsed_time = time.time() - start_time
 
     # Assert that the assembly data is the same
     annotations_to_compare = ["chain_id", "res_name", "res_id", "atom_name", "chain_iid", "pn_unit_id", "pn_unit_iid"]
@@ -62,14 +92,12 @@ def test_caching(pdb_id: str, tmp_path):
         assert_same_atom_array(
             normal_result["assemblies"][assembly_id], cached_result["assemblies"][assembly_id], annotations_to_compare
         )
-        assert_same_atom_array(
-            save_cache_result["assemblies"][assembly_id],
-            cached_result["assemblies"][assembly_id],
-            annotations_to_compare,
-        )
 
     # Assert that the cached result is at least 1.5x faster than the normal result
     assert cached_elapsed_time < normal_elapsed_time / 1.5
+
+    # Assert that the result with different arguments is similar to the normal elapsed time
+    assert abs(different_args_elapsed_time - normal_elapsed_time) < normal_elapsed_time * 0.1
 
 
 if __name__ == "__main__":

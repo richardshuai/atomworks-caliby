@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator
 from functools import lru_cache, wraps
@@ -88,3 +89,9 @@ class KeyToIntMapper:
             self.key_to_id[value] = self.next_id
             self.next_id += 1
         return self.key_to_id[value]
+
+
+def md5_hash_string(s: str, length: int = 32) -> str:
+    """Generate an MD5 hash of a string and return the first `length` characters."""
+    full_hash = hashlib.md5(s.encode("utf-8")).hexdigest()
+    return full_hash[:length]

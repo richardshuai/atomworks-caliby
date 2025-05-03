@@ -17,8 +17,8 @@ from biotite.structure import AtomArrayStack
 from toolz import keyfilter
 
 import cifutils.transforms.atom_array as ta
-from cifutils import template
-from cifutils.common import exists
+from cifutils import __version__, template
+from cifutils.common import exists, md5_hash_string
 from cifutils.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS
 from cifutils.transforms.categories import (
     category_to_dict,
@@ -171,11 +171,30 @@ def parse(
     if cache_dir and not is_buffer:
         # Build the cache file path, if necessary
         cache_dir = Path(cache_dir)
-        cache_dir.mkdir(parents=True, exist_ok=True)
 
-        # Build the cache file path
+        # Prepare readable arguments dict for metadata
+        parse_arguments = {
+            "ccd_mirror_path": ccd_mirror_path,
+            "add_missing_atoms": add_missing_atoms,
+            "add_id_and_entity_annotations": add_id_and_entity_annotations,
+            "add_bond_types_from_struct_conn": add_bond_types_from_struct_conn,
+            "remove_ccds": remove_ccds,
+            "remove_waters": remove_waters,
+            "fix_ligands_at_symmetry_centers": fix_ligands_at_symmetry_centers,
+            "fix_arginines": fix_arginines,
+            "fix_formal_charges": fix_formal_charges,
+            "convert_mse_to_met": convert_mse_to_met,
+            "hydrogen_policy": hydrogen_policy,
+        }
+        # Compose args_string from parse_arguments values (in order)
+        args_string = ",".join(str(parse_arguments[k]) for k in parse_arguments)
+        args_hash = md5_hash_string(args_string, length=8)
+
+        # ... generate assembly info
         assembly_info = ",".join(build_assembly) if isinstance(build_assembly, list | tuple) else build_assembly
-        cache_file_path = cache_dir / f"{Path(filename).stem}_assembly_{assembly_info}.pkl.gz"
+
+        # ... construct the full cache file path
+        cache_file_path = cache_dir / args_hash / f"{Path(filename).stem}_assembly_{assembly_info}.pkl.gz"
 
         # If we are loading from cache, try to load the result from the cache
         if load_from_cache:
@@ -250,6 +269,14 @@ def parse(
         # We want our cache to include:
         #   (1) All keys in `result` excep the assemblies and
         #   (2) The information needed to rebuild the assembly(s), which is stored in `result["extra_info"]`
+        #   (3) The parse_arguments and cifutils version
+
+        # Add parse_arguments and version to metadata before saving
+        result.setdefault("metadata", {}).update({"parse_arguments": parse_arguments, "cifutils_version": __version__})
+
+        # Ensure all parent directories exist
+        cache_file_path.parent.mkdir(parents=True, exist_ok=True)
+
         # Save the result to the cache, excluding the assemblies
         result_to_cache = {k: v for k, v in result.items() if k != "assemblies"}
         pd.to_pickle(result_to_cache, cache_file_path)

@@ -4,7 +4,6 @@ import warnings
 
 import numpy as np
 
-from cifutils.parser import parse
 
 # Set global logging level to `WARNING` if not set by user
 logger = logging.getLogger("cifutils")
@@ -329,3 +328,6 @@ import biotite.structure.io.pdbx as pdbx
 
 pdbx.set_structure = set_structure
 # fmt: on
+
+# We need to import parse here to ensure that the version string is set
+from cifutils.parser import parse  # noqa: F401
