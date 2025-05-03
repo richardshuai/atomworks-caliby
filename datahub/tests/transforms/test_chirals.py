@@ -244,7 +244,6 @@ def test_chiral_featurize_after_cropping():
     pipe = Compose(
         [
             AddGlobalAtomIdAnnotation(),
-            RemoveHydrogens(),
             FlagAndReassignCovalentModifications(),
             AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
             AddOpenBabelMoleculesForAtomizedMolecules(),
@@ -256,7 +255,7 @@ def test_chiral_featurize_after_cropping():
     )
 
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
-        data = cached_parse(pdb_id)
+        data = cached_parse(pdb_id, hydrogen_policy="remove")
         data = pipe(data)
 
     expected = torch.tensor(
@@ -280,15 +279,11 @@ TEST_CASES_RDKIT = [
 @pytest.mark.parametrize("test_case", TEST_CASES_RDKIT)
 def test_rdkit_chiral_featurization(test_case: dict):
     pdb_id = test_case["pdb_id"]
-    data = cached_parse(pdb_id)
+    data = cached_parse(pdb_id, hydrogen_policy="remove")
 
     pipe = Compose(
         [
-            RemoveHydrogens(),
-            GetAF3ReferenceMoleculeFeatures(
-                conformer_generation_timeout=2,
-                should_generate_automorphisms_with_rdkit=False,
-            ),
+            GetAF3ReferenceMoleculeFeatures(should_generate_automorphisms_with_rdkit=False),
             GetRDKitChiralCenters(),
             AddAF3ChiralFeatures(),
         ],
@@ -299,6 +294,25 @@ def test_rdkit_chiral_featurization(test_case: dict):
 
     assert data["feats"]["chiral_feats"].shape == test_case["expected_chiral_feats_shape"]
     assert (data["feats"]["chiral_feats"][:, -1] > 0).sum() == test_case["expected_positive_chirals"]
+
+
+def test_take_first_chiral_subordering():
+    # EW6 is a small molecule with a chiral center bonded to four non-hydrogen atoms
+    residue = struc.info.residue("EW6", allow_missing_coord=True)
+    data = {"atom_array": residue}
+    pipe = Compose(
+        [
+            RemoveHydrogens(),
+            GetAF3ReferenceMoleculeFeatures(should_generate_automorphisms_with_rdkit=False),
+            GetRDKitChiralCenters(),
+            # Take only the first tetrahedral side (so all chiral centers should have the same number of features)
+            AddAF3ChiralFeatures(take_first_chiral_subordering=True),
+        ],
+        track_rng_state=False,
+    )
+    data = pipe(data)
+
+    assert data["feats"]["chiral_feats"].shape == (4, 5)
 
 
 if __name__ == "__main__":

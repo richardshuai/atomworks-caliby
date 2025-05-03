@@ -59,7 +59,7 @@ def get_dih(a: torch.tensor, b: torch.tensor, c: torch.tensor, d: torch.tensor, 
 
 
 def _get_plane_pair_keys_for_planes_between_chiral_center_and_tetrahedral_side(
-    chiral_center: int, bonded_atoms: list[int]
+    chiral_center: int, bonded_atoms: list[int], take_first_chiral_subordering: bool = False
 ) -> list[tuple[int, int, int, int]]:
     """
     Get the unique keys that define all pairs of planes that can be formed between:
@@ -73,15 +73,18 @@ def _get_plane_pair_keys_for_planes_between_chiral_center_and_tetrahedral_side(
     Args:
         chiral_center (int): The atom ID of the chiral center.
         bonded_atoms (list[int]): A list of atom IDs bonded to the chiral center.
-                                  Must contain exactly 3 or 4 elements. In the case of 3 elements,
-                                  the 4th element is assumed to be an implicit hydrogen / lone pair.
+            Must contain exactly 3 or 4 elements. In the case of 3 elements,
+            the 4th element is assumed to be an implicit hydrogen / lone pair.
+        take_first_chiral_subordering (bool): If True, only the first subordering is considered (when four
+            bonded non-hydrogen atoms are present). If False, all suborderings are considered (leading to
+            12 unique plane pairs in the case of 4 bonded atoms, or 3 unique plane pairs in the case of 3 bonded
+            atoms).
+
 
     Returns:
         list[tuple[int, int, int, int]]: A list of tuples, each representing one of
-                                        the unique keys that define all pairs of planes
-                                        that can be formed between a side of the tetrahedron and
-                                        a plane that contains two atoms of the tetrahedral side and
-                                        the chiral center.
+            the unique keys that define all pairs of planes that can be formed between a side of the tetrahedron and
+            a plane that contains two atoms of the tetrahedral side and the chiral center.
 
     Raises:
         AssertionError: If the length of `bonded_atoms` is not 4.
@@ -126,25 +129,32 @@ def _get_plane_pair_keys_for_planes_between_chiral_center_and_tetrahedral_side(
     # ... iterate over all 4 sides of the tetrahedron (i,j,k,l):
     #  There are 4 such sides: (ijk), (ijl), (ikl), (jkl)
     for tetrahedral_side in combinations(bonded_atoms, 3):
-        # ... iterate over all pairs of atoms in the tetrahedral side that
-        #  form a plane together with the chiral center. There are 3 such
-        #  pairs for each tetrahedral side (ijk): (ij), (ik), (jk)
-        for atom_pair_in_plane_with_chiral_center in combinations(tetrahedral_side, 2):
-            # ... get the remaining atom of the tetrahedral side that is not in the plane with the chiral center
-            atom_remaining = [i for i in tetrahedral_side if i not in atom_pair_in_plane_with_chiral_center][0]
+        # If there are four bonded (non-hydrogen) atoms, and we indicated that we want don't want to
+        # enumerate all sub-orders, simply take the first tetrahedral side
+        if len(bonded_atoms) == 4 and take_first_chiral_subordering:
+            plane_pair_keys.append((chiral_center, *tetrahedral_side))
+        else:
+            # ... iterate over all pairs of atoms in the tetrahedral side that
+            #  form a plane together with the chiral center. There are 3 such
+            #  pairs for each tetrahedral side (ijk): (ij), (ik), (jk)
+            for atom_pair_in_plane_with_chiral_center in combinations(tetrahedral_side, 2):
+                # ... get the remaining atom of the tetrahedral side that is not in the plane with the chiral center
+                atom_remaining = [i for i in tetrahedral_side if i not in atom_pair_in_plane_with_chiral_center][0]
 
-            # The `plane_pair` key (c, i, j, k) encodes the pair of planes (cij) and (ijk)
-            #  where c is the chiral center and (ijk) are the points defining a side of the tetrahedron.
-            #  NOTE: the order of i and j is irrelevant, and we use the convention that i < j
-            plane_pair_key = (chiral_center, *atom_pair_in_plane_with_chiral_center, atom_remaining)
+                # The `plane_pair` key (c, i, j, k) encodes the pair of planes (cij) and (ijk)
+                #  where c is the chiral center and (ijk) are the points defining a side of the tetrahedron.
+                #  NOTE: the order of i and j is irrelevant, and we use the convention that i < j
+                plane_pair_key = (chiral_center, *atom_pair_in_plane_with_chiral_center, atom_remaining)
 
-            # add the plane key to the list
-            plane_pair_keys.append(plane_pair_key)
+                # add the plane key to the list
+                plane_pair_keys.append(plane_pair_key)
 
     return plane_pair_keys
 
 
-def get_rf2aa_chiral_features(chiral_centers: list[dict], coords: np.ndarray) -> torch.Tensor:
+def get_rf2aa_chiral_features(
+    chiral_centers: list[dict], coords: np.ndarray, take_first_chiral_subordering: bool = False
+) -> torch.Tensor:
     """Extracts chiral centers and featurize them for RF2AA.
 
     NOTE: Each row of output features contains the indices of the plane pairs and the signed ideal
@@ -171,6 +181,10 @@ def get_rf2aa_chiral_features(chiral_centers: list[dict], coords: np.ndarray) ->
             where `chiral_center_idx` is the index of the chiral center atom, and `bonded_explicit_atom_idxs`
             is a list of the indices of the atoms bonded to the chiral center (excluding implicit hydrogens).
         coords (np.ndarray): A numpy array of atomic coordinates.
+        take_first_chiral_subordering (bool): If True, only the first subordering is considered (when four
+            bonded non-hydrogen atoms are present). If False, all orderings are considered (leading to
+            12 unique plane pairs in the case of 4 bonded atoms, or 3 unique plane pairs in the case of 3 bonded
+            atoms).
 
     Returns:
         torch.Tensor: A tensor of shape [n_chirals, 5] where each row contains the indices of the plane pairs
@@ -189,7 +203,7 @@ def get_rf2aa_chiral_features(chiral_centers: list[dict], coords: np.ndarray) ->
         #   a side of the tetrahedron and a plane that contains two atoms of the tetrahedral side and the chiral center
         #   (only planes with )
         plane_pair_keys = _get_plane_pair_keys_for_planes_between_chiral_center_and_tetrahedral_side(
-            chiral_center, bonded_atoms
+            chiral_center, bonded_atoms, take_first_chiral_subordering=take_first_chiral_subordering
         )
         # append the plane pair keys to the list
         dihedral_plane_pair_idxs.extend(plane_pair_keys)
@@ -329,7 +343,9 @@ def _get_reference_conformer_to_residue_mapping(atom_names: np.ndarray, conforme
     return to_within_res_idx  # [n_atoms_in_conf]
 
 
-def add_af3_chiral_features(atom_array: AtomArray, chiral_centers: dict, rdkit_mols: dict[str, Mol]) -> torch.Tensor:
+def add_af3_chiral_features(
+    atom_array: AtomArray, chiral_centers: dict, rdkit_mols: dict[str, Mol], take_first_chiral_subordering: bool = False
+) -> torch.Tensor:
     """Computes chiral features from atom array, chiral centers, and RDKit molecules.
 
     See `AddAF3ChiralFeatures` for more details.
@@ -358,7 +374,9 @@ def add_af3_chiral_features(atom_array: AtomArray, chiral_centers: dict, rdkit_m
         )
 
         # calculate chirals from reference conformer
-        chirals = get_rf2aa_chiral_features(chirals, torch.tensor(conformer.coord))
+        chirals = get_rf2aa_chiral_features(
+            chirals, torch.tensor(conformer.coord), take_first_chiral_subordering=take_first_chiral_subordering
+        )
 
         # remap reference conformer to native index
         chirals[:, :4] = torch.tensor(_ref_to_conf_map)[chirals[:, :4].long()]
@@ -388,15 +406,13 @@ class AddAF3ChiralFeatures(Transform):
           Here, the first 4 columns define atom indices of chiral center; the 5th is target dihedral
 
     Metadata from GetRDKitChiralCenters, held in the "chiral_centers" key, is needed for this transform.
-
-    Args:
-        data (dict[str, Any]): A dictionary containing the input data, including the atom array and chiral centers.
-
-    Returns:
-        dict[str, Any]: The updated `data` dictionary with the added chiral features under the `feats` key.
     """
 
     requires_previous_transforms = ["GetRDKitChiralCenters"]
+
+    def __init__(self, take_first_chiral_subordering: bool = False):
+        super().__init__()
+        self.take_first_chiral_subordering = take_first_chiral_subordering
 
     def check_input(self, data: dict[str, Any]):
         check_contains_keys(data, ["atom_array", "chiral_centers", "rdkit"])
@@ -405,7 +421,10 @@ class AddAF3ChiralFeatures(Transform):
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         chiral_feats = add_af3_chiral_features(
-            atom_array=data["atom_array"], chiral_centers=data["chiral_centers"], rdkit_mols=data["rdkit"]
+            atom_array=data["atom_array"],
+            chiral_centers=data["chiral_centers"],
+            rdkit_mols=data["rdkit"],
+            take_first_chiral_subordering=self.take_first_chiral_subordering,
         )
 
         data.setdefault("feats", {})["chiral_feats"] = chiral_feats  # [n_chirals, 5]

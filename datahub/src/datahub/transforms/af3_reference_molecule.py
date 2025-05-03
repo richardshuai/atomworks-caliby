@@ -117,8 +117,9 @@ def _map_reference_conformer_to_residue(
         - automorphs (np.ndarray | None): Filtered and adjusted automorphisms for the residue, if provided.
     """
 
-    # ... mark the atoms that are in the residue (keep) and where
+    # ... mark the atoms that are in the residue (keep) and where they are in the residue (to_within_res_idx)
     keep = np.zeros(len(conformer), dtype=bool)  # [n_atoms_in_conformer]
+    # Mapping from conformer atom indices to residue atom indices
     to_within_res_idx = -np.ones(len(conformer), dtype=int)  # [n_atoms_in_conformer]
 
     for i, atom_name in enumerate(atom_names):
@@ -131,8 +132,12 @@ def _map_reference_conformer_to_residue(
         to_within_res_idx[matching_atom_idx] = i
 
     # ... fill the reference positions
-    coord = conformer.coord[keep][to_within_res_idx[keep]]
-    ref_pos = coord  # [n_atoms_in_res, 3]
+    # (We must handle the case where to_within_res_idx[keep] contains indices out of bounds for the filtered conformer)
+    kept_atoms = np.where(keep)[0]
+    ordering = np.array([to_within_res_idx[idx] for idx in kept_atoms])
+    coord = conformer.coord[kept_atoms][np.argsort(ordering)]  # [n_atoms_in_res, 3]
+
+    ref_pos = coord
     ref_mask = np.isfinite(coord).all(axis=-1)  # [n_atoms_in_res]
 
     if exists(automorphs):
