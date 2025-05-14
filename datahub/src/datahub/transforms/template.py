@@ -299,7 +299,7 @@ def _load_rf_template(rf_template_id: str | None, template_base_dir: PathLike) -
         # ... skip if template file does not exist
         return None
 
-    return torch.load(path_to_template)
+    return torch.load(path_to_template, map_location="cpu", weights_only=True)
 
 
 class AddRFTemplates(Transform):

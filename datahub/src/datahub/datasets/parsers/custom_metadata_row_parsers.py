@@ -123,9 +123,9 @@ class ValidationDFParserLikeAF3(MetadataRowParser):
         # Extract the interfaces and pn_units to score
 
         # Example: [(A_1, B_1, "protein-protein"), (B_1, C_1, "protein-ligand")]
-        interfaces_to_score = eval(row["interfaces_to_score"])
+        interfaces_to_score = eval(row["interfaces_to_score"]) if isinstance(row["interfaces_to_score"], str) else [eval(interface) for interface in row["interfaces_to_score"]]
         # Example: [(A_1, "protein"), (B_1, "DNA")]
-        pn_units_to_score = eval(row["pn_units_to_score"])
+        pn_units_to_score = eval(row["pn_units_to_score"]) if isinstance(row["pn_units_to_score"], str) else [eval(unit) for unit in row["pn_units_to_score"]]
 
         return {
             "example_id": row["example_id"],
