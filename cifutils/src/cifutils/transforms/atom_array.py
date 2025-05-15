@@ -20,6 +20,7 @@ from cifutils.utils.bonds import (
     get_connected_nodes,
     hash_graph,
 )
+from cifutils.utils.ccd import atom_array_from_ccd_code
 from cifutils.utils.selection import annot_start_stop_idxs
 
 logger = logging.getLogger("cifutils")
@@ -320,47 +321,123 @@ def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> Atom
     return atom_array
 
 
-def add_hydrogen_atom_positions(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
-    """Add hydrogens using biotite supported hydride library
+def add_charge_from_ccd_codes(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+    """
+    Adds charge annotations to an atom array based on the Chemical Component Dictionary (CCD) codes.
+
+    Retrieves charge information from the CCD for each residue and assigns it to matching atoms.
+    If a residue or atom is not found in the CCD, a charge of 0 is assigned. If a charge annotation
+    is already present, it is overwritten.
 
     Args:
-        atom_array (AtomArray | AtomArrayStack): The atom array containing the chain information.
+        atom_array: The atom array to which charge annotations will be added.
+            Can be either an AtomArray or AtomArrayStack.
 
     Returns:
-        AtomArray: The updated atom array with hydrogens added.
-    """
-    array = remove_hydrogens(atom_array)
+        The input atom array with added charge annotations.
 
-    fields_to_copy_from_residue_if_present = ["auth_seq_id", "label_entity_id"]  # fields to update in added hydrogens
+
+    WARNING: This function will assume that each residue in the atom array is exactly as in the CCD.
+       Therefore the charges will be incorrect if it is in a different protonation state, or has been
+       ionized or else in the original structure. Use this function with caution!
+
+    NOTE: If you want to add charges to canonical amino acids based on the pH, take a look at the
+        'hydride.estimate_amino_acid_charges' function instead.
+
+    Example:
+        >>> atom_array = load_any("6lyz.cif", model=1)
+        >>> atom_array_with_charges = add_charge_from_ccd_codes(atom_array)
+    """
+    # Warn if a charge annotation is already present
+    if "charge" in atom_array.get_annotation_categories():
+        logger.info("Charge annotation already present in atom array. It will be overwritten.")
+
+    # Build up a lookup table (res_name, atom_name) -> charge for each res_name that appears in the atom_array
+    unique_res_names = np.unique(atom_array.res_name)
+    charge_lookup_table: dict[tuple[str, str], float] = {}
+
+    for res_name in unique_res_names:
+        try:
+            ccd_array = atom_array_from_ccd_code(res_name)
+            # Use dictionary comprehension to build lookup entries for this residue
+            charge_lookup_table.update(
+                {
+                    (res_name, atom_name): charge
+                    for atom_name, charge in zip(ccd_array.atom_name, ccd_array.charge, strict=False)
+                }
+            )
+        except ValueError:
+            logger.info(f"CCD charge look-up failed for {res_name}. Assuming charge is 0 for all atoms.")
+            continue
+
+    # Create the charge annotations for the atom array
+    res_names = atom_array.res_name
+    atom_names = atom_array.atom_name
+    charges = np.array(
+        [charge_lookup_table.get((res, atom), 0) for res, atom in zip(res_names, atom_names, strict=False)]
+    )
+
+    # Set the charges annotation
+    atom_array.set_annotation("charge", charges)
+
+    return atom_array
+
+
+def add_hydrogen_atom_positions(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+    """Add hydrogens using biotite supported hydride library.
+
+    Removes any existing hydrogens first, then adds new hydrogens using the hydride library.
+
+    Args:
+        atom_array: The atom array to which hydrogens will be added.
+
+    Returns:
+        The updated atom array with hydrogens added, preserving the input type.
+    """
+    # Remove existing hydrogens
+    atom_array = remove_hydrogens(atom_array)
+
+    # Determine which fields to copy from the original array to the new hydrogens
+    fields_to_copy_from_residue_if_present = ["auth_seq_id", "label_entity_id"]
     fields_to_copy_from_residue_if_present = list(
         set(fields_to_copy_from_residue_if_present).intersection(set(atom_array.get_annotation_categories()))
     )
 
+    # Ensure charge annotation exists
+    if "charge" not in atom_array.get_annotation_categories():
+        atom_array = add_charge_from_ccd_codes(atom_array)
+
+    # Helper function to copy annotations from one array to another
     def _copy_missing_annotations_residue_wise(
-        arr_to_copy_from: AtomArray, arr_to_update: AtomArray, fields_to_copy_from_residue_if_present: list[str]
+        from_array: AtomArray, to_array: AtomArray, fields_to_copy: list[str]
     ) -> AtomArray:
         """Copy specified annotations residue-wise from one AtomArray to another. Updates annotations in-place."""
-        residue_starts = struc.get_residue_starts(arr_to_copy_from)
-        residue_starts_atom_array = arr_to_copy_from[residue_starts]
-        annot = {item: getattr(residue_starts_atom_array, item) for item in fields_to_copy_from_residue_if_present}
-        for field in fields_to_copy_from_residue_if_present:
-            updated_field = struc.spread_residue_wise(arr_to_update, annot[field])
-            arr_to_update.set_annotation(field, updated_field)
-        return arr_to_update
+        residue_starts = struc.get_residue_starts(from_array)
+        residue_starts_atom_array = from_array[residue_starts]
+        annot = {item: getattr(residue_starts_atom_array, item) for item in fields_to_copy}
+        for field in fields_to_copy:
+            updated_field = struc.spread_residue_wise(to_array, annot[field])
+            to_array.set_annotation(field, updated_field)
+        return to_array
 
-    if isinstance(array, AtomArrayStack):
+    # Process based on input type
+    if isinstance(atom_array, AtomArrayStack):
+        # Handle stack case - process each model separately
         updated_arrays = []
-        for old_arr in array:
-            arr, mask = hydride.add_hydrogen(old_arr)
-            arr = _copy_missing_annotations_residue_wise(old_arr, arr, fields_to_copy_from_residue_if_present)
-            updated_arrays.append(arr)
-
-        ret_array = struc.stack(updated_arrays)
-
-    elif isinstance(array, AtomArray):
-        arr, mask = hydride.add_hydrogen(array)
-        ret_array = _copy_missing_annotations_residue_wise(array, arr, fields_to_copy_from_residue_if_present)
-    return ret_array
+        for i in range(len(atom_array)):
+            updated_array, _ = hydride.add_hydrogen(atom_array[i])
+            updated_array = _copy_missing_annotations_residue_wise(
+                atom_array[i], updated_array, fields_to_copy_from_residue_if_present
+            )
+            updated_arrays.append(updated_array)
+        return stack(updated_arrays)
+    else:
+        # Handle single array case
+        updated_array, _ = hydride.add_hydrogen(atom_array)
+        updated_array = _copy_missing_annotations_residue_wise(
+            atom_array, updated_array, fields_to_copy_from_residue_if_present
+        )
+        return updated_array
 
 
 def add_pn_unit_id_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:

@@ -1,13 +1,34 @@
 """Utility functions helpful for writings tests for AtomArray objects."""
 
-__all__ = ["assert_same_atom_array"]
-
+import os
 
 import biotite.structure as struc
 import numpy as np
 from biotite.structure.atoms import AtomArray, AtomArrayStack
 
+from cifutils.constants import PDB_MIRROR_PATH
 from cifutils.utils.bonds import hash_atom_array
+
+
+def get_pdb_path(pdbid: str, mirror_path: str | os.PathLike = PDB_MIRROR_PATH) -> str:
+    """Get the local path to a PDB file based on the provided mirror path.
+
+    Args:
+        pdbid (str): The PDB ID.
+        mirror_path (str | os.PathLike, optional): Path to the PDB mirror directory.
+            Defaults to PDB_MIRROR_PATH constant.
+
+    Returns:
+        str: The local path to the PDB file.
+
+    Raises:
+        ValueError: If the file does not exist at the expected location.
+    """
+    pdbid = pdbid.lower()
+    filename = os.path.join(mirror_path, pdbid[1:3], f"{pdbid}.cif.gz")
+    if not os.path.exists(filename):
+        raise ValueError(f"File {filename} does not exist")
+    return filename
 
 
 def is_same_in_segment(segment_start_stop: np.ndarray, data: np.ndarray) -> np.ndarray:

@@ -279,12 +279,28 @@ def get_ccd_component_from_mirror(
 def atom_array_from_ccd_code(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, **parse_ccd_cif_kwargs
 ) -> struc.AtomArray:
-    """Retrieves and parses a component from a local mirror of the Chemical Component Dictionary.
+    """Retrieves and parses a component from the Chemical Component Dictionary.
 
-    If a mirror path is provided, it will be used to check the local mirror first.
-    Otherwise, Biotite's built-in CCD will be used.
+    First attempts to retrieve the component from a local mirror if provided and the code exists there.
+    Falls back to Biotite's built-in CCD if the code is not found in the local mirror or no mirror path is provided.
 
-    Wrapper around `get_ccd_component_from_mirror()` and `get_ccd_component_from_biotite()`.
+    Args:
+        ccd_code: The three-letter code of the chemical component.
+        ccd_mirror_path: Path to the root of the CCD mirror directory.
+        **parse_ccd_cif_kwargs: Additional keyword arguments passed to parse_ccd_cif():
+            coords: Type of coordinates to use ("model", "ideal_pdbx", "ideal_rdkit", or None).
+                Defaults to "ideal_pdbx".
+            add_properties: Whether to include RDKit-computed properties. Defaults to True.
+            add_mapping: Whether to include external resource mappings. Defaults to False.
+
+    Returns:
+        struc.AtomArray: The parsed atomic structure of the requested component.
+
+    Raises:
+        ValueError: If the CCD code is not found in the local mirror or Biotite's built-in CCD.
+
+    Example:
+        >>> atom_array = atom_array_from_ccd_code("ALA")
     """
     if ccd_mirror_path and ccd_code in get_available_ccd_codes_in_mirror(ccd_mirror_path):
         return get_ccd_component_from_mirror(ccd_code, ccd_mirror_path, **parse_ccd_cif_kwargs)
