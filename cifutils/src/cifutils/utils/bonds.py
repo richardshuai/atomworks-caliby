@@ -14,6 +14,7 @@ __all__ = [
 
 import logging
 from typing import Any
+import hashlib
 
 import biotite.structure as struc
 import networkx as nx
@@ -570,9 +571,22 @@ def hash_atom_array(
     annotations: tuple[str] = ("element", "atom_name"),
     bond_order: bool = True,
     cast_aromatic_bonds_to_same_type: bool = False,
+    use_md5: bool = False,
+    md5_length: int | None = None,
 ) -> str:
     """
     Computes a hash for an AtomArray based on the bond connectivity and the selected node annotations.
+
+    Args:
+        atom_array (AtomArray): The array of atoms to hash
+        annotations (tuple[str]): The node annotations to include in the hash
+        bond_order (bool): Whether to include bond order in the hash
+        cast_aromatic_bonds_to_same_type (bool): Whether to treat all aromatic bonds as the same type
+        use_md5 (bool): Whether to use MD5 hashing on the output
+        md5_length (int | None): If using MD5, the number of characters to keep from the hash. If None, returns full hash.
+
+    Returns:
+        str: The computed hash
     """
     # ... create the bond graph
     bond_graph = _atom_array_to_networkx_graph(
@@ -582,9 +596,16 @@ def hash_atom_array(
         cast_aromatic_bonds_to_same_type=cast_aromatic_bonds_to_same_type,
     )
 
-    return hash_graph(
+    hash_str = hash_graph(
         bond_graph, node_attr="node_data" if annotations else None, edge_attr="bond_type" if bond_order else None
     )
+
+    if use_md5:
+        hash_str = hashlib.md5(hash_str.encode()).hexdigest()
+        if md5_length is not None:
+            hash_str = hash_str[:md5_length]
+
+    return hash_str
 
 
 def generate_inter_level_bond_hash(
