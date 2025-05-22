@@ -141,6 +141,29 @@ def test_conformer_fallback_for_challenging_molecules():
     assert _time_taken < 3.0, f"Conformer generation took too long: {_time_taken} seconds, while timeout was 2 seconds."
 
 
+@pytest.mark.filterwarnings("ignore: This process")
+def test_tuple_timeout_policy():
+    """Test the tuple-based timeout policy for conformer generation."""
+    # Should fail: with fixed 0.1s timeout for 100 conformers
+    start = time.time()
+    with pytest.raises(Exception):  # Could be TimeoutError or RuntimeError depending on implementation
+        mol = ccd_code_to_rdkit_with_conformers(
+            "ALA", n_conformers=100, timeout=(0.1, 0.0), timeout_strategy="subprocess"
+        )
+    end = time.time()
+    # Should complete within ~0.2s (allowing slight overhead)
+    assert end - start < 0.3, f"Timeout didn't trigger properly, took {end - start:.2f}s"
+
+    # Should succeed: with scaling timeout (0.1 + 0.1 * (n-1)) for 100 conformers
+    start = time.time()
+    mol = ccd_code_to_rdkit_with_conformers("ALA", n_conformers=100, timeout=(0.1, 0.1), timeout_strategy="subprocess")
+    end = time.time()
+    assert mol.GetNumConformers() == 100
+    # Should have taken at least the minimum timeout but not too long
+    assert end - start > 0.1
+    assert end - start < 15.0  # Generous upper bound
+
+
 def test_conformer_generation_for_molecules_with_many_rotatable_bonds():
     # Test inspired by https://github.com/rdkit/rdkit/issues/1433#issuecomment-305097888
     mol = Chem.MolFromSmiles("CCCCCCCC[N+](CCCCCCCC)(CCCCCCCC)CCCCCCCC")
