@@ -58,6 +58,7 @@ def parse(
     fix_ligands_at_symmetry_centers: bool = True,
     fix_arginines: bool = True,
     fix_formal_charges: bool = True,
+    fix_bond_types: bool = True,
     convert_mse_to_met: bool = False,
     remove_hydrogens: bool | None = None,
     hydrogen_policy: Literal["keep", "remove", "infer"] = "keep",
@@ -108,6 +109,8 @@ def parse(
         fix_arginines (bool, optional): Whether to fix arginine naming ambiguity, see the
             AF-3 supplement for details. Defaults to True.
         fix_formal_charges (bool, optional): Whether to fix formal charges on atoms involved in inter-residue bonds.
+            Defaults to True.
+        fix_bond_types (bool, optional): Whether to correct for nucleophilic additions on atoms involved in inter-residue bonds.
             Defaults to True.
         convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE)
             residues to methionine (MET) residues. Defaults to False.
@@ -183,6 +186,7 @@ def parse(
             "fix_ligands_at_symmetry_centers": fix_ligands_at_symmetry_centers,
             "fix_arginines": fix_arginines,
             "fix_formal_charges": fix_formal_charges,
+            "fix_bond_types": fix_bond_types,
             "convert_mse_to_met": convert_mse_to_met,
             "hydrogen_policy": hydrogen_policy,
         }
@@ -237,6 +241,7 @@ def parse(
             fix_ligands_at_symmetry_centers=fix_ligands_at_symmetry_centers,
             fix_arginines=fix_arginines,
             fix_formal_charges=fix_formal_charges,
+            fix_bond_types=fix_bond_types,
             convert_mse_to_met=convert_mse_to_met,
             remove_hydrogens=remove_hydrogens,
             hydrogen_policy=hydrogen_policy,
@@ -255,6 +260,7 @@ def parse(
             fix_ligands_at_symmetry_centers=fix_ligands_at_symmetry_centers,
             fix_arginines=fix_arginines,
             fix_formal_charges=fix_formal_charges,
+            fix_bond_types=fix_bond_types,
             convert_mse_to_met=convert_mse_to_met,
             remove_hydrogens=remove_hydrogens,
             hydrogen_policy=hydrogen_policy,
@@ -422,6 +428,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
                 remove_hydrogens=kwargs["hydrogen_policy"] == "remove",
                 use_ccd_charges=True,
                 fix_formal_charges=kwargs["fix_formal_charges"],
+                fix_bond_types=kwargs["fix_bond_types"],
             )
 
         # ... resolve arginine naming ambiguity

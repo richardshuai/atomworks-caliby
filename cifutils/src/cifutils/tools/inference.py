@@ -27,6 +27,7 @@ from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.template import build_template_atom_array
 from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
 from cifutils.utils.bonds import (
+    correct_bond_types_for_nucleophilic_additions,
     correct_formal_charges_for_specified_atoms,
     get_inferred_polymer_bonds,
     get_struct_conn_bonds,
@@ -625,6 +626,9 @@ def components_to_atom_array(
 
         # ... fix charges of newly bonded atoms, where needed
         atom_array = correct_formal_charges_for_specified_atoms(atom_array, to_update=makes_inter_bond)
+
+        # ... fix bond orders of newly bonded atoms, where needed (e.g., convert double bonds to single bonds during nucleophilic additions)
+        atom_array = correct_bond_types_for_nucleophilic_additions(atom_array, to_update=makes_inter_bond)
 
     # ... remove hydrogens
     atom_array = ta.remove_hydrogens(atom_array)

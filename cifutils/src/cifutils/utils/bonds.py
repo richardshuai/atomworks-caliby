@@ -754,6 +754,7 @@ def _get_bond_degree_per_atom(atom_array: struc.AtomArray) -> np.ndarray:
     # Count both ends of each edge
     edge_list = atom_array.bonds._bonds[:, :2]
     weights = atom_array.bonds._bonds[:, -1].copy()
+
     # ... remove aromaticity from the weights:
     weights[weights == struc.BondType.AROMATIC_SINGLE] = 1
     weights[weights == struc.BondType.AROMATIC_DOUBLE] = 2
@@ -801,4 +802,57 @@ def correct_formal_charges_for_specified_atoms(atom_array: struc.AtomArray, to_u
     # ... convert local indices to global indices
     global_idxs = np.arange(atom_array.array_length())[to_update]
     atom_array.charge[global_idxs[valid]] = formal_charge[valid]
+    return atom_array
+
+
+def correct_bond_types_for_nucleophilic_additions(
+    atom_array: struc.AtomArray, to_update: np.ndarray
+) -> struc.AtomArray:
+    """
+    Account for nucleophilic additions that result in carbons that violate the octet rule.
+
+    In some cases (see: 1TQH), there is no leaving group specified, since the bond is formed by a nucleophilic addition to a carbonyl carbon.
+    In this case, we should convert the C=O double bond to a C-O single bond.
+
+    Args:
+        atom_array (AtomArray): The AtomArray to fix.
+        to_update (np.ndarray): A boolean mask of atoms that are candidates for correction.
+
+    Returns:
+        AtomArray: The AtomArray with fixed bond types.
+    """
+    updated_carbon_mask = (atom_array.element == "C") & to_update
+
+    if not updated_carbon_mask.any():
+        # (Early exit)
+        return atom_array
+
+    invalid_carbon_mask = (_get_bond_degree_per_atom(atom_array) > 4) & updated_carbon_mask
+
+    bonds_arr = atom_array.bonds.as_array()
+    for c_idx in np.where(invalid_carbon_mask)[0]:
+        mask = (bonds_arr[:, 0] == c_idx) | (bonds_arr[:, 1] == c_idx)
+
+        # If any of the bonds are to a hyrogen, we skip
+        # (Handling hydrogens requires inferring leaving atoms, which is out-of-scope for this function)
+        if np.any(np.isin(atom_array.element[bonds_arr[mask, 0]], HYDROGEN_LIKE_SYMBOLS)) or np.any(
+            np.isin(atom_array.element[bonds_arr[mask, 1]], HYDROGEN_LIKE_SYMBOLS)
+        ):
+            continue
+
+        # Check if any of the bonds are double bonds to an oxygen
+        for bond_idx in np.where(mask)[0]:
+            atom1, atom2, bond_type = bonds_arr[bond_idx]
+            other_idx = atom2 if atom1 == c_idx else atom1
+
+            if atom_array.element[other_idx] == "O" and bond_type == struc.BondType.DOUBLE:
+                # Set the bond order to single and log a warning
+                atom_array.bonds.remove_bond(atom1, atom2)
+                atom_array.bonds.add_bond(atom1, atom2, struc.BondType.SINGLE)
+                logger.warning(
+                    f"Corrected C=O double bond to single bond between atom {c_idx} (C) and {other_idx} (O) due to nucleophilic addition (degree > 4). "
+                    f"chain_id: {atom_array.chain_id[c_idx]}, res_name: {atom_array.res_name[c_idx]}, res_id: {atom_array.res_id[c_idx]}, atom_name of invalid carbon: {atom_array.atom_name[c_idx]}, atom_name of oxygen: {atom_array.atom_name[other_idx]}"
+                )
+                break
+
     return atom_array

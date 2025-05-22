@@ -1,9 +1,16 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
+from conftest import get_pdb_path
 
+from cifutils.parser import parse
 from cifutils.template import get_empty_ccd_template
-from cifutils.utils.bonds import correct_formal_charges_for_specified_atoms, get_inferred_polymer_bonds, hash_atom_array
+from cifutils.utils.bonds import (
+    _get_bond_degree_per_atom,
+    correct_formal_charges_for_specified_atoms,
+    get_inferred_polymer_bonds,
+    hash_atom_array,
+)
 from cifutils.utils.ccd import get_chem_comp_leaving_atom_names
 
 LEAVING_GROUP_TEST_CASES = {
@@ -114,3 +121,37 @@ def test_hash_atom_array():
     assert hash_atom_array(arr1, annotations=["atom_name"], bond_order=True) == hash_atom_array(
         arr2, annotations=["atom_name"], bond_order=True
     )
+
+
+@pytest.mark.parametrize("pdb_id", ["1TQH"])
+def test_correct_bond_types_for_nucleophilic_additions(pdb_id: str):
+    # Example with a nucleophilic addition to a carbonyl carbon that the PDB incorrectly shows as a double bond
+    path = get_pdb_path(pdb_id)
+
+    result = parse(
+        filename=path,
+        build_assembly="all",
+        hydrogen_policy="remove",
+        fix_bond_types=False,
+    )
+
+    atom_array = result["assemblies"]["1"][0]  # First bioassembly, first model
+    carbon_mask = atom_array.element == "C"
+    degrees = _get_bond_degree_per_atom(atom_array)
+    assert not np.all(degrees[carbon_mask] <= 4), "Example does not show a nucleophilic addition!"
+
+    # Try again, with bond type correction
+    result = parse(
+        filename=path,
+        build_assembly="all",
+        hydrogen_policy="remove",
+        fix_bond_types=True,
+    )
+    atom_array = result["assemblies"]["1"][0]  # First bioassembly, first model
+    carbon_mask = atom_array.element == "C"
+    degrees = _get_bond_degree_per_atom(atom_array)
+    assert np.all(degrees[carbon_mask] <= 4), "Example does not show a nucleophilic addition!"
+
+
+if __name__ == "__main__":
+    test_correct_bond_types_for_nucleophilic_additions("1j8z")

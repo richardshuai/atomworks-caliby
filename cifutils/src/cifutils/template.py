@@ -10,6 +10,7 @@ import cifutils.transforms.atom_array as ta
 from cifutils.common import exists, immutable_lru_cache
 from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
 from cifutils.utils.bonds import (
+    correct_bond_types_for_nucleophilic_additions,
     correct_formal_charges_for_specified_atoms,
     get_inferred_polymer_bonds,
     get_struct_conn_bonds,
@@ -300,6 +301,7 @@ def add_missing_atoms(
     remove_hydrogens: bool = True,
     use_ccd_charges: bool = True,
     fix_formal_charges: bool = True,
+    fix_bond_types: bool = True,
 ) -> AtomArray:
     """
     Adds missing atoms to an AtomArray by matching residues to CCD templates and handling inter-residue bonds.
@@ -321,6 +323,7 @@ def add_missing_atoms(
         remove_hydrogens (bool, optional): Whether to remove hydrogen atoms from templates. Defaults to True.
         use_ccd_charges (bool, optional): Whether to use charges from CCD or input structure. Defaults to True.
         fix_formal_charges (bool, optional): Whether to fix formal charges on atoms involved in inter-residue bonds.
+        fix_bond_types (bool, optional): Whether to correct for nucleophilic additions on atoms involved in inter-residue bonds.
 
     Returns:
         AtomArray: Completed structure with missing atoms added and proper bonding.
@@ -370,8 +373,13 @@ def add_missing_atoms(
     atoms = atoms[~is_leaving]
     makes_inter_bond = makes_inter_bond[~is_leaving]
 
+    # ... fix bond types of newly bonded atoms, where needed
+    # (We must fix bonds before fixing formal charges, since the bond degree is used to infer the formal charge)
+    if fix_bond_types and np.any(makes_inter_bond):
+        atoms = correct_bond_types_for_nucleophilic_additions(atoms, to_update=makes_inter_bond)
+
     # ... fix charges of newly bonded atoms, where needed
-    if fix_formal_charges:
+    if fix_formal_charges and np.any(makes_inter_bond):
         atoms = correct_formal_charges_for_specified_atoms(atoms, to_update=makes_inter_bond)
 
     # ... remove hydrogens

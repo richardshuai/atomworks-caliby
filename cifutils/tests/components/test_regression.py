@@ -74,22 +74,22 @@ def test_regression_against_stored_result(pdb_id: str):
     )
 
     # ## FOR DEBUGGING REGRESSION TESTS UNCOMMENT:
-    # from cifutils.common import sum_string_arrays
+    from cifutils.common import sum_string_arrays
 
-    # def get_atom_identifiers(atom_array):
-    #     return sum_string_arrays(
-    #         atom_array.chain_id, "-", atom_array.res_name, "-", atom_array.res_id.astype(str), "-", atom_array.atom_name
-    #     )
+    def get_atom_identifiers(atom_array):
+        return sum_string_arrays(
+            atom_array.chain_id, "-", atom_array.res_name, "-", atom_array.res_id.astype(str), "-", atom_array.atom_name
+        )
 
-    # # a = result["asym_unit"][0]
-    # # b = expected_result["asym_unit"][0]
-    # a_id = get_atom_identifiers(result["asym_unit"][0])
-    # b_id = get_atom_identifiers(expected_result["asym_unit"][0])
-    # # In a but not in b
-    # print("in new but not in old:", np.setdiff1d(a_id, b_id))
-    # # In b but not in a
-    # print("in old but not in new:", np.setdiff1d(b_id, a_id))
-    # ###
+    # a = result["asym_unit"][0]
+    # b = expected_result["asym_unit"][0]
+    a_id = get_atom_identifiers(result["asym_unit"][0])
+    b_id = get_atom_identifiers(expected_result["asym_unit"][0])
+    # In a but not in b
+    print("in new but not in old:", np.setdiff1d(a_id, b_id))
+    # In b but not in a
+    print("in old but not in new:", np.setdiff1d(b_id, a_id))
+    ###
 
     # Check the asymmetric unit...
     assert_same_atom_array(
