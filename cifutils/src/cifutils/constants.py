@@ -568,8 +568,8 @@ BIOTITE_DEFAULT_ANNOTATIONS: Final[tuple[str, ...]] = (
 )
 """The default mandatory annotations for Biotite AtomArrays."""
 
-STANDARD_PYRAMIDINE_RESIDUES: Final[tuple[str, ...]] = ("C", "U", "DC", "DT")
-"""Tuple of the CCD codes for the 4 standard pyramidine nucleotides."""
+STANDARD_PYRIMIDINE_RESIDUES: Final[tuple[str, ...]] = ("C", "U", "DC", "DT")
+"""Tuple of the CCD codes for the 4 standard pyrimidine nucleotides."""
 
 STANDARD_PURINE_RESIDUES: Final[tuple[str, ...]] = ("A", "G", "DA", "DG")
 """Tuple of the CCD codes for the 4 standard purine nucleotides."""

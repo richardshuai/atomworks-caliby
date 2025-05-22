@@ -4,14 +4,14 @@ from cifutils.utils.sequence import (
     is_glycine,
     is_protein_unknown,
     is_purine,
-    is_pyramidine,
+    is_pyrimidine,
     is_standard_aa,
     is_standard_aa_not_glycine,
     is_unknown_nucleotide,
 )
 
 
-def test_is_pyramidine():
+def test_is_pyrimidine():
     sequence = [
         "MET",
         "LEU",
@@ -49,7 +49,7 @@ def test_is_pyramidine():
         False,
         False,
     ]
-    assert (is_pyramidine(sequence) == np.array(expected)).all()
+    assert (is_pyrimidine(sequence) == np.array(expected)).all()
 
 
 def test_is_purine():

@@ -22,7 +22,7 @@ from cifutils.constants import (
     GAP_ONE_LETTER,
     STANDARD_AA,
     STANDARD_PURINE_RESIDUES,
-    STANDARD_PYRAMIDINE_RESIDUES,
+    STANDARD_PYRIMIDINE_RESIDUES,
     UNKNOWN_AA,
     UNKNOWN_DNA,
     UNKNOWN_RNA,
@@ -139,8 +139,19 @@ def get_3_from_1_letter_code(
         return unknown_aa
 
 
+def is_pyrimidine(ccd_code_array: np.ndarray) -> np.ndarray:
+    return np.isin(ccd_code_array, STANDARD_PYRIMIDINE_RESIDUES)
+
+
 def is_pyramidine(ccd_code_array: np.ndarray) -> np.ndarray:
-    return np.isin(ccd_code_array, STANDARD_PYRAMIDINE_RESIDUES)
+    import warnings
+
+    warnings.warn(
+        "'is_pyramidine' is deprecated and will be removed in a future version. " "Use 'is_pyrimidine' instead.",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
+    return is_pyrimidine(ccd_code_array)
 
 
 def is_purine(ccd_code_array: np.ndarray) -> np.ndarray:
