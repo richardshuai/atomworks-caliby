@@ -12,9 +12,9 @@ __all__ = [
     "hash_graph",
 ]
 
+import hashlib
 import logging
 from typing import Any
-import hashlib
 
 import biotite.structure as struc
 import networkx as nx
