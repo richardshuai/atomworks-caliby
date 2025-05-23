@@ -128,7 +128,11 @@ def _filter_biotite_ccd_for_ccd_code(ccd_code: str) -> pdbx.CIFBlock:
 
 def parse_ccd_cif(
     cif: pdbx.CIFFile,
-    coords: Literal["model", "ideal_pdbx", "ideal_rdkit"] | None = "ideal_pdbx",
+    coords: Literal["model", "ideal_pdbx", "ideal_rdkit"] | None | tuple[str, ...] = (
+        "ideal_pdbx",
+        "model",
+        "ideal_rdkit",
+    ),
     add_properties: bool = False,
     add_mapping: bool = False,
 ) -> struc.AtomArray:
@@ -137,12 +141,13 @@ def parse_ccd_cif(
 
     Args:
         - cif (CIFFile): The CIF file containing the component data.
-        - coords (Literal["model", "ideal_pdbx", "ideal_rdkit"] | None):
-            Type of coordinates to use. Defaults to "ideal_pdbx".
+        - coords (Literal["model", "ideal_pdbx", "ideal_rdkit"] | None | tuple[str, ...]):
+            Type of coordinates to use. Defaults to ("ideal_pdbx", "model", "ideal_rdkit").
+            Can be a single coordinate type or a tuple of fallback preferences (e.g., ("ideal_pdbx", "model", "ideal_rdkit")).
                 - "model": Use the coordinates that are found in a random (but fixed) pdb file.
                 - "ideal_pdbx": Use the idealized coordinates computed by the RCSB PDB (sometimes not available).
                 - "ideal_rdkit": Use the idealized coordinates computed by RDKit (sometimes unrealistic).
-        - add_properties (bool): Whether to include RDKit-computed properties. Defaults to True.
+        - add_properties (bool): Whether to include RDKit-computed properties. Defaults to False.
             Properties are available under the `properties` attribute of the returned `AtomArray`.
         - add_mapping (bool): Whether to include external resource mappings, such as e.g. the ChEMBL ID.
             Defaults to False.
@@ -154,24 +159,31 @@ def parse_ccd_cif(
     Example:
         >>> cif = pdbx.CIFFile.read("path/to/ALA.cif")
         >>> atom_array = parse_ccd_cif(cif, coords="ideal_pdbx")
+        >>> # With fallback preferences:
+        >>> atom_array = parse_ccd_cif(cif, coords=["ideal_pdbx", "model", "ideal_rdkit"])
     """
-    if coords not in ("model", "ideal_pdbx", "ideal_rdkit", None):
-        raise ValueError(
-            f"Invalid coordinate type: {coords}. Must be one of 'model', 'ideal_pdbx', 'ideal_rdkit' or `None`."
-        )
+    # Convert single value or list to tuple for uniform processing and hashability
+    if isinstance(coords, str):
+        coord_types = (coords,)
+    elif isinstance(coords, list | tuple):
+        coord_types = tuple(coords)
+    else:
+        coord_types = (coords,) if coords is not None else (None,)
+
+    valid_types = ("model", "ideal_pdbx", "ideal_rdkit", None)
+
+    # Validate all coord types
+    for coord_type in coord_types:
+        if coord_type not in valid_types:
+            raise ValueError(
+                f"Invalid coordinate type: {coord_type}. Must be one of 'model', 'ideal_pdbx', 'ideal_rdkit' or `None`."
+            )
 
     block = pdbx.convert._get_block(cif, None)
 
     # Extract metadata
     metadata = block.get("chem_comp")
     ccd_code = metadata["id"].as_item()
-
-    if (metadata["pdbx_ideal_coordinates_missing_flag"].as_item() == "Y") and (coords == "ideal_pdbx"):
-        logger.warning(f"No ideal coordinates found for `{ccd_code}`. Coordinates will be `nan`.")
-        coords = None
-    elif (metadata["pdbx_model_coordinates_missing_flag"].as_item() == "Y") and (coords == "model"):
-        logger.warning(f"No model coordinates found for `{ccd_code}`. Coordinates will be `nan`.")
-        coords = None
 
     # Extract atom specific information
     atom_data = block.get("chem_comp_atom")
@@ -198,25 +210,59 @@ def parse_ccd_cif(
     hetero = ccd_code not in struc.info.atoms.NON_HETERO_RESIDUES
     atoms.set_annotation("hetero", [hetero] * len(atoms))
 
-    # Fill in the coordinates
-    try:
-        if coords is None:
-            pass
-        elif coords == "model":
-            for i, name in enumerate(["model_Cartn_x", "model_Cartn_y", "model_Cartn_z"]):
-                atoms.coord[:, i] = atom_data[name].as_array(np.float32)
-        elif coords == "ideal_pdbx":
-            for i, name in enumerate(
-                ["pdbx_model_Cartn_x_ideal", "pdbx_model_Cartn_y_ideal", "pdbx_model_Cartn_z_ideal"]
-            ):
-                atoms.coord[:, i] = atom_data[name].as_array(np.float32)
-        elif coords == "ideal_rdkit":
-            rdkit_data = block.get("pdbe_chem_comp_rdkit_conformer")
-            assert np.all(rdkit_data["atom_id"].as_array(str) == atoms.get_annotation("atom_name"))
-            for i, name in enumerate(["Cartn_x_rdkit", "Cartn_y_rdkit", "Cartn_z_rdkit"]):
-                atoms.coord[:, i] = rdkit_data[name].as_array(np.float32)
-    except KeyError:
-        raise ValueError(f"No coordinate data found for `{coords}` coordinates. Coords will be `nan`.") from None
+    # Define coordinate columns for each type
+    coordinate_columns = {
+        "model": ["model_Cartn_x", "model_Cartn_y", "model_Cartn_z"],
+        "ideal_pdbx": ["pdbx_model_Cartn_x_ideal", "pdbx_model_Cartn_y_ideal", "pdbx_model_Cartn_z_ideal"],
+        "ideal_rdkit": ["Cartn_x_rdkit", "Cartn_y_rdkit", "Cartn_z_rdkit"],
+    }
+
+    # Try each coordinate type until one works
+    coords_set = False
+
+    for coord_type in coord_types:
+        if coord_type is None:
+            # Skip if None is explicitly requested in the preference list
+            continue
+
+        try:
+            if coord_type == "ideal_rdkit":
+                # Special case for rdkit as it uses a different dataset
+                rdkit_data = block.get("pdbe_chem_comp_rdkit_conformer")
+                assert np.all(rdkit_data["atom_id"].as_array(str) == atoms.get_annotation("atom_name"))
+                for i, col in enumerate(coordinate_columns[coord_type]):
+                    atoms.coord[:, i] = rdkit_data[col].as_array(np.float32)
+            else:
+                # Standard case for model and ideal_pdbx
+                for i, col in enumerate(coordinate_columns[coord_type]):
+                    atoms.coord[:, i] = atom_data[col].as_array(np.float32)
+
+            # Check if the coordinates are valid (not all zeros/NaN)
+            if np.all(atoms.coord == 0) or np.all(np.isnan(atoms.coord)):
+                logger.debug(
+                    f"Coordinate type '{coord_type}' for '{ccd_code}' contains only zeros/NaN, trying next option"
+                )
+                continue
+
+            coords_set = True
+            # If we're not using the first preference, log a warning
+            if coord_type != coord_types[0]:
+                logger.warning(
+                    f"Using fallback coordinate type '{coord_type}' for '{ccd_code}' instead of '{coord_types[0]}'"
+                )
+            break
+
+        except (KeyError, AssertionError):
+            # Continue to next coordinate type if this one fails
+            logger.debug(f"Coordinate type '{coord_type}' not available for '{ccd_code}', trying next option")
+            continue
+
+    # Log warning if no coordinates were set
+    if not coords_set and coord_types and coord_types[0] is not None:
+        logger.warning(
+            f"No suitable coordinates found for '{ccd_code}' among preferences {coord_types}. Coordinates will be 'nan'."
+        )
+        atoms.coord = np.full((len(atoms), 3), np.nan)
 
     # Extract bond data
     try:
