@@ -112,7 +112,12 @@ def crop_contiguous_af2_multimer(iids: list[int | str], instance_lens: list[int]
     return keep_tokens  # dict[int | str, np.ndarray[bool]]
 
 
-def get_spatial_crop_center(atom_array: AtomArray, query_pn_unit_iids: list[str], cutoff_distance: float = 15.0):
+def get_spatial_crop_center(
+    atom_array: AtomArray,
+    query_pn_unit_iids: list[str],
+    cutoff_distance: float = 15.0,
+    raise_if_missing_query: bool = True,
+):
     """
     Sample a crop center from a spatial region of the atom array.
 
@@ -133,6 +138,9 @@ def get_spatial_crop_center(atom_array: AtomArray, query_pn_unit_iids: list[str]
         atom_array (AtomArray): The array containing atom information.
         query_pn_unit_iids (list[str]): List of PN unit instance IDs to query.
         cutoff_distance (float, optional): The distance cutoff to consider for spatial proximity. Defaults to 15.0.
+        raise_if_missing_query (bool): Whether to raise an Exception if no crop centers are found, e.g. if the
+            query pn_unit(s) are not present due to a previous filtering step. Defaults to `True`. If `False`, a random
+            pn_unit will be selected for the crop center.
 
     Returns:
         np.ndarray: A boolean mask indicating the crop center.
@@ -142,6 +150,26 @@ def get_spatial_crop_center(atom_array: AtomArray, query_pn_unit_iids: list[str]
 
     # ... get mask for occupied atoms
     is_occupied = atom_array.occupancy > 0
+
+    # ... optionally provide a fallback when not all query pn_units are present
+    if not raise_if_missing_query:
+        available_query_pn_unit_iids = np.unique(atom_array.pn_unit_iid[is_query_pn_unit])
+
+        # If only one of the query pn_units is present, we will just use that
+        if len(available_query_pn_unit_iids) == 1 and len(query_pn_unit_iids) > 1:
+            query_pn_unit_iids = available_query_pn_unit_iids
+            logger.warning(
+                f"Falling back to only available query pn_unit ({query_pn_unit_iids[0]}) for the crop center."
+            )
+
+        # If none of the query pn_units are present, we will randomly select one
+        elif len(available_query_pn_unit_iids) == 0:
+            all_available_pn_unit_iids = np.unique(atom_array.pn_unit_iid)
+            query_pn_unit_iids = np.random.choice(all_available_pn_unit_iids, size=1)
+            logger.warning(f"Falling back to randomly-selected pn_unit ({query_pn_unit_iids[0]}) for the crop center.")
+
+        # Update the mask for query pn_unit
+        is_query_pn_unit = np.isin(atom_array.pn_unit_iid, query_pn_unit_iids)
 
     if len(query_pn_unit_iids) == 1:
         # If there's only one query unit, we don't need to check for spatial proximity,
@@ -334,6 +362,7 @@ def crop_spatial_like_af3(
     jitter_scale: float = 1e-3,
     crop_center_cutoff_distance: float = 15.0,
     force_crop: bool = False,
+    raise_if_missing_query: bool = True,
 ) -> dict:
     """Crop spatial tokens around a given `crop_center` by keeping the `crop_size` nearest neighbors (with jitter).
 
@@ -347,6 +376,9 @@ def crop_spatial_like_af3(
             consider for crop center. Defaults to 15.0 Angstroms.
         - force_crop (bool, optional): Whether to force crop even if the atom array is already small enough.
             Defaults to False.
+        - raise_if_missing_query (bool): Whether to raise an Exception if no crop centers are found, e.g. if the
+            query pn_unit(s) are not present due to a previous filtering step. Defaults to `True`. If `False`, a random
+            pn_unit will be selected for the crop center.
 
     Returns:
         dict: A dictionary containing crop information, including:
@@ -368,7 +400,9 @@ def crop_spatial_like_af3(
     requires_crop = n_tokens > crop_size
     if force_crop or requires_crop:
         # Get possible crop centers
-        can_be_crop_center = get_spatial_crop_center(atom_array, query_pn_unit_iids, crop_center_cutoff_distance)
+        can_be_crop_center = get_spatial_crop_center(
+            atom_array, query_pn_unit_iids, crop_center_cutoff_distance, raise_if_missing_query=raise_if_missing_query
+        )
 
         # ... sample crop center atom
         crop_center_atom_id = np.random.choice(atom_array[can_be_crop_center].atom_id)
@@ -515,6 +549,7 @@ class CropSpatialLikeAF3(Transform):
         keep_uncropped_atom_array: bool = False,
         force_crop: bool = False,
         max_atoms_in_crop: int | None = None,
+        raise_if_missing_query: bool = True,
     ):
         """Initialize the CropSpatialLikeAF3 transform.
 
@@ -531,6 +566,9 @@ class CropSpatialLikeAF3(Transform):
                 Defaults to `False`.
             max_atoms_in_crop (int, optional): Maximum number of atoms allowed in a crop. If None, no resizing is performed.
                 Defaults to None.
+            raise_if_missing_query (bool): Whether to raise an Exception if no crop centers are found, e.g. if the
+                query pn_unit(s) are not present due to a previous filtering step. Defaults to `True`. If `False`, a random
+                pn_unit will be selected for the crop center.
         """
         self.crop_size = crop_size
         self.jitter_scale = jitter_scale
@@ -538,6 +576,7 @@ class CropSpatialLikeAF3(Transform):
         self.keep_uncropped_atom_array = keep_uncropped_atom_array
         self.force_crop = force_crop
         self.max_atoms_in_crop = max_atoms_in_crop
+        self.raise_if_missing_query = raise_if_missing_query
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
@@ -560,6 +599,7 @@ class CropSpatialLikeAF3(Transform):
             jitter_scale=self.jitter_scale,
             crop_center_cutoff_distance=self.crop_center_cutoff_distance,
             force_crop=self.force_crop,
+            raise_if_missing_query=self.raise_if_missing_query,
         )
         crop_info = resize_crop_info_if_too_many_atoms(
             crop_info=crop_info,
