@@ -123,7 +123,7 @@ def get_cluster_sizes(df: pd.DataFrame, cluster_column="cluster") -> dict:
 
 
 def calculate_weights_for_pdb_dataset_df(
-    dataset_df: pd.DataFrame, alphas: dict[str, float], beta: float
+    dataset_df: pd.DataFrame, alphas: dict[str, float], beta: float, cluster_column: str = "cluster"
 ) -> torch.Tensor:
     """Calculate weights for each row in the DataFrame based on the cluster size and the AF-3 weighting methodology.
 
@@ -136,10 +136,10 @@ def calculate_weights_for_pdb_dataset_df(
         torch.Tensor: A tensor containing the calculated weights for each row in the DataFrame
     """
     # Generate the cluster sizes...
-    cluster_id_to_size_map = get_cluster_sizes(dataset_df)
+    cluster_id_to_size_map = get_cluster_sizes(dataset_df, cluster_column=cluster_column)
 
     # ...map the cluster sizes to the DataFrame
-    dataset_df["cluster_size"] = dataset_df["cluster"].map(cluster_id_to_size_map)
+    dataset_df["cluster_size"] = dataset_df[cluster_column].map(cluster_id_to_size_map)
 
     # ... assert no NaN cluster sizes
     assert not dataset_df["cluster_size"].isnull().any(), "Cluster sizes must not be NaN"
