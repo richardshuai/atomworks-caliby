@@ -180,8 +180,26 @@ def load_polymer_msas(
     max_msa_sequences: int = 10_000,
     msa_cache_dir: PathLike | None = None,
     use_paths_in_chain_info: bool = True,
+    raise_if_missing_msa_for_protein_of_length_n: int | None = None,
 ) -> dict[str, np.array]:
-    """Load MSAs for all polymer chains in the AtomArray and store them in a dictionary. See the LoadPolymerMSAs transform for more information"""
+    """
+    Load MSAs for all polymer chains in the AtomArray and store them in a dictionary. See the LoadPolymerMSAs transform for more information
+    Args:
+        atom_array (AtomArray): The AtomArray for the full structure
+        chain_info (dict): A dictionary containing chain information, including:
+            - processed_entity_non_canonical_sequence: The non-canonical sequence for the chain
+            - processed_entity_canonical_sequence: The canonical sequence for the chain
+            - chain_type: The type of the chain (e.g., protein, RNA)
+            - msa_path (optional): The path to the MSA file for the chain, if available
+        protein_msa_dirs (list[dict[str, str]]): The directories containing the protein MSAs and their associated file types.
+        rna_msa_dirs (list[dict[str, str]]): The directories containing the RNA MSAs and their associated file types.
+        max_msa_sequences (int): The maximum number of sequences to load from the MSA files. Defaults to 10_000.
+        msa_cache_dir (PathLike | None): The directory to cache the parsed MSA data (since loading from text files is slow). If None, caching is turned off.
+        use_paths_in_chain_info (bool): Whether to use the MSA paths provided in the chain_info dictionary. If True, we will first check the chain_info dictionary for MSA paths.
+        raise_if_missing_msa_for_protein_of_length_n (int | None): If provided, raises an error if a protein of length >= n is missing an MSA file.
+    Returns:
+        dict[str, np.array]: A dictionary mapping chain IDs to their corresponding MSA data
+    """
     msas_by_chain_id = {}
 
     # NOTE: If `msa_cache_dir` is `None`, the cache decorator will be a no-op
@@ -219,6 +237,9 @@ def load_polymer_msas(
 
         if msa_file_path is None:
             # If no MSA file path is found, we skip this chain
+            if raise_if_missing_msa_for_protein_of_length_n is not None:
+                if chain_type.is_protein() and len(canonical_sequence) >= raise_if_missing_msa_for_protein_of_length_n:
+                    raise ValueError(f"MSA file not found for protein of length {len(canonical_sequence)}")
             continue
 
         assert msa_file_path.exists(), f"MSA file not found at given path: {msa_file_path}"
@@ -278,6 +299,7 @@ class LoadPolymerMSAs(Transform):
             AF-3 used a large value (~16K), but our MSAs on disk are already pre-filtered to 10K.
         msa_cache_dir (PathLike, optional): The directory to cache the parsed MSA data
             (since loading from text files is slow). If None, caching is turned off.
+        raise_if_missing_msa_for_protein_of_length_n (int | None): If provided, raises an error if a protein of length >= n is missing an MSA file.
 
     The `polymer_msas_by_chain_id` dictionary which is added contains the following keys:
         - msa: The MSA as a 2D np.array of integers, using the encoding specified in
@@ -307,12 +329,14 @@ class LoadPolymerMSAs(Transform):
         max_msa_sequences: int = 10000,
         msa_cache_dir: PathLike | None = None,
         use_paths_in_chain_info: bool = True,
+        raise_if_missing_msa_for_protein_of_length_n: int | None = None,
     ):
         self.max_msa_sequences = max_msa_sequences
         self.protein_msa_dirs = protein_msa_dirs
         self.rna_msa_dirs = rna_msa_dirs
         self.msa_cache_dir = msa_cache_dir
         self.use_paths_in_chain_info = use_paths_in_chain_info
+        self.raise_if_missing_msa_for_protein_of_length_n = raise_if_missing_msa_for_protein_of_length_n
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array", "chain_info"])
@@ -328,6 +352,7 @@ class LoadPolymerMSAs(Transform):
             max_msa_sequences=self.max_msa_sequences,
             msa_cache_dir=self.msa_cache_dir,
             use_paths_in_chain_info=self.use_paths_in_chain_info,
+            raise_if_missing_msa_for_protein_of_length_n=self.raise_if_missing_msa_for_protein_of_length_n,
         )
         data["polymer_msas_by_chain_id"] = polymer_msas_by_chain_id
 
