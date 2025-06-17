@@ -499,6 +499,29 @@ def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
     return atom_array
 
 
+def standardize_component_keys(component_dict: dict) -> dict:
+    """Standardize component dictionary keys for compatibility with AF3's inference API.
+
+    Maps:
+        - "sequence" -> "seq"
+        - "id" -> "chain_id"
+    """
+    # Create a copy to avoid modifying the original
+    standardized = component_dict.copy()
+
+    # Handle sequence/seq mapping
+    if "sequence" in standardized and "seq" not in standardized:
+        standardized["seq"] = standardized.pop("sequence")
+    elif "sequence" in standardized and "seq" in standardized:
+        raise ValueError(f"Both 'sequence' and 'seq' are present in {standardized=}")
+
+    # Handle id/chain_id mapping
+    if "id" in standardized and "chain_id" not in standardized:
+        standardized["chain_id"] = standardized.pop("id")
+
+    return standardized
+
+
 def build_msa_paths_by_chain_id_from_component_list(components: list[ChemicalComponent]) -> dict[str, os.PathLike]:
     """Build a dictionary of MSA paths by chain ID from a list of ChemicalComponent objects.
 
@@ -544,9 +567,29 @@ def components_to_atom_array(
     Returns:
         AtomArray: The assembled AtomArray, used for visualization or inference.
     """
+    standardized_components = []
+    for component in components:
+        if isinstance(component, dict):
+            # Standardize the keys
+            component = standardize_component_keys(component)
+
+            # If chain_id is a list, create copies for each chain_id
+            if "chain_id" in component and isinstance(component["chain_id"], list):
+                for single_chain_id in component["chain_id"]:
+                    component_copy = component.copy()
+                    component_copy["chain_id"] = single_chain_id
+                    standardized_components.append(component_copy)
+            else:
+                standardized_components.append(component)
+        elif isinstance(component, ChemicalComponent):
+            standardized_components.append(component)
+        else:
+            raise ValueError(f"Unknown component type: {type(component)}")
+
     # Ensure that all components are ChemicalComponent objects
     components = [
-        ChemicalComponent.from_dict(component) if isinstance(component, dict) else component for component in components
+        ChemicalComponent.from_dict(component) if isinstance(component, dict) else component
+        for component in standardized_components
     ]
 
     # Extract all assigned chain IDs
