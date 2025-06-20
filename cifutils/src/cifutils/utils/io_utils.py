@@ -461,6 +461,12 @@ def _to_cif_or_bcif(
     pdbx.set_structure(cif_file, structure, data_block=id, include_bonds=include_bonds, extra_fields=extra_fields)
 
     # Add extra categories if provided
+    extra_categories = extra_categories or {}
+    if hasattr(structure, "_annot_2d"):
+        for annot in structure.get_annotation_2d_categories():
+            pairs = structure.get_annotation_2d(annot).pairs
+            values = structure.get_annotation_2d(annot).values
+            extra_categories[annot] = {"idx0": pairs[:, 0], "idx1": pairs[:, 1], "value": values}
     if extra_categories:
         _write_categories_to_block(block, extra_categories)
 

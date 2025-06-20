@@ -50,6 +50,56 @@ def is_same_in_segment(segment_start_stop: np.ndarray, data: np.ndarray) -> np.n
     )
 
 
+def is_monotonic_increasing(arr: np.ndarray, strict: bool = True) -> bool:
+    """Check if an array is monotonically increasing.
+
+    Args:
+        arr (np.ndarray): Array to check.
+    """
+    if strict:
+        return np.all(np.diff(arr) > 0)
+    else:
+        return np.all(np.diff(arr) >= 0)
+
+
+def is_monotonic_decreasing(arr: np.ndarray, strict: bool = True) -> bool:
+    """Check if an array is monotonically decreasing.
+
+    Args:
+        arr (np.ndarray): Array to check.
+    """
+    if strict:
+        return np.all(np.diff(arr) < 0)
+    else:
+        return np.all(np.diff(arr) <= 0)
+
+
+def is_increasing_without_gaps(arr: np.ndarray, strict: bool = True) -> bool:
+    """Check if an array is monotonically increasing without gaps.
+
+    Args:
+        arr (np.ndarray): Array to check.
+    """
+    if strict:
+        return np.all(np.diff(arr) == 0)
+    else:
+        return np.all((np.diff(arr) == 0) | (np.diff(arr) == 1))
+
+
+def has_annotation(arr: AtomArray, annotation: str | list[str]) -> bool:
+    """Check if an AtomArray has an annotation.
+
+    Args:
+        arr: AtomArray to check.
+        annotation: Annotation(s) to check for.
+    """
+    existing_annotations = frozenset(["coord", *arr.get_annotation_categories()])
+    if isinstance(annotation, str):
+        return annotation in existing_annotations
+    else:
+        return set(annotation).issubset(existing_annotations)
+
+
 def _get_atom_array_stats(arr: AtomArray) -> str:
     msg = f"AtomArray: {len(arr)} atoms, {struc.get_residue_count(arr)} residues, {struc.get_chain_count(arr)} chains\n"
     msg += f"\t... unique chain ids: {np.unique(arr.chain_id)}\n"

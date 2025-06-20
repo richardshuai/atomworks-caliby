@@ -54,7 +54,7 @@ _is_metal = np.vectorize(lambda x: ATOMIC_NUMBER_TO_ELEMENT.get(x, x.capitalize(
 
 
 def view(
-    structure: AtomArray,
+    structure: AtomArray | AtomArrayStack,
     *,
     zoom_to_selection: dict[str, int | str] | None = None,
     show_hover: bool = True,
@@ -93,6 +93,10 @@ def view(
     Returns:
         py3Dmol.view: The py3Dmol view object for the structure visualization.
     """
+    if isinstance(structure, AtomArrayStack):
+        logger.warning("AtomArrayStack is not supported; using the first model.")
+        structure = structure[0]
+
     # Initialize the py3Dmol view with specified width and height
     view = py3Dmol.view(width=width, height=height)
 

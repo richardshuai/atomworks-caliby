@@ -65,6 +65,7 @@ def parse(
     model: int | None = None,
     build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
     extra_fields: list[str] | Literal["all"] | None = None,
+    keep_cif_block: bool = False,
 ) -> dict[str, Any]:
     """Entrypoint for general parsing of atomic-level structure files.
 
@@ -127,6 +128,7 @@ def parse(
             (e.g., asymmetric unit), "first", "all", or a list or tuple of assembly IDs. Defaults to "all".
         extra_fields (list, optional): A list of extra fields to include in the AtomArrayStack. Defaults to None. "all" includes all fields.
             only support cif files.
+        keep_cif_block (bool, optional): Whether to keep the CIF block in the result. Defaults to False.
 
     Returns:
         dict: A dictionary containing the following keys:
@@ -267,6 +269,7 @@ def parse(
             model=model,
             build_assembly=build_assembly,
             extra_fields=extra_fields,
+            keep_cif_block=keep_cif_block,
         )
     else:
         raise ValueError(f"Unsupported file type: {filename}")
@@ -507,6 +510,8 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
 
     # ... subset to only the keys we want to return, verbosely for clarity
     _keep_keys = {"chain_info", "ligand_info", "asym_unit", "assemblies", "metadata", "extra_info"}
+    if kwargs.get("keep_cif_block", False):
+        _keep_keys.add("cif_block")
     return keyfilter(lambda k: k in _keep_keys, data_dict)
 
 
