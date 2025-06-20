@@ -67,9 +67,13 @@ except Exception as e:
 import biotite.structure as struc  # noqa: E402
 
 from cifutils.utils.selection import get_residue_starts  # noqa: E402
+from cifutils.utils.atom_array import array  # noqa: E402
 
 # Improve the 'get_residue_starts' function to disambiguate symmetry copies
 struc.get_residue_starts = get_residue_starts
+
+# Improve the `array` function to not truncate the datatype of annotations
+struc.array = array
 
 
 # Improve the AtomArray representation to be leaner, for debugging
