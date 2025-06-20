@@ -11,6 +11,8 @@ import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
 
+from cifutils.utils.atom_array_plus import AtomArrayPlus
+
 
 def annot_start_stop_idxs(
     atom_array: AtomArray | AtomArrayStack, annots: str | list[str], add_exclusive_stop: bool = False
@@ -70,11 +72,43 @@ def get_residue_starts(atom_array: AtomArray | AtomArrayStack, add_exclusive_sto
     return annot_start_stop_idxs(atom_array, annots=annots_to_check, add_exclusive_stop=add_exclusive_stop)
 
 
-def get_annotation(atom_array: AtomArray | AtomArrayStack, annot: str, default: Any = None) -> np.ndarray:
+def _validate_n_body_and_type(atom_array: AtomArray | AtomArrayStack, n_body: int, operation: str) -> None:
+    """Validate n_body parameter and atom_array type compatibility."""
+    if n_body > 1 and not isinstance(atom_array, (AtomArrayPlus | AtomArrayStack)):
+        raise ValueError(f"Cannot {operation} with n_body={n_body} on non-AtomArrayPlus!")
+
+    if n_body not in (1, 2):
+        raise NotImplementedError(f"Cannot {operation} with n_body={n_body}!")
+
+
+def get_annotation(
+    atom_array: AtomArray | AtomArrayStack, annot: str, n_body: int | None = None, default: Any = None
+) -> np.ndarray:
     """Get the annotation for an AtomArray or AtomArrayStack if it exists, otherwise return the default value."""
-    if annot in atom_array.get_annotation_categories():
+    if n_body is not None:
+        _validate_n_body_and_type(atom_array, n_body, f"get annotation for {annot}")
+    else:
+        # Auto-detect annotation dimensionality if n_body not specified
+        for body in (1, 2):
+            if annot in get_annotation_categories(atom_array, n_body=body):
+                return get_annotation(atom_array, annot, n_body=body)
+
+    if n_body == 1 and annot in atom_array.get_annotation_categories():
         return atom_array.get_annotation(annot)
+    elif n_body == 2 and annot in atom_array.get_annotation_2d_categories():
+        return atom_array.get_annotation_2d(annot)
+
     return default
+
+
+def get_annotation_categories(atom_array: AtomArray | AtomArrayStack, n_body: int = 1) -> list[str]:
+    """Get annotation categories for the specified n_body."""
+    if n_body == 1 and hasattr(atom_array, "get_annotation_categories"):
+        return atom_array.get_annotation_categories()
+    elif n_body == 2 and hasattr(atom_array, "get_annotation_2d_categories"):
+        return atom_array.get_annotation_2d_categories()
+    else:
+        return []
 
 
 class SegmentSlice(ABC):

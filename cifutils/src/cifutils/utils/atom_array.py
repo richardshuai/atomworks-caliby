@@ -5,7 +5,7 @@ def array(atoms: list[Atom]) -> AtomArray:
     """Patch of Biotite's `array` function to not truncate the datatype of annotations.
 
     Args:
-        atoms: The atoms to be combined in an array. All atoms must share the same 
+        atoms: The atoms to be combined in an array. All atoms must share the same
             annotation categories.
 
     Returns:
