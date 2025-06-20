@@ -57,12 +57,6 @@ IncludeCmd: yes
    # Add conda environment to PATH
    export PATH=/usr/envs/cifutils-apptainer/bin:$PATH
 
-   # Run the biotite setup command
-   # (Temporary measure until we switch to released Biotite version)
-   . /usr/etc/profile.d/conda.sh
-   conda activate cifutils-apptainer
-   python -m biotite.setup_ccd
-
    ## CLEANUP
    # clean up files to reduce size
    # ... remove conda

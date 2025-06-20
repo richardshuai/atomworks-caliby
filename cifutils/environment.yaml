@@ -3,10 +3,14 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10.8
-  - openbabel=3.1.1
-  - rdkit=2024.3.5
+  # Core dependencies
   - pip
+  - python=3.12
+  - cuda
+  
+  # Small molecule libraries
+  - rdkit>=2024.3.5
+  - openbabel=3.1.1
   - pip:
     # Project related dependencies
     # ... generic tools
@@ -29,8 +33,8 @@ dependencies:
     - biopython>=1.83,<2  # Collection of Python modules for bioinformatics
     - py3Dmol>=2.2.1,<3  # Python wrapper for 3Dmol.js
     - pymol-remote>=0.0.5  # Remote access to PyMOL from Python (has no dependencies)
-    - git+https://github.com/biotite-dev/biotite.git@v1.2.0  # Biotite is a Python library for bioinformatics
-    - hydride==1.2.3 #biotite supported hydrogen addition
+    - biotite==1.3.0  # Biotite is a Python library for bioinformatics
+    - hydride==1.2.3 # Biotite-supported tool for hydrogen addition
 
     # Formatting & linting (only needed for development)
     - ruff==0.8.3  # python linter & formatter
