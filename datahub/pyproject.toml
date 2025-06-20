@@ -95,6 +95,11 @@ exclude = ["*.ipynb", "dev.py"]
 # Sort imports
 extend-select = ["I"]
 
+# Ignore certain rules
+ignore = [
+    "F722",  # Jaxtyping https://docs.kidger.site/jaxtyping/faq/#how-does-jaxtyping-interact-with-jaxjit
+]
+
 
 [tool.pytest.ini_options]
 testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
