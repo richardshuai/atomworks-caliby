@@ -335,3 +335,8 @@ pdbx.set_structure = set_structure
 
 # We need to import parse here to ensure that the version string is set
 from cifutils.parser import parse  # noqa: F401
+
+# Add the `.query`, `.mask`, `.idxs` methods to the AtomArray and AtomArrayStack classes
+from cifutils.utils.query import monkey_patch_atomarray  # noqa: F401
+
+monkey_patch_atomarray()

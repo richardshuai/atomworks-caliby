@@ -47,7 +47,7 @@ jobs:
 
   test:
     name: pytest (run tests)
-    runs-on: [ digs ]
+    runs-on: [ jojo ]
     timeout-minutes: 30
     needs: lint
     # ... only run on non-draft PRs to `main` to avoid unnecessary CI runs
