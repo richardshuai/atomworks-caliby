@@ -600,3 +600,32 @@ PDB_ISOTOPE_SYMBOL_TO_ELEMENT_SYMBOL: Final[dict[str, str]] = {
 
 NOTE: Other isotopes like 14C do not have a special symbol in the PDB.
 """
+
+STANDARD_AA_TIP_ATOM_NAMES: Final[dict[str, list[str]]] = {
+    "ALA": ["CB"],
+    "ARG": ["NH1", "NH2"],
+    "ASN": ["OD1", "ND2"],
+    "ASP": ["OD1", "OD2"],
+    "CYS": ["SG"],
+    "GLN": ["OE1", "NE2"],
+    "GLU": ["OE1", "OE2"],
+    "GLY": ["CA"],
+    "HIS": ["CE1", "NE2"],
+    "ILE": ["CD1"],
+    "LEU": ["CD1", "CD2"],
+    "LYS": ["NZ"],
+    "MET": ["CE"],
+    "PHE": ["CZ"],
+    "PRO": ["CD", "CG"],
+    "SER": ["OG"],
+    "THR": ["OG1", "CG2"],
+    "TRP": ["CH2"],
+    "TYR": ["OH"],
+    "VAL": ["CG1", "CG2"],
+}
+"""A dictionary that maps the standard 20 amino acids to their tip atoms.
+
+Tip atoms are defined as the side-chain heavy atoms that are furthest away
+from the backbone oxygen atom in the residue's bond graph. With the exception of GLY,
+which has no backbone oxygen atom and we therefore use the CA atom as the tip atom.
+"""
