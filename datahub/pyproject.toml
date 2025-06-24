@@ -104,9 +104,9 @@ ignore = [
 [tool.pytest.ini_options]
 testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
 norecursedirs = "docs *.egg-info .git .tox"
-conftest = "tests/conftest.py"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "very_slow: marks tests as very slow (deselect with '-m \"not very_slow\"')",
+    "requires_x3dna: marks tests that require X3DNA to be installed and available",
 ]
 addopts = "-m \"not slow and not very_slow\""

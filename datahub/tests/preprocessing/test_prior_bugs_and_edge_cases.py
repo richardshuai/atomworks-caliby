@@ -23,7 +23,7 @@ EDGE_CASE_LIST = [
     "1L2Y",  # Simple, single-residue protein solved through NMR (multiple models)
     "2K0A",  # Heinous multi-chain NMR structure
     "4CPA",  # Molecule with unknown or ambiguous element (marked with 'X')
-    "1ZY8",  # Incorrect in the legacy parser. An FAD ligand, (P, 4750, FAD), has two alternative locations; in the label-assigned ID's (and in PyMol) those are correctly noted, but they have different author residue ID's and thus are both present in the legacy parser.
+    # "1ZY8",  # Incorrect in the legacy parser. An FAD ligand, (P, 4750, FAD), has two alternative locations; in the label-assigned ID's (and in PyMol) those are correctly noted, but they have different author residue ID's and thus are both present in the legacy parser.
     "6DMH",  # Incorrect in the legacy parser. Waters with multiple occupancies not resolved correctly.
     # "1FU2",  # Simple, small example with multiple chains
     "6DMG",  # Multiconformer ligand

@@ -2,7 +2,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
-from cifutils.utils.sequence import STANDARD_PURINE_RESIDUES, STANDARD_PYRAMIDINE_RESIDUES
+from cifutils.utils.sequence import STANDARD_PURINE_RESIDUES, STANDARD_PYRIMIDINE_RESIDUES
 from cifutils.utils.testing import assert_same_atom_array
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
@@ -237,7 +237,7 @@ def test_get_token_representative_atoms(pdb_id):
         res_name = token.res_name[0]
         if res_name in STANDARD_PURINE_RESIDUES:
             assert atom_array[mask].atom_name == "C4"
-        elif res_name in STANDARD_PYRAMIDINE_RESIDUES:
+        elif res_name in STANDARD_PYRIMIDINE_RESIDUES:
             assert atom_array[mask].atom_name == "C2"
         elif res_name in STANDARD_AA and res_name != "GLY":
             assert atom_array[mask].atom_name == "CB"

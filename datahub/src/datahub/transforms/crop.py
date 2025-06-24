@@ -497,7 +497,7 @@ def resize_crop_info_if_too_many_atoms(
 
     # Update atom idxs accordingly
     # ... create updated masks for chosen tokens
-    is_chosen_token = np.zeros(atom_array.array_length(), dtype=bool)
+    is_chosen_token = np.zeros(get_token_count(atom_array), dtype=bool)
     is_chosen_token[token_idxs_in_budget] = True
     # ... get the atom indices that are within budget
     atom_idxs_in_budget = np.where(spread_token_wise(atom_array, is_chosen_token))[0]

@@ -39,7 +39,7 @@ def test_to_reverse_complement():
 @pytest.mark.requires_x3dna
 def test_generate_bform_dna():
     """Test that the bform DNA is generated correctly."""
-    X3DNAFiber.get_or_initialize(X3DNA_PATH)  # ... setup the X3DNA manager
+    X3DNAFiber.get_or_initialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
     target_seq = "ATCG"
     atom_array = generate_bform_dna(target_seq)
     ccd_seq = struc.get_residues(atom_array)[1]
@@ -64,7 +64,7 @@ def test_generate_bform_dna():
 def test_augment_pad_dna(example_id: str, np_seed: int = 1):
     data = cached_parse(example_id)
     pipe = PadDNA(
-        x3dna_path=X3DNA_PATH,
+        x3dna_path=None,  # Use environment variable instead of directory path
         p_skip=0.0,
     )
     with rng_state(create_rng_state_from_seeds(np_seed=np_seed)):

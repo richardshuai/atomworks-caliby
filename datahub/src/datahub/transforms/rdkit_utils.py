@@ -546,11 +546,42 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
         self.hydrogen_policy = hydrogen_policy
 
     def check_input(self, data: dict[str, Any]):
-        check_contains_keys(data, ["atom_array"])
         check_does_not_contain_keys(data, ["rdkit"])
-        check_is_instance(data, "atom_array", AtomArray)
-        check_nonzero_length(data, "atom_array")
         check_atom_array_annotation(data, ["atomize", "pn_unit_iid"])
+
+    def _convert_atom_array_to_rdkit_robust(self, atom_array: AtomArray) -> Mol:
+        """Convert an AtomArray to RDKit molecule with error sanitization failure handling"""
+
+        conversion_kwargs = {
+            "hydrogen_policy": self.hydrogen_policy,
+            "annotations_to_keep": ["chain_id", "res_id", "res_name", "atom_name", "atom_id", "pn_unit_iid"],
+            "sanitize": True,
+        }
+
+        try:
+            # First attempt: try without fixing for better performance
+            rdmol = atom_array_to_rdkit(atom_array, attempt_fixing_corrupted_molecules=False, **conversion_kwargs)
+
+            # Check if sanitization actually succeeded
+            sanitization_result = Chem.SanitizeMol(rdmol, catchErrors=True)
+            if sanitization_result != Chem.SanitizeFlags.SANITIZE_NONE:
+                # Molecule failed sanitization, retry with fixing enabled
+                logger.warning(
+                    f"Molecule {atom_array.res_name[0]} failed sanitization ({sanitization_result}). "
+                    "Retrying with attempt_fixing_corrupted_molecules=True."
+                )
+                rdmol = atom_array_to_rdkit(atom_array, attempt_fixing_corrupted_molecules=True, **conversion_kwargs)
+
+            return rdmol
+
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to convert molecule {atom_array.res_name[0]} to RDKit: {str(e)}. "
+                "Trying again and attempting to fix the corrupted molecule."
+            )
+            return atom_array_to_rdkit(atom_array, attempt_fixing_corrupted_molecules=True, **conversion_kwargs)
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array: AtomArray = data["atom_array"]
@@ -563,28 +594,7 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
         for pn_unit_iid in np.unique(_atom_array.pn_unit_iid):
             pn_unit_mask = _atom_array.pn_unit_iid == pn_unit_iid
             molecule = _atom_array[pn_unit_mask]
-            try:
-                rdmol = atom_array_to_rdkit(
-                    molecule,
-                    hydrogen_policy=self.hydrogen_policy,
-                    annotations_to_keep=["chain_id", "res_id", "res_name", "atom_name", "atom_id", "pn_unit_iid"],
-                    sanitize=True,
-                    attempt_fixing_corrupted_molecules=False,
-                )
-            except KeyboardInterrupt as e:
-                raise e
-            except Exception as e:
-                logger.error(
-                    f"Failed to convert molecule {pn_unit_iid} to RDKit: {str(e)}. Trying again and attempting to fix the corrupted molecule."
-                )
-                rdmol = atom_array_to_rdkit(
-                    molecule,
-                    hydrogen_policy=self.hydrogen_policy,
-                    annotations_to_keep=["chain_id", "res_id", "res_name", "atom_name", "atom_id", "pn_unit_iid"],
-                    sanitize=True,
-                    attempt_fixing_corrupted_molecules=True,
-                )
-            # Store by pn_unit_iid as key
+            rdmol = self._convert_atom_array_to_rdkit_robust(molecule)
             data["rdkit"][pn_unit_iid] = rdmol
 
         return data

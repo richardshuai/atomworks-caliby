@@ -7,7 +7,7 @@ from cifutils.utils.sequence import (
     is_glycine,
     is_protein_unknown,
     is_purine,
-    is_pyramidine,
+    is_pyrimidine,
     is_standard_aa_not_glycine,
     is_unknown_nucleotide,
 )
@@ -234,7 +234,7 @@ def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
     assert (
         "atomize" in atom_array.get_annotation_categories()
     ), "Atomize annotation is missing. Run AtomizeByCCDName Transform for magical atomization of ligands"
-    pyramidine_representative_atom = is_pyramidine(atom_array.res_name) & (atom_array.atom_name == "C2")
+    pyramidine_representative_atom = is_pyrimidine(atom_array.res_name) & (atom_array.atom_name == "C2")
     purine_representative_atom = is_purine(atom_array.res_name) & (atom_array.atom_name == "C4")
     unknown_na_representative_atom = is_unknown_nucleotide(atom_array.res_name) & (atom_array.atom_name == "C4")
 

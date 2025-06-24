@@ -36,7 +36,7 @@ jobs:
 
   test:
     name: pytest (run tests)
-    runs-on: [digs]
+    runs-on: [jojo]
     timeout-minutes: 60  # Increased to account for both fast and slow tests
     needs: lint
     # ... only run on non-draft PRs to `main` to avoid unnecessary CI runs
