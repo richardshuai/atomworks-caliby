@@ -1,3 +1,4 @@
+import logging
 import time
 
 import biotite.structure as struc
@@ -173,6 +174,43 @@ def test_chirality_in_rdkit_conformer_generation(ccd_code, target_chirality, str
         assert (
             Chem.FindMolChiralCenters(mol) == target_chirality
         ), f"Chiral center assignment is incorrect for {ccd_code} at iteration {i}/{n_iterations}."
+
+
+@pytest.mark.filterwarnings("ignore: This process")
+def test_tuple_timeout_policy(caplog):
+    """Test the tuple-based timeout policy for conformer generation.
+
+    Gracefully handles timeouts by falling back to CCD conformers (with a warning) rather than raising exceptions.
+    """
+
+    # Test with very short timeout - should trigger fallback behavior
+    start = time.time()
+    with caplog.at_level(logging.WARNING):
+        mol = ccd_code_to_rdkit_with_conformers(
+            "ALA", n_conformers=100, timeout=(0.1, 0.0), timeout_strategy="subprocess"
+        )
+    end = time.time()
+    # Should complete within ~0.2s (allowing slight overhead)
+    assert end - start < 0.3, f"Timeout didn't trigger properly, took {end - start:.2f}s"
+    # Should still return the requested number of conformers (via fallback)
+    assert mol.GetNumConformers() == 100
+    # Should have logged the specific warning about falling back to CCD conformer
+    assert (
+        "Failed to generate 100 conformers for ccd_code='ALA'. Falling back to idealized conformer from the CCD"
+        in caplog.text
+    )
+
+    # Should succeed: with scaling timeout (0.1 + 0.1 * (n-1)) for 100 conformers
+    caplog.clear()
+    start = time.time()
+    mol = ccd_code_to_rdkit_with_conformers("ALA", n_conformers=100, timeout=(0.1, 0.1), timeout_strategy="subprocess")
+    end = time.time()
+    assert mol.GetNumConformers() == 100
+    # Should have taken at least the minimum timeout but not too long
+    assert end - start > 0.1
+    assert end - start < 15.0  # Generous upper bound
+    # Should NOT have logged any warnings about fallback (since timeout was sufficient)
+    assert "Falling back to idealized conformer" not in caplog.text
 
 
 if __name__ == "__main__":

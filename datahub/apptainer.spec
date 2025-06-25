@@ -86,8 +86,6 @@ IncludeCmd: yes
 
    ## PACKAGE INSTALLATION
    apt-get update
-   # Install build essentials and other required packages (needed for compiling biotite cython files)
-   apt-get install -y build-essential gcc g++
    # Install make (so we can run `make format`, `make clean`, etc.)
    apt-get install -y make git wget libaio-dev
    # required X libs

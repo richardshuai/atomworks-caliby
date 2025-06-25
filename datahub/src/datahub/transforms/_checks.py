@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from cifutils.utils.selection import get_annotation_categories
+
 
 def check_contains_keys(data: dict[str, Any], keys: list[str]):
     """Check if a key is in a dictionary."""
@@ -41,9 +43,10 @@ def check_nonzero_length(data: dict[str, Any], key: str):
         raise ValueError(f"Key {key} in data has length 0")
 
 
-def check_atom_array_annotation(data: dict[str, Any], required: list[str], forbidden: list[str] = []):
+def check_atom_array_annotation(data: dict[str, Any], required: list[str], forbidden: list[str] = [], n_body: int = 1):
     """Check if `atom_array` key has the annotations specified in `required`."""
-    annotations = set(data["atom_array"].get_annotation_categories())
+    annotations = set(get_annotation_categories(data["atom_array"], n_body=n_body))
+
     if not set(required).issubset(annotations):
         missing = set(required) - annotations
         raise ValueError(f"Key `atom_array` is missing the following annotations: {missing}")

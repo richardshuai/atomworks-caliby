@@ -6,7 +6,7 @@ from biotite.structure import AtomArray
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 
 from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
-from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES
+from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES, ChainType
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.transforms.filters import (
@@ -61,6 +61,9 @@ def test_remove_polymers_with_too_few_resolved_residues(test_case):
 def test_remove_terminal_oxygen():
     atom_array = struc.info.residue("ILE")
     assert "OXT" in atom_array.atom_name
+
+    # Add required chain_type annotation for the RemoveTerminalOxygen transform
+    atom_array.set_annotation("chain_type", np.full(atom_array.array_length(), ChainType.POLYPEPTIDE_L, dtype=int))
 
     data = {"atom_array": atom_array}
 

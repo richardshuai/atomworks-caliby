@@ -6,7 +6,7 @@ from abc import abstractmethod
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -55,6 +55,92 @@ class BaseDataset(Dataset):
     def idx_to_id(self, idx: int | list[int]) -> str | list[str]:
         """Convert an index or list of indices to the corresponding example ID or IDs."""
         pass
+
+
+class FileDataset(BaseDataset):
+    def __init__(
+        self,
+        source: PathLike | list[str | PathLike],
+        filter_fn: Callable[[PathLike], bool] | None = None,
+        max_depth: int = 3,
+    ):
+        """Initialize a FileDataset that loads files from a directory or uses a pre-provided list.
+
+        Args:
+            source: Either a directory path to scan for files, or a pre-built list of file paths
+            filter_fn: Optional function that takes a file path and returns True if the file should be included
+            max_depth: Maximum directory depth to scan (only used when source is a directory path)
+        """
+        if isinstance(source, (str, Path)):
+            # Directory scanning mode
+            self.dir_path = Path(source)
+            assert self.dir_path.is_dir(), f"Directory {source} does not exist."
+
+            # Default filter accepts all files
+            self.filter_fn = filter_fn if filter_fn is not None else lambda x: True
+
+            # Scan directory for any files below
+            file_paths = self._scan_directory(max_depth=max_depth)
+
+        elif isinstance(source, list):
+            # Pre-provided file list mode
+            self.dir_path = None
+
+            # Convert to strings and apply filter if provided
+            file_paths = [str(path) for path in source]
+            if filter_fn is not None:
+                file_paths = [path for path in file_paths if filter_fn(path)]
+            self.filter_fn = filter_fn
+
+        else:
+            raise ValueError("source must be either a directory path (str/Path) or a list of file paths")
+
+        # Sort paths alphabetically for id<>idx consistency
+        file_paths.sort()
+
+        self.file_paths = file_paths
+        self.path_to_idx = {path: i for i, path in enumerate(file_paths)}
+
+    def _scan_directory(self, max_depth: int) -> list[str]:
+        """Fast directory scan without worrying about order."""
+        file_paths = []
+
+        for root, dirs, files in os.walk(self.dir_path):
+            current_depth = len(Path(root).relative_to(self.dir_path).parts)
+
+            if current_depth >= max_depth:
+                dirs.clear()
+                continue
+
+            for file in files:
+                file_path = os.path.join(root, file)
+                if self.filter_fn(file_path):
+                    file_paths.append(file_path)
+
+        return file_paths
+
+    def __len__(self) -> int:
+        return len(self.file_paths)
+
+    def __contains__(self, example_id: str) -> bool:
+        return example_id in self.path_to_idx
+
+    def id_to_idx(self, example_id: str | list[str]) -> int | list[int]:
+        if isinstance(example_id, list):
+            return [self.path_to_idx[id] for id in example_id]
+        return self.path_to_idx[example_id]
+
+    def idx_to_id(self, idx: int | list[int]) -> str | list[str]:
+        if isinstance(idx, list):
+            return [self.file_paths[i] for i in idx]
+        return self.file_paths[idx]
+
+    def __getitem__(self, idx: int) -> Any:
+        """Return the file path at the given index.
+
+        Subclasses can override this to load and process the file content instead.
+        """
+        return self.file_paths[idx]
 
 
 class StructuralDatasetWrapper(BaseDataset):

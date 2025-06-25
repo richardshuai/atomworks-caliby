@@ -93,7 +93,7 @@ def build_af3_transform_pipeline(
     # Undesired res names
     undesired_res_names: list[str] = AF3_EXCLUDED_LIGANDS,
     # Conformer generation params
-    conformer_generation_timeout: float = 5.0,  # seconds
+    conformer_generation_timeout: float | tuple[float, float] = (3.0, 0.15),  # seconds
     use_element_for_atom_names_of_atomized_tokens: bool = False,
     # Template params
     max_n_template: int = 20,  # Maximum number of templates to return from our template search (distinct from n_template)
@@ -126,15 +126,16 @@ def build_af3_transform_pipeline(
     and generating reference molecule features.
 
     Args:
-        crop_size (int, optional): The size of the crop. Defaults to 384.
-        crop_center_cutoff_distance (float, optional): The cutoff distance for spatial cropping.
+        crop_size: The size of the crop. Defaults to 384.
+        crop_center_cutoff_distance: The cutoff distance for spatial cropping.
             Defaults to 15.0.
-        crop_contiguous_probability (float, optional): The probability of using contiguous cropping.
+        crop_contiguous_probability: The probability of using contiguous cropping.
             Defaults to 0.5.
-        crop_spatial_probability (float, optional): The probability of using spatial cropping.
+        crop_spatial_probability: The probability of using spatial cropping.
             Defaults to 0.5.
-        conformer_generation_timeout (float, optional): The timeout for conformer generation in seconds.
-            Defaults to 10.0.
+        conformer_generation_timeout: The timeout for conformer generation in seconds.
+            Defaults to (3.0, 0.15), which gives a timeout of 3.0 + 0.15 * (n_conformers - 1)
+            seconds per unique CCD code.
 
     Returns:
         Transform: A composed pipeline of transforms.

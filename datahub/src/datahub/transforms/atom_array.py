@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any, Callable, Iterator, Literal
 
@@ -10,6 +11,7 @@ import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
 from cifutils.enums import ChainType
+from cifutils.utils.testing import has_annotation
 
 from datahub.transforms._checks import (
     check_atom_array_annotation,
@@ -17,6 +19,7 @@ from datahub.transforms._checks import (
     check_is_instance,
 )
 from datahub.transforms.base import Transform
+from datahub.utils import nested_dict
 from datahub.utils.token import (
     get_token_count,
     get_token_starts,
@@ -369,7 +372,7 @@ def copy_annotation(atom_array: AtomArray, annotation_to_copy: str, new_annotati
         # We must handle the special case of copying the coordinates (since "coord" is not technically an annotation)
         atom_array.set_annotation(new_annotation, atom_array.coord.copy())
     else:
-        atom_array.set_annotation(new_annotation, atom_array.get_annotation(annotation_to_copy))
+        atom_array.set_annotation(new_annotation, copy.deepcopy(atom_array.get_annotation(annotation_to_copy)))
 
     return atom_array
 
@@ -382,13 +385,11 @@ class CopyAnnotation(Transform):
         self.new_annotation = new_annotation
 
     def check_input(self, data: dict):
-        assert (
-            self.annotation_to_copy == "coord"
-            or self.annotation_to_copy in data["atom_array"].get_annotation_categories()
+        assert has_annotation(
+            data["atom_array"], self.annotation_to_copy
         ), f"Annotation {self.annotation_to_copy} does not exist in the AtomArray."
-
-        assert (
-            self.new_annotation not in data["atom_array"].get_annotation_categories()
+        assert not has_annotation(
+            data["atom_array"], self.new_annotation
         ), f"Annotation {self.new_annotation} already exists in the AtomArray."
 
     def forward(self, data: dict) -> dict:
@@ -719,5 +720,6 @@ class ComputeAtomToTokenMap(Transform):
         check_atom_array_annotation(data, ["token_id"])
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        data["feats"]["atom_to_token_map"] = compute_atom_to_token_map(data["atom_array"])
+        atom_to_token_map = compute_atom_to_token_map(data["atom_array"])
+        nested_dict.set(data, ("feats", "atom_to_token_map"), atom_to_token_map)
         return data

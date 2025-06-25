@@ -293,15 +293,12 @@ class PlaceUnresolvedTokenAtomsOnRepresentativeAtom(Transform):
         or "coord_to_be_noised" (if we want to modify only the coordinates that will be noised).
     """
 
-    requires_previous_transforms = ["MaskPolymerResiduesWithUnresolvedFrameAtoms", "AtomizeByCCDName"]
+    requires_previous_transforms = ["AtomizeByCCDName"]
 
     def __init__(self, annotation_to_update: str = "coord_to_be_noised") -> None:
         self.annotation_to_update = annotation_to_update
 
     def check_input(self, data: dict[str, Any]) -> None:
-        check_contains_keys(data, ["atom_array"])
-        check_is_instance(data, "atom_array", AtomArray)
-
         annotations_to_check = ["occupancy"]
         if self.annotation_to_update != "coord":
             # "coord" is a special annotation, and technically not in `atom_array.get_annotation_categories()`

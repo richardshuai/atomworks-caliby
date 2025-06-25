@@ -32,23 +32,22 @@ KNOWN_CCD_CODES = get_available_ccd_codes() - {UNKNOWN_LIGAND}
 
 def _get_rdkit_mols_with_conformers(
     res_stochiometry: dict[str, int],
-    timeout: float | None = 10.0,
+    timeout: float | None | tuple[float, float] = (3.0, 0.15),
     timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
     **generate_conformers_kwargs,
 ) -> dict[str, Chem.Mol]:
     """Generate RDKit molecules with conformers for each residue in bulk (given the counts in `res_stochiometry`).
-
     Args:
-        res_stochiometry (dict[str, int]): A dictionary mapping residue names to their count.
-        timeout (float | None): The timeout for the automorphism search. If None, no timeout is applied and
-            the timeout strategy is ignored (no subprocesses will be spawned). Defaults to 10.0 seconds.
-        timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
-            Defaults to "subprocess".
+        res_stochiometry: A dictionary mapping residue names to their count.
+        timeout: The timeout for the automorphism search. If None, no timeout is applied and
+            the timeout strategy is ignored (no subprocesses will be spawned). Defaults to (3.0, 0.15), which
+            gives a timeout of 3.0 + 0.15 * (n_conformers - 1) seconds per unique CCD code.
+        timeout_strategy: The strategy to use for the timeout. Defaults to "subprocess".
         **generate_conformers_kwargs: Additional keyword arguments to pass to the
             generate_conformers function.
 
     Returns:
-        dict[str, Chem.Mol]: A dictionary mapping residue names to RDKit molecules with generated conformers.
+        A dictionary mapping residue names to RDKit molecules with generated conformers.
 
     Note:
         This function uses the res_name_to_rdkit_with_conformers function to generate conformers
@@ -160,7 +159,7 @@ def _map_reference_conformer_to_residue(
 
 def get_af3_reference_molecule_features(
     atom_array: AtomArray,
-    conformer_generation_timeout: float = 10.0,
+    conformer_generation_timeout: float | tuple[float, float] = (3.0, 0.15),
     should_generate_automorphisms_with_rdkit: bool = False,
     apply_random_rotation_and_translation: bool = True,
     use_element_for_atom_names_of_atomized_tokens: bool = False,
@@ -170,20 +169,21 @@ def get_af3_reference_molecule_features(
     """Get AF3 reference features for each residue in the atom array.
 
     Args:
-        atom_array (AtomArray): The input atom array.
-        conformer_generation_timeout (float, optional): Maximum time allowed for conformer generation per residue.
-            Defaults to 10.0 seconds. If None, no timeout is applied and the timeout strategy is ignored (no subprocesses will be spawned).
-        should_generate_automorphisms_with_rdkit (bool, optional): Whether to generate automorphisms using RDKit. For example,
+        atom_array: The input atom array.
+        conformer_generation_timeout: Maximum time allowed for conformer generation per residue.
+            Defaults to (3.0, 0.15), which gives a timeout of 3.0 + 0.15 * (n_conformers - 1) seconds.
+            If None, no timeout is applied and the timeout strategy is ignored (no subprocesses will be spawned).
+        should_generate_automorphisms_with_rdkit: Whether to generate automorphisms using RDKit. For example,
             we may want to generate automorphisms directly with NetworkX instead (since RDKit automorphism generation
             is unreliable due to kekulization). Defaults to False.
-        apply_random_rotation_and_translation (bool, optional): Whether to apply a random rotation and translation to each conformer (AF-3-style)
-        timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
+        apply_random_rotation_and_translation: Whether to apply a random rotation and translation to each conformer (AF-3-style)
+        timeout_strategy: The strategy to use for the timeout.
             Defaults to "subprocess" (which is the most reliable choice).
         **generate_conformers_kwargs: Additional keyword arguments to pass to the generate_conformers function.
 
     Returns:
-        ref_conformer (dict[str, Any]): A dictionary containing the generated reference features.
-        ref_mols (dict[str, Any]): A dictionary containing all generated RDKit molecules, including those with unknown CCD codes.
+        ref_conformer: A dictionary containing the generated reference features.
+        ref_mols: A dictionary containing all generated RDKit molecules, including those with unknown CCD codes.
 
     This function generates the following reference features, following AF3:
         - ref_pos: [N_atoms, 3] Atom positions in the reference conformer, with a random rotation and

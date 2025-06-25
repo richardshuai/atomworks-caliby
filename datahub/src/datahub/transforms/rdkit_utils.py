@@ -76,6 +76,8 @@ def generate_conformers(
             generation, but removed again before returning the molecule. If "keep" the molecule is
             used as-is (without adding or removing hydrogens). If "auto", the policy is set to "keep"
             if the molecule already has explicit hydrogens, otherwise it is set to "remove".
+            If "infer", we follow the same behavior as "remove," but do not remove added hydrogens
+            prior to returning the molecule.
         - optimize (bool): Whether to optimize the generated conformers using UFF.
             Default is True.
         - **uff_optimize_kwargs (dict): Additional keyword arguments for UFF optimization:
@@ -379,11 +381,15 @@ def find_automorphisms_with_rdkit(
     return np.stack([identity, automorphs], axis=-1)
 
 
+def _auto_timeout_policy(n_conformers: int, offset: float = 3.0, slope: float = 0.15) -> float:
+    return offset + slope * (n_conformers - 1)
+
+
 def sample_rdkit_conformer_for_atom_array(
     atom_array: AtomArray,
     n_conformers: int = 1,
     seed: int | None = None,
-    timeout: float | None = 2.0,
+    timeout: float | None | tuple[float, float] = (3.0, 0.15),
     timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
     return_mol: bool = False,
     **generate_conformers_kwargs,
@@ -391,15 +397,14 @@ def sample_rdkit_conformer_for_atom_array(
     """Sample a conformer for a Biotite AtomArray using RDKit.
 
     Args:
-        - atom_array (AtomArray): The Biotite AtomArray to sample a conformer for.
-        - n_conformers (int): The number of conformers to sample.
-        - timeout (float | None): The timeout for conformer generation. If None,
-            no timeout is applied.
-        - seed (int | None): The seed for conformer generation. If None, a random seed
+        - atom_array: The Biotite AtomArray to sample a conformer for.
+        - n_conformers: The number of conformers to sample.
+        - timeout: The timeout for conformer generation. If None,
+            no timeout is applied. If a tuple, the first element is the offset and the
+            second element is the slope.
+        - seed: The seed for conformer generation. If None, a random seed
             is generated using the global numpy RNG.
-        - timeout (float | None): The timeout for the automorphism search. If None, no timeout is applied and
-            the timeout strategy is ignored (no subprocesses will be spawned).
-        - timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
+        - timeout_strategy: The strategy to use for the timeout.
             Defaults to "subprocess".
         - **generate_conformers_kwargs: Additional keyword arguments to pass to the
             generate_conformers function.
@@ -418,6 +423,7 @@ def sample_rdkit_conformer_for_atom_array(
     if mol.GetNumConformers() > 0:
         mol.RemoveAllConformers()
 
+    timeout = _auto_timeout_policy(n_conformers, *timeout) if isinstance(timeout, tuple) else timeout
     generate_conformers_with_timeout = timer.timeout(timeout=timeout, strategy=timeout_strategy)(generate_conformers)
 
     set_coord_if_available = True
@@ -425,7 +431,9 @@ def sample_rdkit_conformer_for_atom_array(
         mol = generate_conformers_with_timeout(mol, n_conformers=n_conformers, seed=seed, **generate_conformers_kwargs)
     except (TimeoutError, RuntimeError):
         set_coord_if_available = False
-        logger.warning(f"Failed to generate conformers for {atom_array.res_name[0]}. Falling back to zeros.")
+        logger.warning(
+            f"Failed to generate {n_conformers} conformers for {atom_array.res_name[0]}. Falling back to zeros."
+        )
 
     new_atom_array = atom_array_from_rdkit(
         mol,
@@ -451,8 +459,9 @@ def ccd_code_to_rdkit_with_conformers(
     n_conformers: int,
     *,
     seed: int | None = None,
-    timeout: float | None = 2.0,
+    timeout: float | None | tuple[float, float] = (3.0, 0.15),
     timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
+    skip_rdkit_conformer_generation: bool = False,
     **generate_conformers_kwargs,
 ) -> Chem.Mol:
     """
@@ -462,15 +471,15 @@ def ccd_code_to_rdkit_with_conformers(
     using RDKit's conformer generation (based on ETKDGv3 per default).
     If conformer generation fails or times out, it falls back to using the idealized conformer
     from the CCD entry if one is available.
-
     Args:
-        ccd_code (str): The CCD code to generate conformers for. E.g. 'ALA' or 'GLY', '9RH' etc.
-        n_conformers (int): The number of conformers to generate for the given CCD code.
-        seed (int | None, optional): The seed for conformer generation. If None, a random seed
+        ccd_code: The CCD code to generate conformers for. E.g. 'ALA' or 'GLY', '9RH' etc.
+        n_conformers: The number of conformers to generate for the given CCD code.
+        seed: The seed for conformer generation. If None, a random seed
             is generated using the global numpy RNG.
-        timeout (float | None): The timeout for the automorphism search. If None, no timeout is applied and
-            the timeout strategy is ignored (no subprocesses will be spawned).
-        timeout_strategy (Literal["signal", "subprocess"]): The strategy to use for the timeout.
+        timeout: The timeout for the automorphism search. If None, no timeout is applied and
+            the timeout strategy is ignored (no subprocesses will be spawned). If a tuple,
+            the first element is the offset and the second element is the slope.
+        timeout_strategy: The strategy to use for the timeout.
             Defaults to "subprocess".
         **generate_conformers_kwargs: Additional keyword arguments to pass to the
             generate_conformers function.
@@ -485,14 +494,20 @@ def ccd_code_to_rdkit_with_conformers(
     idealized_conformer = Chem.Conformer(mol.GetConformer(0))  # creates a copy
 
     # ... try generating `count` conformers within a given time limit
-    generate_conformers_with_timeout = timer.timeout(timeout=timeout, strategy=timeout_strategy)(generate_conformers)
-    try:
-        seed = seed or _get_random_seed()
-        mol = generate_conformers_with_timeout(mol, n_conformers=n_conformers, seed=seed, **generate_conformers_kwargs)
-    except (TimeoutError, RuntimeError, Chem.MolSanitizeException) as e:
-        logger.warning(
-            f"Failed to generate conformers for {ccd_code=}. Falling back to idealized conformer from the CCD. Error message: {e}"
+    if not skip_rdkit_conformer_generation:
+        timeout = _auto_timeout_policy(n_conformers, *timeout) if isinstance(timeout, tuple) else timeout
+        generate_conformers_with_timeout = timer.timeout(timeout=timeout, strategy=timeout_strategy)(
+            generate_conformers
         )
+        try:
+            seed = seed or _get_random_seed()
+            mol = generate_conformers_with_timeout(
+                mol, n_conformers=n_conformers, seed=seed, **generate_conformers_kwargs
+            )
+        except (TimeoutError, RuntimeError, Chem.MolSanitizeException) as e:
+            logger.warning(
+                f"Failed to generate {n_conformers} conformers for {ccd_code=}. Falling back to idealized conformer from the CCD. Error message: {e}"
+            )
 
     # ... if conformer generation fails or is incomplete, return the idealized conformer (set `count` conformers)
     missing_conformers = n_conformers - mol.GetNumConformers()

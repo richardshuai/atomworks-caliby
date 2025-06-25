@@ -2,7 +2,6 @@ import itertools
 import logging
 
 import numpy as np
-from assertpy import assert_that
 from biotite.structure import AtomArray
 from scipy.spatial import KDTree
 
@@ -23,6 +22,15 @@ from datahub.utils.token import (
 )
 
 logger = logging.getLogger("datahub")
+
+
+class CropTransformBase(Transform):
+    """
+    Base class for crop-type transforms.
+    """
+
+    def _validate(self):
+        assert self.crop_size > 0, "Crop size must be greater than 0"
 
 
 def crop_contiguous_af2_multimer(iids: list[int | str], instance_lens: list[int], crop_size: int) -> dict:
@@ -60,8 +68,13 @@ def crop_contiguous_af2_multimer(iids: list[int | str], instance_lens: list[int]
     iids = np.asarray(iids)
     instance_lens = np.asarray(instance_lens)
 
-    assert_that(crop_size).is_greater_than(0)
-    assert_that(len(iids)).is_equal_to(len(instance_lens)).is_equal_to(np.unique(iids).size)
+    assert crop_size > 0, "Crop size must be greater than 0"
+    assert len(iids) == len(
+        instance_lens
+    ), f"Number of instance IDs ({len(iids)}) must match number of instance lengths ({len(instance_lens)})"
+    assert (
+        len(iids) == np.unique(iids).size
+    ), f"Instance IDs must be unique, but got {len(iids)} IDs with only {np.unique(iids).size} unique values"
 
     # randomly permute the order of the instances to avoid cropping bias
     permutation = np.random.permutation(len(iids))
@@ -237,11 +250,13 @@ def get_spatial_crop_mask(
         >>> print(crop_mask)
         [ True  True False False]
     """
-    assert_that(coord.ndim).is_equal_to(2)
-    assert_that(coord.shape[1]).is_equal_to(3)
-    assert_that(crop_center_idx).is_less_than(coord.shape[0])
-    assert_that(crop_size).is_greater_than(0)
-    assert_that(jitter_scale).is_greater_than_or_equal_to(0)
+    assert coord.ndim == 2, f"Expected coord to be 2-dimensional, got {coord.ndim} dimensions"
+    assert coord.shape[1] == 3, f"Expected coord to have 3 coordinates per point, got {coord.shape[1]}"
+    assert (
+        crop_center_idx < coord.shape[0]
+    ), f"Crop center index {crop_center_idx} is out of bounds for coord array of length {coord.shape[0]}"
+    assert crop_size > 0, f"Crop size must be positive, got {crop_size}"
+    assert jitter_scale >= 0, f"Jitter scale must be non-negative, got {jitter_scale}"
 
     # Add small jitter to coordinates to break ties
     if jitter_scale > 0:
@@ -270,7 +285,7 @@ def get_spatial_crop_mask(
     return crop_mask
 
 
-class CropContiguousLikeAF3(Transform):
+class CropContiguousLikeAF3(CropTransformBase):
     """A transform that performs contiguous cropping similar to AF3.
 
     This class implements the contiguous cropping procedure as described in AF3. It selects a crop center
@@ -287,6 +302,7 @@ class CropContiguousLikeAF3(Transform):
         keep_uncropped_atom_array (bool): Whether to keep the uncropped atom array in the data.
             If `True`, the uncropped atom array will be stored in the `crop_info` dictionary
             under the key `"atom_array"`. Defaults to `False`.
+        max_atoms_in_crop (int | None): Maximum number of atoms allowed in a crop. If None, no resizing is performed.
     """
 
     requires_previous_transforms = ["AtomizeByCCDName"]
@@ -297,10 +313,12 @@ class CropContiguousLikeAF3(Transform):
         "PlaceUnresolvedTokenOnClosestResolvedTokenInSequence",
     ]
 
-    def __init__(self, crop_size: int, keep_uncropped_atom_array: bool = False, max_atoms_in_crop=None):
+    def __init__(self, crop_size: int, keep_uncropped_atom_array: bool = False, max_atoms_in_crop: int | None = None):
+        super().__init__()
         self.crop_size = crop_size
         self.keep_uncropped_atom_array = keep_uncropped_atom_array
         self.max_atoms_in_crop = max_atoms_in_crop
+        self._validate()
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])
@@ -509,7 +527,7 @@ def resize_crop_info_if_too_many_atoms(
     return crop_info
 
 
-class CropSpatialLikeAF3(Transform):
+class CropSpatialLikeAF3(CropTransformBase):
     """
     A transform that performs spatial cropping similar to AF3 and AF2 Multimer.
 
@@ -554,15 +572,15 @@ class CropSpatialLikeAF3(Transform):
         """Initialize the CropSpatialLikeAF3 transform.
 
         Args:
-            crop_size (int): The maximum number of tokens to crop. Must be greater than 0.
-            jitter_scale (float, optional): The scale of the jitter to apply to the crop center.
+            crop_size: The maximum number of tokens to crop. Must be greater than 0.
+            jitter_scale: The scale of the jitter to apply to the crop center.
                 This is to break ties between atoms with the same spatial distance. Defaults to 1e-3.
-            crop_center_cutoff_distance (float, optional): The cutoff distance to consider for
+            crop_center_cutoff_distance: The cutoff distance to consider for
                 selecting crop centers. Measured in Angstroms. Defaults to 15.0.
-            keep_uncropped_atom_array (bool, optional): Whether to keep the uncropped atom array in the data.
+            keep_uncropped_atom_array: Whether to keep the uncropped atom array in the data.
                 If `True`, the uncropped atom array will be stored in the `crop_info` dictionary
                 under the key `"atom_array"`. Defaults to `False`.
-            force_crop (bool, optional): Whether to force crop even if the atom array is already small enough.
+            force_crop: Whether to force crop even if the atom array is already small enough.
                 Defaults to `False`.
             max_atoms_in_crop (int, optional): Maximum number of atoms allowed in a crop. If None, no resizing is performed.
                 Defaults to None.
@@ -570,6 +588,7 @@ class CropSpatialLikeAF3(Transform):
                 query pn_unit(s) are not present due to a previous filtering step. Defaults to `True`. If `False`, a random
                 pn_unit will be selected for the crop center.
         """
+        super().__init__()
         self.crop_size = crop_size
         self.jitter_scale = jitter_scale
         self.crop_center_cutoff_distance = crop_center_cutoff_distance
@@ -577,6 +596,7 @@ class CropSpatialLikeAF3(Transform):
         self.force_crop = force_crop
         self.max_atoms_in_crop = max_atoms_in_crop
         self.raise_if_missing_query = raise_if_missing_query
+        self._validate()
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array"])

@@ -77,16 +77,19 @@ def flag_and_reassign_covalent_modifications(atom_array: AtomArray) -> AtomArray
 
 
 class FlagAndReassignCovalentModifications(Transform):
-    """
-    Handles covalent modifications within the AtomArray.
+    """Handles covalent modifications within the AtomArray.
 
-    Covalent modifications, e.g., glycosylation, are handled by the following algorithm:
-    ------------------------------------------------------------------------------------------------
-    for polymer residues with atoms covalently bound to a NON-POLYMER:
-        for ALL atoms in the polymer residue:
-            set the pn_unit_iid and pn_unit_id identifying annotations to that of the NON-POLYMER polymer/non-polymer unit
-            set atomize = true (thus, this transform must be run before the Atomize transform)
-    ------------------------------------------------------------------------------------------------
+    This transform identifies polymer residues that are covalently bound to non-polymer units (e.g., glycosylation)
+    and reassigns their annotations to be consistent with the non-polymer unit. Specifically, for any polymer residue
+    with atoms covalently bound to a non-polymer:
+
+    1. All atoms in the polymer residue have their pn_unit_iid and pn_unit_id annotations set to match the
+       non-polymer unit
+    2. The non-polymer unit and all its bound polymer residues are marked for atomization (atomize=True)
+
+    Note:
+        This transform must be run before AtomizeByCCDName since it sets the atomize annotation that
+        AtomizeByCCDName uses to determine which residues to atomize.
     """
 
     incompatible_previous_transforms = [AtomizeByCCDName, "AddGlobalTokenIdAnnotation"]

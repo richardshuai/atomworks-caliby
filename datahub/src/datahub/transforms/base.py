@@ -14,7 +14,6 @@ from typing import Any, Callable, Iterable, Type
 
 import numpy as np
 import torch
-from assertpy import assert_that
 from toolz import valmap
 
 from datahub.transforms._checks import check_contains_keys, check_does_not_contain_keys
@@ -443,7 +442,9 @@ class Compose(Transform):
                         break
 
                     # ... otherwise apply the transform
-                    data = transform(data)
+                    data = transform(
+                        data
+                    )  # BREAKPOINT: Set debug breakpoint here to step through the transforms one-by-one
             except KeyboardInterrupt:
                 raise
             except Exception as e:
@@ -655,12 +656,32 @@ class RandomRoute(Transform):
         Raises:
             AssertionError: If inputs are invalid (e.g. probabilities don't add up, are negative, etc.)
         """
-        assert_that(len(transforms)).is_equal_to(len(probs))
-        assert_that(np.isclose(np.sum(probs), 1) or np.isclose(np.sum(probs), 0)).is_true()
-        assert_that(all(isinstance(t, Transform) for t in transforms)).is_true()
+        # Validate inputs
+        assert len(transforms) == len(probs), (
+            f"Number of transforms must match number of probabilities. "
+            f"Got {len(transforms)} transforms and {len(probs)} probabilities."
+        )
+        assert np.isclose(np.sum(probs), 1) or np.isclose(
+            np.sum(probs), 0
+        ), f"Probabilities must sum to 1 or 0. Got {np.sum(probs)}"
+        assert all(isinstance(t, Transform) for t in transforms), (
+            f"All elements in transforms must be Transform instances. "
+            f"Got {type(next(t for t in transforms if not isinstance(t, Transform)))}"
+        )
 
         self.transforms = transforms
         self.probs = probs
+
+    @classmethod
+    def from_dict(cls, transform_dict: dict[Transform, float]) -> RandomRoute:
+        probs = list(transform_dict.values())
+        transforms = list(transform_dict.keys())
+        return cls(transforms, probs)
+
+    @classmethod
+    def from_list(cls, transform_list: list[tuple[float, Transform]]) -> RandomRoute:
+        probs, transforms = zip(*transform_list)
+        return cls(transforms, probs)
 
     def check_input(self, data: dict[str, Any]) -> None:
         pass

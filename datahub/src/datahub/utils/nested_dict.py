@@ -109,6 +109,30 @@ def get(d: dict[tuple[str, ...], Any], key: tuple[str, ...], default: Any = None
     return d
 
 
+def set(d: dict[tuple[str, ...], Any], key: tuple[str, ...], value: Any) -> None:
+    """Set a value in a nested dictionary using a tuple key.
+
+    Equivalent behavior to __setitem__ for nested dictionaries.
+    Creates intermediate dictionaries if they don't exist yet.
+
+    Args:
+        - d (dict): A nested dictionary.
+        - key (tuple): A tuple of keys to navigate through the dictionary.
+        - value (Any): The value to set at the specified key.
+    """
+    _assert_dict_like(d)
+    key = (key,) if isinstance(key, str) else key
+    if len(key) == 0:
+        raise KeyError("Empty key")
+
+    current = d
+    for k in key[:-1]:
+        if k not in current:
+            current[k] = {}
+        current = current[k]
+    current[key[-1]] = value
+
+
 def getitem(d: dict[tuple[str, ...], Any], key: tuple[str, ...]) -> Any:
     """Get a value from a nested dictionary using a tuple key.
 
