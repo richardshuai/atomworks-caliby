@@ -3,14 +3,29 @@ Python script to generate multiple sequence alignments (MSAs) using MMseqs2 (wit
 as implemented in the ColabFold repository. Much of this code is based on the
 ColabFold mmseqs search script: https://github.com/sokrypton/ColabFold/blob/main/colabfold/mmseqs/search.py
 
+This script has two main modes:
+    - run_pipeline: Generate MSAs from a DataHub parquet file (e.g., training or validation dataset)
+    - generate_msas: Generate MSAs from a list of sequences (e.g., for inference)
+
 Some modifications to the original script were made to fit datahub pipeline conventions.
 
 Example usage:
+    # Full pipeline with DataHub parquet file (e.g., training or validation dataset)
     python make_msa_mmseqs_colabfold.py \
         --input_file /net/scratch/mkazman/datahub/example_datahub_files/example_datahub_file.parquet \
         --output_dir /net/scratch/mkazman/msa/example_msas/ \
         --gpu \
         --gpu_server
+
+    # Simple interface with direct sequences
+    python make_msa_mmseqs_colabfold.py generate_msas \
+        --sequences "MSYIWRQLGSPTVAITLSVSTVIYVTVICPIVFIHLFGDHL..." \
+        --output_dir /path/to/output/
+
+    # Multiple sequences
+    python make_msa_mmseqs_colabfold.py generate_msas \
+        --sequences '["MSYIWRQLGSPTVAITLSVSTVIYVTVICPIVFIHLFGDHL...", "MKKKEVEKDDLIENASRVASCISIFLIIASTTMYIFIGLKI..."]' \
+        --output_dir /path/to/output/
 """
 
 import logging
@@ -38,12 +53,14 @@ SEQUENCE_TYPE_COLUMN_NAME = "q_pn_unit_type"
 MMSEQS_CMD = "/software/mmseqs-gpu/bin/mmseqs"
 
 # NOTE: MMseqs2 databases are stored on the local drive of DB nodes. You can access them from other nodes with /net/databases/colabfold, but this can run into IO-related issues
-CPU_DB_PATH = "/local/colabfold/"
-GPU_DB_PATH = CPU_DB_PATH + "gpu/"
+LOCAL_CPU_DB_PATH = "/local/colabfold/"
+LOCAL_GPU_DB_PATH = LOCAL_CPU_DB_PATH + "gpu/"
+NET_DB_PATH = "/net/databases/colabfold/"
 
 COLABFOLD_DB_NAME = "colabfold_envdb_202108_db"
 UNIREF30_DB_NAME = "uniref30_2302_db"
 PDB100_DB_NAME = "pdb100_230517_db"  # TODO this is not fully tested yet
+PDB70_DB_NAME = "pdb70_220313"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,6 +82,34 @@ MODULE_OUTPUT_POS = {
     "result2msa": 4,
     "search": 3,
 }
+
+
+def _get_database_path(gpu: bool = False) -> Path:
+    """
+    Determine which database path to use, falling back from local to network paths.
+
+    Args:
+        gpu: Whether to use GPU databases
+
+    Returns:
+        Path to the database directory
+    """
+    if gpu:
+        # For GPU, try local GPU path first, then network path
+        if Path(LOCAL_GPU_DB_PATH).exists():
+            logger.info(f"Using local GPU database path: {LOCAL_GPU_DB_PATH}")
+            return Path(LOCAL_GPU_DB_PATH)
+        else:
+            logger.info(f"Local GPU database path not found, using network path: {NET_DB_PATH}")
+            return Path(NET_DB_PATH)
+    else:
+        # For CPU, try local CPU path first, then network path
+        if Path(LOCAL_CPU_DB_PATH).exists():
+            logger.info(f"Using local CPU database path: {LOCAL_CPU_DB_PATH}")
+            return Path(LOCAL_CPU_DB_PATH)
+        else:
+            logger.info(f"Local CPU database path not found, using network path: {NET_DB_PATH}")
+            return Path(NET_DB_PATH)
 
 
 def _make_fasta_file_from_sequence_strings(sequence_strings: list[str], output_fasta_file: PathLike):
@@ -734,7 +779,7 @@ def run_mmseqs_pipeline(
 
     start_time = time.time()
     _mmseqs_search_monomer(
-        dbbase=Path(GPU_DB_PATH if gpu else CPU_DB_PATH),
+        dbbase=_get_database_path(gpu=gpu),
         base=Path(intermediate_dir),
         uniref_db=Path(UNIREF30_DB_NAME),
         template_db=Path(PDB100_DB_NAME),
@@ -760,5 +805,105 @@ def run_mmseqs_pipeline(
         shutil.rmtree(intermediate_dir)
 
 
+def generate_msas_from_sequences(
+    sequences: str | list[str],
+    output_dir: PathLike,
+    use_templates: bool = False,
+    gpu: bool = False,
+    gpu_server: bool = False,
+    num_iterations: int = 3,
+    max_seqs: int = 10000,
+    use_local_temp_dir: bool = True,
+):
+    """
+    Simple entrypoint to generate MSAs directly from protein sequences.
+
+    Args:
+        sequences: A single protein sequence string or list of protein sequences
+        output_dir: Path to the output directory where MSA files will be saved
+        use_templates: Whether to use template databases for structure prediction
+        gpu: Whether to use GPU acceleration
+        gpu_server: Whether to use GPU server (requires gpu=True)
+        num_iterations: Number of search iterations (default: 3)
+        max_seqs: Maximum number of sequences in MSA (default: 10000)
+        use_local_temp_dir: Whether to use local temporary directory for intermediate files
+
+    Returns:
+        None; MSA files are saved to the output directory
+
+    Example:
+        # Single sequence
+        generate_msas_from_sequences(
+            "MSYIWRQLGSPTVAITLSVSTVIYVTVICPIVFIHLFGDHL...",
+            "output_msas/"
+        )
+
+        # Multiple sequences
+        generate_msas_from_sequences([
+            "MSYIWRQLGSPTVAITLSVSTVIYVTVICPIVFIHLFGDHL...",
+            "MKKKEVEKDDLIENASRVASCISIFLIIASTTMYIFIGLKI..."
+        ], "output_msas/")
+    """
+    # Ensure sequences is a list for unified processing
+    if isinstance(sequences, str):
+        sequences = [sequences]
+
+    # Create output directory if it doesn't exist
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    # Use tempfile to make temporary directory that should automatically be on local drive
+    if use_local_temp_dir:
+        intermediate_dir = tempfile.mkdtemp()
+    else:
+        intermediate_dir = output_dir
+
+    # Create FASTA file from sequences
+    fasta_file = Path(intermediate_dir) / "input_sequences.fasta"
+    _make_fasta_file_from_sequence_strings(sequences, fasta_file)
+    _make_mmseqs_db_from_fasta(fasta_file, intermediate_dir)
+
+    if gpu_server and not gpu:
+        raise ValueError("gpu_server is True but gpu is False")
+
+    start_time = time.time()
+    _mmseqs_search_monomer(
+        dbbase=_get_database_path(gpu=gpu),
+        base=Path(intermediate_dir),
+        uniref_db=Path(UNIREF30_DB_NAME),
+        template_db=Path(PDB100_DB_NAME),
+        metagenomic_db=Path(COLABFOLD_DB_NAME),
+        gpu=int(gpu),
+        gpu_server=int(gpu_server),
+        use_templates=use_templates,
+        num_iterations=num_iterations,
+        max_seqs=max_seqs,
+    )
+    logger.info(
+        f"Completed {len(sequences)} sequences in {time.time() - start_time} seconds with MMSeqs2 search and alignment"
+    )
+
+    # cleanup by removing any file or directory that isn't .a3m or .m8
+    for file in Path(intermediate_dir).iterdir():
+        if not file.name.endswith((".a3m", ".m8")):
+            if file.is_file():
+                file.unlink()
+            elif file.is_dir():
+                shutil.rmtree(file)
+
+    if use_local_temp_dir:
+        # copy over everything from intermediate_dir to output_dir
+        for file in Path(intermediate_dir).iterdir():
+            shutil.copy(file, Path(output_dir) / file.name)
+        # remove the intermediate_dir
+        shutil.rmtree(intermediate_dir)
+
+    logger.info(f"MSA files saved to: {Path(output_dir).absolute()}")
+
+
 if __name__ == "__main__":
-    fire.Fire(run_mmseqs_pipeline)
+    fire.Fire(
+        {
+            "run_pipeline": run_mmseqs_pipeline,
+            "generate_msas": generate_msas_from_sequences,
+        }
+    )
