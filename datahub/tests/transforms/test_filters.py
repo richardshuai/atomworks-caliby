@@ -9,6 +9,7 @@ from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata
 from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES, ChainType
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
+from datahub.transforms.covalent_modifications import flag_and_reassign_covalent_modifications
 from datahub.transforms.filters import (
     FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
@@ -18,7 +19,9 @@ from datahub.transforms.filters import (
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
     RemoveUnsupportedChainTypes,
+    random_remove_pn_units_by_annotation_query,
 )
+from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
 
 
@@ -315,6 +318,90 @@ def test_add_terminal_oxygen_indices(test_case: dict):
     confidence_data = remove_terminal_oxygen_indices_pipeline(prepared_data)
     assert num_atoms_before_removal == len(confidence_data["atom_array"]) + 2
     assert "OP3" not in confidence_data["atom_array"].atom_name
+
+
+def _categorize_pn_units(atom_array: AtomArray) -> dict:
+    """Helper function to categorize pn_units by type"""
+    all_pn_units = set(np.unique(atom_array.pn_unit_iid))
+    polymer_pn_units = set(np.unique(atom_array.pn_unit_iid[atom_array.is_polymer]))
+    covalent_mod_pn_units = set(np.unique(atom_array.pn_unit_iid[atom_array.is_covalent_modification]))
+    free_floating_ligand_pn_units = set(
+        np.unique(atom_array.pn_unit_iid[~atom_array.is_polymer & ~atom_array.is_covalent_modification])
+    )
+
+    return {
+        "all": all_pn_units,
+        "polymer": polymer_pn_units,
+        "covalent_modification": covalent_mod_pn_units,
+        "free_floating_ligand": free_floating_ligand_pn_units,
+        "counts": {
+            "all": len(all_pn_units),
+            "polymer": len(polymer_pn_units),
+            "covalent_modification": len(covalent_mod_pn_units),
+            "free_floating_ligand": len(free_floating_ligand_pn_units),
+        },
+    }
+
+
+def test_randomly_remove_ligands():
+    """Test RandomlyRemoveLigands with different probabilities"""
+    data = cached_parse("4js1")
+    atom_array_with_covalent_mods = flag_and_reassign_covalent_modifications(data["atom_array"])
+
+    # Categorize original pn_units
+    original_categories = _categorize_pn_units(atom_array_with_covalent_mods)
+
+    # Test with 0% probability - nothing should be removed
+    with rng_state(create_rng_state_from_seeds(np_seed=42)):
+        result_0_percent = random_remove_pn_units_by_annotation_query(
+            atom_array_with_covalent_mods.copy(),
+            query="~is_polymer & ~is_covalent_modification",
+            delete_probability=0.0,
+        )
+    categories_0_percent = _categorize_pn_units(result_0_percent)
+    assert (
+        categories_0_percent["all"] == original_categories["all"]
+    ), f"With 0% probability, all pn_units should remain. Expected {original_categories['counts']['all']}, got {categories_0_percent['counts']['all']}"
+
+    # Test with 100% probability - all free-floating ligands should be removed
+    with rng_state(create_rng_state_from_seeds(np_seed=42)):
+        result_100_percent = random_remove_pn_units_by_annotation_query(
+            atom_array_with_covalent_mods.copy(),
+            query="~is_polymer & ~is_covalent_modification",
+            delete_probability=1.0,
+        )
+    categories_100_percent = _categorize_pn_units(result_100_percent)
+
+    expected_remaining_100_percent = original_categories["all"] - original_categories["free_floating_ligand"]
+    assert (
+        categories_100_percent["all"] == expected_remaining_100_percent
+    ), f"With 100% probability, only free-floating ligands should be removed. Expected {len(expected_remaining_100_percent)}, got {categories_100_percent['counts']['all']}"
+
+    # Test with 50% probability multiple times to verify randomness works
+    results_50_percent = []
+    for seed in range(10):  # Run 10 times with different seeds
+        with rng_state(create_rng_state_from_seeds(np_seed=seed)):
+            result_50_percent = random_remove_pn_units_by_annotation_query(
+                atom_array_with_covalent_mods.copy(),
+                query="~is_polymer & ~is_covalent_modification",
+                delete_probability=0.5,
+            )
+        categories_50_percent = _categorize_pn_units(result_50_percent)
+        results_50_percent.append(categories_50_percent["all"])
+
+        # Verify that the remaining pn_units are a subset of the original
+        assert categories_50_percent["all"].issubset(
+            original_categories["all"]
+        ), f"Remaining pn_units should be a subset of original (seed {seed})"
+
+        # Verify that polymer pn_units are always preserved (they don't match the query)
+        assert (
+            categories_50_percent["polymer"] == original_categories["polymer"]
+        ), f"Polymer pn_units should always be preserved (seed {seed})"
+
+    # Verify that we get different results across different seeds (randomness check)
+    unique_results = set(frozenset(result) for result in results_50_percent)
+    assert len(unique_results) > 1, "With 50% probability and different seeds, we should get varying results"
 
 
 if __name__ == "__main__":

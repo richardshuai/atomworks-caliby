@@ -27,9 +27,11 @@ def flag_and_reassign_covalent_modifications(atom_array: AtomArray) -> AtomArray
         AtomArray: The modified `AtomArray` with updated annotations for covalent
             modifications. The `pn_unit_id` and `pn_unit_iid` of polymer atoms are
             reassigned to those of the non-polymer unit they are bound to, and the
-            `atomize` annotation is set to `True` for these atoms.
+            `atomize` annotation is set to `True` for these atoms. Additionally, the
+            entire pn_unit is marked with `is_covalent_modification = True`.
 
     NOTE: If `atomize` annotation is not present in the `AtomArray`, it will be added.
+    NOTE: If `is_covalent_modification` annotation is not present in the `AtomArray`, it will be added.
     NOTE: We do not modify the `is_polymer` annotation, which will still refer to the protein chain
     for the atomized polymer atoms.
     """
@@ -46,6 +48,10 @@ def flag_and_reassign_covalent_modifications(atom_array: AtomArray) -> AtomArray
     # Add the atomize annotation to the AtomArray, if not already present
     if "atomize" not in atom_array.get_annotation_categories():
         atom_array.set_annotation("atomize", np.array([False] * len(atom_array)))
+
+    # Add the is_covalent_modification annotation to the AtomArray, if not already present
+    if "is_covalent_modification" not in atom_array.get_annotation_categories():
+        atom_array.set_annotation("is_covalent_modification", np.array([False] * len(atom_array)))
 
     # Loop through inter-molecular bonds
     # NOTE: There aren't likely to be many inter-molecular bonds in the entry, so vectorization is not necessary and would be less readable
@@ -73,23 +79,23 @@ def flag_and_reassign_covalent_modifications(atom_array: AtomArray) -> AtomArray
         # Mark the non-polymer residue for atomization (now includes all atoms in the bonded polymer residue)
         atom_array.atomize[(atom_array.pn_unit_iid == non_polymer_atom.pn_unit_iid)] = True
 
+        # Mark the entire pn_unit as a covalent modification
+        atom_array.is_covalent_modification[(atom_array.pn_unit_iid == non_polymer_atom.pn_unit_iid)] = True
+
     return atom_array
 
 
 class FlagAndReassignCovalentModifications(Transform):
     """Handles covalent modifications within the AtomArray.
 
-    This transform identifies polymer residues that are covalently bound to non-polymer units (e.g., glycosylation)
-    and reassigns their annotations to be consistent with the non-polymer unit. Specifically, for any polymer residue
-    with atoms covalently bound to a non-polymer:
-
-    1. All atoms in the polymer residue have their pn_unit_iid and pn_unit_id annotations set to match the
-       non-polymer unit
-    2. The non-polymer unit and all its bound polymer residues are marked for atomization (atomize=True)
-
-    Note:
-        This transform must be run before AtomizeByCCDName since it sets the atomize annotation that
-        AtomizeByCCDName uses to determine which residues to atomize.
+    Covalent modifications, e.g., glycosylation, are handled by the following algorithm:
+    ------------------------------------------------------------------------------------------------
+    for polymer residues with atoms covalently bound to a NON-POLYMER:
+        for ALL atoms in the polymer residue:
+            set the pn_unit_iid and pn_unit_id identifying annotations to that of the NON-POLYMER polymer/non-polymer unit
+            set atomize = true (thus, this transform must be run before the Atomize transform)
+            set is_covalent_modification = true (for the entire pn_unit)
+    ------------------------------------------------------------------------------------------------
     """
 
     incompatible_previous_transforms = [AtomizeByCCDName, "AddGlobalTokenIdAnnotation"]

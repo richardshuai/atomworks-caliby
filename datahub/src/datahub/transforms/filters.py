@@ -11,6 +11,7 @@ from biotite.structure import AtomArray
 from cifutils.common import not_isin
 from cifutils.constants import HYDROGEN_LIKE_SYMBOLS
 from cifutils.enums import ChainType, ChainTypeInfo
+from cifutils.utils.query import QueryExpression
 from cifutils.utils.selection import get_annotation
 from cifutils.utils.sequence import get_1_from_3_letter_code, get_3_from_1_letter_code
 
@@ -191,6 +192,88 @@ class FilterToSpecifiedPNUnits(Transform):
                 data["atom_array"], eval(data["extra_info"][self.pn_unit_iid_key])
             )
             return data
+
+
+def random_remove_pn_units_by_annotation_query(
+    atom_array: AtomArray, query: str, delete_probability: float = 1.0, rng: np.random.Generator | None = None
+) -> AtomArray:
+    """Randomly remove pn_units from atom_array based on a query string with configurable probability.
+
+    A pn_unit is considered to match the query if ALL atoms in the pn_unit satisfy the query condition.
+
+    Args:
+        atom_array: The AtomArray to filter
+        query: Query string in cifutils Query syntax to identify pn_units to potentially delete
+        delete_probability: Probability of deleting matched pn_units (0.0 = never delete, 1.0 = always delete)
+        rng: Random number generator for probabilistic deletion
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    # Apply query to get mask of atoms matching the criteria
+    query_expr = QueryExpression(query)
+    matching_atoms_mask = query_expr.mask(atom_array)
+
+    # Find pn_units where ALL atoms match the query
+    pn_units_to_potentially_delete = []
+    unique_pn_unit_iids = np.unique(atom_array.pn_unit_iid)
+
+    for pn_unit_iid in unique_pn_unit_iids:
+        pn_unit_mask = atom_array.pn_unit_iid == pn_unit_iid
+        pn_unit_atoms_matching_query = matching_atoms_mask[pn_unit_mask]
+
+        # If ALL atoms in this pn_unit match the query, mark it for potential deletion
+        if np.all(pn_unit_atoms_matching_query):
+            pn_units_to_potentially_delete.append(pn_unit_iid)
+
+    # Probabilistically decide which pn_units to delete
+    if len(pn_units_to_potentially_delete) > 0:
+        delete_mask = rng.random(len(pn_units_to_potentially_delete)) < delete_probability
+        pn_units_to_delete = np.array(pn_units_to_potentially_delete)[delete_mask]
+
+        # Filter out the selected pn_units
+        if len(pn_units_to_delete) > 0:
+            atoms_to_keep = ~np.isin(atom_array.pn_unit_iid, pn_units_to_delete)
+            atom_array = atom_array[atoms_to_keep]
+
+    return atom_array
+
+
+class RandomlyRemovePNUnitsByAnnotationQuery(Transform):
+    """Randomly remove pn_units from atom_array based on a query string with configurable probability.
+
+    Args:
+        query: Query string in cifutils query syntax to identify pn_units to potentially delete
+        delete_probability: Probability of deleting matched pn_units (0.0 = never delete, 1.0 = always delete)
+        rng_seed: Random seed for reproducibility (default: 42)
+    """
+
+    def __init__(self, query: str, delete_probability: float = 1.0, rng_seed: int = 42):
+        self.query = query
+        self.delete_probability = delete_probability
+        self.rng_seed = rng_seed
+
+    def check_input(self, data: dict):
+        check_atom_array_annotation(data, ["pn_unit_iid"])
+
+    def forward(self, data: dict) -> dict:
+        rng = data.get("rng", np.random.default_rng(self.rng_seed))
+
+        data["atom_array"] = random_remove_pn_units_by_annotation_query(
+            data["atom_array"], self.query, self.delete_probability, rng
+        )
+        return data
+
+
+class RandomlyRemoveLigands(RandomlyRemovePNUnitsByAnnotationQuery):
+    """Randomly remove free-floating ligands (non-polymer ligands that are not covalent modifications)"""
+
+    def check_input(self, data: dict):
+        check_atom_array_annotation(data, ["is_polymer", "is_covalent_modification"])
+
+    def __init__(self, delete_probability: float = 1.0, rng_seed: int = 42):
+        query = "~is_polymer & ~is_covalent_modification"
+        super().__init__(query=query, delete_probability=delete_probability, rng_seed=rng_seed)
 
 
 class RemoveUnresolvedLigandAtomsIfTooMany(Transform):
