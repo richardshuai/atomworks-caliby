@@ -1,5 +1,6 @@
 """
 Transforms to handle featurization of edge cases with unresolved residues.
+
 NOTE: Transforms that "filter" based on unresolved residues will be found in the "filters" file, not here.
 """
 
@@ -21,35 +22,59 @@ from datahub.utils.token import (
 )
 
 
-def mask_polymer_residues_with_unresolved_frame_atoms(atom_array: AtomArray) -> AtomArray:
-    """If a polymer residue has an unresolved backbone atom (occupancy == 0), set the occupancy of the entire residue to zero."""
+def mask_residues_with_specific_unresolved_atoms(
+    atom_array: AtomArray,
+    chain_type_to_atom_names: dict[tuple | list | Any, list[str]] | None = None,
+    occupancy_threshold: float = 0.0,
+) -> AtomArray:
+    """If a residue has any unresolved atoms from the specified list, set the occupancy of the entire residue to zero.
 
-    # > "Protein tokens use their residue's backbone (N, CA, C) while DNA and RNA tokens use (C1', C3', C4') [to construct frame]"
-    protein_backbone_atom_names = ["N", "CA", "C"]
-    nucleic_acid_backbone_atom_names = ["C1'", "C3'", "C4'"]
+    Args:
+        atom_array (AtomArray): The atom array to modify.
+        chain_type_to_atom_names (dict[tuple | list | ChainType, list[str]], optional): A dictionary mapping
+            chain types to lists of atom names that should be checked for resolution. Keys can be:
+            - Single chain type (e.g., ChainType.POLYPEPTIDE_L)
+            - Tuple/list of chain types (e.g., ChainTypeInfo.PROTEINS)
+            If None, uses the default AF-3 frame atoms. Defaults to None.
+        occupancy_threshold (float): Atoms with occupancy <= this value are considered unresolved.
+            Defaults to 0.0.
+
+    Returns:
+        AtomArray: The modified atom array.
+    """
+
+    # Use default AF-3 frame atoms if not specified
+    if chain_type_to_atom_names is None:
+        chain_type_to_atom_names = {
+            ChainTypeInfo.PROTEINS: ["N", "CA", "C"],
+            ChainTypeInfo.NUCLEIC_ACIDS: ["C1'", "C3'", "C4'"],
+        }
+
+    unresolved_backbone_mask = np.zeros(len(atom_array), dtype=bool)
 
     # ... subset to backbone atoms within polymers with unresolved coordinates
     # (We treat partially occupied atoms as occupied; e.g., those resolved from "altlocs")
     if "chain_type" in atom_array.get_annotation_categories():
-        # ... proteins
-        protein_mask = np.isin(atom_array.chain_type, ChainTypeInfo.PROTEINS)
-        unresolved_backbone_mask = (
-            protein_mask & np.isin(atom_array.atom_name, protein_backbone_atom_names) & (atom_array.occupancy == 0)
-        )
+        # Process each chain type group and its required atoms
+        for chain_types, atom_names in chain_type_to_atom_names.items():
+            # Handle both single chain types and tuples/lists of chain types
+            if not isinstance(chain_types, (tuple, list)):
+                chain_types = [chain_types]
 
-        # ... nucleic acids
-        nucleic_acid_mask = np.isin(atom_array.chain_type, ChainTypeInfo.NUCLEIC_ACIDS)
-        unresolved_backbone_mask |= (
-            nucleic_acid_mask
-            & np.isin(atom_array.atom_name, nucleic_acid_backbone_atom_names)
-            & (atom_array.occupancy == 0)
-        )
+            chain_type_mask = np.isin(atom_array.chain_type, chain_types)
+            unresolved_backbone_mask |= (
+                chain_type_mask
+                & np.isin(atom_array.atom_name, atom_names)
+                & (atom_array.occupancy <= occupancy_threshold)
+            )
     else:
         # ... rely on atom names if chain type is not available
-        unresolved_backbone_mask = (
-            np.isin(atom_array.atom_name, protein_backbone_atom_names + nucleic_acid_backbone_atom_names)
-            & (atom_array.occupancy == 0)
-            & atom_array.is_polymer
+        all_atom_names = []
+        for atom_names in chain_type_to_atom_names.values():
+            all_atom_names.extend(atom_names)
+
+        unresolved_backbone_mask = np.isin(atom_array.atom_name, all_atom_names) & (
+            atom_array.occupancy <= occupancy_threshold
         )
 
     # Residue-wise mask for unresolved backbone atoms
@@ -61,10 +86,20 @@ def mask_polymer_residues_with_unresolved_frame_atoms(atom_array: AtomArray) -> 
     return atom_array
 
 
-class MaskPolymerResiduesWithUnresolvedFrameAtoms(Transform):
-    """For residues with at least one unresolved frame atom, mask (set to occupancy zero) the entire residue.
+def mask_polymer_residues_with_unresolved_frame_atoms(
+    atom_array: AtomArray, occupancy_threshold: float = 0.0
+) -> AtomArray:
+    """If a polymer residue has an unresolved backbone atom (occupancy <= occupancy_threshold), set the occupancy of the entire residue to zero.
 
-    If we don't have frame atoms, then:
+    This is a backwards-compatible wrapper around mask_residues_with_specific_unresolved_atoms.
+    """
+    return mask_residues_with_specific_unresolved_atoms(atom_array, occupancy_threshold=occupancy_threshold)
+
+
+class MaskResiduesWithSpecificUnresolvedAtoms(Transform):
+    """For residues with at least one unresolved atom from the specified list, mask (set to occupancy zero) the entire residue.
+
+    Helpful for e.g., when we are missing backbone frame atoms, since if we don't have frame atoms, then:
         - We cannot build residue frames
         - The local structure quality is likely poor
 
@@ -76,6 +111,8 @@ class MaskPolymerResiduesWithUnresolvedFrameAtoms(Transform):
     As an example fo nucleic acids, see 7Z24, which has unresolved C1', C2', and C3' (but does have a resolved oxygen)
 
     NOTE: This transform must be applied before other transform that rely on the `occupancy` annotation.
+
+    This transform allows specification of which atoms to check for each chain type; for MPNN, we consider the backbone oxygen (O) as well.
     """
 
     incompatible_previous_transforms = [
@@ -85,13 +122,49 @@ class MaskPolymerResiduesWithUnresolvedFrameAtoms(Transform):
         "PlaceUnresolvedTokenOnClosestResolvedTokenInSequence",
     ]
 
+    def __init__(
+        self,
+        chain_type_to_atom_names: dict[tuple | list | Any, list[str]] | None = None,
+        occupancy_threshold: float = 0.0,
+    ):
+        self.chain_type_to_atom_names = chain_type_to_atom_names
+        self.occupancy_threshold = occupancy_threshold
+
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["occupancy", "chain_type"])
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        data["atom_array"] = mask_polymer_residues_with_unresolved_frame_atoms(data["atom_array"])
+        data["atom_array"] = mask_residues_with_specific_unresolved_atoms(
+            data["atom_array"], self.chain_type_to_atom_names, self.occupancy_threshold
+        )
+        return data
+
+
+class MaskPolymerResiduesWithUnresolvedFrameAtoms(Transform):
+    """For residues with at least one unresolved frame atom, mask (set to occupancy zero) the entire residue.
+
+    This is a backwards-compatible wrapper around MaskResiduesWithSpecificUnresolvedAtoms.
+    """
+
+    incompatible_previous_transforms = [
+        "EncodeAtomArray",
+        "CropContiguousLikeAF3",
+        "CropSpatialLikeAF3",
+        "PlaceUnresolvedTokenOnClosestResolvedTokenInSequence",
+    ]
+
+    def __init__(self, occupancy_threshold: float = 0.0):
+        self.occupancy_threshold = occupancy_threshold
+
+    def check_input(self, data: dict[str, Any]) -> None:
+        check_atom_array_annotation(data, ["occupancy", "chain_type"])
+
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
+        data["atom_array"] = mask_polymer_residues_with_unresolved_frame_atoms(
+            data["atom_array"], self.occupancy_threshold
+        )
         return data
 
 

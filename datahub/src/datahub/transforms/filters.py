@@ -42,6 +42,33 @@ def remove_unresolved_pn_units(atom_array: AtomArray) -> AtomArray:
     return atom_array
 
 
+def remove_unresolved_tokens(atom_array: AtomArray) -> AtomArray:
+    """
+    Filters tokens that have all unresolved atoms (i.e., atoms with occupancy 0) from the AtomArray.
+
+    A token is defined by the token utilities and can be either:
+        - A residue (when atomize=False)
+        - An individual atom (when atomize=True)
+    """
+    if len(atom_array) == 0:
+        return atom_array
+
+    # Get token boundaries
+    token_start_stop_idx = get_token_starts(atom_array, add_exclusive_stop=True)
+    token_starts = token_start_stop_idx[:-1]
+    token_stops = token_start_stop_idx[1:]
+
+    # ... build atom mask
+    atom_mask = np.zeros(len(atom_array), dtype=bool)
+
+    for start, stop in zip(token_starts, token_stops):
+        # Keep token if ANY atom has occupancy > 0
+        if np.any(atom_array.occupancy[start:stop] > 0):
+            atom_mask[start:stop] = True
+
+    return atom_array[atom_mask]
+
+
 class RemoveUnresolvedPNUnits(Transform):
     """
     Filters PN units that have all unresolved atoms (i.e., atoms with occupancy 0) from the AtomArray.
@@ -56,6 +83,17 @@ class RemoveUnresolvedPNUnits(Transform):
 
     def forward(self, data: dict) -> dict:
         data["atom_array"] = remove_unresolved_pn_units(data["atom_array"])
+        return data
+
+
+class RemoveUnresolvedTokens(Transform):
+    """Filters tokens that have all unresolved atoms (i.e., atoms with occupancy 0) from the AtomArray."""
+
+    def check_input(self, data: dict):
+        check_atom_array_annotation(data, ["occupancy"])
+
+    def forward(self, data: dict) -> dict:
+        data["atom_array"] = remove_unresolved_tokens(data["atom_array"])
         return data
 
 

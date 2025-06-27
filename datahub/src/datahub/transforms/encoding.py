@@ -36,6 +36,7 @@ def atom_array_to_encoding(
     atom_array: AtomArray,
     encoding: TokenEncoding,
     default_coord: np.ndarray | float = float("nan"),
+    occupancy_threshold: float = 0.0,
     extra_annotations: list[str] = [
         "chain_id",
         "chain_entity",
@@ -65,6 +66,8 @@ def atom_array_to_encoding(
         - encoding (TokenEncoding): The encoding scheme to apply to the atom array.
         - default_coord (np.ndarray | float, optional): Default coordinate value to use for uninitialized
           coordinates. Defaults to float("nan").
+        - occupancy_threshold (float, optional): Minimum occupancy for atoms to be considered resolved
+          in the mask. Defaults to 0.0 (only completely unresolved atoms are masked).
         - extra_annotations (list[str], optional): A list of additional annotations to encode. These must
           be `id` style annotations (e.g., `chain_id`, `molecule_iid`). The encoding will be generated as
           integers, where the first occurrence of a given ID is encoded as `0`, and subsequent occurrences
@@ -148,7 +151,7 @@ def atom_array_to_encoding(
             if (token_name, atom_name) in encoding.atom_to_idx:
                 to_idx = encoding.atom_to_idx[(token_name, atom_name)]
                 encoded_coord[i, to_idx, :] = atom.coord
-                encoded_mask[i, to_idx] = atom.occupancy > 0
+                encoded_mask[i, to_idx] = atom.occupancy > occupancy_threshold
 
             # ... case 2: atom name does not exist for token, but token is an `unknown` token,
             #  so it's `ok` to not match
@@ -311,6 +314,7 @@ class EncodeAtomArray(Transform):
         self,
         encoding: TokenEncoding,
         default_coord: float | np.ndarray = float("nan"),
+        occupancy_threshold: float = 0.0,
         extra_annotations: list[str] = [
             "chain_id",
             "chain_entity",
@@ -320,11 +324,13 @@ class EncodeAtomArray(Transform):
         ],
     ):
         """
-        Initialize the transform.
+        Convert an atom array to an encoding.
 
         Args:
             - `encoding` (TokenEncoding): The encoding to use for encoding the atom array.
             - `default_coord` (float | np.ndarray, optional): Default coordinate value. Defaults to float("nan").
+            - `occupancy_threshold` (float, optional): Minimum occupancy for atoms to be considered resolved
+                in the mask. Defaults to 0.0 (only completely unresolved atoms are masked).
             - `extra_annotations` (list[str], optional): Extra annotations to encode. These must be `id` style annotations
                 like `chain_id` or `molecule_iid`, as the encoding will be generated as `int`s. Each first occurrence
                 of a given `id` will be encoded as `0`, and each subsequent occurrence will be encoded as `1`, `2`, etc.
@@ -334,12 +340,10 @@ class EncodeAtomArray(Transform):
             raise ValueError(f"Encoding must be a `TokenEncoding`, but got: {type(encoding)}.")
         self.encoding = encoding
         self.default_coord = default_coord
+        self.occupancy_threshold = occupancy_threshold
         self.extra_annotations = extra_annotations
 
     def check_input(self, data: dict[str, Any]):
-        check_contains_keys(data, ["atom_array"])
-        check_is_instance(data, "atom_array", AtomArray)
-        check_nonzero_length(data, "atom_array")
         check_atom_array_annotation(data, ["occupancy"])
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -349,6 +353,7 @@ class EncodeAtomArray(Transform):
             atom_array,
             encoding=self.encoding,
             default_coord=self.default_coord,
+            occupancy_threshold=self.occupancy_threshold,
             extra_annotations=self.extra_annotations,
         )
 

@@ -18,11 +18,13 @@ from datahub.transforms.filters import (
     RemovePolymersWithTooFewResolvedResidues,
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
+    RemoveUnresolvedTokens,
     RemoveUnsupportedChainTypes,
     random_remove_pn_units_by_annotation_query,
 )
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
+from datahub.utils.token import get_token_count, get_token_starts
 
 
 @pytest.mark.parametrize("test_case", [{"pdb_id": "1s2k"}])
@@ -101,6 +103,38 @@ def test_remove_unresolved_pn_units(pdb_id):
     resolved_pn_unit_iids = np.unique(output["atom_array"].pn_unit_iid[resolved_mask])
 
     assert set(pn_unit_iids) == set(resolved_pn_unit_iids)
+
+
+@pytest.mark.parametrize("pdb_id", ["3en2"])
+def test_remove_unresolved_tokens(pdb_id):
+    data = cached_parse(pdb_id)
+    original_atom_array = data["atom_array"].copy()
+
+    # ... count original tokens
+    original_token_count = get_token_count(original_atom_array)
+
+    # Apply RemoveUnresolvedTokens
+    pipeline = Compose(
+        [
+            RemoveUnresolvedTokens(),
+        ],
+        track_rng_state=False,
+    )
+    output = pipeline(data)
+    filtered_atom_array = output["atom_array"]
+
+    # Verify that no token in the result has ALL atoms with occupancy 0
+    token_starts = get_token_starts(filtered_atom_array, add_exclusive_stop=True)
+
+    for i in range(len(token_starts) - 1):
+        start, stop = token_starts[i], token_starts[i + 1]
+        token_occupancies = filtered_atom_array.occupancy[start:stop]
+        # Every remaining token should have at least one atom with occupancy > 0
+        assert np.any(token_occupancies > 0), f"Token at positions {start}:{stop} has all unresolved atoms"
+
+    # Should have removed some tokens (3en2 has unresolved tokens)
+    filtered_token_count = get_token_count(filtered_atom_array)
+    assert filtered_token_count < original_token_count, "Should have removed some wholly unresolved tokens"
 
 
 def test_remove_hydrogens_original_pdb():

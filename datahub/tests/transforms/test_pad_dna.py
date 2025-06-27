@@ -70,7 +70,6 @@ def test_augment_pad_dna(example_id: str, np_seed: int = 1):
     with rng_state(create_rng_state_from_seeds(np_seed=np_seed)):
         data = pipe(data)
         atom_array = data["atom_array"]
-        print(atom_array.coord.shape)
         assert atom_array.coord.shape == (5436, 3)
 
 
