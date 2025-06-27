@@ -1,3 +1,5 @@
+import time
+
 import biotite.structure as struc
 import numpy as np
 import pytest
@@ -5,6 +7,7 @@ import torch
 from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from cifutils.enums import ChainType
 from cifutils.tools.inference import components_to_atom_array
+from cifutils.tools.rdkit import atom_array_from_rdkit
 from cifutils.utils.selection import get_residue_starts
 
 from datahub.enums import GroundTruthConformerPolicy
@@ -12,20 +15,21 @@ from datahub.transforms.af3_reference_molecule import (
     GetAF3ReferenceMoleculeFeatures,
     RandomApplyGroundTruthConformerByChainType,
     _encode_atom_names_like_af3,
+    _get_rdkit_mols_with_conformers,
     _map_reference_conformer_to_residue,
     get_af3_reference_molecule_features,
 )
-from datahub.transforms.atom_array import add_global_token_id_annotation
+from datahub.transforms.atom_array import AddGlobalResIdAnnotation, add_global_token_id_annotation
 from datahub.transforms.atomize import atomize_by_ccd_name
 from datahub.transforms.base import Compose
-from datahub.transforms.rdkit_utils import atom_array_to_rdkit, find_automorphisms_with_rdkit
-from datahub.transforms.symmetry import apply_automorphs
+from datahub.transforms.cached_residue_data import LoadCachedResidueLevelData, RandomSubsampleCachedConformers
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
 from tests.conftest import TEST_DATA_DIR
 
 
 def test_contrived_tyr():
+    """Test _map_reference_conformer_to_residue functionality with a contrived TYR residue."""
     # Create general residue
     orig = struc.info.residue("TYR")
     orig = orig[orig.atom_name != "OXT"]
@@ -34,62 +38,20 @@ def test_contrived_tyr():
     orig = add_global_token_id_annotation(orig)
     # Create reference molecule
     conformer = struc.info.residue("TYR")
-    automorphs = find_automorphisms_with_rdkit(atom_array_to_rdkit(conformer, hydrogen_policy="keep"))
 
     # Map reference molecule to residue
-    ref_pos, ref_mask, ref_automorphs = _map_reference_conformer_to_residue(
+    ref_pos, ref_mask = _map_reference_conformer_to_residue(
         res_name="TYR",
         atom_names=orig.atom_name,
         conformer=conformer,
-        automorphs=automorphs,
     )
 
     # Check that the reference molecule is correctly mapped to the residue
     assert ref_pos.shape == (len(orig), 3), f"{ref_pos.shape=} should be ({len(orig)}, 3)"
     assert ref_mask.shape == (len(orig),), f"{ref_mask.shape=} should be ({len(orig)},)"
-    assert ref_automorphs.shape == (2, len(orig), 2), f"{ref_automorphs.shape=} should be (2, {len(orig)}, 2)"
 
     assert np.allclose(ref_pos, orig.coord), f"{ref_pos=} should be {orig.coord=}"
     assert np.allclose(ref_mask, True)
-
-    expected_automorphs = np.array(
-        [
-            [
-                [0, 0],  # N
-                [1, 1],  # CA
-                [2, 2],  # C
-                [3, 3],  # O
-                [4, 4],  # CB
-                [6, 6],  # CG
-                [5, 5],  # CD1
-                [7, 7],  # CD2
-                [8, 8],  # CE1
-                [9, 9],  # CE2
-                [10, 10],  # CZ
-                [11, 11],
-            ],  # OH
-            [
-                [0, 0],  # N
-                [1, 1],  # CA
-                [2, 2],  # C
-                [3, 3],  # O
-                [4, 4],  # CB
-                [6, 6],  # CG
-                [5, 7],  # CD1 <> CD2
-                [7, 5],  # CD2 <> CD1
-                [8, 9],  # CE1 <> CE2
-                [9, 8],  # CE2 <> CE1
-                [10, 10],  # CZ
-                [11, 11],
-            ],  # OH
-        ]
-    )
-
-    assert np.allclose(ref_automorphs, expected_automorphs), f"{ref_automorphs=} should be {expected_automorphs=}"
-
-    permuted_coords = apply_automorphs(torch.tensor(orig.coord), ref_automorphs)
-    assert (permuted_coords[0] == torch.tensor(orig.coord)).all()
-    assert not (permuted_coords[1] == torch.tensor(orig.coord)).all()
 
 
 @pytest.mark.parametrize(
@@ -126,40 +88,13 @@ def test_get_af3_reference_molecule_features_res(res_name):
 
     n_atom = len(atom_array)
 
-    # Check if we can compute features WITHOUT generating RDKit automorphisms (smoke test)
-    features_no_automorphs, _ = get_af3_reference_molecule_features(
-        atom_array, should_generate_automorphisms_with_rdkit=False
-    )
-    assert "ref_pos" in features_no_automorphs
-    assert "ref_mask" in features_no_automorphs
-    assert "ref_element" in features_no_automorphs
-    assert "ref_charge" in features_no_automorphs
-    assert "ref_atom_name_chars" in features_no_automorphs
-
-    seed = 42
-    with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
-        features, _ = get_af3_reference_molecule_features(atom_array, should_generate_automorphisms_with_rdkit=True)
-
-    assert "ref_pos" in features
-    assert "ref_mask" in features
-    assert "ref_element" in features
-    assert "ref_charge" in features
-    assert "ref_atom_name_chars" in features
-
-    # Check if we have the correct number of conformers
-    if res_name in ["TYR", "PHE", "VAL", "LEU"]:
-        assert (
-            len(features["ref_automorphs"]) == 2
-        ), f"Expected 2 conformers for {res_name}, but got {len(features['ref_automorphs'])}"
-    elif res_name == "R2R":
-        assert (
-            len(features["ref_automorphs"]) == 1000
-        ), f"Expected 1000 conformers for {res_name}, but got {len(features['ref_automorphs'])}"
-    else:
-        assert (
-            len(features["ref_automorphs"]) == 1
-        ), f"Expected 1 conformer for {res_name}, but got {len(features['ref_automorphs'])}"
+    # Check feature shapes
+    features, _ = get_af3_reference_molecule_features(atom_array)
     assert features["ref_pos"].shape == (n_atom, 3)
+    assert features["ref_mask"].shape == (n_atom,)
+    assert features["ref_element"].shape == (n_atom,)
+    assert features["ref_charge"].shape == (n_atom,)
+    assert features["ref_atom_name_chars"].shape == (n_atom, 4)
 
 
 def test_get_af3_reference_molecule_features_chain():
@@ -176,9 +111,7 @@ def test_get_af3_reference_molecule_features_chain():
 
     seed = 42
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
-        features, _ = get_af3_reference_molecule_features(
-            atom_array, apply_random_rotation_and_translation=False, should_generate_automorphisms_with_rdkit=True
-        )
+        features, _ = get_af3_reference_molecule_features(atom_array, apply_random_rotation_and_translation=False)
         features_with_elements_for_atomized_atom_names, _ = get_af3_reference_molecule_features(
             atom_array, apply_random_rotation_and_translation=False, use_element_for_atom_names_of_atomized_tokens=True
         )
@@ -188,9 +121,6 @@ def test_get_af3_reference_molecule_features_chain():
     assert "ref_element" in features
     assert "ref_charge" in features
     assert "ref_atom_name_chars" in features
-    assert (
-        len(features["ref_automorphs"]) == 1000
-    ), f"Expected 1000 conformers but got {len(features['ref_automorphs'])}"
 
     # ... check that the atom name features are the same for non-atomized tokens
     assert np.all(
@@ -210,7 +140,6 @@ def test_get_af3_reference_molecule_features_chain():
     assert features["ref_element"].shape == (n_atoms,)
     assert features["ref_charge"].shape == (n_atoms,)
     assert features["ref_atom_name_chars"].shape == (n_atoms, 4)
-    assert features["ref_automorphs"].shape == (1000, n_atoms, 2)
 
     with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
         features_with_random_rototranslation, _ = get_af3_reference_molecule_features(
@@ -220,12 +149,6 @@ def test_get_af3_reference_molecule_features_chain():
         # Assert that the features are different
         assert not np.allclose(features["ref_pos"], features_with_random_rototranslation["ref_pos"])
         assert np.allclose(features["ref_mask"], features_with_random_rototranslation["ref_mask"])
-
-    # Inspect automorphs visually:
-    # import matplotlib.pyplot as plt
-    # plt.matshow(features["ref_automorphs_mask"][:10])
-    # plt.matshow(features["ref_automorphs"][:10, :, 0])
-    # plt.matshow(features["ref_automorphs"][:10, :, 1])
 
 
 def test_reference_conformer_generation_for_two_molecules_only_differing_by_transformation_id():
@@ -280,9 +203,7 @@ def test_replace_conformer_with_ground_truth():
         "ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.REPLACE)
     )
 
-    features, _ = get_af3_reference_molecule_features(
-        atom_array, should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=True
-    )
+    features, _ = get_af3_reference_molecule_features(atom_array, apply_random_rotation_and_translation=True)
 
     _assert_ref_pos_matches_ground_truth(
         ground_truth_coord=atom_array.coord,
@@ -308,9 +229,7 @@ def test_random_apply_ground_truth_conformer_by_chain_type(seed: int = 42):
                 default_probability=0.0,
                 policy=GroundTruthConformerPolicy.REPLACE,
             ),
-            GetAF3ReferenceMoleculeFeatures(
-                should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=True
-            ),
+            GetAF3ReferenceMoleculeFeatures(apply_random_rotation_and_translation=True),
         ]
     )
 
@@ -362,7 +281,6 @@ def test_fallback_to_ground_truth_conformer_on_error():
     pipe = Compose(
         [
             GetAF3ReferenceMoleculeFeatures(
-                should_generate_automorphisms_with_rdkit=False,
                 apply_random_rotation_and_translation=True,
                 conformer_generation_timeout=0.0,  # Force a timeout
             ),
@@ -387,9 +305,7 @@ def test_add_ground_truth_conformer_as_feature():
     # Set policy to ADD for all atoms
     atom_array.set_annotation("ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.ADD))
 
-    features, _ = get_af3_reference_molecule_features(
-        atom_array, should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=False
-    )
+    features, _ = get_af3_reference_molecule_features(atom_array, apply_random_rotation_and_translation=False)
 
     # Verify that ref_pos_ground_truth exists and contains the ground truth coordinates
     assert "ref_pos_ground_truth" in features
@@ -434,14 +350,177 @@ def test_ref_space_uid():
     # fmt: on
 
     # Run mini-pipeline
-    pipe = GetAF3ReferenceMoleculeFeatures(
-        should_generate_automorphisms_with_rdkit=False, apply_random_rotation_and_translation=True
-    )
+    pipe = GetAF3ReferenceMoleculeFeatures(apply_random_rotation_and_translation=True)
     out = pipe({"atom_array": atom_array})
 
     assert np.all(
         out["feats"]["ref_space_uid"] == expected_ref_space_uid
     ), f"{out['feats']['ref_space_uid']}, but expected {expected_ref_space_uid}"
+
+
+def test_max_conformers_per_residue_functionality():
+    """Test that max_conformers_per_residue actually limits conformer generation."""
+    # Test with a stoichiometry that would normally generate many conformers
+    test_stoichiometry = {
+        "ALA": 10,  # Would normally generate 10 conformers
+        "VAL": 8,  # Would normally generate 8 conformers
+    }
+
+    # Generate with no limit
+    ref_mols_no_limit = _get_rdkit_mols_with_conformers(
+        res_stochiometry=test_stoichiometry, max_conformers_per_residue=None, timeout=(1.0, 0.1)
+    )
+
+    # Generate with limit of 3
+    ref_mols_with_limit = _get_rdkit_mols_with_conformers(
+        res_stochiometry=test_stoichiometry, max_conformers_per_residue=3, timeout=(1.0, 0.1)
+    )
+
+    # Check that limits were applied
+    if ref_mols_no_limit["ALA"] and ref_mols_with_limit["ALA"]:
+        ala_conformers_no_limit = ref_mols_no_limit["ALA"].GetNumConformers()
+        ala_conformers_with_limit = ref_mols_with_limit["ALA"].GetNumConformers()
+
+        assert ala_conformers_no_limit >= ala_conformers_with_limit
+        assert ala_conformers_with_limit <= 3
+
+    if ref_mols_no_limit["VAL"] and ref_mols_with_limit["VAL"]:
+        val_conformers_no_limit = ref_mols_no_limit["VAL"].GetNumConformers()
+        val_conformers_with_limit = ref_mols_with_limit["VAL"].GetNumConformers()
+
+        assert val_conformers_no_limit >= val_conformers_with_limit
+        assert val_conformers_with_limit <= 3
+
+
+def test_af3_reference_molecule_features_with_cached_conformers(cache_dir):
+    """Test AF3 reference molecule features using cached conformers."""
+    # Create sample data with global residue IDs
+    data = cached_parse("1crn", hydrogen_policy="remove")
+    global_res_id_transform = AddGlobalResIdAnnotation()
+    sample_data_with_global_res_id = global_res_id_transform(data)
+
+    # Load cached residue data
+    load_transform = LoadCachedResidueLevelData(dir=cache_dir, sharding_depth=1)
+    cached_residue_data = load_transform(sample_data_with_global_res_id)
+
+    if not cached_residue_data["cached_residue_level_data"]:
+        pytest.skip("No cached data was loaded for this structure")
+
+    # Create transform with cached conformers enabled and max conformers limit
+    transform_with_cache = GetAF3ReferenceMoleculeFeatures(
+        max_conformers_per_residue=3, use_cached_conformers=True, conformer_generation_timeout=5.0, save_rdkit_mols=True
+    )
+
+    # Create transform without cached conformers for comparison
+    transform_no_cache = GetAF3ReferenceMoleculeFeatures(
+        max_conformers_per_residue=3,
+        use_cached_conformers=False,
+        conformer_generation_timeout=5.0,
+        save_rdkit_mols=True,
+    )
+
+    # Create data without cached conformers for timing comparison
+    data_no_cache = {"atom_array": cached_residue_data["atom_array"]}
+
+    # Test the cached version - the main functionality test
+    start_time = time.time()
+    result_data_cached = transform_with_cache(cached_residue_data)
+    cached_time = time.time() - start_time
+
+    # Time the non-cached version
+    start_time = time.time()
+    _ = transform_no_cache(data_no_cache)
+    no_cache_time = time.time() - start_time
+
+    assert (
+        cached_time * 2 < no_cache_time
+    ), f"Cached version should be faster than no cache version, but got {cached_time} vs {no_cache_time}"
+
+    feats = result_data_cached["feats"]
+    assert not np.any(np.isnan(feats["ref_pos"]))
+    assert not np.any(np.all(feats["ref_pos"] == 0, axis=1))
+
+
+def test_af3_reference_molecule_features_with_subsampled_conformers(cache_dir):
+    """Test AF3 reference molecule features using specific conformer indices.
+
+    Asserts that the actual reference molecules at each res_idx match exactly with the coordinates
+    from RDKit when indexing into the cached conformer using the index that subsample conformers generated.
+    """
+    data = cached_parse("1crn", hydrogen_policy="remove")
+    pipeline = Compose(
+        [
+            AddGlobalResIdAnnotation(),
+            LoadCachedResidueLevelData(dir=cache_dir, sharding_depth=1),
+            RandomSubsampleCachedConformers(n_conformers=3, seed=42),
+            GetAF3ReferenceMoleculeFeatures(
+                max_conformers_per_residue=5,
+                use_cached_conformers=True,
+                conformer_generation_timeout=5.0,
+                save_rdkit_mols=True,
+                apply_random_rotation_and_translation=False,  # Important: no random rotation for coordinate comparison
+            ),
+        ]
+    )
+    result_data = pipeline(data)
+    assert "cached_residue_level_data" in result_data, "No cached data was loaded for this structure"
+    assert "residue_conformer_indices" in result_data, "No conformer indices were created"
+
+    atom_array = result_data["atom_array"]
+    feats = result_data["feats"]
+    cached_residue_level_data = result_data["cached_residue_level_data"]
+    conformer_indices = result_data["residue_conformer_indices"]
+
+    # Get residue start/end positions
+    _res_start_ends = get_residue_starts(atom_array, add_exclusive_stop=True)
+    _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
+
+    # Loop through each residue and check that the reference conformer coordinates match
+    # the coordinates using the appropriate index from the subsampled conformer indices
+    for res_start, res_end in zip(_res_starts, _res_ends):
+        res_name = atom_array.res_name[res_start]
+        res_global_id = int(atom_array.res_id_global[res_start])
+
+        # Get the cached RDKit molecule and the conformer index that was selected
+        cached_mol = cached_residue_level_data[res_name]["mol"]
+        assert cached_mol is not None and cached_mol.GetNumConformers() > 0, f"No conformers found for {res_name}"
+        selected_conformer_idx = int(
+            conformer_indices[res_global_id][0]
+        )  # Take first conformer index and convert to Python int
+
+        # Get the expected coordinates from RDKit using the selected conformer index
+        expected_conformer = atom_array_from_rdkit(
+            cached_mol,
+            conformer_id=selected_conformer_idx,
+            remove_hydrogens=True,
+        )
+
+        # Map the expected conformer coordinates to the residue atom order
+        expected_ref_pos, expected_ref_mask = _map_reference_conformer_to_residue(
+            res_name=res_name,
+            atom_names=atom_array.atom_name[res_start:res_end],
+            conformer=expected_conformer,
+        )
+
+        # Get the actual reference positions from the AF3 features
+        actual_ref_pos = feats["ref_pos"][res_start:res_end]
+        actual_ref_mask = feats["ref_mask"][res_start:res_end]
+
+        # Assert that the masks match
+        assert np.array_equal(actual_ref_mask, expected_ref_mask), (
+            f"Reference masks don't match for residue {res_name} at global_id {res_global_id}. "
+            f"Expected: {expected_ref_mask}, Actual: {actual_ref_mask}"
+        )
+
+        # Assert that the coordinates match exactly (where mask is True)
+        masked_expected = expected_ref_pos[expected_ref_mask]
+        masked_actual = actual_ref_pos[actual_ref_mask]
+
+        assert np.allclose(masked_expected, masked_actual, atol=1e-6), (
+            f"Reference coordinates don't match for residue {res_name} at global_id {res_global_id} "
+            f"using conformer index {selected_conformer_idx}. "
+            f"Max difference: {np.max(np.abs(masked_expected - masked_actual))}"
+        )
 
 
 if __name__ == "__main__":

@@ -4,7 +4,6 @@ from typing import Any, Literal
 
 import biotite.structure as struc
 import numpy as np
-import toolz
 import torch
 from biotite.structure import AtomArray
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
@@ -19,7 +18,6 @@ from datahub.transforms._checks import check_atom_array_annotation, check_contai
 from datahub.transforms.base import Transform
 from datahub.transforms.rdkit_utils import (
     ccd_code_to_rdkit_with_conformers,
-    find_automorphisms_with_rdkit,
     sample_rdkit_conformer_for_atom_array,
 )
 from datahub.utils.geometry import masked_center, random_rigid_augmentation
@@ -30,8 +28,31 @@ logger = logging.getLogger("datahub")
 KNOWN_CCD_CODES = get_available_ccd_codes() - {UNKNOWN_LIGAND}
 
 
+def _extract_cached_conformers(
+    res_stochiometry: dict[str, int],
+    max_conformers_per_residue: int | None,
+    cached_residue_level_data: dict | None,
+) -> tuple[dict[str, Chem.Mol], dict[str, int]]:
+    """Extract cached conformers and return remaining stochiometry."""
+    cached_mols = {}
+    remaining_stochiometry = res_stochiometry.copy()
+
+    for res_name, count in res_stochiometry.items():
+        needed_conformers = min(count, max_conformers_per_residue) if max_conformers_per_residue is not None else count
+
+        if res_name in cached_residue_level_data:
+            cached_mol = cached_residue_level_data[res_name].get("mol")
+            if cached_mol is not None and cached_mol.GetNumConformers() >= needed_conformers:
+                # We have enough cached conformers - use the cached mol
+                cached_mols[res_name] = cached_mol
+                del remaining_stochiometry[res_name]
+
+    return cached_mols, remaining_stochiometry
+
+
 def _get_rdkit_mols_with_conformers(
     res_stochiometry: dict[str, int],
+    max_conformers_per_residue: int | None = None,
     timeout: float | None | tuple[float, float] = (3.0, 0.15),
     timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
     **generate_conformers_kwargs,
@@ -39,7 +60,9 @@ def _get_rdkit_mols_with_conformers(
     """Generate RDKit molecules with conformers for each residue in bulk (given the counts in `res_stochiometry`).
     Args:
         res_stochiometry: A dictionary mapping residue names to their count.
-        timeout: The timeout for the automorphism search. If None, no timeout is applied and
+        max_conformers_per_residue: Maximum number of conformers to generate per residue type.
+            If None, generates conformers equal to the count. If set, generates min(count, max_conformers_per_residue).
+        timeout: The timeout for conformer generation. If None, no timeout is applied and
             the timeout strategy is ignored (no subprocesses will be spawned). Defaults to (3.0, 0.15), which
             gives a timeout of 3.0 + 0.15 * (n_conformers - 1) seconds per unique CCD code.
         timeout_strategy: The strategy to use for the timeout. Defaults to "subprocess".
@@ -62,9 +85,13 @@ def _get_rdkit_mols_with_conformers(
         if res_name not in KNOWN_CCD_CODES:
             ref_mols[res_name] = None  # placeholder so that the unknown CCD codes are still counted later on
             continue
+
+        n_conformers_to_generate = (
+            min(count, max_conformers_per_residue) if max_conformers_per_residue is not None else count
+        )
         mol = ccd_code_to_rdkit_with_conformers(
             ccd_code=res_name,
-            n_conformers=count,
+            n_conformers=n_conformers_to_generate,
             timeout=timeout,
             timeout_strategy=timeout_strategy,
             **generate_conformers_kwargs,
@@ -98,22 +125,19 @@ def _encode_atom_names_like_af3(atom_names: np.ndarray) -> np.ndarray:
 
 
 def _map_reference_conformer_to_residue(
-    res_name: str, atom_names: np.ndarray, conformer: AtomArray, automorphs: np.ndarray = None
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Maps the coordinate and automorphism information from a reference conformer to a
+    res_name: str, atom_names: np.ndarray, conformer: AtomArray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Maps the coordinate information from a reference conformer to a
     given residue, dropping all atoms that are not in the residue.
 
     Args:
         - res_name (str): The name of the residue to map to.
         - atom_names (np.ndarray): Array of atom names in the residue to map to.
         - conformer (AtomArray): The reference conformer.
-        - automorphs (np.ndarray | None): Array of automorphisms for the conformer. If not
-            provided, no automorphisms are returned.
 
     Returns:
         - ref_pos (np.ndarray): Reference positions for atoms in the residue.
         - ref_mask (np.ndarray): Mask indicating valid reference positions.
-        - automorphs (np.ndarray | None): Filtered and adjusted automorphisms for the residue, if provided.
     """
 
     # ... mark the atoms that are in the residue (keep) and where they are in the residue (to_within_res_idx)
@@ -139,31 +163,18 @@ def _map_reference_conformer_to_residue(
     ref_pos = coord
     ref_mask = np.isfinite(coord).all(axis=-1)  # [n_atoms_in_res]
 
-    if exists(automorphs):
-        # ... filter the automorphs to only keep the ones that are relevant
-        # ... 1. change the 'in-conformer' index to the 'in-residue' index,
-        #        dropping any atoms that are not in the residue
-        automorphs = to_within_res_idx[automorphs][:, keep, :]  # [n_automorphs, n_atoms_in_res, 2]
-        # ... 2. drop any automorphs that would include atoms not in the residue
-        #        (-1 got assigned to atoms not in residue)
-        _has_all_atoms_in_residue = (automorphs >= 0).all(axis=(-1, -2))  # [n_automorphs]
-        automorphs = automorphs[_has_all_atoms_in_residue]
-        # ... 3. drop any automorphs that are duplicates when only considering
-        #        the atoms that are in the residue
-        _, _is_first_unique = np.unique(automorphs, axis=0, return_index=True)
-        _is_first_unique = np.sort(_is_first_unique)
-        automorphs = automorphs[_is_first_unique]
-
-    return ref_pos, ref_mask, automorphs  # [n_atoms_in_res, 3], [n_atoms_in_res], [n_automorphs, n_atoms_in_res, 2]
+    return ref_pos, ref_mask  # [n_atoms_in_res, 3], [n_atoms_in_res]
 
 
 def get_af3_reference_molecule_features(
     atom_array: AtomArray,
     conformer_generation_timeout: float | tuple[float, float] = (3.0, 0.15),
-    should_generate_automorphisms_with_rdkit: bool = False,
     apply_random_rotation_and_translation: bool = True,
     use_element_for_atom_names_of_atomized_tokens: bool = False,
     timeout_strategy: Literal["signal", "subprocess"] = "subprocess",
+    max_conformers_per_residue: int | None = None,
+    cached_residue_level_data: dict | None = None,
+    residue_conformer_indices: dict[int, np.ndarray] | None = None,
     **generate_conformers_kwargs,
 ) -> tuple[dict[str, Any], dict[str, Chem.Mol]]:
     """Get AF3 reference features for each residue in the atom array.
@@ -173,12 +184,16 @@ def get_af3_reference_molecule_features(
         conformer_generation_timeout: Maximum time allowed for conformer generation per residue.
             Defaults to (3.0, 0.15), which gives a timeout of 3.0 + 0.15 * (n_conformers - 1) seconds.
             If None, no timeout is applied and the timeout strategy is ignored (no subprocesses will be spawned).
-        should_generate_automorphisms_with_rdkit: Whether to generate automorphisms using RDKit. For example,
-            we may want to generate automorphisms directly with NetworkX instead (since RDKit automorphism generation
-            is unreliable due to kekulization). Defaults to False.
         apply_random_rotation_and_translation: Whether to apply a random rotation and translation to each conformer (AF-3-style)
         timeout_strategy: The strategy to use for the timeout.
             Defaults to "subprocess" (which is the most reliable choice).
+        max_conformers_per_residue: Maximum number of conformers to generate per residue type.
+            If None, generates conformers equal to residue count. If set, generates min(count, max_conformers_per_residue)
+            and randomly samples from those conformers for each residue instance.
+        cached_residue_level_data: Optional cached conformer data by residue name. If provided,
+            cached conformers will be preferred over generated ones.
+        residue_conformer_indices: Optional mapping of global residue IDs to specific conformer indices.
+            If provided, these specific conformers will be used for the corresponding residues.
         **generate_conformers_kwargs: Additional keyword arguments to pass to the generate_conformers function.
 
     Returns:
@@ -203,17 +218,12 @@ def get_af3_reference_molecule_features(
         - ref_pos_ground_truth (optional): [N_atoms, 3] The ground-truth conformer positions.
             Determined by the `ground_truth_conformer_policy` annotation.
 
-    (Optionally) The following features for automorphism resolution:
-        - ref_automorphs: [N_automorphs, N_atoms, 2] Automorphisms of the reference conformer.
-          Each automorphism is a mapping from one atom to another. The first column is the source atom index,
-          and the second column is the target atom index. The automorphisms are given in residue-local indices.
-        - ref_automorphs_mask: [N_automorphs, N_atoms] Mask indicating which atom slots are used in the automorphisms.
-
     Reference:
         - Section 2.8 of the AF3 supplementary information
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
     _has_ground_truth_conformer_policy = "ground_truth_conformer_policy" in atom_array.get_annotation_categories()
+    _has_global_res_id = "res_id_global" in atom_array.get_annotation_categories()
 
     # Generate reference conformers for each residue (if cropped, each residue that has tokens in the crop)
     # ... get residue-level stochiometry
@@ -222,15 +232,29 @@ def get_af3_reference_molecule_features(
     _res_names = atom_array.res_name[_res_starts]
     res_stochiometry = dict(zip(*np.unique(_res_names, return_counts=True)))
 
-    # ... get reference molecules with conformers for each residue
+    # Extract cached conformers and get remaining stochiometry
+    if cached_residue_level_data is not None:
+        cached_mols, remaining_stochiometry = _extract_cached_conformers(
+            res_stochiometry=res_stochiometry,
+            max_conformers_per_residue=max_conformers_per_residue,
+            cached_residue_level_data=cached_residue_level_data,
+        )
+    else:
+        cached_mols, remaining_stochiometry = {}, res_stochiometry
+
+    # ... get reference molecules with conformers for remaining residues
     # (We do not generate conformers for unknown CCD codes here, as we will do that later)
-    ref_mols = _get_rdkit_mols_with_conformers(
-        res_stochiometry=res_stochiometry,
+    generated_mols = _get_rdkit_mols_with_conformers(
+        res_stochiometry=remaining_stochiometry,
+        max_conformers_per_residue=max_conformers_per_residue,
         hydrogen_policy="remove",
         timeout=conformer_generation_timeout,
         timeout_strategy=timeout_strategy,
         **generate_conformers_kwargs,
     )
+
+    # Merge cached and generated molecules
+    ref_mols = {**cached_mols, **generated_mols}
 
     # ... generate conformers for CCD codes that are unknown (including UNL)
     unknown_ccd_conformers = defaultdict(list)
@@ -249,19 +273,6 @@ def get_af3_reference_molecule_features(
             unknown_ccd_conformers[res_name].append(conf_i)
             ref_mols[res_name] = mol_i
 
-    # ... initialize automorphism-related variables (which we may or may not be needed)
-    ref_mol_automorphs = None
-    ref_automorphs = None
-    ref_automorphs_mask = None
-
-    if should_generate_automorphisms_with_rdkit:
-        # ... get automorphisms
-        ref_mol_automorphs = toolz.valmap(find_automorphisms_with_rdkit, ref_mols)
-        _max_automorphs = max(map(len, ref_mol_automorphs.values()))
-        # ... initialize tensors to store automorphisms and masks
-        ref_automorphs = np.zeros((_max_automorphs, len(atom_array), 2), dtype=int)
-        ref_automorphs_mask = np.zeros((_max_automorphs, len(atom_array)), dtype=bool)
-
     # ... initialize reference features
     ref_pos = np.zeros((len(atom_array), 3), dtype=np.float32)
     ref_mask = np.zeros(len(atom_array), dtype=bool)
@@ -276,18 +287,30 @@ def get_af3_reference_molecule_features(
 
     # ... iterate over all residues in the atom array and fill the `ref_pos` and `ref_mask` arrays using the next reference conformer for each residue type
     # We also check the `ground_truth_conformer_policy` annotation to see if we should use the ground-truth conformer
-    max_automorphs = 1
     for res_start, res_end in zip(_res_starts, _res_ends):
         res_name = atom_array.res_name[res_start]
+
+        if _has_global_res_id and residue_conformer_indices is not None:
+            res_global_id = int(atom_array.res_id_global[res_start])  # Convert to Python int
+            if res_global_id in residue_conformer_indices:
+                conformer_indices = residue_conformer_indices[res_global_id]
+                # (We don't yet support multiple conformers per residue, so we just use the first one, which is random anyhow)
+                conf_idx = int(conformer_indices[0] if isinstance(conformer_indices, np.ndarray) else conformer_indices)
+            else:
+                conf_idx = _next_conf_idx[res_name]
+        else:
+            conf_idx = _next_conf_idx[res_name]
 
         # ... turn conformer into an atom array
         if res_name not in KNOWN_CCD_CODES:
             # (conformers for unknown CCD codes are already atom arrays, since we generated them directly)
-            conformer = unknown_ccd_conformers[res_name][_next_conf_idx[res_name]]
+            conformer = unknown_ccd_conformers[res_name][conf_idx % len(unknown_ccd_conformers[res_name])]
         else:
+            # Ensure conf_idx is within bounds for generated conformers
+            n_conformers = ref_mols[res_name].GetNumConformers()
             conformer = atom_array_from_rdkit(
                 ref_mols[res_name],
-                conformer_id=_next_conf_idx[res_name],
+                conformer_id=conf_idx % n_conformers,
                 remove_hydrogens=True,
             )
 
@@ -331,11 +354,10 @@ def get_af3_reference_molecule_features(
                         ground_truth_conformer.coord = masked_center(ground_truth_conformer.coord)
 
         # ... map the reference conformer information to the given residue
-        _ref_pos, _ref_mask, _ref_automorphs = _map_reference_conformer_to_residue(
+        _ref_pos, _ref_mask = _map_reference_conformer_to_residue(
             res_name=res_name,
             atom_names=atom_array.atom_name[res_start:res_end],
             conformer=conformer,
-            automorphs=ref_mol_automorphs[res_name] if ref_mol_automorphs else None,
         )
 
         # ... apply a random rotation and translation to the reference conformer, if requested
@@ -349,7 +371,7 @@ def get_af3_reference_molecule_features(
 
         # (Repeat for the ground truth conformer, if adding through an additional feature)
         if _has_ground_truth_conformer_policy and exists(ground_truth_conformer):
-            _ref_pos_ground_truth, _, _ = _map_reference_conformer_to_residue(
+            _ref_pos_ground_truth, _ = _map_reference_conformer_to_residue(
                 res_name=res_name,
                 atom_names=atom_array.atom_name[res_start:res_end],
                 conformer=ground_truth_conformer,
@@ -360,19 +382,8 @@ def get_af3_reference_molecule_features(
                 ).numpy()
             ref_pos_ground_truth[res_start:res_end] = _ref_pos_ground_truth
 
-        # ... fill the automorphisms for this residue, generating automorphisms from RDKit
-        if exists(_ref_automorphs):
-            ref_automorphs[: len(_ref_automorphs), res_start:res_end] = _ref_automorphs
-            ref_automorphs_mask[: len(_ref_automorphs), res_start:res_end] = True
-            max_automorphs = max(max_automorphs, len(_ref_automorphs))
-
         # ... update to the next conformer index
         _next_conf_idx[res_name] += 1
-
-    # ... resize the reference automorphism arrays to the maximum number of automorphisms
-    if exists(ref_automorphs):
-        ref_automorphs = ref_automorphs[:max_automorphs]
-        ref_automorphs_mask = ref_automorphs_mask[:max_automorphs]
 
     # Generate remaining reference features
     # ... element
@@ -406,10 +417,6 @@ def get_af3_reference_molecule_features(
         "ref_space_uid": ref_space_uid,  # (n_atoms)
     }
 
-    if should_generate_automorphisms_with_rdkit:
-        ref_conformer["ref_automorphs"] = ref_automorphs  # (max_automorphs, n_atoms, 2), residue-local indices
-        ref_conformer["ref_automorphs_mask"] = ref_automorphs_mask  # (max_automorphs, n_atoms)
-
     if _has_ground_truth_conformer_policy:
         ref_conformer["ref_pos_ground_truth"] = ref_pos_ground_truth  # (n_atoms, 3)
         ref_conformer["ref_pos_is_ground_truth"] = ref_pos_is_ground_truth  # (n_atoms)
@@ -438,12 +445,6 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         - ref_pos_ground_truth: [N_atoms, 3] The ground-truth conformer positions.
           Determined by the `ground_truth_conformer_policy` annotation.
 
-    Optionally, the following features can be added as well:
-        - ref_automorphs: [N_automorphs, N_atoms, 2] Automorphisms of the reference conformer.
-          Each automorphism is a mapping from one atom to another. The first column is the source atom index,
-          and the second column is the target atom index. The automorphisms are given in residue-local indices.
-        - ref_automorphs_mask: [N_automorphs, N_atoms] Mask indicating which atom slots are used in the automorphisms.
-
     Note: This transform should be applied after cropping.
 
     Reference:
@@ -454,19 +455,20 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
     def __init__(
         self,
         conformer_generation_timeout: float = 10.0,
-        should_generate_automorphisms_with_rdkit: bool = False,
         save_rdkit_mols: bool = True,
         use_element_for_atom_names_of_atomized_tokens: bool = False,
         apply_random_rotation_and_translation: bool = True,
+        max_conformers_per_residue: int | None = None,
+        use_cached_conformers: bool = True,
         **generate_conformers_kwargs,
     ):
         self.conformer_generation_timeout = conformer_generation_timeout
-        self.should_generate_automorphisms_with_rdkit = should_generate_automorphisms_with_rdkit
         self.generate_conformers_kwargs = generate_conformers_kwargs
         self.save_rdkit_mols = save_rdkit_mols
         self.use_element_for_atom_names_of_atomized_tokens = use_element_for_atom_names_of_atomized_tokens
         self.apply_random_rotation_and_translation = apply_random_rotation_and_translation
-        self.generate_conformers_kwargs = generate_conformers_kwargs
+        self.max_conformers_per_residue = max_conformers_per_residue
+        self.use_cached_conformers = use_cached_conformers
 
         if self.use_element_for_atom_names_of_atomized_tokens:
             logger.warning("Using element type for atom names of atomized tokens.")
@@ -481,13 +483,20 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
+
+        # Extract cached data and conformer indices, if enabled
+        cached_residue_level_data = data.get("cached_residue_level_data") if self.use_cached_conformers else None
+        residue_conformer_indices = data.get("residue_conformer_indices") if self.use_cached_conformers else None
+
         # Generate reference features
         reference_features, rdkit_mols = get_af3_reference_molecule_features(
             atom_array,
             conformer_generation_timeout=self.conformer_generation_timeout,
-            should_generate_automorphisms_with_rdkit=self.should_generate_automorphisms_with_rdkit,
             use_element_for_atom_names_of_atomized_tokens=self.use_element_for_atom_names_of_atomized_tokens,
             apply_random_rotation_and_translation=self.apply_random_rotation_and_translation,
+            max_conformers_per_residue=self.max_conformers_per_residue,
+            cached_residue_level_data=cached_residue_level_data,
+            residue_conformer_indices=residue_conformer_indices,
             **self.generate_conformers_kwargs,
         )
 

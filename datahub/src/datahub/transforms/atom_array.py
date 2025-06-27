@@ -9,7 +9,7 @@ from typing import Any, Callable, Iterator, Literal
 import biotite.structure as struc
 import numpy as np
 import pandas as pd
-from biotite.structure import AtomArray
+from biotite.structure import AtomArray, get_residue_count, spread_residue_wise
 from cifutils.enums import ChainType
 from cifutils.utils.testing import has_annotation
 
@@ -528,6 +528,28 @@ class AddGlobalTokenIdAnnotation(Transform):
 
         # add the global token id annotation
         data["atom_array"] = add_global_token_id_annotation(atom_array)
+        return data
+
+
+def add_global_res_id_annotation(atom_array: AtomArray) -> AtomArray:
+    """Add a global residue ID annotation to the atom array."""
+    res_id = np.arange(get_residue_count(atom_array), dtype=np.uint32)  # [n_residues]
+    # Note that "res_id" already exists (as it is a standard field in CIF files), so we add the global version with a "_global" suffix
+    # TODO: We should rename token_id, atom_id to token_id_global, atom_id_global so that we follow a consistent naming convention
+    atom_array.set_annotation("res_id_global", spread_residue_wise(atom_array, res_id))
+    return atom_array
+
+
+class AddGlobalResIdAnnotation(Transform):
+    """Adds a global residue ID annotation to the atom array."""
+
+    incompatible_previous_transforms = ["AddGlobalResIdAnnotation"]
+
+    def check_input(self, data: dict):
+        check_atom_array_annotation(data, ["res_id"])
+
+    def forward(self, data: dict) -> dict:
+        data["atom_array"] = add_global_res_id_annotation(data["atom_array"])
         return data
 
 

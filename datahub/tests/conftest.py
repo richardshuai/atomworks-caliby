@@ -1,10 +1,12 @@
 """Shared test utils and fixtures for all tests"""
 
+import os
 from pathlib import Path
 
 import pandas as pd
 import pytest
-from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
+from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX, _load_env_var
+from dotenv import load_dotenv
 
 from datahub.datasets.datasets import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
 from datahub.datasets.parsers import (
@@ -17,6 +19,48 @@ from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES_INTS
 from datahub.utils.io import read_parquet_with_metadata
+
+##########################################################################################
+# + ----------------------------------- Environment ------------------------------------ +
+##########################################################################################
+
+
+def pytest_configure(config):
+    # Get the directory where conftest.py is located
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Construct path to .env file in the parent directory
+    dotenv_path = os.path.join(current_dir, "..", ".env")
+
+    # Check if the .env file exists
+    if not os.path.exists(dotenv_path):
+        raise pytest.UsageError(
+            f"ERROR: Required .env file not found at {dotenv_path}. "
+            f"Please create this file with the necessary environment variables."
+        )
+
+    # Load the environment variables
+    load_dotenv(dotenv_path)
+
+
+##########################################################################################
+# + -------------------------------- Test Decorators ----------------------------------- +
+##########################################################################################
+
+
+@pytest.fixture
+def cache_dir():
+    """Fixture providing the cache directory path or skipping if not available."""
+    cache_dir = _load_env_var("RESIDUE_CACHE_DIR")
+    if not cache_dir:
+        pytest.skip("RESIDUE_CACHE_DIR environment variable not set")
+
+    cache_path = Path(cache_dir)
+    if not cache_path.exists():
+        pytest.skip(f"RESIDUE_CACHE_DIR directory not found: {cache_path}")
+
+    return cache_path
+
 
 ##########################################################################################
 # + ------------------------------------ Constants ------------------------------------- +

@@ -27,7 +27,7 @@ class X3DNAFiber(Executable):
     required_verification_text = ["fiber", "3DNA", "SYNOPSIS", "DESCRIPTION"]
 
     @classmethod
-    def initialize(cls, bin_path: PathLike = None, *args, **kwargs) -> "X3DNAFiber":
+    def initialize(cls, bin_path: PathLike | None = None, *args, **kwargs) -> "X3DNAFiber":
         if bin_path is None:
             bin_path = cls._infer_bin_path_from_env_var()
         return super().initialize(bin_path, *args, **kwargs)

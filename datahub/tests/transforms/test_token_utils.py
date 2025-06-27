@@ -6,7 +6,11 @@ from cifutils.utils.sequence import STANDARD_PURINE_RESIDUES, STANDARD_PYRIMIDIN
 from cifutils.utils.testing import assert_same_atom_array
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation, AddGlobalTokenIdAnnotation
+from datahub.transforms.atom_array import (
+    AddGlobalAtomIdAnnotation,
+    AddGlobalResIdAnnotation,
+    AddGlobalTokenIdAnnotation,
+)
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.transforms.base import Compose
 from datahub.utils.testing import cached_parse
@@ -245,6 +249,38 @@ def test_get_token_representative_atoms(pdb_id):
             assert atom_array[mask].atom_name == "CA"
         else:
             assert atom_array[mask].atomize  # atomize should be True
+
+
+def test_add_global_res_id_annotation():
+    """Test that AddGlobalResIdAnnotation adds correct residue IDs."""
+    data = cached_parse("5ocm")
+    transform = AddGlobalResIdAnnotation()
+    data = transform(data)
+
+    atom_array = data["atom_array"]
+
+    assert "res_id_global" in atom_array.get_annotation_categories()
+
+    # Get the expected number of residues
+    expected_n_residues = struc.get_residue_count(atom_array)
+
+    # Check that res_id_global values are in the expected range
+    unique_global_res_ids = np.unique(atom_array.res_id_global)
+    assert (
+        len(unique_global_res_ids) == expected_n_residues
+    ), f"Expected {expected_n_residues} unique residue IDs, got {len(unique_global_res_ids)}"
+    assert np.all(
+        unique_global_res_ids == np.arange(expected_n_residues)
+    ), "Global residue IDs should be 0-indexed and continuous"
+
+    # Check that residues have consistent res_id_global values
+    counter = 0
+    for residue in struc.residue_iter(atom_array):
+        assert len(residue) >= 1, f"Residue should have length at least 1 but has length {len(residue)}"
+        assert np.all(
+            residue.res_id_global == counter
+        ), f"All atoms in residue should have res_id_global {counter} but got {residue.res_id_global}"
+        counter += 1
 
 
 if __name__ == "__main__":

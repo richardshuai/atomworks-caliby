@@ -283,7 +283,7 @@ def test_rdkit_chiral_featurization(test_case: dict):
 
     pipe = Compose(
         [
-            GetAF3ReferenceMoleculeFeatures(should_generate_automorphisms_with_rdkit=False),
+            GetAF3ReferenceMoleculeFeatures(),
             GetRDKitChiralCenters(),
             AddAF3ChiralFeatures(),
         ],
@@ -303,7 +303,7 @@ def test_take_first_chiral_subordering():
     pipe = Compose(
         [
             RemoveHydrogens(),
-            GetAF3ReferenceMoleculeFeatures(should_generate_automorphisms_with_rdkit=False),
+            GetAF3ReferenceMoleculeFeatures(),
             GetRDKitChiralCenters(),
             # Take only the first tetrahedral side (so all chiral centers should have the same number of features)
             AddAF3ChiralFeatures(take_first_chiral_subordering=True),

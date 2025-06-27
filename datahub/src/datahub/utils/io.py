@@ -164,7 +164,14 @@ def cache_to_disk_as_pickle(cache_dir: PathLike | None = None, use_gzip: bool = 
     return decorator
 
 
-def get_sharded_file_path(base_dir: Path, file_hash: str, extension: str, depth: int) -> Path:
+def get_sharded_file_path(
+    base_dir: Path,
+    file_hash: str,
+    extension: str,
+    depth: int,
+    chars_per_dir: int = 2,
+    include_subdirectory: bool = False,
+) -> Path:
     """Construct a nested file path based on the directory depth.
 
     Args:
@@ -172,6 +179,8 @@ def get_sharded_file_path(base_dir: Path, file_hash: str, extension: str, depth:
         file_hash (str): The hash of the file content or identifier.
         extension (str): The file extension.
         depth (int): The directory nesting depth.
+        chars_per_dir (int): The number of characters to use for each directory level.
+        include_subdirectory (bool): If True, creates an additional directory with the full hash name.
 
     Returns:
         Path: The constructed path to the file.
@@ -179,10 +188,22 @@ def get_sharded_file_path(base_dir: Path, file_hash: str, extension: str, depth:
     Example:
         >>> get_sharded_file_path("/path/to/cache", "abcdef123456", ".pkl", 2)
         Path("/path/to/cache/ab/cd/abcdef123456.pkl")
+        >>> get_sharded_file_path("/path/to/cache", "abcdef123456", ".pkl", 3, chars_per_dir=1)
+        Path("/path/to/cache/a/b/c/abcdef123456.pkl")
+        >>> get_sharded_file_path(
+        ...     "/path/to/cache", "abcdef123456", ".pkl", 2, include_subdirectory=True
+        ... )
+        Path("/path/to/cache/ab/cd/abcdef123456/abcdef123456.pkl")
     """
     nested_path = Path(base_dir)
     for i in range(depth):
-        nested_path /= Path(file_hash[2 * i : 2 * (i + 1)])
+        start_idx = chars_per_dir * i
+        end_idx = chars_per_dir * (i + 1)
+        nested_path /= Path(file_hash[start_idx:end_idx])
+
+    if include_subdirectory:
+        nested_path /= file_hash
+
     return (nested_path / file_hash).with_suffix(extension)
 
 

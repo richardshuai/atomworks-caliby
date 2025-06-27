@@ -305,7 +305,11 @@ def atom_array_from_openbabel(obmol: openbabel.OBMol) -> AtomArray:
                 continue
 
             if np.issubdtype(val.dtype, np.integer):
-                default = -1
+                if np.issubdtype(val.dtype, np.unsignedinteger):
+                    # Use max value for unsigned integers since they can't hold -1
+                    default = np.iinfo(val.dtype).max
+                else:
+                    default = -1
             elif np.issubdtype(val.dtype, np.floating):
                 default = np.nan
             elif np.issubdtype(val.dtype, np.str_):

@@ -276,7 +276,6 @@ def test_make_reference_conformer_for_UNL(tmp_path):
         AddGlobalTokenIdAnnotation(),  # required for reference molecule features and TokenToAtomMap
         GetAF3ReferenceMoleculeFeatures(
             conformer_generation_timeout=10,
-            should_generate_automorphisms_with_rdkit=False,  # We use NetworkX for automorphisms instead of RDKit
         ),
     ]
     pipe = Compose(transforms)
@@ -325,7 +324,6 @@ def test_make_reference_conformer_for_UNL_failure_case(tmp_path):
         AddGlobalTokenIdAnnotation(),  # required for reference molecule features and TokenToAtomMap
         GetAF3ReferenceMoleculeFeatures(
             conformer_generation_timeout=0,  # Set timeout to 0 to force failure
-            should_generate_automorphisms_with_rdkit=False,  # We use NetworkX for automorphisms instead of RDKit
         ),
     ]
     pipe = Compose(transforms)
