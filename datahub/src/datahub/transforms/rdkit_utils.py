@@ -13,7 +13,7 @@ from cifutils.tools.rdkit import (
     remove_hydrogens,
 )
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, Mol, rdDistGeom
+from rdkit.Chem import AllChem, Mol, RemoveHs, rdDistGeom
 
 from datahub.common import default
 from datahub.transforms._checks import (
@@ -689,9 +689,9 @@ def get_rdkit_chiral_centers(rdkit_mols: dict[str, Mol]) -> dict:
     # Get chiral centers for all rdkit mols
     for resname, rdmol in rdkit_mols.items():
         try:
-            # Get the chiral centers (returned are the indices of the chiral center atoms
-            #  within the `obmol` object)
-            chiral_centers[resname] = get_chiral_centers(rdmol)
+            # Get the chiral centers (returned are the indices of the chiral center atoms within the `obmol` object)
+            # (We remove hydrogens to ensure indices are consistent)
+            chiral_centers[resname] = RemoveHs(get_chiral_centers(rdmol))
 
         except Exception as e:
             logger.warning(f"Failed to find chiral centers for molecule {resname}: {e}")
