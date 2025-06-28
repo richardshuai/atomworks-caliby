@@ -355,11 +355,15 @@ def _write_categories_to_block(
     Column = Category.subcomponent_class()  # noqa: N806
     for category_name, category_data in categories.items():
         category = Category()
-        if category_data is not None:
-            for key, value in category_data.items():
-                category[key] = Column(value)
-        else:
-            raise ValueError(f"Category {category_name} is empty. Do not write empty categories to CIF file.")
+        for key, value in category_data.items():
+            # ... skip empty columns
+            if value is None or len(value) == 0:
+                continue
+            category[key] = Column(value)
+
+        # ... skip empty categories
+        if len(category) == 0:
+            continue
         block[category_name] = category
 
 
