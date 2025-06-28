@@ -13,21 +13,19 @@ from cifutils.transforms.atom_array import is_any_coord_nan
 
 
 class QueryExpression:
-    """
-    Query evaluator for biotite AtomArrays using pandas-like syntax.
+    """Query evaluator for biotite AtomArrays using pandas-like syntax.
 
-    Examples
-    --------
-    >>> # Select all CA atoms in chain A
-    >>> expr = QueryExpression("(chain_id == 'A') & (atom_name == 'CA')")
-    >>> ca_atoms = expr.query(atom_array)
+    Examples:
+        Select all CA atoms in chain A:
+            >>> expr = QueryExpression("(chain_id == 'A') & (atom_name == 'CA')")
+            >>> ca_atoms = expr.query(atom_array)
 
-    >>> # Select atoms without NaN coordinates
-    >>> expr = QueryExpression("~has_nan_coord()")
-    >>> valid_atoms = expr.query(atom_array)
+        Select atoms without NaN coordinates:
+            >>> expr = QueryExpression("~has_nan_coord()")
+            >>> valid_atoms = expr.query(atom_array)
 
-    >>> # Select bonded atoms in specific residues
-    >>> expr = QueryExpression("has_bonds() & (res_name in ['ALA', 'GLY', 'VAL'])")
+        Select bonded atoms in specific residues:
+            >>> expr = QueryExpression("has_bonds() & (res_name in ['ALA', 'GLY', 'VAL'])")
     """
 
     # Map string operators to functions
@@ -55,13 +53,25 @@ class QueryExpression:
         }
     )
 
-    def __init__(self, expr: str):
+    def __init__(self, expr: str) -> None:
+        """Initialize QueryExpression with a query string.
+
+        Args:
+            expr: The query expression string to parse and evaluate.
+        """
         self.expr = expr
         # Parse once during initialization for efficiency
         self.tree = ast.parse(expr, mode="eval")
 
     def mask(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
-        """Apply the query expression to an AtomArray and return a boolean mask."""
+        """Apply the query expression to an AtomArray and return a boolean mask.
+
+        Args:
+            atom_array: The atom array to query.
+
+        Returns:
+            Boolean numpy array indicating which atoms match the query.
+        """
         namespace = self._build_namespace(atom_array)
         functions = self._build_functions(atom_array)
         mask = self._eval_node(self.tree.body, namespace, functions, atom_array)
@@ -72,18 +82,39 @@ class QueryExpression:
         return mask
 
     def query(self, atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
-        """Apply the query expression to an AtomArray and return a filtered AtomArray."""
+        """Apply the query expression to an AtomArray and return a filtered AtomArray.
+
+        Args:
+            atom_array: The atom array to query.
+
+        Returns:
+            Filtered atom array containing only atoms that match the query expression.
+        """
         mask = self.mask(atom_array)
         return atom_array[mask]
 
     def idxs(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
-        """Apply the query expression to an AtomArray and return the indices of the matching atoms."""
+        """Apply the query expression to an AtomArray and return the indices of the matching atoms.
+
+        Args:
+            atom_array: The atom array to query.
+
+        Returns:
+            Numpy array of indices for atoms that match the query expression.
+        """
         mask = self.mask(atom_array)
         return np.where(mask)[0]
 
     @staticmethod
     def _build_namespace(atom_array: AtomArray) -> dict[str, Any]:
-        """Build namespace of queryable attributes."""
+        """Build namespace of queryable attributes.
+
+        Args:
+            atom_array: The atom array to build namespace from.
+
+        Returns:
+            Dictionary mapping attribute names to their values.
+        """
         namespace = {}
 
         # Add all annotation arrays as queryable attributes
@@ -100,7 +131,14 @@ class QueryExpression:
 
     @staticmethod
     def _build_functions(atom_array: AtomArray) -> dict[str, Callable]:
-        """Build available functions that can be called in queries."""
+        """Build available functions that can be called in queries.
+
+        Args:
+            atom_array: The atom array to build functions for.
+
+        Returns:
+            Dictionary mapping function names to callable functions.
+        """
         functions = {
             "has_nan_coord": lambda: QueryExpression._has_nan_coord(atom_array),
             "has_bonds": lambda: QueryExpression._has_bonds(atom_array),
@@ -109,12 +147,26 @@ class QueryExpression:
 
     @staticmethod
     def _has_nan_coord(atom_array: AtomArray) -> np.ndarray:
-        """Check if atom has NaN coordinates."""
+        """Check if atom has NaN coordinates.
+
+        Args:
+            atom_array: The atom array to check.
+
+        Returns:
+            Boolean numpy array indicating which atoms have NaN coordinates.
+        """
         return is_any_coord_nan(atom_array)
 
     @staticmethod
     def _has_bonds(atom_array: AtomArray) -> np.ndarray:
-        """Check if atom is involved in a bond."""
+        """Check if atom is involved in a bond.
+
+        Args:
+            atom_array: The atom array to check.
+
+        Returns:
+            Boolean numpy array indicating which atoms are involved in bonds.
+        """
         if not hasattr(atom_array, "bonds"):
             return np.zeros(atom_array.array_length(), dtype=bool)
         _bonded_idxs = np.unique(atom_array.bonds.as_array()[:, :2])
@@ -122,7 +174,18 @@ class QueryExpression:
 
     @staticmethod
     def _ensure_bool_array(mask: Any, expected_length: int) -> np.ndarray:
-        """Ensure mask is a boolean numpy array of the correct length."""
+        """Ensure mask is a boolean numpy array of the correct length.
+
+        Args:
+            mask: The mask to ensure is a boolean array.
+            expected_length: The expected length of the array.
+
+        Returns:
+            Boolean numpy array of the correct length.
+
+        Raises:
+            ValueError: If the mask length doesn't match the expected length.
+        """
         # Convert to numpy array if needed
         if not isinstance(mask, np.ndarray):
             mask = np.array(mask, dtype=bool)
@@ -144,7 +207,19 @@ class QueryExpression:
         return mask
 
     def _handle_in_operator(self, left: Any, right: Any, invert: bool = False) -> np.ndarray:
-        """Handle 'in' and 'not in' operators with numpy arrays."""
+        """Handle 'in' and 'not in' operators with numpy arrays.
+
+        Args:
+            left: Left operand of the in/not in operation.
+            right: Right operand of the in/not in operation.
+            invert: Whether to invert the result (for 'not in').
+
+        Returns:
+            Boolean numpy array result of the in/not in operation.
+
+        Raises:
+            TypeError: If the right operand is not iterable.
+        """
         # Convert right to list/array if needed
         if isinstance(right, (list | tuple | np.ndarray)):
             # Use numpy's isin for array operations
@@ -159,7 +234,21 @@ class QueryExpression:
     def _eval_node(
         self, node: ast.AST, namespace: dict[str, Any], functions: dict[str, Callable], atom_array: AtomArray
     ) -> Any:
-        """Recursively evaluate an AST node."""
+        """Recursively evaluate an AST node.
+
+        Args:
+            node: The AST node to evaluate.
+            namespace: Dictionary of available variables.
+            functions: Dictionary of available functions.
+            atom_array: The atom array being queried.
+
+        Returns:
+            The result of evaluating the AST node.
+
+        Raises:
+            ValueError: If an unsupported operation or node type is encountered.
+            NameError: If a name or function is not defined.
+        """
         if isinstance(node, ast.Compare):
             left = self._eval_node(node.left, namespace, functions, atom_array)
             results = []
@@ -268,18 +357,12 @@ class QueryExpression:
 def query(atom_array: AtomArray | AtomArrayStack, expr: str) -> AtomArray | AtomArrayStack:
     """
     Query the AtomArray using pandas-like syntax.
+    Args:
+        atom_array: The atom array to query.
+        expr: Query expression in pandas-like syntax.
 
-    Parameters
-    ----------
-    atom_array : AtomArray
-        The atom array to query
-    expr : str
-        Query expression
-
-    Returns
-    -------
-    AtomArray
-        Filtered atom array
+    Returns:
+        Filtered atom array containing only atoms that match the query expression.
 
     Examples
     --------
