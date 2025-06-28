@@ -357,7 +357,7 @@ def _write_categories_to_block(
         category = Category()
         for key, value in category_data.items():
             # ... skip empty columns
-            if value is None or len(value) == 0:
+            if value is None or (hasattr(value, "__len__") and len(value) == 0):
                 continue
             category[key] = Column(value)
 
