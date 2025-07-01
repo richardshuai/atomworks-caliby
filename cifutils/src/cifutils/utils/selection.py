@@ -411,3 +411,43 @@ class AtomSelectionStack:
     def get_mask(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
         """Create a boolean mask using this AtomSelection on an AtomArray."""
         return reduce(np.logical_or, [selection.get_mask(atom_array) for selection in self.selections])
+
+    def get_center_of_mass(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
+        """Get the center of mass of the selected atoms in the AtomArray."""
+        mask = self.get_mask(atom_array)
+        if not np.any(mask):
+            raise ValueError("No atoms selected by the AtomSelectionStack.")
+
+        if isinstance(atom_array, AtomArray):
+            return atom_array.coord[mask].mean(axis=0)
+        elif isinstance(atom_array, AtomArrayStack):
+            return atom_array.coord[:, mask].mean(axis=1)
+        else:
+            raise ValueError(f"Cannot get center of mass for {type(atom_array)}!")
+
+    def get_principal_components(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
+        """Get the principal components of the selected atoms in the AtomArray.
+
+        Returns:
+            - np.ndarray: Principal axes (eigenvectors). For AtomArray: (3, 3). For AtomArrayStack: (n_models, 3, 3).
+        """
+        mask = self.get_mask(atom_array)
+        if not np.any(mask):
+            raise ValueError("No atoms selected by the AtomSelectionStack.")
+
+        if isinstance(atom_array, AtomArray):
+            coords = atom_array.coord[mask]  # (N_atoms, 3)
+            coords_centered = coords - coords.mean(axis=0)
+            # SVD for principal axes
+            _, _, vh = np.linalg.svd(coords_centered, full_matrices=False)
+            return vh.T  # (3, 3), columns are principal axes
+        elif isinstance(atom_array, AtomArrayStack):
+            coords = atom_array.coord[:, mask, :]  # (n_models, N_atoms, 3)
+            pcs = []
+            for model_coords in coords:
+                model_centered = model_coords - model_coords.mean(axis=0)
+                _, _, vh = np.linalg.svd(model_centered, full_matrices=False)
+                pcs.append(vh.T)  # (3, 3)
+            return np.stack(pcs, axis=0)  # (n_models, 3, 3)
+        else:
+            raise ValueError(f"Cannot get principal components for {type(atom_array)}!")

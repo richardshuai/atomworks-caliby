@@ -212,5 +212,45 @@ def test_get_mask_from_contig_string_with_atom_array(basic_atom_array: struc.Ato
     assert np.sum(mask[residue_starts]) == expected_length
 
 
+def test_atom_selection_stack_get_center_of_mass(basic_atom_array: struc.AtomArray):
+    """Test that get_center_of_mass returns the correct center for selected atoms."""
+    selection_stack = AtomSelectionStack.from_contig_string("A1-2, B3-3")
+    center_of_mass = selection_stack.get_center_of_mass(basic_atom_array)
+    expected_center = np.mean(basic_atom_array[selection_stack.get_mask(basic_atom_array)].coord, axis=0)
+    assert np.allclose(center_of_mass, expected_center)
+
+    # test that it works with an atom array stack
+    atom_array_stack = struc.stack([basic_atom_array, basic_atom_array])
+    center_of_mass = selection_stack.get_center_of_mass(atom_array_stack)
+    expected_center = np.mean(atom_array_stack.coord[:, selection_stack.get_mask(atom_array_stack)], axis=1)
+    assert expected_center.shape == (2, 3)
+    assert np.allclose(center_of_mass, expected_center)
+
+
+def test_atom_selection_stack_get_principle_components(basic_atom_array: struc.AtomArray):
+    """Test that get_principle_components returns correct principal axes for selected atoms."""
+    selection_stack = AtomSelectionStack.from_contig_string("A1-2, B3-3")
+    # AtomArray case
+    pcs = selection_stack.get_principal_components(basic_atom_array)
+    coords = basic_atom_array[selection_stack.get_mask(basic_atom_array)].coord
+    coords_centered = coords - coords.mean(axis=0)
+    _, _, vh = np.linalg.svd(coords_centered, full_matrices=False)
+    expected_pcs = vh.T
+    assert pcs.shape == (3, 3)
+    # Principal axes are unique up to sign, so compare absolute values
+    assert np.allclose(np.abs(pcs), np.abs(expected_pcs))
+
+    # AtomArrayStack case
+    atom_array_stack = struc.stack([basic_atom_array, basic_atom_array])
+    pcs_stack = selection_stack.get_principal_components(atom_array_stack)
+    coords_stack = atom_array_stack.coord[:, selection_stack.get_mask(atom_array_stack), :]
+    for i, model_coords in enumerate(coords_stack):
+        model_centered = model_coords - model_coords.mean(axis=0)
+        _, _, vh = np.linalg.svd(model_centered, full_matrices=False)
+        expected_pcs = vh.T
+        assert pcs_stack.shape == (2, 3, 3)
+        assert np.allclose(np.abs(pcs_stack[i]), np.abs(expected_pcs))
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
