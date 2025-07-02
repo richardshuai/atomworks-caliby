@@ -134,7 +134,7 @@ def build_af3_transform_pipeline(
         crop_spatial_probability: The probability of using spatial cropping.
             Defaults to 0.5.
         conformer_generation_timeout: The timeout for conformer generation in seconds.
-            Defaults to (3.0, 0.15), which gives a timeout of 3.0 + 0.15 * (n_conformers - 1) 
+            Defaults to (3.0, 0.15), which gives a timeout of 3.0 + 0.15 * (n_conformers - 1)
             seconds per unique CCD code.
 
     Returns:
