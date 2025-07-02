@@ -421,12 +421,6 @@ try:
     """
 
 except Exception as e:  # noqa
-    logger.warning(
-        "Failed to create RF2 and RF2AA encodings. Falling back to the `frozen` defaults. "
-        "If they have been updated in the meantime, you will need to get the above `try` "
-        f"to work. {e}"
-    )
-
     # fmt: off
     RF2AA_TOKEN_TO_STANDARD_TOKEN = {
         'ALA': 'ALA',
@@ -816,15 +810,17 @@ class AF3SequenceEncoding:
         res_name_to_token = dict(zip(self.all_res_names[self.is_rna_like], cycle(["X"])))
         res_name_to_token |= dict(zip(self.all_res_names[self.is_dna_like], cycle(["DX"])))
         res_name_to_token |= dict(zip(AF3_TOKENS, AF3_TOKENS))
-        self.res_name_to_af3_token = np.vectorize(lambda res_name: res_name_to_token.get(res_name, "UNK"))
+        self.res_name_to_token = res_name_to_token
 
         # Build mappings for AF3 tokens to indices
         self.af3_token_to_int = {token: i for i, token in enumerate(AF3_TOKENS)}
-        self.encode_func = np.vectorize(lambda x: self.af3_token_to_int.get(x, self.af3_token_to_int["UNK"]))
 
     @property
     def tokens(self) -> list[str]:
         return AF3_TOKENS
+
+    def res_name_to_af3_token(self, res_name: str) -> str:
+        return np.vectorize(lambda res_name: self.res_name_to_token.get(res_name, "UNK"))(res_name)
 
     @property
     def token_to_idx(self) -> dict[str, int]:
@@ -839,7 +835,9 @@ class AF3SequenceEncoding:
         return len(self.tokens)
 
     def encode(self, res_names: Sequence[str]) -> np.ndarray:
-        return self.encode_func(res_names)
+        # NOTE: Defined here rather than as attribute to allow pickling for multiprocessing
+        encode_func = np.vectorize(lambda x: self.af3_token_to_int.get(x, self.af3_token_to_int["UNK"]))
+        return encode_func(res_names)
 
     def decode(self, token_idxs: int | Sequence[int]) -> np.ndarray:
         return self.idx_to_token[token_idxs]
