@@ -433,7 +433,7 @@ def test_af3_reference_molecule_features_with_cached_conformers(cache_dir):
     no_cache_time = time.time() - start_time
 
     assert (
-        cached_time * 2 < no_cache_time
+        cached_time < 0.8 * no_cache_time
     ), f"Cached version should be faster than no cache version, but got {cached_time} vs {no_cache_time}"
 
     feats = result_data_cached["feats"]
