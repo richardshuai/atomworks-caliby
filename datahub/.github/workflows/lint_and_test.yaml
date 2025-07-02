@@ -45,6 +45,33 @@ jobs:
       (github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review')
     steps:
       - uses: actions/checkout@v4
+      - name: Setup credentials for installing private dependencies
+        run: |
+          git config --global url."https://${{ secrets.IPD_BOT_ACCESS_TOKEN }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+          # Extract the cifutils version from this repository's environment.yaml
+          # The line is expected to look like:
+          #   - git+https://...@github.com/baker-laboratory/cifutils.git@vX.Y.Z
+          # If no version tag is specified, it will default to 'main'.
+          CIFUTILS_LINE=$(grep 'cifutils\.git' environment.yaml)
+          if [ -z "$CIFUTILS_LINE" ]; then
+            echo "::error::Could not find cifutils dependency in environment.yaml"
+            exit 1
+          fi
+
+          if [[ "$CIFUTILS_LINE" == *".git@"* ]]; then
+            CIFUTILS_TAG=$(echo "$CIFUTILS_LINE" | sed 's/.*\.git@//' | xargs)
+          else
+            CIFUTILS_TAG="main"
+          fi
+          
+          echo "Using cifutils tag: ${CIFUTILS_TAG}"
+          # Clone cifutils and checkout the correct tag
+          git clone https://github.com/baker-laboratory/cifutils.git
+          (cd cifutils && git checkout "${CIFUTILS_TAG}")
+          # Install the cifutils package in editable mode
+          CIFUTILS_PATH="$(pwd)/cifutils"
+          echo "Adding ${CIFUTILS_PATH} to PYTHONPATH"
+          echo "PYTHONPATH=${CIFUTILS_PATH}:${PYTHONPATH}" >> $GITHUB_ENV
       - name: Run unit tests
         timeout-minutes: 60
         run: |
