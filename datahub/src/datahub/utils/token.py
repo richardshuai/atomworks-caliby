@@ -149,23 +149,37 @@ def token_iter(array: AtomArray) -> Iterator[AtomArray]:
     return struc.segments.segment_iter(array, starts)
 
 
-def spread_token_wise(array: AtomArray, input_data: np.ndarray) -> np.ndarray:
+def spread_token_wise(array: AtomArray, input_data: np.ndarray, token_starts: np.ndarray | None = None) -> np.ndarray:
     """Analogous to biotite's `spread_residue_wise`."""
-    starts = get_token_starts(array, add_exclusive_stop=True)
-    return struc.segments.spread_segment_wise(starts, input_data)
+    if token_starts is None:
+        token_starts = get_token_starts(array, add_exclusive_stop=True)
+    return struc.segments.spread_segment_wise(token_starts, input_data)
 
 
-def apply_token_wise(array: AtomArray, data: np.ndarray, function: Callable, axis: int | None = None) -> np.ndarray:
+def apply_token_wise(
+    array: AtomArray,
+    data: np.ndarray,
+    function: Callable,
+    axis: int | None = None,
+    token_starts: np.ndarray | None = None,
+) -> np.ndarray:
     """Analogous to biotite's `apply_residue_wise`."""
-    starts = get_token_starts(array, add_exclusive_stop=True)
-    return struc.segments.apply_segment_wise(starts, data, function, axis)
+    if token_starts is None:
+        token_starts = get_token_starts(array, add_exclusive_stop=True)
+    return struc.segments.apply_segment_wise(token_starts, data, function, axis)
 
 
 def apply_and_spread_token_wise(
-    atom_array: AtomArray, data: np.ndarray, function: Callable, axis: int | None = None
+    atom_array: AtomArray,
+    data: np.ndarray,
+    function: Callable,
+    axis: int | None = None,
+    token_starts: np.ndarray | None = None,
 ) -> np.ndarray:
     """Apply a function token wise and then spread the result to the atoms."""
-    return spread_token_wise(atom_array, apply_token_wise(atom_array, data, function, axis))
+    if token_starts is None:
+        token_starts = get_token_starts(atom_array, add_exclusive_stop=True)
+    return spread_token_wise(atom_array, apply_token_wise(atom_array, data, function, axis, token_starts), token_starts)
 
 
 def apply_segment_wise_2d(array: np.ndarray, segment_start_end_idxs: np.ndarray, reduce_func: Callable) -> np.ndarray:
@@ -234,7 +248,7 @@ def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
     assert (
         "atomize" in atom_array.get_annotation_categories()
     ), "Atomize annotation is missing. Run AtomizeByCCDName Transform for magical atomization of ligands"
-    pyramidine_representative_atom = is_pyrimidine(atom_array.res_name) & (atom_array.atom_name == "C2")
+    pyrimidine_representative_atom = is_pyrimidine(atom_array.res_name) & (atom_array.atom_name == "C2")
     purine_representative_atom = is_purine(atom_array.res_name) & (atom_array.atom_name == "C4")
     unknown_na_representative_atom = is_unknown_nucleotide(atom_array.res_name) & (atom_array.atom_name == "C4")
 
@@ -248,8 +262,8 @@ def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
 
     atoms = atom_array.atomize
 
-    return (
-        pyramidine_representative_atom
+    is_representative_atom = (
+        pyrimidine_representative_atom
         | purine_representative_atom
         | unknown_na_representative_atom
         | glycine_representative_atom
@@ -257,6 +271,14 @@ def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
         | unknown_protein_residue_representative_atom
         | atoms
     )
+    if is_representative_atom.sum() != get_token_count(atom_array):
+        raise ValueError(
+            f"Number of representative atoms ({is_representative_atom.sum()}) does not match number"
+            f"of tokens ({get_token_count(atom_array)}). This is likely due to you filtering out"
+            "some atoms from the atom array that are then missing as represenatives."
+        )
+
+    return is_representative_atom
 
 
 def get_af3_token_representative_idxs(atom_array: AtomArray) -> np.ndarray:
@@ -312,11 +334,21 @@ def get_af3_token_center_masks(atom_array: AtomArray) -> np.ndarray:
     assert (
         "atomize" in atom_array.get_annotation_categories()
     ), "Atomize annotation is missing. Run AtomizeByCCDName Transform first!"
-    return (
+
+    is_center_atom = (
         atom_array.atomize  # the atom itself for un-atomized tokens
         | (atom_array.atom_name == "CA")  # CA for amino acids
         | (atom_array.atom_name == "C1'")  # C1' for nucleotides
     )
+    if is_center_atom.sum() != get_token_count(atom_array):
+        raise ValueError(
+            f"Number of center atoms ({is_center_atom.sum()}) does not match"
+            f"number of tokens ({get_token_count(atom_array)}). This is likely"
+            "due to you filtering out some atoms from the atom array that are"
+            "then missing as centers."
+        )
+
+    return is_center_atom
 
 
 def get_af3_token_center_idxs(atom_array: AtomArray) -> np.ndarray:

@@ -414,7 +414,8 @@ def crop_spatial_like_af3(
         - AF3 https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
         - AF2 Multimer https://www.biorxiv.org/content/10.1101/2021.10.04.463034v2.full.pdf
     """
-    n_tokens = get_token_count(atom_array)
+    token_start_stops = get_token_starts(atom_array, add_exclusive_stop=True)
+    n_tokens = len(token_start_stops) - 1
     requires_crop = n_tokens > crop_size
     if force_crop or requires_crop:
         # Get possible crop centers
@@ -433,7 +434,7 @@ def crop_spatial_like_af3(
             token_coords, crop_center_token_idx, crop_size=crop_size, jitter_scale=jitter_scale
         )
         # ... spread token-level crop mask to atom-level
-        is_atom_in_crop = spread_token_wise(atom_array, is_token_in_crop)
+        is_atom_in_crop = spread_token_wise(atom_array, is_token_in_crop, token_starts=token_start_stops)
     else:
         # ... no need to crop since the atom array is already small enough
         crop_center_atom_id = np.nan
