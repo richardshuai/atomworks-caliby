@@ -260,6 +260,7 @@ def view_pymol(
     port: int | None = None,
     as_bcif: bool = False,
     overwrite: bool = False,
+    grid_slot: int | None = None,
 ) -> str:
     """
     Visualizes an AtomArray structure in PyMOL by connecting to a PyMOL server and loading the structure. If no ID is
@@ -281,6 +282,8 @@ def view_pymol(
             This only takes effect if `structure` is an `AtomArray` or `AtomArrayStack`.
             Defaults to False.
         - overwrite (bool, optional): Whether to overwrite an existing object with the same ID. Defaults to False.
+        - grid_slot (int | None, optional): The grid slot to use for the structure. If None, a random slot is chosen.
+            Defaults to None.
 
     Returns:
         str: The identifier used for the structure in PyMOL.
@@ -357,5 +360,7 @@ def view_pymol(
     buffer = gzip.compress(buffer)
 
     session.set_state(buffer, object=id, format=format)
+    grid_slot = np.random.randint(0, 10_000) if grid_slot is None else grid_slot
+    session.set("grid_slot", grid_slot, id)
 
     return id
