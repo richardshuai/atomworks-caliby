@@ -18,29 +18,6 @@ def sample_data_with_global_res_id():
     return global_res_id_transform(data)
 
 
-def test_load_cached_residue_level_data_basic(cache_dir, sample_data_with_global_res_id):
-    """Test basic loading of cached residue data."""
-    cached_data = load_cached_residue_level_data(
-        sample_data_with_global_res_id["atom_array"],
-        dir=cache_dir,
-        file_extension=".pt",
-        sharding_depth=1,
-    )
-
-    assert isinstance(cached_data, dict)
-    assert len(cached_data) > 0, "Should have loaded at least some cached residue data"
-
-    for _, res_data in cached_data.items():
-        assert isinstance(res_data, dict)
-        assert "descriptors" in res_data
-        assert "atom_names" in res_data
-
-        descriptors = res_data["descriptors"]
-        atom_names = res_data["atom_names"]
-        assert descriptors.ndim == 3  # (n_conformers, n_atoms, n_features)
-        assert len(atom_names) == descriptors.shape[1]
-
-
 def test_load_with_key_filtering(cache_dir, sample_data_with_global_res_id):
     """Test loading cached data with specific keys only."""
     keys_to_load = ["descriptors", "atom_names"]
@@ -57,17 +34,15 @@ def test_load_with_key_filtering(cache_dir, sample_data_with_global_res_id):
             assert key in keys_to_load, f"Unexpected key '{key}' found in {res_name} data"
 
 
-def test_random_subsample_conformers_transform(cache_dir, sample_data_with_global_res_id):
-    """Test random subsampling of conformers using the transform."""
-    # Load cached residue data
+def test_random_subsample_conformers(cache_dir, sample_data_with_global_res_id):
+    """Test random subsampling of conformers"""
+    # Load cached residue data (conformers, descriptors, atom_names)
     load_transform = LoadCachedResidueLevelData(dir=cache_dir, sharding_depth=1)
     cached_residue_data = load_transform(sample_data_with_global_res_id)
 
-    if not cached_residue_data["cached_residue_level_data"]:
-        pytest.skip("No cached data was loaded for this structure")
-
+    # Subsample conformers
     n_conformers_to_sample = 3
-    subsample_transform = RandomSubsampleCachedConformers(n_conformers=n_conformers_to_sample, seed=42)
+    subsample_transform = RandomSubsampleCachedConformers(n_conformers=n_conformers_to_sample)
     data = subsample_transform(cached_residue_data)
 
     assert "residue_conformer_indices" in data

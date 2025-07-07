@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from biotite.structure import AtomArray
 from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
-from cifutils.tools.rdkit import atom_array_from_rdkit
+from cifutils.tools.rdkit import atom_array_from_rdkit, remove_hydrogens
 from cifutils.utils.ccd import get_available_ccd_codes
 from cifutils.utils.selection import get_residue_starts
 from rdkit import Chem
@@ -41,7 +41,8 @@ def _extract_cached_conformers(
         needed_conformers = min(count, max_conformers_per_residue) if max_conformers_per_residue is not None else count
 
         if res_name in cached_residue_level_data:
-            cached_mol = cached_residue_level_data[res_name].get("mol")
+            # (We remove hydrogens to be consistent with on-the-fly conformer generation)
+            cached_mol = remove_hydrogens(cached_residue_level_data[res_name].get("mol"))
             if cached_mol is not None and cached_mol.GetNumConformers() >= needed_conformers:
                 # We have enough cached conformers - use the cached mol
                 cached_mols[res_name] = cached_mol

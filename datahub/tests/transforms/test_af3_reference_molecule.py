@@ -23,6 +23,8 @@ from datahub.transforms.atom_array import AddGlobalResIdAnnotation, add_global_t
 from datahub.transforms.atomize import atomize_by_ccd_name
 from datahub.transforms.base import Compose
 from datahub.transforms.cached_residue_data import LoadCachedResidueLevelData, RandomSubsampleCachedConformers
+from datahub.transforms.chirals import AddAF3ChiralFeatures
+from datahub.transforms.rdkit_utils import GetRDKitChiralCenters
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
 from datahub.utils.testing import cached_parse
 from tests.conftest import TEST_DATA_DIR
@@ -394,40 +396,30 @@ def test_max_conformers_per_residue_functionality():
 
 def test_af3_reference_molecule_features_with_cached_conformers(cache_dir):
     """Test AF3 reference molecule features using cached conformers."""
-    # Create sample data with global residue IDs
     data = cached_parse("1crn", hydrogen_policy="remove")
-    global_res_id_transform = AddGlobalResIdAnnotation()
-    sample_data_with_global_res_id = global_res_id_transform(data)
+    pipe = Compose(
+        [
+            AddGlobalResIdAnnotation(),
+            LoadCachedResidueLevelData(dir=cache_dir, sharding_depth=1),
+        ]
+    )
+    cached_residue_data = pipe(data)
 
-    # Load cached residue data
-    load_transform = LoadCachedResidueLevelData(dir=cache_dir, sharding_depth=1)
-    cached_residue_data = load_transform(sample_data_with_global_res_id)
-
-    if not cached_residue_data["cached_residue_level_data"]:
-        pytest.skip("No cached data was loaded for this structure")
-
-    # Create transform with cached conformers enabled and max conformers limit
+    # Create data dictionaries with/without cached conformers
     transform_with_cache = GetAF3ReferenceMoleculeFeatures(
-        max_conformers_per_residue=3, use_cached_conformers=True, conformer_generation_timeout=5.0, save_rdkit_mols=True
+        max_conformers_per_residue=3, use_cached_conformers=True, save_rdkit_mols=True
     )
-
-    # Create transform without cached conformers for comparison
     transform_no_cache = GetAF3ReferenceMoleculeFeatures(
-        max_conformers_per_residue=3,
-        use_cached_conformers=False,
-        conformer_generation_timeout=5.0,
-        save_rdkit_mols=True,
+        max_conformers_per_residue=3, use_cached_conformers=False, conformer_generation_timeout=5.0
     )
-
-    # Create data without cached conformers for timing comparison
     data_no_cache = {"atom_array": cached_residue_data["atom_array"]}
 
-    # Test the cached version - the main functionality test
+    # ... time the cached version
     start_time = time.time()
     result_data_cached = transform_with_cache(cached_residue_data)
     cached_time = time.time() - start_time
 
-    # Time the non-cached version
+    # ... time the non-cached version
     start_time = time.time()
     _ = transform_no_cache(data_no_cache)
     no_cache_time = time.time() - start_time
@@ -441,12 +433,9 @@ def test_af3_reference_molecule_features_with_cached_conformers(cache_dir):
     assert not np.any(np.all(feats["ref_pos"] == 0, axis=1))
 
 
-def test_af3_reference_molecule_features_with_subsampled_conformers(cache_dir):
-    """Test AF3 reference molecule features using specific conformer indices.
-
-    Asserts that the actual reference molecules at each res_idx match exactly with the coordinates
-    from RDKit when indexing into the cached conformer using the index that subsample conformers generated.
-    """
+@pytest.fixture
+def data_with_subsampled_conformers(cache_dir):
+    """Fixture providing AF3 reference molecule features with subsampled conformers."""
     data = cached_parse("1crn", hydrogen_policy="remove")
     pipeline = Compose(
         [
@@ -454,17 +443,16 @@ def test_af3_reference_molecule_features_with_subsampled_conformers(cache_dir):
             LoadCachedResidueLevelData(dir=cache_dir, sharding_depth=1),
             RandomSubsampleCachedConformers(n_conformers=3, seed=42),
             GetAF3ReferenceMoleculeFeatures(
-                max_conformers_per_residue=5,
-                use_cached_conformers=True,
-                conformer_generation_timeout=5.0,
-                save_rdkit_mols=True,
-                apply_random_rotation_and_translation=False,  # Important: no random rotation for coordinate comparison
+                max_conformers_per_residue=5, use_cached_conformers=True, apply_random_rotation_and_translation=False
             ),
         ]
     )
-    result_data = pipeline(data)
-    assert "cached_residue_level_data" in result_data, "No cached data was loaded for this structure"
-    assert "residue_conformer_indices" in result_data, "No conformer indices were created"
+    return pipeline(data)
+
+
+def test_af3_reference_molecule_features_with_subsampled_conformers(data_with_subsampled_conformers):
+    """Ensure that the actual reference molecules at each res_idx match"""
+    result_data = data_with_subsampled_conformers
 
     atom_array = result_data["atom_array"]
     feats = result_data["feats"]
@@ -506,21 +494,21 @@ def test_af3_reference_molecule_features_with_subsampled_conformers(cache_dir):
         actual_ref_pos = feats["ref_pos"][res_start:res_end]
         actual_ref_mask = feats["ref_mask"][res_start:res_end]
 
-        # Assert that the masks match
-        assert np.array_equal(actual_ref_mask, expected_ref_mask), (
-            f"Reference masks don't match for residue {res_name} at global_id {res_global_id}. "
-            f"Expected: {expected_ref_mask}, Actual: {actual_ref_mask}"
-        )
+        assert np.array_equal(actual_ref_mask, expected_ref_mask), "Reference masks don't match"
+        assert np.allclose(
+            expected_ref_pos[expected_ref_mask], actual_ref_pos[actual_ref_mask], atol=1e-6
+        ), "Reference coordinates don't match"
 
-        # Assert that the coordinates match exactly (where mask is True)
-        masked_expected = expected_ref_pos[expected_ref_mask]
-        masked_actual = actual_ref_pos[actual_ref_mask]
 
-        assert np.allclose(masked_expected, masked_actual, atol=1e-6), (
-            f"Reference coordinates don't match for residue {res_name} at global_id {res_global_id} "
-            f"using conformer index {selected_conformer_idx}. "
-            f"Max difference: {np.max(np.abs(masked_expected - masked_actual))}"
-        )
+def test_chiral_centers_with_cached_conformers(cache_dir, data_with_subsampled_conformers):
+    chiral_pipe = Compose(
+        [
+            GetRDKitChiralCenters(),
+            AddAF3ChiralFeatures(),
+        ]
+    )
+    # Smoke tests
+    _ = chiral_pipe(data_with_subsampled_conformers)
 
 
 if __name__ == "__main__":

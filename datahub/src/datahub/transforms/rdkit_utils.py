@@ -690,7 +690,6 @@ def get_rdkit_chiral_centers(rdkit_mols: dict[str, Mol]) -> dict:
     for resname, rdmol in rdkit_mols.items():
         try:
             # Get the chiral centers (returned are the indices of the chiral center atoms within the `obmol` object)
-            # (We remove hydrogens to ensure indices are consistent)
             chiral_centers[resname] = get_chiral_centers(rdmol)
 
         except Exception as e:
