@@ -5,7 +5,7 @@ __all__ = ["annot_start_stop_idxs", "get_annotation", "get_residue_starts"]
 import re
 from abc import ABC, abstractmethod
 from functools import reduce
-from typing import Any
+from typing import Any, Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -101,12 +101,34 @@ def get_annotation(
     return default
 
 
-def get_annotation_categories(atom_array: AtomArray | AtomArrayStack, n_body: int = 1) -> list[str]:
-    """Get annotation categories for the specified n_body."""
-    if n_body == 1 and hasattr(atom_array, "get_annotation_categories"):
-        return atom_array.get_annotation_categories()
-    elif n_body == 2 and hasattr(atom_array, "get_annotation_2d_categories"):
-        return atom_array.get_annotation_2d_categories()
+def get_annotation_categories(atom_array: AtomArray | AtomArrayStack, n_body: int | Literal["all"] = 1) -> list[str]:
+    """Get annotation categories for the specified n_body.
+
+    Args:
+        atom_array: The AtomArray or AtomArrayStack to query.
+        n_body: 1 for 1D annotations, 2 for 2D annotations, or "all" for all available n_body.
+
+    Returns:
+        categories: list[str] List of annotation category names.
+    """
+    # Map n_body to the corresponding method name
+    n_body_to_method = {
+        1: "get_annotation_categories",
+        2: "get_annotation_2d_categories",
+    }
+
+    if n_body == "all":
+        categories = []
+        for method_name in n_body_to_method.values():
+            if hasattr(atom_array, method_name):
+                categories.extend(getattr(atom_array, method_name)())
+        return categories
+    elif n_body in n_body_to_method:
+        method_name = n_body_to_method[n_body]
+        if hasattr(atom_array, method_name):
+            return getattr(atom_array, method_name)()
+        else:
+            return []
     else:
         return []
 
