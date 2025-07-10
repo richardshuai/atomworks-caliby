@@ -12,6 +12,7 @@ import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
 
 from cifutils.utils.atom_array_plus import AtomArrayPlus
+from cifutils.utils.scatter import get_segments
 
 
 def annot_start_stop_idxs(
@@ -42,16 +43,10 @@ def annot_start_stop_idxs(
     if isinstance(annots, str):
         annots = [annots]
 
-    annots_differ = np.zeros(atom_array.array_length() - 1, dtype=bool)
-    for annot in annots:
-        annot_array = atom_array.get_annotation(annot)
-        annots_differ |= annot_array[1:] != annot_array[:-1]
-
-    start_stop_idxs = np.where(annots_differ)[0] + 1
-
-    if add_exclusive_stop:
-        return np.concatenate(([0], start_stop_idxs, [atom_array.array_length()]))
-    return np.concatenate(([0], start_stop_idxs))
+    annots: list[str]
+    annot_data: list[np.ndarray] = [atom_array.get_annotation(annot) for annot in annots]
+    start_stop_idxs = get_segments(*annot_data, add_exclusive_stop=add_exclusive_stop)
+    return start_stop_idxs
 
 
 def get_residue_starts(atom_array: AtomArray | AtomArrayStack, add_exclusive_stop: bool = False) -> np.ndarray:

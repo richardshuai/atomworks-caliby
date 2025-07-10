@@ -8,6 +8,7 @@ from biotite.structure.atoms import AtomArray, AtomArrayStack
 
 from cifutils.constants import PDB_MIRROR_PATH
 from cifutils.utils.bonds import hash_atom_array
+from cifutils.utils.scatter import apply_group_wise, apply_segment_wise
 
 
 def get_pdb_path(pdbid: str, mirror_path: str | os.PathLike = PDB_MIRROR_PATH) -> str:
@@ -31,7 +32,7 @@ def get_pdb_path(pdbid: str, mirror_path: str | os.PathLike = PDB_MIRROR_PATH) -
     return filename
 
 
-def is_same_in_segment(segment_start_stop: np.ndarray, data: np.ndarray) -> np.ndarray:
+def is_same_in_segment(segment_start_stop: np.ndarray, data: np.ndarray, raise_if_false: bool = False) -> np.ndarray:
     """Check if all elements in a segment are the same.
 
     Args:
@@ -42,12 +43,34 @@ def is_same_in_segment(segment_start_stop: np.ndarray, data: np.ndarray) -> np.n
     Returns:
         np.ndarray: Boolean array indicating whether all elements in each segment are the same.
     """
-    all_same = lambda x: np.all(x == x[0])  # noqa: E731
-    return struc.segments.apply_segment_wise(
-        segment_start_stop,
-        data=data,
-        function=all_same,
-    )
+    all_same = lambda x: np.all(x == x[0]) if len(x) > 0 else True  # noqa: E731
+    is_segment_valid = apply_segment_wise(segment_start_stop, data, all_same)
+    return is_segment_valid
+
+
+def is_same_in_group(groups: np.ndarray, data: np.ndarray) -> np.ndarray:
+    """
+    Check if all elements in `data` are the same within each group defined by `groups`.
+
+    Args:
+        groups: 1D array of group identifiers, same length as `data`.
+        data: 1D array of data values to check for sameness within each group.
+
+    Returns:
+        np.ndarray: Boolean array of shape (n_groups,) indicating whether all elements in each group are the same.
+
+    Example:
+        >>> groups = np.array([1, 1, 2, 2, 2, 3])
+        >>> data = np.array([5, 5, 7, 7, 7, 9])
+        >>> is_same_in_group(groups, data)
+        array([ True,  True,  True])
+        >>> data = np.array([5, 5, 7, 8, 7, 9])
+        >>> is_same_in_group(groups, data)
+        array([ True, False,  True])
+    """
+    is_same = lambda x: np.all(x == x[0]) if len(x) > 0 else True  # noqa: E731
+    is_group_data_same = apply_group_wise(groups, data, is_same)
+    return is_group_data_same
 
 
 def is_monotonic_increasing(arr: np.ndarray, strict: bool = True) -> bool:
