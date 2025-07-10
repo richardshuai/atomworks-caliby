@@ -40,20 +40,16 @@ def array(atoms: list[Atom]) -> AtomArray:
             )
     array = AtomArray(len(atoms))
 
-    # Add all (also optional) annotation categories, preserving dtype if possible
     for name in names:
         if hasattr(atoms[0]._annot[name], "dtype"):
             # (Preserve dtype if possible)
             dtype = atoms[0]._annot[name].dtype
         else:
             dtype = type(atoms[0]._annot[name])
-        array.add_annotation(name, dtype=dtype)
-
-    # Add all atoms to AtomArray
-    for i in range(len(atoms)):
-        for name in names:
-            array._annot[name][i] = atoms[i]._annot[name]
-        array._coord[i] = atoms[i].coord
+        annotation_values = [atom._annot[name] for atom in atoms]
+        annotation_values = np.array(annotation_values, dtype=dtype)  # maintain dtype
+        array.set_annotation(name, annotation_values)
+    array._coord = np.stack([atom.coord for atom in atoms])
     return array
 
 
