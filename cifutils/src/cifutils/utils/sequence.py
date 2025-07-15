@@ -147,7 +147,7 @@ def is_pyramidine(ccd_code_array: np.ndarray) -> np.ndarray:
     import warnings
 
     warnings.warn(
-        "'is_pyramidine' is deprecated and will be removed in a future version. " "Use 'is_pyrimidine' instead.",
+        "'is_pyramidine' is deprecated and will be removed in a future version. Use 'is_pyrimidine' instead.",
         category=DeprecationWarning,
         stacklevel=2,
     )

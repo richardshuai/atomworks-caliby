@@ -32,17 +32,17 @@ logger = logging.getLogger("cifutils")
 
 
 def infer_chain_type_from_ccd_codes(ccd_code_seq: Sequence[str]) -> ChainType:
-    chain_type_counts = {
-        key: 0
-        for key in [
+    chain_type_counts = dict.fromkeys(
+        [
             "aa_like",
             ChainType.POLYPEPTIDE_D,
             ChainType.POLYPEPTIDE_L,
             ChainType.DNA,
             ChainType.RNA,
             ChainType.NON_POLYMER,
-        ]
-    }
+        ],
+        0,
+    )
 
     # ... infer the chain type based on each residue
     for res_name in ccd_code_seq:

@@ -1,12 +1,12 @@
 """
 Transforms operating on Biotite's CIFBlock and CIFCategory objects.
+
 These transforms are used to extract information from the CIFBlock and return a dictionary containing processed information.
 """
 
-from __future__ import annotations
-
 import logging
 import os
+import re
 from contextlib import suppress
 from datetime import datetime
 
@@ -318,3 +318,72 @@ def get_ligand_of_interest_info(cif_block: CIFBlock) -> dict:
         "ligand_of_interest": list(comp_id_names[comp_id_mask]),
         "has_ligand_of_interest": has_loi | (len(comp_id_names) > 0),
     }
+
+
+def _parse_ph_range(ph_str: str) -> list[float] | None:
+    """
+    Extracts numeric pH values from a string range.
+
+    Args:
+        ph_str: The string containing pH information from the exptl_crystal_grow section of the CIF file.
+                Examples of valid formats:
+                    - "7.0-8.0"                    (5hs6)
+                    - "pH8.0"                      (4oji)
+    Returns:
+        A list of floats [min_pH, max_pH], or None if parsing fails.
+    """
+
+    ph_str = str(ph_str).strip().lower()
+    # CASE 1: Handle string with embedded "pH" and single number (e.g., "pH 7.5", "ph8.0")
+    match = re.search(r"p[hH] ?([0-9]+(?:\.[0-9]+)?)", ph_str)
+    if match:
+        return [float(match.group(1))] * 2
+    # CASE 2: Handle explicit numeric range (e.g., "6.5 to 7.5", "6.5/7.5", "6.5 - 7.5")
+    parts = re.split(r"\s*(?:to|/|-)\s*", ph_str)
+    try:
+        return [float(p) for p in parts if p]
+    except ValueError:
+        return None
+
+
+def extract_crystallization_details(crystal_dict: dict) -> list[float] | None:
+    """
+    Extracts the pH range from the crystallization dictionary.
+
+    Args:
+        crystal_dict: Dictionary for the exptl_crystal_grow CIF category.
+
+    Returns:
+        A list of two floats [min_pH, max_pH], or None if unavailable.
+    """
+    ph_col = crystal_dict.get("pH", [])
+    ph_range_field = crystal_dict.get("pdbx_pH_range", [""])[0]
+
+    if isinstance(ph_col, list | np.ndarray) and len(ph_col) > 1:
+        # pH values are provided as a list of numbers (e.g., [5.5, 6.0, 6.5])
+        ph_vals = [float(min(ph_col)), float(max(ph_col))]
+    elif ph_col in [["?"], ["."]]:
+        # pH field is missing or ambiguous
+        if ph_range_field in ["?", "."] or "+" in str(ph_range_field):
+            # pH range is also missing or invalid (e.g., contains "+", or is "?")
+            ph_vals = None
+        else:
+            # Try to parse pH range string (e.g., "pH8.0" or "6.5 - 7.5")
+            ph_vals = _parse_ph_range(ph_range_field)
+    else:
+        # Assume a single pH value in either list or scalar form (e.g., ["7.5"] or 7.5)
+        try:
+            ph_val = float(ph_col[0]) if isinstance(ph_col, list) else float(ph_col)
+            ph_vals = [ph_val, ph_val]
+        except Exception:
+            ph_vals = None
+
+    # Consistent float formatting (or None)
+    if ph_vals:
+        try:
+            ph_floats = [float(v) for v in ph_vals]
+            return [min(ph_floats), max(ph_floats)]
+        except Exception:
+            return None
+    else:
+        return None

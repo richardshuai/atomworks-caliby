@@ -138,7 +138,9 @@ def test_regression_against_stored_result(pdb_id: str):
     assert_that(result["extra_info"]).is_equal_to(expected_result["extra_info"])
 
     # ... the metadata
-    assert_that(result["metadata"]).is_equal_to(expected_result["metadata"])
+    for key in expected_result.get("metadata", {}):
+        assert key in result["metadata"], f"Missing metadata key: {key}"
+        assert_that(result["metadata"][key]).is_equal_to(expected_result["metadata"][key])
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ from cifutils.common import exists, md5_hash_string
 from cifutils.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS
 from cifutils.transforms.categories import (
     category_to_dict,
+    extract_crystallization_details,
     get_ligand_of_interest_info,
     get_metadata_from_category,
     initialize_chain_info_from_category,
@@ -436,7 +437,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
 
         # ... resolve arginine naming ambiguity
         if kwargs["fix_arginines"]:
-            atom_array = ta.resolve_arginine_naming_ambiguity(atom_array)
+            atom_array = ta.resolve_arginine_naming_ambiguity(atom_array, raise_on_error=False)
 
         # ... convert MSE to MET
         if kwargs["convert_mse_to_met"]:
@@ -482,6 +483,15 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         data_dict["extra_info"]["struct_oper_category"] = struct_oper_category
     else:
         data_dict["assemblies"] = {}
+
+    # Handle instances where ph information is included in crystallization conditions
+    if "exptl_crystal_grow" in cif_file.block:
+        crystal_key = "exptl_crystal_grow"
+        crystal_dict = category_to_dict(cif_file.block, crystal_key)
+        data_dict["metadata"]["crystallization_details"] = extract_crystallization_details(crystal_dict)
+    else:
+        # No crystal growth section available in the CIF
+        data_dict["metadata"]["crystallization_details"] = None
 
     # ... get ligand of interest information
     data_dict["ligand_info"] = get_ligand_of_interest_info(data_dict["cif_block"])
