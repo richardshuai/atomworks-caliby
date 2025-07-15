@@ -20,7 +20,7 @@ def test_get_ph(test_case: dict):
         remove_ccds=[],
         hydrogen_policy="infer",
     )
-    assert result["metadata"]["crystallization_details"] == test_case["pH"]
+    assert result["metadata"]["crystallization_details"]["pH"] == test_case["pH"]
 
 
 if __name__ == "__main__":

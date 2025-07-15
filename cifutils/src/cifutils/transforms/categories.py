@@ -346,15 +346,16 @@ def _parse_ph_range(ph_str: str) -> list[float] | None:
         return None
 
 
-def extract_crystallization_details(crystal_dict: dict) -> list[float] | None:
+def extract_crystallization_details(crystal_dict: dict) -> dict[str, list[float] | None]:
     """
-    Extracts the pH range from the crystallization dictionary.
+    Extracts crystallization details from the crystallization dictionary.
 
     Args:
         crystal_dict: Dictionary for the exptl_crystal_grow CIF category.
 
     Returns:
-        A list of two floats [min_pH, max_pH], or None if unavailable.
+        A dictionary with crystallization details. Currently includes:
+        - "pH": A list of two floats [min_pH, max_pH], or None if unavailable.
     """
     ph_col = crystal_dict.get("pH", [])
     ph_range_field = crystal_dict.get("pdbx_pH_range", [""])[0]
@@ -382,8 +383,8 @@ def extract_crystallization_details(crystal_dict: dict) -> list[float] | None:
     if ph_vals:
         try:
             ph_floats = [float(v) for v in ph_vals]
-            return [min(ph_floats), max(ph_floats)]
+            return {"pH": [min(ph_floats), max(ph_floats)]}
         except Exception:
-            return None
+            return {"pH": None}
     else:
-        return None
+        return {"pH": None}

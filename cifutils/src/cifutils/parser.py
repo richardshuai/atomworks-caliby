@@ -491,7 +491,7 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         data_dict["metadata"]["crystallization_details"] = extract_crystallization_details(crystal_dict)
     else:
         # No crystal growth section available in the CIF
-        data_dict["metadata"]["crystallization_details"] = None
+        data_dict["metadata"]["crystallization_details"] = {"pH": None}
 
     # ... get ligand of interest information
     data_dict["ligand_info"] = get_ligand_of_interest_info(data_dict["cif_block"])
