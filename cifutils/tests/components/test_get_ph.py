@@ -7,6 +7,8 @@ TEST_CASES = [
     {"pdb_id": "4oji", "pH": [8.0, 8.0]},  # _exptl_crystal_grow.pdbx_pH_range   pH8.0
     {"pdb_id": "5hs6", "pH": [7.0, 8.0]},  # _exptl_crystal_grow.pdbx_pH_range   7.0-8.0
     {"pdb_id": "5a93", "pH": [5.9, 6.1]},  # 1 ? ? ? 5.9 ? ?  2 ? ? ? 6.1 ? ? in a loop
+    {"pdb_id": "4o8v", "pH": [5.5, 5.5]},  # _exptl_crystal_grow.pdbx_details  '... 0.1 M Bis-Tris pH 5.5, 25% ...'
+    {"pdb_id": "1xj9", "pH": None},  # Test error handling (invalid pH range)
 ]
 
 

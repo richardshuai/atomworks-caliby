@@ -16,6 +16,7 @@ from cifutils.constants import (
     AA_LIKE_CHEM_TYPES,
     CCD_MIRROR_PATH,
     DNA_LIKE_CHEM_TYPES,
+    DO_NOT_MATCH_CCD,
     RNA_LIKE_CHEM_TYPES,
     UNKNOWN_AA,
     UNKNOWN_DNA,
@@ -405,9 +406,15 @@ def get_chem_comp_leaving_atom_names(
         >>> get_chem_comp_leaving_atom_names("ALA")
         {'N': ('H2',), 'C': ('OXT', 'HXT'), 'OXT': ('HXT',)}
     """
+    # Skip CCD lookup for codes that shouldn't be matched against CCD (e.g., UNL, water-like codes)
+    if ccd_code in DO_NOT_MATCH_CCD:
+        if mode == "warn":
+            logger.debug(f"Skipping CCD lookup for `{ccd_code}` as it's in DO_NOT_MATCH_CCD")
+        return {}
+
     try:
         chem_comp = atom_array_from_ccd_code(ccd_code, ccd_mirror_path)
-    except ValueError as e:
+    except (ValueError, AttributeError) as e:
         if mode == "warn":
             logger.warning(f"Failed to compute leaving groups for `{ccd_code}`: {e}")
         elif mode == "raise":

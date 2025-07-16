@@ -15,6 +15,8 @@ TEST_CASES = [
     "8bc3",  # Covalent bond involving chains that were removed during cleaning
     "1twr",  # Residue name not in biotite's CCD
     "6q9t",  # Contains residue `QUK` which uses a mix of `std` and `alt` atom ids
+    "8cuy",  # Raises error when parsing CCD CIF's ('NoneType' object has no attribute 'row_count') due to UNL
+    "1xvk",  # Raises error when parsing struct_conn record (index 0 is out of bounds for axis 0 with size 0)
 ]
 
 

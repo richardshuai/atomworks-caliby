@@ -54,7 +54,7 @@ def parse(
     add_missing_atoms: bool = True,
     add_id_and_entity_annotations: bool = True,
     add_bond_types_from_struct_conn: list[str] = ["covale"],
-    remove_ccds: list[str] | None = CRYSTALLIZATION_AIDS,
+    remove_ccds: list[str] | None = None,
     remove_waters: bool = True,
     fix_ligands_at_symmetry_centers: bool = True,
     fix_arginines: bool = True,
@@ -150,6 +150,10 @@ def parse(
             f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. Falling back to Biotite's built-in CCD."
         )
         ccd_mirror_path = None
+
+    # Set default value for remove_ccds if None
+    if remove_ccds is None:
+        remove_ccds = CRYSTALLIZATION_AIDS
 
     # Argument validation
     check_ccd_codes_are_available(remove_ccds, ccd_mirror_path=ccd_mirror_path, mode="warn")

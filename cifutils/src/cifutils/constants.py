@@ -451,7 +451,7 @@ AF3_EXCLUDED_LIGANDS: Final[list[str]] = [
     # "TPO", # Phosphothreonine; a commonly occuring PTM in proteins, useful in cellular signaling pathways
     "TRS",
     "UNK",
-    "UNL",  # WARNING: Only exclude during training, not inference
+    "UNL",
     "UNX",
     "UPL",
     "URE",
@@ -588,6 +588,9 @@ WATER_LIKE_CCDS: Final[tuple[str, ...]] = ("HOH", "DOD")
 WARNING: It is important that this remains a tuple, as it is used by `np.isin`
  downstream, which does not play well with sets.
 """
+
+DO_NOT_MATCH_CCD: Final[frozenset[str]] = frozenset((*WATER_LIKE_CCDS, UNKNOWN_LIGAND))
+"""CCDs that should not be matched to a template for the purpose of adding missing atoms."""
 
 PEPTIDE_MAX_RESIDUES: Final[int] = 20
 """The maximum number of residues until which we consider a protein-like sequence to be a peptide."""

@@ -320,6 +320,10 @@ def get_ligand_of_interest_info(cif_block: CIFBlock) -> dict:
     }
 
 
+_PH_SINGLE_VALUE_PATTERN = r"p[hH]\s*([0-9]+(?:\.[0-9]+)?)"
+_PH_RANGE_PATTERN = r"\s*(?:to|/|-)\s*"
+
+
 def _parse_ph_range(ph_str: str) -> list[float] | None:
     """
     Extracts numeric pH values from a string range.
@@ -333,15 +337,21 @@ def _parse_ph_range(ph_str: str) -> list[float] | None:
         A list of floats [min_pH, max_pH], or None if parsing fails.
     """
 
+    def _is_valid_ph_range(ph_vals: list[float]) -> bool:
+        """Validates that all pH values are within the reasonable range (0-14)."""
+        return all(0 <= ph_val <= 14 for ph_val in ph_vals)
+
     ph_str = str(ph_str).strip().lower()
     # CASE 1: Handle string with embedded "pH" and single number (e.g., "pH 7.5", "ph8.0")
-    match = re.search(r"p[hH] ?([0-9]+(?:\.[0-9]+)?)", ph_str)
+    match = re.search(_PH_SINGLE_VALUE_PATTERN, ph_str)
     if match:
-        return [float(match.group(1))] * 2
+        ph_vals = [float(match.group(1))] * 2
+        return ph_vals if _is_valid_ph_range(ph_vals) else None
     # CASE 2: Handle explicit numeric range (e.g., "6.5 to 7.5", "6.5/7.5", "6.5 - 7.5")
-    parts = re.split(r"\s*(?:to|/|-)\s*", ph_str)
+    parts = re.split(_PH_RANGE_PATTERN, ph_str)
     try:
-        return [float(p) for p in parts if p]
+        ph_vals = [float(p) for p in parts if p]
+        return ph_vals if _is_valid_ph_range(ph_vals) else None
     except ValueError:
         return None
 
@@ -359,32 +369,39 @@ def extract_crystallization_details(crystal_dict: dict) -> dict[str, list[float]
     """
     ph_col = crystal_dict.get("pH", [])
     ph_range_field = crystal_dict.get("pdbx_pH_range", [""])[0]
+    details_field = crystal_dict.get("pdbx_details", [""])[0]
 
-    if isinstance(ph_col, list | np.ndarray) and len(ph_col) > 1:
-        # pH values are provided as a list of numbers (e.g., [5.5, 6.0, 6.5])
-        ph_vals = [float(min(ph_col)), float(max(ph_col))]
-    elif ph_col in [["?"], ["."]]:
-        # pH field is missing or ambiguous
-        if ph_range_field in ["?", "."] or "+" in str(ph_range_field):
-            # pH range is also missing or invalid (e.g., contains "+", or is "?")
-            ph_vals = None
+    try:
+        if isinstance(ph_col, list | np.ndarray) and len(ph_col) > 1:
+            # pH values are provided as a list of numbers (e.g., [5.5, 6.0, 6.5])
+            ph_vals = [float(min(ph_col)), float(max(ph_col))]
+        elif ph_col in [["?"], ["."]]:
+            # pH field is missing or ambiguous
+            if ph_range_field in ["?", "."] or "+" in str(ph_range_field):
+                # pH range is also missing or invalid (e.g., contains "+", or is "?")
+                # Try to extract from pdbx_details as fallback
+                ph_vals = _parse_ph_range(details_field)
+            else:
+                # Try to parse pH range string (e.g., "pH8.0" or "6.5 - 7.5")
+                ph_vals = _parse_ph_range(ph_range_field)
         else:
-            # Try to parse pH range string (e.g., "pH8.0" or "6.5 - 7.5")
-            ph_vals = _parse_ph_range(ph_range_field)
-    else:
-        # Assume a single pH value in either list or scalar form (e.g., ["7.5"] or 7.5)
-        try:
-            ph_val = float(ph_col[0]) if isinstance(ph_col, list) else float(ph_col)
+            # Assume a single pH value in either list or scalar form (e.g., ["7.5"] or 7.5)
+            if isinstance(ph_col, list):
+                ph_val = float(ph_col[0])
+            elif isinstance(ph_col, np.ndarray):
+                # Handle numpy arrays properly by extracting the first element
+                ph_val = float(ph_col.flat[0])
+            else:
+                ph_val = float(ph_col)
             ph_vals = [ph_val, ph_val]
-        except Exception:
-            ph_vals = None
 
-    # Consistent float formatting (or None)
-    if ph_vals:
-        try:
+        # Consistent float formatting (or None)
+        if ph_vals:
             ph_floats = [float(v) for v in ph_vals]
             return {"pH": [min(ph_floats), max(ph_floats)]}
-        except Exception:
+        else:
             return {"pH": None}
-    else:
+
+    except Exception as e:
+        logger.warning(f"Error parsing pH values: {e}")
         return {"pH": None}

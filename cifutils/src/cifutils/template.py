@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Final
+from typing import Any
 
 import biotite.structure as struc
 import numpy as np
@@ -8,7 +8,7 @@ from biotite.structure import AtomArray, BondList
 
 import cifutils.transforms.atom_array as ta
 from cifutils.common import exists, immutable_lru_cache
-from cifutils.constants import CCD_MIRROR_PATH, UNKNOWN_LIGAND, WATER_LIKE_CCDS
+from cifutils.constants import CCD_MIRROR_PATH, DO_NOT_MATCH_CCD
 from cifutils.utils.bonds import (
     correct_bond_types_for_nucleophilic_additions,
     correct_formal_charges_for_specified_atoms,
@@ -19,13 +19,6 @@ from cifutils.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_ava
 from cifutils.utils.selection import get_annotation
 
 logger = logging.getLogger(__file__)
-
-
-DO_NOT_MATCH_CCD: Final[frozenset[str]] = frozenset((*WATER_LIKE_CCDS, UNKNOWN_LIGAND))
-"""
-CCDs that should not be matched to a template for the
-purpose of adding missing atoms.
-"""
 
 
 @immutable_lru_cache(maxsize=200)

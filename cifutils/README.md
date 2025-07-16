@@ -3,15 +3,30 @@
 
 
 # Table of Contents
+- [Table of Contents](#table-of-contents)
 - [CIFUtils](#cifutils)
-- [Installation Instructions](#installation-instructions)
-  - [1. Using `cifutils` via the standalone cifutils apptainer](#1-recommended-using-cifutils-via-the-standalone-cifutils-apptainer)
+  - [CIFUtils vs. Datahub](#cifutils-vs-datahub)
+    - [CIFUtils](#cifutils-1)
+    - [Datahub](#datahub)
+- [Install instructions](#install-instructions)
+  - [1. (⭐️ Recommended) Using `cifutils` via the standalone cifutils apptainer](#1-️-recommended-using-cifutils-via-the-standalone-cifutils-apptainer)
   - [2. Using `cifutils` with a local conda version](#2-using-cifutils-with-a-local-conda-version)
   - [3. Using `cifutils` in your apptainer environment](#3-using-cifutils-in-your-apptainer-environment)
-- [Apptainer Build Instructions](#apptainer-build-instructions)
+- [Apptainer build instructions](#apptainer-build-instructions)
 - [Basic Usage](#basic-usage)
+    - [Example Flow](#example-flow)
+    - [Returned Dictionary](#returned-dictionary)
+    - [Parsing Arguments](#parsing-arguments)
+      - [Caching Arguments](#caching-arguments)
 - [Glossary](#glossary)
-- [Contributing Guidelines](#contributing-guidelines)
+    - [Entities vs. Instances](#entities-vs-instances)
+    - [Suffixes](#suffixes)
+    - [Chains, PN\_Units, and Molecules](#chains-pn_units-and-molecules)
+    - [Combinatorial Nomenclature - Worked Example](#combinatorial-nomenclature---worked-example)
+      - [Chains](#chains)
+      - [PN\_Unit](#pn_unit)
+      - [Molecules](#molecules)
+- [Contributing guidelines](#contributing-guidelines)
 
 # CIFUtils
 We introduce `CIFUtils` — a full-featured toolkit for converting arbitrary biological inputs (e.g., `mmCIF`, `pdb`, `SMILES`, `MOL`, `FASTA`, etc.) into Biotite's general `AtomArray` API, performing structural and chemical operations, and ultimately passing over the `AtomArray` to a deep-learning model (see: [`datahub`](https://github.com/baker-laboratory/datahub) or saving back out to arbitrary formats.

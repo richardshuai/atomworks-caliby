@@ -323,11 +323,18 @@ def get_struct_conn_bonds(
         in_res1 = (chain_ids == chain_id1) & (res_ids == res_id1) & (res_names == res_name1) & (ins_codes == ins_code1)
         in_res2 = (chain_ids == chain_id2) & (res_ids == res_id2) & (res_names == res_name2) & (ins_codes == ins_code2)
 
-        if ((not in_res1.any()) or (not in_res2.any())) and raise_on_failure:
-            raise ValueError(
+        if (not in_res1.any()) or (not in_res2.any()):
+            logger.info(
                 f"Residue {chain_id1}/{res_id1}/{res_name1} or {chain_id2}/{res_id2}/{res_name2} "
                 "not found in the atom array!"
             )
+            if raise_on_failure:
+                raise ValueError(
+                    f"Residue {chain_id1}/{res_id1}/{res_name1} or {chain_id2}/{res_id2}/{res_name2} "
+                    "not found in the atom array!"
+                )
+            continue
+
         in_res1_start = global_atom_idx[in_res1][0]
         in_res2_start = global_atom_idx[in_res2][0]
 
@@ -340,7 +347,6 @@ def get_struct_conn_bonds(
             or (res_name1 != res_names[in_res1_start])
             or (res_name2 != res_names[in_res2_start])
         ):
-            # skip, but warn
             logger.info(
                 f"Covalent bond involving residues {chain_id1}/{res_id1}/{res_name1} and "
                 f"{chain_id2}/{res_id2}/{res_name2} was found in `struct_conn`, but the "
