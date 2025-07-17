@@ -1,3 +1,4 @@
+import copy
 from copy import deepcopy
 from functools import cache
 from typing import Any
@@ -20,6 +21,7 @@ from datahub.transforms.covalent_modifications import FlagAndReassignCovalentMod
 from datahub.transforms.crop import (
     CropContiguousLikeAF3,
     CropSpatialLikeAF3,
+    compute_local_hash,
 )
 from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
 from datahub.utils.rng import create_rng_state_from_seeds, rng_state
@@ -370,6 +372,107 @@ def test_resize_crops_with_too_many_atoms(pdb_id, np_seed=1):
         assert (
             len(post_crop_atom_array) < 3000
         ), f"Expected contiguous crop to be resized to less than 3000 atoms, got {len(post_crop_atom_array)} atoms."
+
+
+def test_compute_local_hash():
+    data = cached_parse("6lyz")
+
+    prep_pipe = Compose(
+        [
+            AddGlobalAtomIdAnnotation(),
+            RemoveHydrogens(),
+            RemoveTerminalOxygen(),
+            FlagAndReassignCovalentModifications(),
+            AtomizeByCCDName(atomize_by_default=True, res_names_to_ignore=RF2AA_ATOM36_ENCODING.tokens),
+        ],
+        track_rng_state=False,
+    )
+
+    data = prep_pipe(data)
+
+    # Annotate the pre-crop hash
+    pre_crop = data["atom_array"]
+    hash_pre = compute_local_hash(pre_crop)
+    pre_crop.set_annotation("hash_pre", hash_pre)
+    data["atom_array"] = pre_crop
+
+    # Test 1: Effectively no cropping
+    crop_pipe = CropSpatialLikeAF3(crop_size=10_000)
+    with rng_state(create_rng_state_from_seeds(np_seed=12)):
+        data_cropped = crop_pipe(copy.deepcopy(data))
+
+        # Annotate the post-crop hash
+        post_crop = data_cropped["atom_array"]
+        hash_post = compute_local_hash(post_crop)
+        post_crop.set_annotation("hash_post", hash_post)
+
+        assert np.all(
+            post_crop.hash_pre == post_crop.hash_post
+        ), "Hash mismatch between pre- and post-crop despite not cropping."
+
+    # Test 2: Spatial cropping
+    crop_pipe = CropSpatialLikeAF3(crop_size=32)
+    with rng_state(create_rng_state_from_seeds(np_seed=12)):
+        data_cropped = crop_pipe(copy.deepcopy(data))
+        post_crop = data_cropped["atom_array"]
+        hash_post = compute_local_hash(post_crop, radius=6.0)
+        post_crop.set_annotation("hash_post", hash_post)
+
+        affected_idxs = np.where(post_crop.hash_pre != post_crop.hash_post)[0]
+
+        # fmt: off
+        # NOTE: These were manually checked in pymol for a 6 A cut-off radius
+        _AFFECTED_IDXS = np.array([  
+            0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,
+            13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,
+            26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,  38,
+            39,  40,  41,  42,  43,  44,  45,  46,  47,  48,  49,  50,  53,
+            54,  56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,
+            68,  69,  70,  71,  72,  73,  75,  76,  77,  78,  79,  80,  81,
+            82,  83,  84,  85,  86,  88,  90,  91,  92,  93,  94,  95,  96,
+            97,  98,  99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109,
+            110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122,
+            123, 124, 125, 126, 127, 128, 129, 130, 131, 148, 149, 150, 151,
+            152, 158, 159, 160, 161, 162, 163, 164, 165, 166, 215, 226, 228,
+            238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250,
+            251, 252, 253, 254, 255
+        ])
+        # fmt: on
+
+        assert np.all(affected_idxs == _AFFECTED_IDXS), f"Affected idxs mismatch: {affected_idxs} != {_AFFECTED_IDXS}"
+
+    # Test 3: Contiguous cropping
+    crop_pipe = CropContiguousLikeAF3(crop_size=32)
+    with rng_state(create_rng_state_from_seeds(np_seed=12)):
+        data_cropped = crop_pipe(copy.deepcopy(data))
+        post_crop = data_cropped["atom_array"]
+        hash_post = compute_local_hash(post_crop, radius=6.0)
+        post_crop.set_annotation("hash_post", hash_post)
+
+        # fmt: off
+        # NOTE: These were manually checked in pymol for a 6 A cut-off radius
+        _AFFECTED_IDXS = np.array([  
+            0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,
+            13,  14,  15,  16,  17,  18,  19,  20,  22,  23,  24,  25,  26,
+            27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  40,  46,  47,
+            48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,
+            61,  62,  63,  64,  65,  68,  69,  70,  71,  72,  73,  74,  75,
+            76,  79,  80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,
+            91,  92,  93,  94,  95,  96,  99, 100, 102, 103, 104, 105, 106,
+            107, 108, 109, 110, 111, 112, 113, 114, 121, 123, 124, 125, 126,
+            127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139,
+            140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152,
+            153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165,
+            166, 167, 168, 169, 170, 171, 172, 173, 174, 177, 178, 179, 180,
+            181, 187, 188, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202,
+            203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215,
+            216, 217
+        ])
+        # fmt: on
+
+        affected_idxs = np.where(post_crop.hash_pre != post_crop.hash_post)[0]
+
+        assert np.all(affected_idxs == _AFFECTED_IDXS), f"Affected idxs mismatch: {affected_idxs} != {_AFFECTED_IDXS}"
 
 
 if __name__ == "__main__":

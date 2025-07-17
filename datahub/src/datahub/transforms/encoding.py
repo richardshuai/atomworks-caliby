@@ -406,6 +406,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
     A transform that encodes token-level features like AF3. The token-level features are returned as:
 
     - feats:
+        # (Standard AF3 token-level features)
         - `residue_index`: Residue number in the token's original input chain (pre-crop)
         - `token_index`: Token number. Increases monotonically; does not restart at 1 for new
             chains. (Runs from 0 to N_tokens)
@@ -422,6 +423,9 @@ class EncodeAF3TokenLevelFeatures(Transform):
         - `is_rna`: whether a token is of RNA type
         - `is_dna`: whether a token is of DNA type
         - `is_ligand`: whether a token is a ligand residue
+
+        # (Custom token-level features)
+        - `is_atomized`: whether a token is an atomized token
 
     - feat_metadata:
         - `asym_name`: The asymmetric unit name for each id in `asym_id`. Acts as a legend.
@@ -508,6 +512,7 @@ class EncodeAF3TokenLevelFeatures(Transform):
             "is_rna": is_rna,  # (N_tokens) (bool)
             "is_dna": is_dna,  # (N_tokens) (bool)
             "is_ligand": is_ligand,  # (N_tokens) (bool)
+            "is_atomized": token_level_array.atomize,  # (N_tokens) (bool)
         }
         data["feat_metadata"] |= {
             "asym_name": asym_name,  # (N_asyms)

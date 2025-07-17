@@ -1,3 +1,4 @@
+import json
 import logging
 import pickle
 from pathlib import Path
@@ -14,10 +15,26 @@ from datahub.utils.io import get_sharded_file_path
 
 logger = logging.getLogger("datahub")
 
+
 FILE_LOADERS: dict[str, Callable[[Path], Any]] = {
     ".pt": lambda path: torch.load(path, map_location="cpu", weights_only=False),
     ".pkl": lambda path: pickle.load(open(path, "rb")),
+    ".json": lambda path: json.load(open(path, "r")),
 }
+
+
+def load_cache_level_metadata(dir: str | Path, metadata_file: str | None) -> dict | None:
+    """Load metadata file from the residue cache directory."""
+    if metadata_file is None:
+        return None
+
+    metadata_path = Path(dir) / metadata_file
+    if metadata_path.suffix not in FILE_LOADERS:
+        raise ValueError(
+            f"Unsupported metadata file extension: {metadata_path.suffix}. Supported: {', '.join(FILE_LOADERS.keys())}"
+        )
+
+    return FILE_LOADERS[metadata_path.suffix](metadata_path) if metadata_path.exists() else None
 
 
 def load_cached_residue_level_data(
@@ -26,7 +43,8 @@ def load_cached_residue_level_data(
     sharding_depth: int = 1,
     keys_to_load: list[str] | None = None,
     file_extension: str = ".pt",
-) -> dict:
+    metadata_file: str | None = "global_stats.pt",
+) -> dict[str, Any]:
     """Load cached residue-level data from sharded directory structure.
 
     Example directory structure:
@@ -35,20 +53,25 @@ def load_cached_residue_level_data(
     │   ├── A_1.pt
     │   ├── A_2.pt
     │   └── ...
-    └── B/
-        ├── B_1.pt
-        ├── B_2.pt
-        └── ...
+    ├── B/
+    │   ├── B_1.pt
+    │   ├── B_2.pt
+    │   └── ...
+    └── global_stats.pt
 
     Args:
         atom_array: AtomArray to extract residue names from.
         dir: Root directory containing cached files.
         sharding_depth: Depth of sharding (default=1).
         keys_to_load: List of keys to load from each file. If None, loads all available keys.
-        file_extension: File extension for cached files (default=".pt"). Supports ".pt" and ".pkl".
+        file_extension: File extension for cached files (default=".pt"). Supports ".pt", ".pkl", and ".json".
+        metadata_file: File name for metadata file (default="global_stats.pt"). Supports ".pt", ".pkl", and ".json".
+            If None, no metadata is loaded.
 
     Returns:
-        dict: Maps residue name to loaded data dict containing the requested keys
+        dict: Contains the following keys:
+            - "residues": Maps residue name to loaded data dict containing the requested keys
+            - "metadata": Loaded metadata dict, or None if metadata_file is None or file doesn't exist
     """
     if file_extension not in FILE_LOADERS:
         supported = ", ".join(FILE_LOADERS.keys())
@@ -56,7 +79,9 @@ def load_cached_residue_level_data(
 
     loader = FILE_LOADERS[file_extension]
 
-    unique_res_names = np.unique(atom_array.res_name)
+    metadata = load_cache_level_metadata(dir, metadata_file)
+
+    unique_res_names = np.unique(np.array(atom_array.res_name))
     cached_data_by_res_name = {}
 
     for res_name in unique_res_names:
@@ -80,7 +105,10 @@ def load_cached_residue_level_data(
 
         cached_data_by_res_name[res_name] = cached_data
 
-    return cached_data_by_res_name
+    return {
+        "residues": cached_data_by_res_name,
+        "metadata": metadata,
+    }
 
 
 class LoadCachedResidueLevelData(Transform):
@@ -95,23 +123,26 @@ class LoadCachedResidueLevelData(Transform):
         sharding_depth: int = 1,
         keys_to_load: list[str] | None = None,
         file_extension: str = ".pt",
+        metadata_file: str | None = "global_stats.pt",
     ):
         self.dir = dir
         self.sharding_depth = sharding_depth
         self.keys_to_load = keys_to_load
         self.file_extension = file_extension
+        self.metadata_file = metadata_file
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array: AtomArray = data["atom_array"]
-        cached_data_by_res_name = load_cached_residue_level_data(
+        result = load_cached_residue_level_data(
             atom_array,
             dir=self.dir,
             sharding_depth=self.sharding_depth,
             keys_to_load=self.keys_to_load,
             file_extension=self.file_extension,
+            metadata_file=self.metadata_file,
         )
 
-        data["cached_residue_level_data"] = cached_data_by_res_name
+        data["cached_residue_level_data"] = result
         return data
 
 
@@ -205,7 +236,8 @@ class RandomSubsampleCachedConformers(Transform):
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array: AtomArray = data["atom_array"]
-        cached_residue_level_data = data["cached_residue_level_data"]
+        assert "residues" in data["cached_residue_level_data"], "cached_residue_level_data must contain 'residues' key"
+        cached_residue_level_data = data["cached_residue_level_data"]["residues"]
 
         residue_conformer_indices = random_subsample_cached_conformers(
             atom_array,

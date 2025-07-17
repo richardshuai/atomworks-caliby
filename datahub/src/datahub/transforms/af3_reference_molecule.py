@@ -37,6 +37,9 @@ def _extract_cached_conformers(
     cached_mols = {}
     remaining_stochiometry = res_stochiometry.copy()
 
+    if cached_residue_level_data is None:
+        return cached_mols, remaining_stochiometry
+
     for res_name, count in res_stochiometry.items():
         needed_conformers = min(count, max_conformers_per_residue) if max_conformers_per_residue is not None else count
 
@@ -218,6 +221,7 @@ def get_af3_reference_molecule_features(
             Determined by the `ground_truth_conformer_policy` annotation.
         - ref_pos_ground_truth (optional): [N_atoms, 3] The ground-truth conformer positions.
             Determined by the `ground_truth_conformer_policy` annotation.
+        - is_atomized_atom_level: [N_atoms] Whether the atom is atomized (atom-level version of "is_ligand")
 
     Reference:
         - Section 2.8 of the AF3 supplementary information
@@ -409,6 +413,8 @@ def get_af3_reference_molecule_features(
     #     we assign a unique integer for each residue instance:
     ref_space_uid = struc.segments.spread_segment_wise(_res_start_ends, np.arange(len(_res_starts), dtype=np.int64))
 
+    is_atomized_atom_level = atom_array.atomize if "atomize" in atom_array.get_annotation_categories() else None
+
     ref_conformer = {
         "ref_pos": ref_pos,  # (n_atoms, 3)
         "ref_mask": ref_mask,  # (n_atoms)
@@ -416,6 +422,7 @@ def get_af3_reference_molecule_features(
         "ref_charge": ref_charge,  # (n_atoms)
         "ref_atom_name_chars": ref_atom_name_chars,  # (n_atoms, 4)
         "ref_space_uid": ref_space_uid,  # (n_atoms)
+        "is_atomized_atom_level": is_atomized_atom_level,  # (n_atoms)
     }
 
     if _has_ground_truth_conformer_policy:
@@ -440,11 +447,12 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         - ref_space_uid: [N_atoms] Numerical encoding of the chain id and residue index associated with
           this reference conformer. Each (chain id, residue index) tuple is assigned an integer on first appearance.
 
-    And the following custom features, helpful for extra conditioning:
+    And the following custom features, helpful for extra conditioning/downstream use:
         - ref_pos_is_ground_truth: [N_atoms] Whether the reference conformer is the ground-truth conformer.
           Determined by the `ground_truth_conformer_policy` annotation.
         - ref_pos_ground_truth: [N_atoms, 3] The ground-truth conformer positions.
           Determined by the `ground_truth_conformer_policy` annotation.
+        - is_atomized_atom_level: [N_atoms] Whether the atom is atomized (atom-level version of "is_ligand")
 
     Note: This transform should be applied after cropping.
 
@@ -486,7 +494,9 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         atom_array = data["atom_array"]
 
         # Extract cached data and conformer indices, if enabled
-        cached_residue_level_data = data.get("cached_residue_level_data") if self.use_cached_conformers else None
+        cached_residue_level_data = None
+        if self.use_cached_conformers and "cached_residue_level_data" in data:
+            cached_residue_level_data = data["cached_residue_level_data"]["residues"]
         residue_conformer_indices = data.get("residue_conformer_indices") if self.use_cached_conformers else None
 
         # Generate reference features

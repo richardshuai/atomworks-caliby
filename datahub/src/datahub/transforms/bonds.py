@@ -252,7 +252,7 @@ def get_bond_distance_matrix(atom_array: AtomArray) -> np.ndarray:
     """Returns the bond adjacency matrix with bond distances as values."""
     atom1_idxs, atom2_idxs, _ = atom_array.bonds.as_array().T
     bond_distances = get_bond_distances(atom_array)
-    bond_distance_matrix = np.full((atom_array.array_length(), atom_array.array_length()), np.nan)
+    bond_distance_matrix = np.full((atom_array.array_length(), atom_array.array_length()), np.inf)
     bond_distance_matrix[atom1_idxs, atom2_idxs] = bond_distances
     bond_distance_matrix[atom2_idxs, atom1_idxs] = bond_distances
     return bond_distance_matrix
@@ -277,7 +277,7 @@ def get_af3_token_bond_features(atom_array: AtomArray, distance_cutoff: float = 
     """
     token_start_end_idxs = get_token_starts(atom_array, add_exclusive_stop=True)
     token_starts = token_start_end_idxs[:-1]
-    token_bonds = apply_segment_wise_2d(get_bond_distance_matrix(atom_array), token_start_end_idxs, np.nanmin)
+    token_bonds = apply_segment_wise_2d(get_bond_distance_matrix(atom_array), token_start_end_idxs, np.min)
 
     # remove bonds above distance cutoff
     token_bonds = token_bonds < distance_cutoff
@@ -328,5 +328,32 @@ class AddAF3TokenBondFeatures(Transform):
             data["feats"] = {}
 
         data["feats"]["token_bonds"] = af3_token_bond_features
+
+        return data
+
+
+class AddAtomLevelBondAdjacencyMatrix(Transform):
+    """
+    Adds the atom-level bond adjacency matrix to the data as a feature.
+
+    This transform uses Biotite's adjacency_matrix() function to create a binary matrix
+    where element (i, j) is 1 if atoms i and j are bonded, and 0 otherwise.
+
+    The matrix is added to the data dictionary under data["feats"]["atom_level_bond_adjacency"].
+    """
+
+    def check_input(self, data: dict):
+        check_atom_array_has_bonds(data)
+
+    def forward(self, data: dict) -> dict:
+        atom_array = data["atom_array"]
+
+        # Get the bond adjacency matrix from Biotite
+        bond_adjacency_matrix = atom_array.bonds.adjacency_matrix().astype(np.int8)
+
+        if "feats" not in data:
+            data["feats"] = {}
+
+        data["feats"]["atom_level_bond_adjacency"] = bond_adjacency_matrix
 
         return data

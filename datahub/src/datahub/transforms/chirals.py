@@ -59,7 +59,7 @@ def get_dih(a: torch.tensor, b: torch.tensor, c: torch.tensor, d: torch.tensor, 
 
 
 def _get_plane_pair_keys_for_planes_between_chiral_center_and_tetrahedral_side(
-    chiral_center: int, bonded_atoms: list[int], take_first_chiral_subordering: bool = False
+    chiral_center: int, bonded_atoms: list[int], take_first_chiral_subordering: bool = True
 ) -> list[tuple[int, int, int, int]]:
     """
     Get the unique keys that define all pairs of planes that can be formed between:
@@ -153,7 +153,7 @@ def _get_plane_pair_keys_for_planes_between_chiral_center_and_tetrahedral_side(
 
 
 def get_rf2aa_chiral_features(
-    chiral_centers: list[dict], coords: np.ndarray, take_first_chiral_subordering: bool = False
+    chiral_centers: list[dict], coords: np.ndarray, take_first_chiral_subordering: bool = True
 ) -> torch.Tensor:
     """Extracts chiral centers and featurize them for RF2AA.
 
@@ -310,7 +310,9 @@ class AddRF2AAChiralFeatures(Transform):
             )
 
         chiral_feats = get_rf2aa_chiral_features(
-            chiral_centers_by_idx, torch.tensor(get_af3_token_center_coords(atom_array))
+            chiral_centers_by_idx,
+            torch.tensor(get_af3_token_center_coords(atom_array)),
+            take_first_chiral_subordering=False,
         )
         data["chiral_feats"] = chiral_feats  # [n_chirals, 5]
 
@@ -344,7 +346,7 @@ def _get_reference_conformer_to_residue_mapping(atom_names: np.ndarray, conforme
 
 
 def add_af3_chiral_features(
-    atom_array: AtomArray, chiral_centers: dict, rdkit_mols: dict[str, Mol], take_first_chiral_subordering: bool = False
+    atom_array: AtomArray, chiral_centers: dict, rdkit_mols: dict[str, Mol], take_first_chiral_subordering: bool = True
 ) -> torch.Tensor:
     """Computes chiral features from atom array, chiral centers, and RDKit molecules.
 
@@ -410,7 +412,7 @@ class AddAF3ChiralFeatures(Transform):
 
     requires_previous_transforms = ["GetRDKitChiralCenters"]
 
-    def __init__(self, take_first_chiral_subordering: bool = False):
+    def __init__(self, take_first_chiral_subordering: bool = True):
         super().__init__()
         self.take_first_chiral_subordering = take_first_chiral_subordering
 

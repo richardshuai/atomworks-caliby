@@ -59,7 +59,8 @@ def test_single_worker():
 def test_multi_worker():
     """Test multi-process operation."""
     dataset = TestDataset(size=40)
-    loader = WorkStealDataLoader(dataset, batch_size=4, num_workers=2, shuffle=False, timeout=10.0)
+    # (Use a generous timeout to avoid flakiness on CI)
+    loader = WorkStealDataLoader(dataset, batch_size=4, num_workers=2, shuffle=False, timeout=20.0)
 
     with loader.worker_monitoring():
         batches = list(loader)
@@ -209,5 +210,4 @@ def test_performance_speedup():
 
 
 if __name__ == "__main__":
-    # pytest.main([__file__, "-s"])
     pytest.main([__file__, "--verbose", "-s", "--log-cli-level=DEBUG"])

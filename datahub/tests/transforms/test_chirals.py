@@ -106,7 +106,7 @@ def test_get_chirals_from_smiles(smiles: str):
     legacy_chirals = get_chirals_legacy(obmol, coords)  # TODO: Add chirals test case that is not from smiles
 
     chiral_centers = get_chiral_centers(obmol)
-    new_chirals = get_rf2aa_chiral_features(chiral_centers, coords)
+    new_chirals = get_rf2aa_chiral_features(chiral_centers, coords, take_first_chiral_subordering=False)
 
     assert torch.allclose(legacy_chirals, new_chirals)
 

@@ -21,7 +21,7 @@ def sample_data_with_global_res_id():
 def test_load_with_key_filtering(cache_dir, sample_data_with_global_res_id):
     """Test loading cached data with specific keys only."""
     keys_to_load = ["descriptors", "atom_names"]
-    cached_data = load_cached_residue_level_data(
+    result = load_cached_residue_level_data(
         sample_data_with_global_res_id["atom_array"],
         dir=cache_dir,
         file_extension=".pt",
@@ -29,6 +29,7 @@ def test_load_with_key_filtering(cache_dir, sample_data_with_global_res_id):
         sharding_depth=1,
     )
 
+    cached_data = result["residues"]
     for res_name, res_data in cached_data.items():
         for key in res_data.keys():
             assert key in keys_to_load, f"Unexpected key '{key}' found in {res_name} data"
@@ -40,7 +41,8 @@ def test_random_subsample_conformers(cache_dir, sample_data_with_global_res_id):
     load_transform = LoadCachedResidueLevelData(dir=cache_dir, sharding_depth=1)
     cached_residue_data = load_transform(sample_data_with_global_res_id)
 
-    # Subsample conformers
+    assert "residues" in cached_residue_data["cached_residue_level_data"]
+
     n_conformers_to_sample = 3
     subsample_transform = RandomSubsampleCachedConformers(n_conformers=n_conformers_to_sample)
     data = subsample_transform(cached_residue_data)
@@ -56,7 +58,7 @@ def test_random_subsample_conformers(cache_dir, sample_data_with_global_res_id):
         # Verify that the conformer indices are within bounds
         res_mask = atom_array.res_id_global == global_res_id
         res_name = atom_array.res_name[res_mask][0]
-        res_data = data["cached_residue_level_data"][res_name]
+        res_data = data["cached_residue_level_data"]["residues"][res_name]
         n_available = res_data["mol"].GetNumConformers()
         assert all(0 <= idx < n_available for idx in conformer_indices)
 

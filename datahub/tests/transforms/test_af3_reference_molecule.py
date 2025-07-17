@@ -405,7 +405,7 @@ def test_af3_reference_molecule_features_with_cached_conformers(cache_dir):
     )
     cached_residue_data = pipe(data)
 
-    # Create data dictionaries with/without cached conformers
+    # Create transform with cached conformers enabled and max conformers limit
     transform_with_cache = GetAF3ReferenceMoleculeFeatures(
         max_conformers_per_residue=3, use_cached_conformers=True, save_rdkit_mols=True
     )
@@ -456,7 +456,7 @@ def test_af3_reference_molecule_features_with_subsampled_conformers(data_with_su
 
     atom_array = result_data["atom_array"]
     feats = result_data["feats"]
-    cached_residue_level_data = result_data["cached_residue_level_data"]
+    cached_residue_level_data = result_data["cached_residue_level_data"]["residues"]
     conformer_indices = result_data["residue_conformer_indices"]
 
     # Get residue start/end positions

@@ -3,6 +3,7 @@ import logging
 
 import numpy as np
 from biotite.structure import AtomArray
+from cifutils.transforms.atom_array import is_any_coord_nan
 from scipy.spatial import KDTree
 
 from datahub.common import exists
@@ -31,6 +32,34 @@ class CropTransformBase(Transform):
 
     def _validate(self):
         assert self.crop_size > 0, "Crop size must be greater than 0"
+
+
+def compute_local_hash(atom_array: AtomArray, radius: float = 6.0) -> np.ndarray:
+    """
+    Compute a local hash for each atom in the atom array.
+
+    Currently, the hash is the number of neighbours within a given radius.
+
+    Args:
+        atom_array (AtomArray): The atom array to compute the local hash for.
+        radius (float): The radius to use for the local hash.
+
+    Returns:
+        np.ndarray: A numpy array of shape (n_atoms,) containing the local hash for each atom.
+    """
+    # ... build kdtree
+    n_atoms = atom_array.array_length()
+    is_valid = ~is_any_coord_nan(atom_array)
+    kdtree = KDTree(atom_array.coord[is_valid])
+
+    # ... query local neighbourhoods
+    neighbour_idxs: list[list[int]] = kdtree.query_ball_tree(kdtree, r=radius)
+
+    # ... use number of neighbours as hash (# TODO: elaborate this if needed)
+    num_neighbours = np.zeros(n_atoms, dtype=int)
+    num_neighbours[is_valid] = list(map(len, neighbour_idxs))
+
+    return num_neighbours
 
 
 def crop_contiguous_af2_multimer(iids: list[int | str], instance_lens: list[int], crop_size: int) -> dict:

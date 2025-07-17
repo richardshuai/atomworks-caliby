@@ -94,7 +94,7 @@ class AggregateFeaturesLikeAF3(Transform):
                 rearrange(deltion_value_stacked_by_recycle, "... -> ... 1"),
             ],
             dim=-1,
-        )  # [n_recycles, n_msa_cluster_representatives, n_tokens_across_chains, n_types_of_tokens + 2] (float)
+        )  # [n_recycles, n_msa, n_tokens_across_chains, n_types_of_tokens + 2] (float)
 
         data["feats"] |= {
             "profile": msa_feats["msa_static_features_dict"]["profile"],

@@ -1,12 +1,86 @@
 """MetadataRowParser implementations for chain- and interface-based datasets."""
 
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import pandas as pd
 
-from datahub.common import exists
+from datahub.common import as_list
 from datahub.datasets.parsers import MetadataRowParser
+
+
+def build_path_from_template(path_template: str, **kwargs) -> Path:
+    """Build a path using a template string with variable substitution and slicing.
+
+    Args:
+        path_template: Template string with {var} and {var[start:end]} patterns
+        **kwargs: Variables to substitute
+
+    Examples:
+        >>> build_path_from_template(
+        ...     "{base_dir}/{pdb_id[1:3]}/{pdb_id}", base_dir="/data", pdb_id="3usg"
+        ... )
+        Path("/data/us/3usg")
+    """
+    # Find all template variables: {var} or {var[start:end]}
+    pattern = r"\{([^}]+)\}"
+    matches = re.finditer(pattern, path_template)
+
+    # Initialize result with the template string (we will replace matches with the substituted values)
+    result = path_template
+
+    for match in reversed(list(matches)):
+        var_expr = match.group(1)  # e.g., "pdb_id[1:3]" or "pdb_id"
+
+        # ... extract variable name and slice group
+        var_match = re.match(r"([^[]+)(?:\[([^\]]+)\])?", var_expr)
+        assert var_match is not None, f"Invalid variable expression: {var_expr}"
+
+        var_name = var_match.group(1)  # e.g., "pdb_id"
+        slice_part = var_match.group(2)  # e.g., "1:3"
+
+        assert var_name in kwargs, f"Variable '{var_name}' not found in kwargs"
+        var_value = kwargs[var_name]
+
+        if slice_part:
+            if ":" in slice_part:
+                # Slice notation (e.g., "1:3")
+                start_str, end_str = slice_part.split(":")
+                start = int(start_str) if start_str else None
+                end = int(end_str) if end_str else None
+                result_value = var_value[start:end]
+            else:
+                # Single index (e.g., "0")
+                index = int(slice_part)
+                result_value = var_value[index]
+        else:
+            # No slicing, use full variable
+            result_value = var_value
+
+        # Replace the match with the result
+        result = result[: match.start()] + str(result_value) + result[match.end() :]
+
+    return Path(result)
+
+
+def find_existing_file_path(
+    base_dirs: Sequence[Path | str], file_extensions: Sequence[str], path_templates: Sequence[str], pdb_id: str
+) -> Path:
+    """Find the first existing file path by trying corresponding base_dirs, file_extensions, and path_templates in order."""
+    assert len(base_dirs) == len(file_extensions) == len(path_templates), "All lists must have the same length"
+
+    for base_dir, file_extension, path_template in zip(base_dirs, file_extensions, path_templates):
+        base_dir = Path(base_dir)
+        candidate_path = build_path_from_template(
+            path_template, pdb_id=pdb_id, base_dir=base_dir, file_extension=file_extension
+        )
+        if candidate_path.exists():
+            return candidate_path
+
+    raise FileNotFoundError(
+        f"No file found for pdb_id {pdb_id} using any of the provided path templates. Last tried: {candidate_path}"
+    )
 
 
 class PNUnitsDFParser(MetadataRowParser):
@@ -21,18 +95,34 @@ class PNUnitsDFParser(MetadataRowParser):
     """
 
     def __init__(
-        self, base_dir: Path = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb"), file_extension: str = ".cif.gz"
+        self,
+        base_dir: Path | str | list[Path | str] | tuple[Path | str, ...] = Path(
+            "/projects/ml/frozen_pdb_copies/2024_12_01_pdb"
+        ),
+        file_extension: str | list[str] | tuple[str, ...] = ".cif.gz",
+        path_template: str | list[str] | tuple[str, ...] = "{base_dir}/{pdb_id[1:3]}/{pdb_id}{file_extension}",
     ):
-        self.base_dir = base_dir
-        self.file_extension = file_extension
+        """Initialize the PNUnitsDFParser.
+
+        Args:
+            base_dir: Base directory for PDB files. Can be a single path or a list/tuple of paths to try in order.
+            file_extension: File extension for PDB files. Can be a single extension or a list/tuple of extensions corresponding to the base_dir(s).
+            path_template: Template string for path construction (perfect for Hydra configs). Can be a single template or a list/tuple of templates corresponding to the base_dir(s) and file_extension(s).
+                Example: "{base_dir}/{pdb_id[1:3]}/{pdb_id}{file_extension}" (default)
+        """
+        self.base_dirs = [Path(bd) for bd in as_list(base_dir)]
+        self.file_extensions = as_list(file_extension)
+        self.path_templates = as_list(path_template)
 
     def _parse(self, row: pd.Series) -> dict[str, Any]:
         # For the Query DF, the query pn_unit is the only pn_unit in the query
         query_pn_unit_iids = [row["q_pn_unit_iid"]]
 
         # Build the path to the CIF file
-        pdb_id = row["pdb_id"]
-        path = Path(f"{self.base_dir}/{pdb_id[1:3]}/{pdb_id}{self.file_extension}")
+        pdb_id = str(row["pdb_id"])  # Ensure we get a string from the Series
+
+        # Find the first existing file path
+        path = find_existing_file_path(self.base_dirs, self.file_extensions, self.path_templates, pdb_id)
 
         # Put the full row in the extra info dictionary
         extra_info = row.to_dict()
@@ -59,18 +149,34 @@ class InterfacesDFParser(MetadataRowParser):
     """
 
     def __init__(
-        self, base_dir: Path = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb"), file_extension: str = ".cif.gz"
+        self,
+        base_dir: Path | str | list[Path | str] | tuple[Path | str, ...] = Path(
+            "/projects/ml/frozen_pdb_copies/2024_12_01_pdb"
+        ),
+        file_extension: str | list[str] | tuple[str, ...] = ".cif.gz",
+        path_template: str | list[str] | tuple[str, ...] = "{base_dir}/{pdb_id[1:3]}/{pdb_id}{file_extension}",
     ):
-        self.base_dir = base_dir
-        self.file_extension = file_extension
+        """Initialize the InterfacesDFParser.
+
+        Args:
+            base_dir: Base directory for PDB files. Can be a single path or a list/tuple of paths to try in order.
+            file_extension: File extension for PDB files. Can be a single extension or a list/tuple of extensions corresponding to the base_dir(s).
+            path_template: Template string for path construction (perfect for Hydra configs). Can be a single template or a list/tuple of templates corresponding to the base_dir(s) and file_extension(s).
+                Example: "{base_dir}/{pdb_id[1:3]}/{pdb_id}{file_extension}" (default)
+        """
+        self.base_dirs = [Path(bd) for bd in as_list(base_dir)]
+        self.file_extensions = as_list(file_extension)
+        self.path_templates = as_list(path_template)
 
     def _parse(self, row: pd.Series) -> dict[str, Any]:
         # For the Interfaces DF, there are two query pn_units
         query_pn_unit_iids = [row["pn_unit_1_iid"], row["pn_unit_2_iid"]]
 
         # Build the path to the CIF file
-        pdb_id = row["pdb_id"]
-        path = Path(f"{self.base_dir}/{pdb_id[1:3]}/{pdb_id}{self.file_extension}")
+        pdb_id = str(row["pdb_id"])  # Ensure we get a string from the Series
+
+        # Find the first existing file path
+        path = find_existing_file_path(self.base_dirs, self.file_extensions, self.path_templates, pdb_id)
 
         # Put the full row in the extra info dictionary
         extra_info = row.to_dict()
@@ -171,10 +277,10 @@ class GenericDFParser(MetadataRowParser):
         query_pn_unit_iids = [row[colname] for colname in self.pn_unit_iid_colnames]
 
         # Get the assembly ID if specified, otherwise default to "1"
-        assembly_id = row[self.assembly_id_colname] if exists(self.assembly_id_colname) else "1"
+        assembly_id = row[self.assembly_id_colname] if self.assembly_id_colname is not None else "1"
 
         # Compose the path to the structure file, including the base path and extension if specified
-        path = Path(row[self.path_colname])
+        path = Path(str(row[self.path_colname]))
         if "base_path" in extra_info and extra_info["base_path"]:
             path = Path(extra_info["base_path"]) / path
         if "extension" in extra_info and extra_info["extension"]:
