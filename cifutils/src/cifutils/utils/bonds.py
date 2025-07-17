@@ -366,6 +366,15 @@ def get_struct_conn_bonds(
         atom_name1 = row["ptnr1_label_atom_id"]
         atom_name2 = row["ptnr2_label_atom_id"]
 
+        # ... skip, but warn if the atoms (either the standard are not present in the atom array
+        all_names = np.concatenate((atom_names, alt_atom_ids))
+        if (atom_name1 not in all_names) or (atom_name2 not in all_names):
+            logger.info(
+                f"Covalent bond involving atoms {atom_name1} and {atom_name2} was found in `struct_conn`, but the "
+                "atoms are not present in the residue's AtomArray!"
+            )
+            continue
+
         if uses_alt_atom_id[in_res1_start]:
             atom1_local_idx = np.where(alt_atom_ids[in_res1] == atom_name1)[0][0]
         else:
