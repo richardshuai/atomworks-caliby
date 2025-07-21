@@ -19,7 +19,7 @@ import numpy as np
 import toolz
 from biotite.structure import AtomArray
 from rdkit import Chem
-from rdkit.Chem import Mol, rdFingerprintGenerator
+from rdkit.Chem import AllChem, Mol, rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.DataStructs import ExplicitBitVect
 
@@ -388,7 +388,7 @@ def get_morgan_fingerprint_from_rdkit_mol(mol: Chem.Mol, *, radius: int = 2, n_b
     return fingerprint
 
 
-def smiles_to_rdkit(smiles: str, *, sanitize: bool = True) -> Mol:
+def smiles_to_rdkit(smiles: str, *, sanitize: bool = True, timeout: int = 5) -> Mol:
     """
     Generate an RDKit molecule from a SMILES string.
 
@@ -398,6 +398,7 @@ def smiles_to_rdkit(smiles: str, *, sanitize: bool = True) -> Mol:
     Args:
         - smiles (str): The SMILES string representing the molecule.
         - sanitize (bool): Whether to sanitize the molecule.
+        - timeout (int): The timeout for the conformer generation.
 
     Returns:
         - rdkit.Chem.Mol: The RDKit molecule generated from the SMILES string.
@@ -405,11 +406,34 @@ def smiles_to_rdkit(smiles: str, *, sanitize: bool = True) -> Mol:
     Note:
         The returned molecule is sanitized and has aromaticity perceived.
     """
+    # Conformer generation parameters
+    _optimizer_force_tol = 1e-3
+    _max_its = 500
+    _energy_tol = 1e-7
+
     mol = Chem.MolFromSmiles(smiles, sanitize=sanitize)
     if mol is None:
         raise Chem.MolSanitizeException(
             f"Failed to create molecule from SMILES string: {smiles}. Try setting `sanitize=False`."
         )
+
+    # ... add hydrogens (needed for accurate conformer generation)
+    mol = Chem.AddHs(mol)
+
+    # ... generate a conformer to keep the stereochemistry encoded in the SMILES
+    # (We later re-generate a conformer; however, we need coordinates to ensure we preserve the stereochemistry)
+    etkdg = AllChem.ETKDGv3()
+    etkdg.useRandomCoords = True
+    etkdg.optimizerForceTol = float(_optimizer_force_tol)
+    etkdg.timeout = timeout
+    AllChem.EmbedMolecule(mol, params=etkdg)
+
+    if mol.GetNumConformers() > 0:
+        # (Extra step to ensure we get the best conformer)
+        ff = AllChem.UFFGetMoleculeForceField(mol)
+        ff.Initialize()
+        ff.Minimize(energyTol=_energy_tol, maxIts=_max_its)
+
     return mol
 
 
