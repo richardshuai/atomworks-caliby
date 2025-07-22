@@ -1,13 +1,27 @@
 """Shared test utils and fixtures for all tests"""
 
 import os
+import shutil
+import tempfile
 from pathlib import Path
 
 import pandas as pd
 import pytest
 from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX, _load_env_var
+from cifutils.tools.inference import SequenceComponent
 from dotenv import load_dotenv
 
+import datahub.databases.data_source_utils as ds_utils
+from datahub.databases.enums import (
+    BindingLabel,
+    ConfidenceLabel,
+    DataSourceType,
+    ExperimentType,
+    ProblemType,
+    StructureMethod,
+    StructureType,
+    TagType,
+)
 from datahub.datasets.datasets import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
 from datahub.datasets.parsers import (
     GenericDFParser,
@@ -15,10 +29,12 @@ from datahub.datasets.parsers import (
     PNUnitsDFParser,
     ValidationDFParserLikeAF3,
 )
+from datahub.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES_INTS
 from datahub.utils.io import read_parquet_with_metadata
+from datahub.utils.testing import cached_parse
 
 ##########################################################################################
 # + ----------------------------------- Environment ------------------------------------ +
@@ -386,3 +402,99 @@ def af3_af2fb_distillation_dataset_with_metadata(distillation_pandas_dataset_wit
 @pytest.fixture(scope="session")
 def af3_af2fb_distillation_concat_dataset(af3_af2fb_distillation_dataset_no_metadata):
     return ConcatDatasetWithID(datasets=[af3_af2fb_distillation_dataset_no_metadata])
+
+
+##########################################################################################
+# + ------------------------------------ Database Fixtures --------------------------------- +
+##########################################################################################
+
+
+@pytest.fixture
+def atom_array():
+    """
+    Load a CIF file from somewhere local and return the atom_array
+    """
+    merged_cif_parser_args = {
+        **DEFAULT_CIF_PARSER_ARGS,
+        **{
+            "fix_arginines": False,
+            "add_missing_atoms": False,  # this is crucial otherwise the annotations are deleted
+        },
+    }
+    merged_cif_parser_args.pop("add_bond_types_from_struct_conn")
+    merged_cif_parser_args.pop("remove_ccds")
+    data = cached_parse("6lyz", **merged_cif_parser_args)
+    atom_array = data["atom_array"]
+    return atom_array
+
+
+@pytest.fixture
+def chemical_components():
+    """
+    Makes a list of dummy ChemicalComponent objects. These sequences don't mean anything
+    """
+    return [SequenceComponent(seq="KVFGRCELAAAMKRHGLD"), SequenceComponent(seq="QATNRNTDGSTDYGIL")]
+
+
+@pytest.fixture
+def bind_no_bind_measurement_fields_no_structure():
+    # Dummy values for all fields in the dataclass that obey the typing hints
+    # NOTE: Do not include atom_array arg here
+    dummy_args = {
+        # ======== REQUIRED FIELDS ========
+        "data_source_id": "testauthor_2024_tag1",
+        "target": "VEGFR2",
+        "binding_label": BindingLabel.BIND,
+        "label_confidence": ConfidenceLabel.CONFIDENT,
+        "partners": [["H", "L"], ["T"]],
+        # ======== OPTIONAL FIELDS ========
+        "target_chains": ["T"],
+        "binder_chains": ["H", "L"],
+        "fitness": 0.35,
+        "affinity": 0.5,
+        "affinity_std": 0.1,
+        "label_threshold": 10,
+        "pH": 7.4,
+        "temperature": 25.0,
+        "tag_type": TagType.BIOTIN,
+        "structure_method": StructureMethod.X_RAY,
+        "structure_type": StructureType.EXPERIMENTAL,
+        "measurement_description": "This is a test measurement",
+    }
+
+    return dummy_args
+
+
+@pytest.fixture
+def data_source_fields():
+    dummy_data_source_fields = {
+        "author": "testauthor",
+        "year": 2024,
+        "data_source_tag": "tag1",
+        "problem": ProblemType.PPI,
+        "data_source_type": DataSourceType.EXPERIMENT_IN_HOUSE,
+        # optional fields for data source
+        "experiment_type": ExperimentType.SPR,
+        "experiment_metadata": {"foo": "bar"},
+        "data_source_description": "This is a test data source",
+    }
+
+    return dummy_data_source_fields
+
+
+@pytest.fixture
+def bind_no_bind_measurement_data_source_fields(bind_no_bind_measurement_fields_no_structure, data_source_fields):
+    return bind_no_bind_measurement_fields_no_structure | data_source_fields
+
+
+@pytest.fixture
+def temp_data_source_db(monkeypatch):
+    # Create a temporary directory and CSV file
+    temp_dir = tempfile.mkdtemp()
+    temp_csv = os.path.join(temp_dir, "test_data_sources.csv")
+    # Patch the DATA_SOURCE_DB_PATH to point to our temp file
+    monkeypatch.setattr(ds_utils, "DATA_SOURCE_DB_PATH", temp_csv)
+    # Create the file if it doesn't exist
+    ds_utils.get_data_source_db(create_if_not_exists=True)
+    yield temp_csv
+    shutil.rmtree(temp_dir)

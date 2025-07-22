@@ -166,6 +166,9 @@ cython_debug/
 .vscode
 .history/
 
+# Cursor
+.cursor/
+
 # Slurm
 */slurm_logs/
 *.err
