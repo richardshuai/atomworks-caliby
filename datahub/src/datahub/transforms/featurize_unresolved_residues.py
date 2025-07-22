@@ -203,9 +203,19 @@ def place_unresolved_token_on_closest_resolved_token_in_sequence(
         )  # (n_tokens)
         is_token_resolved_atom_level = spread_token_wise(chain_atom_array, is_token_resolved_token_level)  # (n_atoms)
 
-        # (Early exit if no tokens are resolved, or all tokens are resolved, as we can't then place unresolved tokens on closest resolved token)
-        # NOTE: Such cases should not occur if the `RemoveUnresolvedPNUnits` Transform is applied first
-        if np.all(is_token_resolved_atom_level) or np.all(~is_token_resolved_token_level):
+        # (Early exit if  all tokens are resolved)
+        if np.all(is_token_resolved_atom_level):
+            continue
+
+        # (if no tokens are resolved, set nan's -> 0s)
+        if np.all(~is_token_resolved_atom_level):
+            if annotation_to_update == "coord":
+                # (We must handle "coord" explicitly, as it is treated differently than other annotations)
+                atom_array.coord[chain_mask] = np.nan_to_num(chain_atom_array.coord)
+            else:
+                atom_array.get_annotation(annotation_to_update)[chain_mask] = np.nan_to_num(
+                    chain_atom_array.get_annotation(annotation_to_update)
+                )
             continue
 
         # ... get the nearest resolved token indices for each unresolved token
