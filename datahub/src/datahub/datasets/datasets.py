@@ -143,6 +143,69 @@ class FileDataset(BaseDataset):
         return self.file_paths[idx]
 
 
+class StructuralFileDataset(FileDataset):
+    """FileDataset with StructuralDatasetWrapper compatibility.
+
+    Inherits all functionality from FileDataset but adds:
+    - .data property that returns a pandas DataFrame for compatibility
+    - __getitem__ returns pandas Series instead of just file paths
+    - Optional name attribute for logging/debugging
+
+    Allows integration with StructuralDatasetWrapper, samplers, and weight calculation.
+    """
+
+    def __init__(
+        self,
+        source: PathLike | list[str | PathLike],
+        filter_fn: Callable[[PathLike], bool] | None = None,
+        max_depth: int = 3,
+        name: str | None = None,
+    ):
+        """
+        Args:
+            source: Either a directory path to scan for files, or a pre-built list of file paths
+            filter_fn: Optional function that takes a file path and returns True if the file should be included
+            max_depth: Maximum directory depth to scan (only used when source is a directory path)
+            name: Optional name for the dataset (useful for logging and debugging)
+        """
+        super().__init__(source, filter_fn, max_depth)
+        self.name = name if name is not None else f"StructuralFileDataset({source})"
+
+        assert len(self.file_paths) == len(set(self.file_paths)), "File paths must be unique."
+
+    @cached_property
+    def data(self) -> pd.DataFrame:
+        """Return a pandas DataFrame with file paths and generated example IDs.
+
+        This property makes StructuralFileDataset compatible with StructuralDatasetWrapper
+        and other components that expect a .data attribute.
+        """
+        # Generate example IDs from file paths (use filename without extension)
+        example_ids = []
+        for file_path in self.file_paths:
+            filename = Path(file_path).stem  # filename without extension
+            # If filename has multiple extensions (e.g., .cif.gz), remove them all
+            while "." in filename:
+                filename = Path(filename).stem
+            example_ids.append(filename)
+
+        # Create DataFrame with path and example_id columns
+        df = pd.DataFrame(
+            {
+                "path": self.file_paths,
+                "example_id": example_ids,
+            }
+        )
+
+        # Set example_id as index for fast lookups
+        df.set_index("example_id", inplace=True, drop=False, verify_integrity=True)  # No duplicates allowed
+
+        return df
+
+    def __getitem__(self, idx: int) -> Any:
+        return self.data.iloc[idx]
+
+
 class StructuralDatasetWrapper(BaseDataset):
     def __init__(
         self,

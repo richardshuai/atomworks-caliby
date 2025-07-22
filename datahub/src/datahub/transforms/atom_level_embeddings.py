@@ -17,7 +17,9 @@ def featurize_atom_level_embeddings(
     residue_conformer_indices: dict[int, np.ndarray],
     ignore_res_names: list[str] | None = None,
     global_std: torch.Tensor | np.ndarray | None = None,
+    global_mean: torch.Tensor | np.ndarray | None = None,
     threshold: float = 1e3,
+    atom_level_embedding_dim: int | None = None,
 ) -> dict[str, np.ndarray]:
     """Return atom-level embeddings and mask for each atom in the atom_array.
 
@@ -32,11 +34,14 @@ def featurize_atom_level_embeddings(
         residue_conformer_indices: Dict mapping global residue ID to selected conformer indices.
         ignore_res_names: List of residue names to ignore. If None, no residues are ignored.
         global_std: Global standard deviation of the embeddings (e.g., across all conformers of all residues). If None, no normalization is performed.
+        global_mean: Global mean of the embeddings (e.g., across all conformers of all residues). If None, no normalization is performed.
         threshold: Maximum absolute value for descriptors. If any descriptor exceeds this threshold, the entire residue is ignored.
+        atom_level_embedding_dim: Dimension of the atom-level embeddings. If None, the dimension is inferred from the cached data.
 
     Returns:
         dict: {'atom_level_embedding': (n_conformers, L, D), 'has_atom_level_embedding': (L,), 'mean_atom_level_embedding': (L, D)}
     """
+
     L = len(atom_array)
     res_names = atom_array.res_name
     atom_names = atom_array.atom_name
@@ -49,7 +54,7 @@ def featurize_atom_level_embeddings(
             for res_data in cached_residue_level_data.values()
             if res_data.get("descriptors") is not None
         )
-        embedding_dim = first_descriptors.shape[-1]  # Last dimension is features
+        embedding_dim = first_descriptors.shape[-1] if not atom_level_embedding_dim else atom_level_embedding_dim
         # Get number of conformers from first residue instance
         n_conformers = len(next(iter(residue_conformer_indices.values()))) if residue_conformer_indices else 0
     except (StopIteration, ValueError):
@@ -83,21 +88,18 @@ def featurize_atom_level_embeddings(
             continue
 
         conformer_indices = residue_conformer_indices[global_res_id]
-        selected_descriptors = res_data["descriptors"][conformer_indices, atom_idx, :]
+        selected_descriptors = res_data["descriptors"][conformer_indices, atom_idx, :embedding_dim]
 
         # Check if any descriptor exceeds the threshold (diverged - likely a bad reference conformer)
         if np.any(np.abs(selected_descriptors) > threshold):
             continue
 
-        if global_std is not None:
+        if global_std is not None and global_mean is not None:
             global_std = global_std.numpy() if isinstance(global_std, torch.Tensor) else global_std
+            global_mean = global_mean.numpy() if isinstance(global_mean, torch.Tensor) else global_mean
 
-            # Normalize the descriptors to have unit variance
-            # (Following Stable Diffusion's methodology, we don't zero-center the embeddings by subtracting the mean)
-            assert (
-                global_std.ndim == 1 and global_std.shape[0] == selected_descriptors.shape[-1]
-            ), "global_std must have shape (embedding_dim,)"
-            selected_descriptors = selected_descriptors / global_std
+            # Normalize the descriptors to have unit variance and zero mean
+            selected_descriptors = (selected_descriptors - global_mean[:embedding_dim]) / global_std[:embedding_dim]
 
         # Pad or truncate to match n_conformers
         n_selected = len(conformer_indices)
@@ -125,6 +127,9 @@ class FeaturizeAtomLevelEmbeddings(Transform):
 
     Args:
         ignore_res_names (list[str] | None): List of residue names to ignore. If None, no residues are ignored.
+        mask_rdkit_conformers (bool): Whether to mask the RDKit conformers where the atom level embedding IS present.
+        threshold (float): Maximum absolute value for descriptors. If any descriptor exceeds this threshold, the entire residue is ignored.
+        atom_level_embedding_dim (int): Dimension of the atom-level embeddings. If None, the dimension is inferred from the cached data.
     """
 
     requires_previous_transforms = [
@@ -134,11 +139,16 @@ class FeaturizeAtomLevelEmbeddings(Transform):
     ]
 
     def __init__(
-        self, ignore_res_names: list[str] | None = None, mask_rdkit_conformers: bool = False, threshold: float = 1e3
+        self,
+        ignore_res_names: list[str] | None = None,
+        mask_rdkit_conformers: bool = False,
+        threshold: float = 1e3,
+        atom_level_embedding_dim: int | None = None,
     ):
         self.ignore_res_names = ignore_res_names
         self.mask_rdkit_conformers = mask_rdkit_conformers
         self.threshold = threshold
+        self.atom_level_embedding_dim = atom_level_embedding_dim
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_atom_array_annotation(data, ["res_id_global"])
@@ -154,6 +164,7 @@ class FeaturizeAtomLevelEmbeddings(Transform):
         std = None
         if data["cached_residue_level_data"].get("metadata"):
             std = data["cached_residue_level_data"]["metadata"].get("std")
+            mean = data["cached_residue_level_data"]["metadata"].get("mean")
 
         result = featurize_atom_level_embeddings(
             atom_array,
@@ -161,7 +172,9 @@ class FeaturizeAtomLevelEmbeddings(Transform):
             residue_conformer_indices,
             ignore_res_names=self.ignore_res_names,
             global_std=std,
+            global_mean=mean,
             threshold=self.threshold,
+            atom_level_embedding_dim=self.atom_level_embedding_dim,
         )
 
         feats = data.setdefault("feats", {})

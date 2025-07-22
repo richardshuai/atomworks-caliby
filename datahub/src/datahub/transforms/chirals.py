@@ -216,6 +216,7 @@ def get_rf2aa_chiral_features(
     # ... fill in the plane pair indices & ideal dihedral angle
     # We sort the tuples (but not within the tuples) to match the legacy code behavior; it has no material impact
     chiral_idxs = torch.tensor(sorted(dihedral_plane_pair_idxs), dtype=torch.long)
+
     chiral_feats[:, :-1] = chiral_idxs
     chiral_feats[:, -1] = _IDEAL_DIHEDRAL_ANGLE
     # ... calculate whether the dihedral angle is positive or negative, determining the chirality of the center uniquely
@@ -396,7 +397,7 @@ def add_af3_chiral_features(
         return torch.cat(all_chirals, dim=0)
     else:
         # Return empty tensor with correct shape if no chiral centers found
-        return torch.zeros((0, 5))
+        return torch.zeros((0, 5), dtype=torch.float32)
 
 
 class AddAF3ChiralFeatures(Transform):
@@ -429,6 +430,17 @@ class AddAF3ChiralFeatures(Transform):
             take_first_chiral_subordering=self.take_first_chiral_subordering,
         )
 
-        data.setdefault("feats", {})["chiral_feats"] = chiral_feats  # [n_chirals, 5]
+        # Split into chiral_centers and chiral_center_dihedral_angles
+        chiral_centers = chiral_feats[:, :4].long()
+        chiral_center_dihedral_angles = chiral_feats[:, -1].float()
+
+        feats = data.setdefault("feats", {})
+        feats.update(
+            {
+                "chiral_feats": chiral_feats,  # [n_chirals, 5]
+                "chiral_centers": chiral_centers,  # (long) [n_chirals, 4]
+                "chiral_center_dihedral_angles": chiral_center_dihedral_angles,  # (float) [n_chirals]
+            }
+        )
 
         return data
