@@ -749,16 +749,19 @@ class ConditionalRoute(Transform):
         return transform(data)
 
 
-class ConvertToTorch(Transform):
-    """
-    Converts the contents of specified `data` keys to torch tensors and moves them to the specified device.
+def convert_to_torch(data: dict[str, Any], keys: list[str], device: str = "cpu") -> dict[str, Any]:
+    """Convert the contents of specified `data` keys to torch tensors and move them to the specified device.
+
     For each given top-level `data` key, all nested numpy arrays are converted to torch tensors.
 
-    Attributes:
+    Args:
+        data (dict[str, Any]): The input data dictionary.
         keys (list[str]): List of `data` keys within which to search for numpy arrays to convert to torch tensors.
         device (str): The device to which the tensors should be moved (e.g., 'cpu', 'cuda'). Default is 'cpu'.
-    """
 
+    Returns:
+        dict[str, Any]: The data dictionary with numpy arrays converted to torch tensors.
+    """
     # Set of supported numpy data types
     SUPPORTED_DTYPES = [
         np.float64,
@@ -777,6 +780,31 @@ class ConvertToTorch(Transform):
         np.bool_,
     ]
 
+    def _convert_to_tensor(value: Any) -> Any:
+        """Convert a value to a torch tensor if it is a numpy array or recursively handle nested dictionaries."""
+        if isinstance(value, np.ndarray) and value.dtype in SUPPORTED_DTYPES:
+            return torch.tensor(value, device=device)
+        elif isinstance(value, dict):
+            return valmap(_convert_to_tensor, value)
+        elif isinstance(value, list):
+            return [_convert_to_tensor(v) for v in value]
+        else:
+            return value
+
+    for key in keys:
+        if key in data:
+            data[key] = _convert_to_tensor(data[key])
+        else:
+            raise KeyError(f"Key '{key}' not found in the data dictionary.")
+
+    return data
+
+
+class ConvertToTorch(Transform):
+    """
+    Converts the contents of specified `data` keys to torch tensors and moves them to the specified device.
+    """
+
     def __init__(self, keys: list[str], device: str = "cpu"):
         self.keys = keys
         self.device = device
@@ -784,34 +812,8 @@ class ConvertToTorch(Transform):
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, self.keys)
 
-    def _convert_to_tensor(self, value: Any) -> Any:
-        """
-        Convert a value to a torch tensor if it is a numpy array or recursively handle nested dictionaries.
-
-        Args:
-            value (Any): The value to convert.
-
-        Returns:
-            Any: The converted value.
-        """
-        if isinstance(value, np.ndarray) and value.dtype in self.SUPPORTED_DTYPES:
-            return torch.tensor(value, device=self.device)
-        elif isinstance(value, dict):
-            return valmap(self._convert_to_tensor, value)
-        elif isinstance(value, list):
-            return [self._convert_to_tensor(v) for v in value]
-        else:
-            return value
-
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Search for numpy arrays within the specified keys in the input data dictionary and convert them to torch tensors."""
-        for key in self.keys:
-            if key in data:
-                data[key] = self._convert_to_tensor(data[key])
-            else:
-                raise KeyError(f"Key '{key}' not found in the data dictionary.")
-
-        return data
+        return convert_to_torch(data, self.keys, self.device)
 
 
 class RaiseOnCondition(Transform):

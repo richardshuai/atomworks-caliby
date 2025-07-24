@@ -152,27 +152,27 @@ def calculate_weights_for_pdb_dataset_df(
 
 
 def calculate_weights_by_inverse_cluster_size(
-    dataset_df: pd.DataFrame, cluster_column_name: str = "cluster"
+    dataset_df: pd.DataFrame, cluster_column: str = "cluster"
 ) -> torch.Tensor:
     """Calculate weights for each row in the DataFrame as the inverse of its cluster size.
 
     Args:
         dataset_df (pd.DataFrame): DataFrame containing the PN unit or interface data
-        cluster_column_name (str): Column name in `dataset_df` corresponding to the cluster info. Default is "cluster".
+        cluster_column (str): Column name in `dataset_df` corresponding to the cluster info. Default is "cluster".
 
     Returns:
         torch.Tensor: A tensor containing the calculated weights for each row in the DataFrame
     """
     # Generate the cluster sizes...
-    cluster_id_to_size_map = get_cluster_sizes(dataset_df, cluster_column=cluster_column_name)
+    cluster_id_to_size_map = get_cluster_sizes(dataset_df, cluster_column=cluster_column)
 
-    # ...map the cluster sizes to the DataFrame
-    dataset_df["cluster_size"] = dataset_df[cluster_column_name].map(cluster_id_to_size_map)
+    # ... map the cluster sizes to the DataFrame
+    dataset_df["cluster_size"] = dataset_df[cluster_column].map(cluster_id_to_size_map)
 
-    # ...calculate weights as the inverse of the cluster size
+    # ... calculate weights as the inverse of the cluster size
     weights = 1 / dataset_df["cluster_size"].values
 
-    # ...and return the weights as a tensor
+    # ... and return the weights as a tensor
     return torch.tensor(weights)
 
 
@@ -464,6 +464,7 @@ class LoadBalancedDistributedSampler(DistributedSampler):
     """DistributedSampler that balances large examples across replicas.
 
     Helpful for validation, where we don't want GPUs to be idle while waiting for the slowest replica to finish.
+
     For example, we may want to avoid the scenario where one GPU receives many large examples that are slow to process,
     while another GPU receives many small examples that are quick to process.
 
