@@ -7,7 +7,7 @@ import pandas as pd
 from datahub.databases.dataclasses import DataSource
 from datahub.databases.utils import _smart_cast
 
-DATA_SOURCE_DB_PATH = "/home/mkazman/Documents/bind_no_bind_data_sources.csv"  # TODO: move this to the right place
+DATA_SOURCE_DB_PATH = "/projects/ml/datahub/experimental_data/experimental_data_sources.csv"
 
 
 def get_data_source_db(data_source_db_path: str | None = None, create_if_not_exists: bool = False) -> pd.DataFrame:

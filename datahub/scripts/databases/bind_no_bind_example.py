@@ -42,7 +42,7 @@ from datahub.databases.io_utils import load_measurement_from_cif, save_measureme
 
 # Fill in the details for your experiment or database. The combination of author, year, and data_source_tag must be unique.
 data_source = DataSource(
-    author="max",  # Your name or lab
+    author="Max Kazman",  # Your name or lab
     year=2025,  # Year of the experiment or data collection
     data_source_tag="test_dummy",  # Unique tag for this data source
     problem=ProblemType.PPI,  # Type of problem (e.g., protein-protein interaction)
@@ -109,7 +109,7 @@ bind_no_bind_measurement = BindNoBindMeasurement(
 # 4. Save the measurement to a CIF file
 # =====================================
 
-cif_path = "/home/mkazman/Documents/test_dummy.cif"  # Change this path as needed
+cif_path = "/projects/ml/datahub/experimental_data/test_dummy.cif"  # Change this path as needed
 save_measurement_to_cif(bind_no_bind_measurement, cif_path)
 print(f"\nMeasurement saved to CIF file: {cif_path}")
 
