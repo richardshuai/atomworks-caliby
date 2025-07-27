@@ -114,6 +114,13 @@ def initialize_chain_info_from_atom_array(
 
     WARNING: Use this function for computationally predicted structures or for inference; do not use for files from the RCSB PDB database.
 
+    In particular, this function adds the following information to the chain_info_dict:
+        - The RCSB entity ID for each chain (e.g., 1, 2, 3, etc.), if present in the AtomArray (under the entity_id atom site label)
+        - The unprocessed one-letter entity canonical and non-canonical sequences.
+        - (OptionallyA boolean flag indicating whether the chain is a polymer.
+        - (Optionally) The chain type as an IntEnum (e.g., polypeptide(L), non-polymer, etc.)
+        - (Optionally) The residue IDs and residue names, inferred from the AtomArray.
+
     Args:
         atom_array (AtomArray): The AtomArray object to infer chain information from.
         infer_chain_type (bool, optional): Whether to infer the chain type from the AtomArray. Defaults to True.
@@ -152,6 +159,12 @@ def initialize_chain_info_from_atom_array(
         )
 
         chain_info_dict[chain_id] = {}
+
+        if "label_entity_id" in atom_array.get_annotation_categories():
+            # (Entity ID is the same for all atoms in the chain)
+            chain_info_dict[chain_id]["rcsb_entity"] = int(
+                atom_array.label_entity_id[atom_array.chain_id == chain_id][0]
+            )
 
         if infer_chain_type:
             chain_info_dict[chain_id]["chain_type"] = chain_type
