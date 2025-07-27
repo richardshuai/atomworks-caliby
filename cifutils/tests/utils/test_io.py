@@ -263,15 +263,21 @@ def test_inject_msa_information_into_chain_info():
     assert out["chain_info"]["B"]["msa_path"] == Path("sequence_2.a3m")
 
 
-def test_load_from_af3_output():
-    cif_path_af3 = TEST_DATA_DIR / "8cjg_from_af3.cif"
-    cif_path_rcsb = get_pdb_path("8cjg")
+@pytest.mark.parametrize(
+    "af3_cif_filename,pdb_id",
+    [
+        ("8cjg_from_af3.cif", "8cjg"),
+        ("7ubd_from_af3.cif", "7ubd"),
+    ],
+)
+def test_load_from_af3_output(af3_cif_filename, pdb_id):
+    cif_path_af3 = TEST_DATA_DIR / af3_cif_filename
+    cif_path_rcsb = get_pdb_path(pdb_id)
 
     # Parse the structure without CCD mirror path
     atom_array_from_af3 = parse(cif_path_af3, hydrogen_policy="remove")["assemblies"]["1"][0]
     atom_array_from_rcsb = parse(cif_path_rcsb, hydrogen_policy="remove")["assemblies"]["1"][0]
 
-    # ...rename chain ID's to match the original structure
     assert len(atom_array_from_af3) == len(atom_array_from_rcsb), "Atom arrays are not the same length"
 
     # Ensure full occupancy from AF-3

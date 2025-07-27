@@ -388,7 +388,7 @@ def get_morgan_fingerprint_from_rdkit_mol(mol: Chem.Mol, *, radius: int = 2, n_b
     return fingerprint
 
 
-def smiles_to_rdkit(smiles: str, *, sanitize: bool = True, timeout: int = 5) -> Mol:
+def smiles_to_rdkit(smiles: str, *, sanitize: bool = True, timeout: int = 5, generate_conformers: bool = True) -> Mol:
     """
     Generate an RDKit molecule from a SMILES string.
 
@@ -399,23 +399,30 @@ def smiles_to_rdkit(smiles: str, *, sanitize: bool = True, timeout: int = 5) -> 
         - smiles (str): The SMILES string representing the molecule.
         - sanitize (bool): Whether to sanitize the molecule.
         - timeout (int): The timeout for the conformer generation.
+        - generate_conformers (bool): Whether to generate and minimize conformers.
+            If False, returns the molecule immediately after SMILES parsing.
 
     Returns:
         - rdkit.Chem.Mol: The RDKit molecule generated from the SMILES string.
 
     Note:
         The returned molecule is sanitized and has aromaticity perceived.
+        If generate_conformers=True, the molecule will also have (implicit) hydrogens added
+        and conformers generated with UFF minimization.
     """
-    # Conformer generation parameters
-    _optimizer_force_tol = 1e-3
-    _max_its = 500
-    _energy_tol = 1e-7
-
     mol = Chem.MolFromSmiles(smiles, sanitize=sanitize)
     if mol is None:
         raise Chem.MolSanitizeException(
             f"Failed to create molecule from SMILES string: {smiles}. Try setting `sanitize=False`."
         )
+
+    if not generate_conformers:
+        return mol
+
+    # Conformer generation parameters
+    _optimizer_force_tol = 1e-3
+    _max_its = 500
+    _energy_tol = 1e-7
 
     # ... add hydrogens (needed for accurate conformer generation)
     mol = Chem.AddHs(mol)
@@ -433,6 +440,9 @@ def smiles_to_rdkit(smiles: str, *, sanitize: bool = True, timeout: int = 5) -> 
         ff = AllChem.UFFGetMoleculeForceField(mol)
         ff.Initialize()
         ff.Minimize(energyTol=_energy_tol, maxIts=_max_its)
+
+    # ... remove hydrogens again, since we no longer need them
+    mol = remove_hydrogens(mol)
 
     return mol
 

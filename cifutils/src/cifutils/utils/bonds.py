@@ -301,19 +301,22 @@ def get_struct_conn_bonds(
                 raise ValueError(f"Chain {chain_id1} or {chain_id2} not found in the atom array!")
             continue
 
-        # For non-polymers, we use the auth_seq_id if available; otherwise we use the label_seq_id
+        # For non-polymers, we use the auth_seq_id if available and valid (i.e., not "." or "?"); otherwise we use the label_seq_id
         # (Required to avoid ambiguity, since if using `label` only we may have multiple residue within a
         # chain with the same label_seq_id and the same res_name; see: 6MUB)
         res_id1 = int(
             row["ptnr1_label_seq_id"]
-            if (chain_id1 in polymer_chain_ids) or ("ptnr1_auth_seq_id" not in row)
+            if ((chain_id1 in polymer_chain_ids) or ("ptnr1_auth_seq_id" not in row))
+            and row["ptnr1_label_seq_id"] != "."
             else row["ptnr1_auth_seq_id"]
         )
         res_id2 = int(
             row["ptnr2_label_seq_id"]
-            if (chain_id2 in polymer_chain_ids) or ("ptnr2_auth_seq_id" not in row)
+            if ((chain_id2 in polymer_chain_ids) or ("ptnr2_auth_seq_id" not in row))
+            and row["ptnr2_label_seq_id"] != "."
             else row["ptnr2_auth_seq_id"]
         )
+
         ins_code1 = row.get("pdbx_ptnr1_PDB_ins_code", "")
         ins_code2 = row.get("pdbx_ptnr2_PDB_ins_code", "")
         ins_code1 = "" if ins_code1 in (".", "?") else ins_code1

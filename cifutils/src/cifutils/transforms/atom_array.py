@@ -328,6 +328,32 @@ def update_nonpoly_seq_ids(atom_array: AtomArray, chain_info_dict: dict) -> Atom
     return atom_array
 
 
+def replace_negative_res_ids_with_auth_seq_id(atom_array: AtomArray) -> AtomArray:
+    """
+    Replaces res_id values of -1 with the corresponding auth_seq_id values.
+
+    When loading from the PDB, this step is generally not needed; however, some AF-3 predictions
+    have negative res_ids without labeling chains as non-polymeric via the entity_id field.
+
+    Args:
+        atom_array (AtomArray): The atom array to fix.
+
+    Returns:
+        AtomArray: The updated atom array with negative res_ids replaced by auth_seq_ids.
+    """
+    author_seq_ids = atom_array.get_annotation("auth_seq_id")
+    negative_res_id_mask = atom_array.res_id == -1
+
+    # Convert auth_seq_ids to int if they are strings (as they are sometimes from AF-3 predictions)
+    if author_seq_ids.dtype.kind in "UO":  # Unicode or Object (string-like)
+        # Handle '.' values by replacing with -1, then convert to int
+        author_seq_ids = np.where(author_seq_ids == ".", -1, author_seq_ids).astype(int)
+
+    atom_array.res_id[negative_res_id_mask] = author_seq_ids[negative_res_id_mask]
+
+    return atom_array
+
+
 def add_charge_from_ccd_codes(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
     """
     Adds charge annotations to an atom array based on the Chemical Component Dictionary (CCD) codes.

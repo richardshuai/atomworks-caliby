@@ -378,6 +378,8 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         # We can get the chain entity-level information directly from the CIF file
         data_dict["chain_info"] = initialize_chain_info_from_category(cif_file.block, asym_unit_stack[0])
     else:
+        # ... replace negative res_ids with auth_seq_id (as they are sometimes from AF-3 predictions)
+        asym_unit_stack = ta.replace_negative_res_ids_with_auth_seq_id(asym_unit_stack)
         # ... infer the chain information from the AtomArray residue names (useful for inference; should not be used for RCSB files)
         data_dict["chain_info"] = initialize_chain_info_from_atom_array(
             asym_unit_stack[0], infer_chain_type=True, infer_chain_sequences=True
