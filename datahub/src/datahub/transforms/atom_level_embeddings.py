@@ -19,6 +19,9 @@ def featurize_atom_level_embeddings(
     global_std: torch.Tensor | np.ndarray | None = None,
     global_mean: torch.Tensor | np.ndarray | None = None,
     threshold: float = 1e3,
+    embedding_dim: int | None = None,
+    n_conformers: int | None = None,
+    p_dropout_atom_level_embeddings: float = 0.0,
 ) -> dict[str, np.ndarray]:
     """Return atom-level embeddings and mask for each atom in the atom_array.
 
@@ -35,6 +38,9 @@ def featurize_atom_level_embeddings(
         global_std: Global standard deviation of the embeddings (e.g., across all conformers of all residues). If None, no normalization is performed.
         global_mean: Global mean of the embeddings (e.g., across all conformers of all residues). If None, no normalization is performed.
         threshold: Maximum absolute value for descriptors. If any descriptor exceeds this threshold, the entire residue is ignored.
+        embedding_dim: Dimensionality of the atom-level embeddings. If None, the dimensionality is inferred from the first available descriptors.
+        n_conformers: Number of conformers to sample. If None, the number of conformers is inferred from the first available descriptors.
+        p_dropout_atom_level_embeddings: Probability of dropping out the atom-level embeddings.
 
     Returns:
         dict: {'atom_level_embedding': (n_conformers, L, D), 'has_atom_level_embedding': (L,), 'mean_atom_level_embedding': (L, D)}
@@ -52,16 +58,31 @@ def featurize_atom_level_embeddings(
             for res_data in cached_residue_level_data.values()
             if res_data.get("descriptors") is not None
         )
-        embedding_dim = first_descriptors.shape[-1]
+        embedding_dim = embedding_dim or first_descriptors.shape[-1]
         # Get number of conformers from first residue instance
-        n_conformers = len(next(iter(residue_conformer_indices.values()))) if residue_conformer_indices else 0
+        n_conformers = n_conformers or (
+            len(next(iter(residue_conformer_indices.values()))) if residue_conformer_indices else 0
+        )
+        _has_descriptors = True
     except (StopIteration, ValueError):
-        # No embeddings found - return empty tensors
-        return {
-            "atom_level_embedding": np.zeros((0, L, embedding_dim), dtype=np.float32),
-            "has_atom_level_embedding": np.zeros(L, dtype=bool),
-            "mean_atom_level_embedding": np.zeros((L, embedding_dim), dtype=np.float32),
-        }
+        assert (
+            embedding_dim is not None and n_conformers is not None
+        ), "embedding_dim and n_conformers must be provided if no descriptors are available"
+        _has_descriptors = False
+
+    default_return = {
+        "atom_level_embedding": np.zeros((n_conformers, L, embedding_dim), dtype=np.float32),
+        "has_atom_level_embedding": np.zeros(L, dtype=bool),
+        "mean_atom_level_embedding": np.zeros((L, embedding_dim), dtype=np.float32),
+    }
+
+    if not _has_descriptors:
+        return default_return
+
+    if p_dropout_atom_level_embeddings > 0.0:
+        # With probability p_dropout_atom_level_embeddings, drop out the atom-level embeddings (all 0's)
+        if np.random.random() < p_dropout_atom_level_embeddings:
+            return default_return
 
     # Initialize embeddings with shape (n_conformers, L, embedding_dim)
     embeddings = np.full((n_conformers, L, embedding_dim), np.nan, dtype=np.float32)
@@ -140,10 +161,16 @@ class FeaturizeAtomLevelEmbeddings(Transform):
         ignore_res_names: list[str] | None = None,
         mask_rdkit_conformers: bool = False,
         threshold: float = 1e3,
+        p_dropout_atom_level_embeddings: float = 0.0,
+        embedding_dim: int | None = None,
+        n_conformers: int | None = None,
     ):
         self.ignore_res_names = ignore_res_names
         self.mask_rdkit_conformers = mask_rdkit_conformers
         self.threshold = threshold
+        self.p_dropout_atom_level_embeddings = p_dropout_atom_level_embeddings
+        self.embedding_dim = embedding_dim
+        self.n_conformers = n_conformers
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_atom_array_annotation(data, ["res_id_global"])
@@ -169,6 +196,9 @@ class FeaturizeAtomLevelEmbeddings(Transform):
             global_std=std,
             global_mean=mean,
             threshold=self.threshold,
+            p_dropout_atom_level_embeddings=self.p_dropout_atom_level_embeddings,
+            embedding_dim=self.embedding_dim,
+            n_conformers=self.n_conformers,
         )
 
         feats = data.setdefault("feats", {})
