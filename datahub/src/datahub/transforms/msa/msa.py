@@ -181,6 +181,7 @@ def load_polymer_msas(
     msa_cache_dir: PathLike | None = None,
     use_paths_in_chain_info: bool = True,
     raise_if_missing_msa_for_protein_of_length_n: int | None = None,
+    unk_symbol: str = "X",
 ) -> dict[str, np.array]:
     """
     Load MSAs for all polymer chains in the AtomArray and store them in a dictionary. See the LoadPolymerMSAs transform for more information
@@ -228,10 +229,14 @@ def load_polymer_msas(
             for sequence in [non_canonical_sequence, canonical_sequence]:
                 if chain_type.is_protein() and protein_msa_dirs:
                     msa_file_path = get_msa_path(sequence, protein_msa_dirs)
+                    if msa_file_path is None and unk_symbol != "X":
+                        sequence = sequence.replace("X", unk_symbol)
+                        msa_file_path = get_msa_path(sequence, protein_msa_dirs)
                 elif chain_type == ChainType.RNA and rna_msa_dirs:
-                    sequence = sequence.replace("U", "T")
-                    # NOTE: We replace "U" with "T" for RNA sequences to match the MSA file names, which is a legacy behavior
-                    msa_file_path = get_msa_path(sequence.replace("U", "T"), rna_msa_dirs)
+                    msa_file_path = get_msa_path(sequence, rna_msa_dirs)
+                    if not msa_file_path:
+                        # Older MSAs replace U->T. If no matches try replacing
+                        msa_file_path = get_msa_path(sequence.replace("U", "T"), rna_msa_dirs)
                 if msa_file_path:
                     break
 
@@ -300,6 +305,7 @@ class LoadPolymerMSAs(Transform):
         msa_cache_dir (PathLike, optional): The directory to cache the parsed MSA data
             (since loading from text files is slow). If None, caching is turned off.
         raise_if_missing_msa_for_protein_of_length_n (int | None): If provided, raises an error if a protein of length >= n is missing an MSA file.
+        unk_symbol (string): The character to use for unknown residues.  Defaults to 'X'.
 
     The `polymer_msas_by_chain_id` dictionary which is added contains the following keys:
         - msa: The MSA as a 2D np.array of integers, using the encoding specified in
@@ -330,6 +336,7 @@ class LoadPolymerMSAs(Transform):
         msa_cache_dir: PathLike | None = None,
         use_paths_in_chain_info: bool = True,
         raise_if_missing_msa_for_protein_of_length_n: int | None = None,
+        unk_symbol: str = "X",
     ):
         self.max_msa_sequences = max_msa_sequences
         self.protein_msa_dirs = protein_msa_dirs
@@ -337,6 +344,7 @@ class LoadPolymerMSAs(Transform):
         self.msa_cache_dir = msa_cache_dir
         self.use_paths_in_chain_info = use_paths_in_chain_info
         self.raise_if_missing_msa_for_protein_of_length_n = raise_if_missing_msa_for_protein_of_length_n
+        self.unk_symbol = unk_symbol
 
     def check_input(self, data: dict):
         check_contains_keys(data, ["atom_array", "chain_info"])
@@ -353,6 +361,7 @@ class LoadPolymerMSAs(Transform):
             msa_cache_dir=self.msa_cache_dir,
             use_paths_in_chain_info=self.use_paths_in_chain_info,
             raise_if_missing_msa_for_protein_of_length_n=self.raise_if_missing_msa_for_protein_of_length_n,
+            unk_symbol=self.unk_symbol,
         )
         data["polymer_msas_by_chain_id"] = polymer_msas_by_chain_id
 
