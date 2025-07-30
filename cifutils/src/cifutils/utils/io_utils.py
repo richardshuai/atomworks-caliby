@@ -199,7 +199,7 @@ def infer_pdb_file_type(path_or_buffer: os.PathLike | io.StringIO | io.BytesIO) 
     # Canonicalize the file type
     if inferred_file_type in ("cif", "mmcif", "pdbx"):
         return "cif"
-    elif inferred_file_type in ("pdb", "pdb1"):
+    elif inferred_file_type in ("pdb", "pdb1", "ent"):
         return "pdb"
     elif inferred_file_type == "bcif":
         return "bcif"
