@@ -17,12 +17,15 @@ import biotite.structure as struc
 import biotite.structure.io.pdb as biotite_pdb
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
+from biotite.structure.bonds import connect_via_residue_names
 from biotite.structure.io import mol, pdbx
 
 from cifutils.common import exists
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from cifutils.enums import ChainType
+from cifutils.template import add_inter_residue_bonds
 from cifutils.transforms.atom_array import remove_nan_coords
+from cifutils.transforms.categories import category_to_dict
 from cifutils.utils.sequence import get_1_from_3_letter_code
 
 logger = logging.getLogger("cifutils")
@@ -117,6 +120,101 @@ def load_any(
     )
 
 
+def _add_bonds(
+    atom_array: AtomArray | AtomArrayStack,
+    cif_block: pdbx.CIFBlock,
+    add_bond_types_from_struct_conn: list[str] = ["covale"],
+    fix_bond_types: bool = True,
+) -> AtomArray | AtomArrayStack:
+    """
+    Add bonds to the AtomArray and filter by a given altloc strategy.
+    Avoids the issue where spurious bonds are added due to uninformative label_seq_ids.
+
+    Args:
+        - atom_array: The AtomArray to add bonds to. Must contain `auth_seq_id` annotation.
+        - cif_block: The CIFBlock containing the structure data.
+        - add_bond_types_from_struct_conn (list, optional): A list of bond types to add to the structure
+            from the `struct_conn` category. Defaults to `["covale"]`. This means that we will only
+            add covalent bonds to the structure (excluding metal coordination and disulfide bonds).
+        - fix_bond_types (bool, optional): Whether to correct for nucleophilic additions on atoms involved in inter-residue bonds.
+
+    Returns:
+        AtomArray | AtomArrayStack: The AtomArray or AtomArrayStack with bonds and filtered by altloc.
+    """
+
+    # If there are no uninformative res_ids, we can skip a few steps
+    contains_uninformative_res_ids = np.any(atom_array.res_id == -1)
+
+    if contains_uninformative_res_ids and not hasattr(atom_array, "auth_seq_id"):
+        raise ValueError(
+            "To ensure that bonds are added correctly when there are uninformative `label_seq_id` values present "
+            "(occurs for non-polymers), the `auth_seq_id` annotation must be given in the `AtomArray`."
+            "This error should not occur if the `AtomArray` was loaded with `cifutils`, but may "
+            "occur if biotite was used directly. Please re-load the structure from CIF using `cifutils`."
+        )
+
+    # Add intra-residue bonds as specified in the CIF, or fallback to CCD
+    if "chem_comp_bond" in cif_block:
+        try:
+            custom_bond_dict = pdbx.convert._parse_intra_residue_bonds(cif_block["chem_comp_bond"])
+        except KeyError:
+            warnings.warn(
+                "The 'chem_comp_bond' category has missing columns, "
+                "falling back to using Chemical Component Dictionary",
+                UserWarning,
+                stacklevel=2,
+            )
+            custom_bond_dict = None
+        bonds = connect_via_residue_names(atom_array, custom_bond_dict=custom_bond_dict, inter_residue=False)
+    else:
+        bonds = connect_via_residue_names(atom_array, inter_residue=False)
+    atom_array.bonds = bonds
+
+    if contains_uninformative_res_ids:
+        # Detect spurious bonds. Note that at this point all bonds should be intra-residue
+        bonds_array = atom_array.bonds.as_array()
+        auth_seq_ids = atom_array.auth_seq_id
+        bonds_between_auth_seq_ids = auth_seq_ids[bonds_array[:, 0]] != auth_seq_ids[bonds_array[:, 1]]
+        # Remove spurious bonds
+        for bond in bonds_array[bonds_between_auth_seq_ids, :2]:
+            atom_array.bonds.remove_bond(bond[0], bond[1])
+
+        # Temporarily replace uninformative label_seq_ids with auth_seq_ids
+        replacement_mask = atom_array.res_id == -1
+        atom_array.set_annotation("replacement_mask", replacement_mask)  # To preserve info through leaving atom removal
+        replacement_idces = np.where(replacement_mask)[0]
+        atom_array.res_id[replacement_idces] = atom_array.auth_seq_id[replacement_idces]
+
+    # Correctly add inter-residue bonds for each AtomArray
+    if isinstance(atom_array, AtomArrayStack):
+        processed_arrays = []
+        for array in atom_array:
+            array = add_inter_residue_bonds(
+                array,
+                struct_conn_dict=category_to_dict(cif_block, "struct_conn"),
+                add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
+                fix_formal_charges=False,  # Only works if we have True (not inferred) hydrogens
+                fix_bond_types=fix_bond_types,
+            )
+            processed_arrays.append(array)
+        atom_array = struc.stack(processed_arrays)
+    else:
+        atom_array = add_inter_residue_bonds(
+            atom_array,
+            struct_conn_dict=category_to_dict(cif_block, "struct_conn"),
+            add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
+            fix_formal_charges=False,  # Only works if we have True (not inferred) hydrogens
+            fix_bond_types=fix_bond_types,
+        )
+
+    if contains_uninformative_res_ids:
+        # Revert back to the original label_seq_id
+        atom_array.res_id[atom_array.replacement_mask] = -1
+        atom_array.del_annotation("replacement_mask")
+
+    return atom_array
+
+
 def get_structure(
     file_obj: pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile | pdbx.CIFBlock,
     *,
@@ -124,47 +222,80 @@ def get_structure(
     include_bonds: bool = True,
     model: int | None = None,
     altloc: Literal["first", "occupancy", "all"] = "occupancy",
+    add_bond_types_from_struct_conn: list[str] = ["covale"],
+    fix_bond_types: bool = True,
 ) -> AtomArrayStack | AtomArray:
     """
-    Load example structure into Biotite's AtomArrayStack using the specified fields and assumptions.
+    Load example structure into Biotite's AtomArray or AtomArrayStack using the specified fields and assumptions.
 
     Args:
-       - file_obj (pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile): The file object to load with Biotite.
-       - extra_fields (list | Literal["all"]): List of extra fields to include as AtomArray annotations.
+        - file_obj (pdbx.CIFFile | biotite_pdb.PDBFile | pdbx.BinaryCIFFile): The file object to load with Biotite.
+        - extra_fields (list | Literal["all"]): List of extra fields to include as AtomArray annotations.
             If "all", all fields in the 'atom_site' category of the file will be included.
-       - model (int): The model number to use for loading the structure.
-       - altloc (Literal["first", "occupancy", "all"]): The altloc ID to use for loading the structure.
+        - include_bonds (bool): Whether to include bonds in the structure. These will not be affected by the issue
+            where spurious bonds are added due to uninformative label_seq_ids.
+        - model (int): The model number to use for loading the structure.
+        - altloc (Literal["first", "occupancy", "all"]): The altloc ID to use for loading the structure.
+        - add_bond_types_from_struct_conn (list, optional): A list of bond types to add to the structure
+            from the `struct_conn` category. Defaults to `["covale"]`. This means that we will only
+            add covalent bonds to the structure (excluding metal coordination and disulfide bonds).
+        - fix_bond_types (bool, optional): Whether to correct for nucleophilic additions on atoms involved in inter-residue bonds.
 
     Returns:
-        AtomArrayStack: The loaded structure with the specified fields and assumptions.
+        AtomArray | AtomArrayStack: The loaded structure with the specified fields and assumptions.
 
     Reference:
         Biotite documentation (https://www.biotite-python.org/apidoc/biotite.structure.io.pdbx.get_structure.html#biotite.structure.io.pdbx.get_structure)
     """
+
     match type(file_obj):
         case pdbx.CIFFile | pdbx.BinaryCIFFile | pdbx.CIFBlock:
+            # auth_seq_id must be included for the spurious bonds issue to be avoided
+            # This will be removed later if it wasn't requested
+            remove_auth_seq_id = False
+            if include_bonds and extra_fields != "all" and "auth_seq_id" not in extra_fields:
+                remove_auth_seq_id = True
+                extra_fields = ["auth_seq_id", *extra_fields]
+
             # Filter extra annotations to fields that are actually present in the file
             if not isinstance(file_obj, pdbx.CIFBlock):
                 cif_block = file_obj.block
+            else:
+                cif_block = file_obj
             if extra_fields == "all":
                 extra_fields = list(cif_block["atom_site"].keys())
             extra_fields = _filter_extra_fields(extra_fields, cif_block["atom_site"])
 
+            # load the structure from CIF
             atom_array_stack = pdbx.get_structure(
                 file_obj,
                 model=model,
                 extra_fields=extra_fields,
                 use_author_fields=False,
                 altloc="first" if "occupancy" not in extra_fields else altloc,
-                include_bonds=include_bonds,
+                include_bonds=False,
             )
+
+            # Add bonds and filter by altloc if requested, avoiding the spurious bonds issue
+            if include_bonds:
+                atom_array_stack = _add_bonds(
+                    atom_array_stack,
+                    cif_block,
+                    add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
+                    fix_bond_types=fix_bond_types,
+                )
+
+                # Remove the auth_seq_id annotation if it was not requested
+                if remove_auth_seq_id:
+                    atom_array_stack.del_annotation("auth_seq_id")
+
         case biotite_pdb.PDBFile:
             atom_array_stack = biotite_pdb.get_structure(
                 file_obj,
                 model=model,
                 extra_fields=extra_fields,
                 altloc=altloc,
-                include_bonds=include_bonds,
+                include_bonds=include_bonds,  # PDB files contain only auth_seq_ids so the biotite issue does not arise
             )
         case _:
             raise ValueError(f"Unsupported file type: {type(file_obj)}. Must be a CIFFile, BinaryCIFFile, or PDBFile.")

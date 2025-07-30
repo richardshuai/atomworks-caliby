@@ -164,6 +164,13 @@ def parse(
     if save_to_cache and not cache_dir:
         raise ValueError("Must provide a cache directory to save to cache")
 
+    if fix_formal_charges and not add_missing_atoms:
+        logger.warning(
+            "We can't fix formal charges without building from templates, as we need to know the true number of "
+            "hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies "
+            "after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`."
+        )
+
     ## hydrogen policy checks
     # ... deprecation handling for `remove_hydrogens`
     if remove_hydrogens is not None:
@@ -344,6 +351,8 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
             cif_file,
             extra_fields=common_extra_fields,
             model=kwargs["model"],
+            add_bond_types_from_struct_conn=kwargs["add_bond_types_from_struct_conn"],
+            fix_bond_types=kwargs["fix_bond_types"],
         )
     except InvalidFileError:
         logger.info("Invalid file error encountered; loading with only one model")
@@ -352,6 +361,8 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
             cif_file,
             extra_fields=common_extra_fields,
             model=1,
+            add_bond_types_from_struct_conn=kwargs["add_bond_types_from_struct_conn"],
+            fix_bond_types=kwargs["fix_bond_types"],
         )
 
     # If occupancy is not an annotation, add it, defaulting to 1.0

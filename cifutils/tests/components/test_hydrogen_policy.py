@@ -6,7 +6,7 @@ from conftest import get_pdb_path
 
 from cifutils.parser import parse
 
-TEST_CASES = [{"pdb_id": "1jj8", "count": 705}, {"pdb_id": "3kz8", "count": 6246}, {"pdb_id": "2r5z", "count": 1632}]
+TEST_CASES = [{"pdb_id": "1jj8", "count": 705}, {"pdb_id": "3kz8", "count": 6258}, {"pdb_id": "2r5z", "count": 1632}]
 
 
 @pytest.mark.parametrize("test_case", TEST_CASES)

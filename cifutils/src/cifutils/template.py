@@ -286,6 +286,82 @@ def build_template_atom_array(
     return template_array
 
 
+def add_inter_residue_bonds(
+    atom_array: AtomArray,
+    struct_conn_dict: dict,
+    add_bond_types_from_struct_conn: list[str] = ["covale"],
+    fix_bond_types: bool = True,
+    fix_formal_charges: bool = True,
+) -> AtomArray:
+    """
+    Adds inter-residue bonds to an AtomArray and correctly handles leaving groups.
+
+    This function performs several steps:
+    1. Infers and adds polymer bonds between residues
+    2. Adds additional inter-residue bonds from struct_conn records
+    3. Removes leaving atoms from bond formation
+    4. Fixes formal charges on atoms involved in inter-residue bonds
+
+    Args:
+        atom_array (AtomArray): Input structure to which bonds will be added
+        struct_conn_dict (dict, optional): Dictionary containing structural connectivity information. Defaults to {}.
+        add_bond_types_from_struct_conn (list[str], optional): Types of bonds to add from struct_conn. Defaults to
+            ["covale"].
+        fix_formal_charges (bool, optional): Whether to fix formal charges on atoms involved in inter-residue bonds.
+        fix_bond_types (bool, optional): Whether to correct for nucleophilic additions on atoms involved in inter-residue bonds.
+
+    Returns:
+        AtomArray: Output structure with inter-residue bonds.
+    """
+
+    # ... infer inter-residue polymer bonds
+    polymer_bonds, polymer_bond_leaving_atom_idxs = get_inferred_polymer_bonds(atom_array)
+
+    # ... create any remaining inter-residue bonds that
+    #     are specified in struct_conn
+    struct_conn_bonds, struct_conn_leaving_atom_idxs = get_struct_conn_bonds(
+        atom_array,
+        struct_conn_dict=struct_conn_dict,
+        add_bond_types=add_bond_types_from_struct_conn,
+    )
+
+    # ... merge all inter-residue bonds
+    inter_bonds = BondList(
+        atom_count=atom_array.array_length(),
+        bonds=np.concatenate((polymer_bonds, struct_conn_bonds)),
+    )
+
+    # ... and add them to the atom array
+    atom_array.bonds = atom_array.bonds.merge(inter_bonds)
+
+    # ... and record which atoms make inter-residue bonds
+    atoms_with_inter_bonds = np.unique(inter_bonds.as_array()[:, :2])
+    makes_inter_bond = np.zeros(atom_array.array_length(), dtype=bool)
+    makes_inter_bond[atoms_with_inter_bonds] = True
+
+    # ... merge all leaving group indices
+    is_leaving = np.zeros(len(atom_array), dtype=bool)
+    is_leaving[np.concatenate((polymer_bond_leaving_atom_idxs, struct_conn_leaving_atom_idxs), axis=0)] = True
+
+    # ... and remove them from the atom array
+    atom_array = atom_array[~is_leaving]
+    makes_inter_bond = makes_inter_bond[~is_leaving]
+
+    # ... fix bond types of newly bonded atoms, where needed
+    # (We must fix bonds before fixing formal charges, since the bond degree is used to infer the formal charge)
+    if fix_bond_types and np.any(makes_inter_bond):
+        atom_array = correct_bond_types_for_nucleophilic_additions(atom_array, to_update=makes_inter_bond)
+
+    # ... fix charges of newly bonded atoms, where needed
+    if fix_formal_charges:
+        if hasattr(atom_array, "charge"):
+            atom_array = correct_formal_charges_for_specified_atoms(atom_array, to_update=makes_inter_bond)
+        else:
+            logger.warning("Cannot fix formal charges: AtomArray has no 'charge' annotation.")
+
+    return atom_array
+
+
 def add_missing_atoms(
     atom_array: AtomArray,
     chain_info_dict: dict[str, dict[str, Any]],
@@ -336,44 +412,14 @@ def add_missing_atoms(
         else remove_hydrogens,  # we keep hydrogens here, to allow fixing formal charges
     )
 
-    # ... infer inter-residue polymer bonds
-    polymer_bonds, polymer_bond_leaving_atom_idxs = get_inferred_polymer_bonds(atoms)
-
-    # ... create any remaining inter-residue bonds that
-    #     are specified in struct_conn
-    struct_conn_bonds, struct_conn_leaving_atom_idxs = get_struct_conn_bonds(
-        atoms,
+    # Add inter-residue bonds and remove leaving groups
+    atoms = add_inter_residue_bonds(
+        atom_array=atoms,
         struct_conn_dict=struct_conn_dict,
-        add_bond_types=add_bond_types_from_struct_conn,
+        add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
+        fix_formal_charges=fix_formal_charges,
+        fix_bond_types=fix_bond_types,
     )
-
-    # ... merge all inter-residue bonds
-    inter_bonds = BondList(
-        atom_count=atoms.array_length(),
-        bonds=np.concatenate((polymer_bonds, struct_conn_bonds)),
-    )
-    #    and add them to the atom array
-    atoms.bonds = atoms.bonds.merge(inter_bonds)
-    #    and record which atoms make inter-residue bonds
-    atoms_with_inter_bonds = np.unique(inter_bonds.as_array()[:, :2])
-    makes_inter_bond = np.zeros(atoms.array_length(), dtype=bool)
-    makes_inter_bond[atoms_with_inter_bonds] = True
-
-    # ... merge all leaving group indices
-    is_leaving = np.zeros(len(atoms), dtype=bool)
-    is_leaving[np.concatenate((polymer_bond_leaving_atom_idxs, struct_conn_leaving_atom_idxs), axis=0)] = True
-    #     and remove them from the atom array
-    atoms = atoms[~is_leaving]
-    makes_inter_bond = makes_inter_bond[~is_leaving]
-
-    # ... fix bond types of newly bonded atoms, where needed
-    # (We must fix bonds before fixing formal charges, since the bond degree is used to infer the formal charge)
-    if fix_bond_types and np.any(makes_inter_bond):
-        atoms = correct_bond_types_for_nucleophilic_additions(atoms, to_update=makes_inter_bond)
-
-    # ... fix charges of newly bonded atoms, where needed
-    if fix_formal_charges and np.any(makes_inter_bond):
-        atoms = correct_formal_charges_for_specified_atoms(atoms, to_update=makes_inter_bond)
 
     # ... remove hydrogens
     if remove_hydrogens:
