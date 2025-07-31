@@ -2,6 +2,11 @@
 data
 biotite
 
+# github pages
+docs/_build/*
+docs/auto_examples/*
+
+
 # Python files
 *.pyc
 *.pyo
@@ -112,6 +117,10 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# github pages
+docs/_build/*
+docs/auto_examples/*
 
 # Spyder project settings
 .spyderproject

@@ -1,4 +1,4 @@
-"""Utility functions helpful for writings tests for AtomArray objects."""
+"""Utility functions for writings tests for AtomArray objects."""
 
 import os
 
@@ -23,12 +23,15 @@ def get_pdb_path(pdbid: str, mirror_path: str | os.PathLike = PDB_MIRROR_PATH) -
         str: The local path to the PDB file.
 
     Raises:
-        ValueError: If the file does not exist at the expected location.
+        FileNotFoundError: If the file does not exist at the expected location or
+            if no mirror path is provided.
     """
+    if mirror_path is None:
+        raise FileNotFoundError("No mirror path provided.")
     pdbid = pdbid.lower()
     filename = os.path.join(mirror_path, pdbid[1:3], f"{pdbid}.cif.gz")
     if not os.path.exists(filename):
-        raise ValueError(f"File {filename} does not exist")
+        raise FileNotFoundError(f"File {filename} does not exist")
     return filename
 
 
