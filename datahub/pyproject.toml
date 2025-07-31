@@ -2,7 +2,7 @@
 name = "datahub"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">= 3.8"
+requires-python = ">= 3.12"
 authors = [
     { name = "Nate Corley", email = "ncorley@uw.edu" },
     { name = "Simon Mathis", email = "smathis@uw.edu" },
@@ -34,7 +34,7 @@ packages = ["src/datahub"]
 [tool.ruff]
 line-length = 120
 indent-width = 4
-target-version = "py310"
+target-version = "py312"
 exclude = [
     ".bzr",
     ".direnv",

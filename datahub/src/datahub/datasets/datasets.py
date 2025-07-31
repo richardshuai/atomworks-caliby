@@ -671,32 +671,51 @@ class FallbackDatasetWrapper(Dataset):
         self.fallback_dataset = fallback_dataset
 
     def __getitem__(self, idxs: tuple[int, ...]) -> Any:
-        idx = idxs[0]
-        try:
-            return self.dataset[idx]
-        except KeyboardInterrupt as e:
-            raise e
-        except StopIteration as e:
-            raise e
-        except Exception as e:
-            example_id = f" ({self.dataset.idx_to_id(idx)})" if hasattr(self.dataset, "idx_to_id") else ""
-            logger.error(f"(Primary dataset): Error ({e}) at index {idx}." + example_id)
-            for i, fallback_idx in enumerate(idxs[1:]):
-                example_id = (
-                    f" ({self.fallback_dataset.idx_to_id(fallback_idx)})"
-                    if hasattr(self.fallback_dataset, "idx_to_id")
-                    else ""
-                )
-                logger.warning(f"(Fallback {i+1}/{len(idxs)-1}): Trying fallback index {fallback_idx}." + example_id)
-                try:
-                    return self.fallback_dataset[fallback_idx]
-                except KeyboardInterrupt as fallback_e:
-                    raise fallback_e
-                except StopIteration as fallback_e:
-                    raise fallback_e
-                except Exception as fallback_e:
-                    logger.error(f"(Fallback {i+1}/{len(idxs)-1}): Error at index {idx}: {fallback_e}." + example_id)
-            raise e
+        """
+        Attempt to retrieve an item from the primary dataset, falling back to additional indices if errors occur.
+        If all attempts fail, raises a RuntimeError containing all encountered exceptions.
+
+        Args:
+            idxs: Tuple of indices, where the first is for the primary dataset and the rest are for fallbacks.
+
+        Returns:
+            The retrieved item from the first successful dataset.
+
+        Raises:
+            KeyboardInterrupt: If interrupted.
+            StopIteration: If iteration should stop.
+            RuntimeError: If all attempts fail, with a list of all exceptions encountered.
+        """
+        error_list = []
+        example_id_list = []
+
+        for i, idx in enumerate(idxs):
+            dataset = self.dataset if i == 0 else self.fallback_dataset
+            dataset_name = "Primary dataset" if i == 0 else f"Fallback {i}/{len(idxs)-1}"
+
+            try:
+                return dataset[idx]
+            except (KeyboardInterrupt, StopIteration):
+                raise
+            except Exception as e:
+                error_list.append(e)
+
+                # Log the error
+                example_id = f" ({dataset.idx_to_id(idx)})" if hasattr(dataset, "idx_to_id") else ""
+                example_id_list.append(example_id)
+                logger.error(f"({dataset_name}): Error ({e}) at index {idx}.{example_id}")
+
+                # Log fallback attempt if not the last one
+                if i < len(idxs) - 1:
+                    logger.warning(f"({dataset_name}): Trying fallback index {idxs[i+1]}.{example_id}")
+
+        # All attempts failed
+        logger.error(
+            f"(Exceeded all {len(idxs)-1} fallbacks. Training will crash now. Errors: {error_list} for examples: {example_id_list})"
+        )
+        raise RuntimeError(f"All attempts failed for indices {idxs}. See error_list for details.") from ExceptionGroup(
+            "All fallback attempts failed", error_list
+        )
 
     def __len__(self):
         return len(self.dataset)

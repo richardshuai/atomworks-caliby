@@ -30,8 +30,28 @@ class CropTransformBase(Transform):
     Base class for crop-type transforms.
     """
 
+    def __init__(self, annotate_crop_boundary: bool = False, crop_boundary_radius: float = 6.0, **kwargs):
+        self.annotate_crop_boundary = annotate_crop_boundary
+        self.crop_boundary_radius = crop_boundary_radius
+
     def _validate(self):
         assert self.crop_size > 0, "Crop size must be greater than 0"
+
+    def __call__(self, data: dict) -> dict:
+        if self.annotate_crop_boundary:
+            atom_array = data["atom_array"]
+            atom_array.set_annotation("precrop_hash", compute_local_hash(atom_array, self.crop_boundary_radius))
+
+        data = super().__call__(data)
+
+        if self.annotate_crop_boundary:
+            atom_array = data["atom_array"]
+            postcrop_hash = compute_local_hash(atom_array, self.crop_boundary_radius)
+            atom_array.set_annotation("at_crop_boundary", atom_array.precrop_hash != postcrop_hash)
+            # ... delete the precrop hash
+            atom_array.del_annotation("precrop_hash")
+
+        return data
 
 
 def compute_local_hash(atom_array: AtomArray, radius: float = 6.0) -> np.ndarray:
@@ -342,8 +362,10 @@ class CropContiguousLikeAF3(CropTransformBase):
         "PlaceUnresolvedTokenOnClosestResolvedTokenInSequence",
     ]
 
-    def __init__(self, crop_size: int, keep_uncropped_atom_array: bool = False, max_atoms_in_crop: int | None = None):
-        super().__init__()
+    def __init__(
+        self, crop_size: int, keep_uncropped_atom_array: bool = False, max_atoms_in_crop: int | None = None, **kwargs
+    ):
+        super().__init__(**kwargs)
         self.crop_size = crop_size
         self.keep_uncropped_atom_array = keep_uncropped_atom_array
         self.max_atoms_in_crop = max_atoms_in_crop
@@ -596,6 +618,7 @@ class CropSpatialLikeAF3(CropTransformBase):
         force_crop: bool = False,
         max_atoms_in_crop: int | None = None,
         raise_if_missing_query: bool = True,
+        **kwargs,
     ):
         """Initialize the CropSpatialLikeAF3 transform.
 
@@ -616,7 +639,7 @@ class CropSpatialLikeAF3(CropTransformBase):
                 query pn_unit(s) are not present due to a previous filtering step. Defaults to `True`. If `False`, a random
                 pn_unit will be selected for the crop center.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.crop_size = crop_size
         self.jitter_scale = jitter_scale
         self.crop_center_cutoff_distance = crop_center_cutoff_distance

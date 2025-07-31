@@ -483,9 +483,16 @@ class AddGlobalAtomIdAnnotation(Transform):
 
     incompatible_previous_transforms = ["AddGlobalAtomIdAnnotation"]
 
+    def __init__(self, allow_overwrite: bool = False):
+        """
+        Args:
+            allow_overwrite (bool): Whether to allow overwriting an existing `atom_id` annotation.
+        """
+        self.allow_overwrite = allow_overwrite
+
     def check_input(self, data: dict):
-        if "atom_id" in data["atom_array"].get_annotation_categories():
-            logger.warning("AtomArray already contains 'atom_id' annotation! It will be overwritten.")
+        if "atom_id" in data["atom_array"].get_annotation_categories() and not self.allow_overwrite:
+            raise ValueError("AtomArray already contains 'atom_id' annotation! It would be overwritten.")
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
