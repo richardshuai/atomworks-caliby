@@ -20,15 +20,18 @@ from biotite.structure import AtomArray, AtomArrayStack
 from biotite.structure.bonds import connect_via_residue_names
 from biotite.structure.io import mol, pdbx
 
+import cifutils.transforms.atom_array as ta  # to avoid circular import
 from cifutils.common import exists
 from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from cifutils.enums import ChainType
 from cifutils.template import add_inter_residue_bonds
-from cifutils.transforms.atom_array import remove_nan_coords
 from cifutils.transforms.categories import category_to_dict
 from cifutils.utils.sequence import get_1_from_3_letter_code
+from cifutils.utils.testing import has_ambiguous_annotation_set
 
 logger = logging.getLogger("cifutils")
+
+CIF_LIKE_EXTENSIONS = {".cif", ".pdb", ".bcif", ".cif.gz", ".pdb.gz", ".bcif.gz"}
 
 
 def _get_logged_in_user() -> str:
@@ -39,49 +42,6 @@ def _get_logged_in_user() -> str:
         return os.getlogin()
     except OSError:
         return "unknown_user"
-
-
-def _has_ambiguous_bond_annotation(atom_array: AtomArray) -> bool:
-    """
-    Detect if there is ambiguous annotation of the structure that would
-    lead to loss of information when writing out the structure.
-
-    This happens because the `struct_conn` category distinguishes bonds
-    between different atoms based on the 5-tuple:
-        (chain_id, res_id, res_name, atom_id, ins_code)
-
-    To properly save bonds with a structure, make sure that all atoms
-    have unique 5-tuples.
-
-    Args:
-        atom_array (AtomArray): The atom array to check for ambiguous annotations.
-
-    Returns:
-        bool: True if ambiguous annotations are detected, False otherwise.
-    """
-    # Create a structured array with the 5-tuple elements
-    identifier_dtypes = [
-        ("chain_id", atom_array.chain_id.dtype if "chain_id" in atom_array.get_annotation_categories() else "U1"),
-        ("res_id", atom_array.res_id.dtype if "res_id" in atom_array.get_annotation_categories() else "U1"),
-        ("res_name", atom_array.res_name.dtype if "res_name" in atom_array.get_annotation_categories() else "U1"),
-        ("atom_name", atom_array.atom_name.dtype if "atom_name" in atom_array.get_annotation_categories() else "U1"),
-        ("ins_code", atom_array.ins_code.dtype if "ins_code" in atom_array.get_annotation_categories() else "U1"),
-    ]
-
-    structured_array = np.empty(atom_array.array_length(), dtype=identifier_dtypes)
-    for category in identifier_dtypes:
-        name, dtype = category
-        structured_array[name] = (
-            atom_array.get_annotation(name)
-            if name in atom_array.get_annotation_categories()
-            else ["."] * atom_array.array_length()
-        )
-
-    # Use numpy's unique function with return_counts=True to find duplicates
-    _, counts = np.unique(structured_array, return_counts=True)
-
-    # If any count is greater than 1, we have ambiguous annotations
-    return np.any(counts > 1)
 
 
 def load_any(
@@ -538,7 +498,7 @@ def _to_cif_or_bcif(
     if not exists(time):
         time = datetime.now().strftime("%H:%M:%S")
 
-    if not _allow_ambiguous_bond_annotations and _has_ambiguous_bond_annotation(structure):
+    if not _allow_ambiguous_bond_annotations and has_ambiguous_annotation_set(structure):
         raise ValueError(
             "Ambiguous bond annotations detected. This happens when there are atoms that "
             "have the same `(chain_id, res_id, res_name, atom_id, ins_code)` identifier. "
@@ -591,7 +551,7 @@ def _to_cif_or_bcif(
         extra_fields = list(set(structure.get_annotation_categories()) - _standard_cif_annotations)
 
     if not include_nan_coords:
-        structure = remove_nan_coords(structure)
+        structure = ta.remove_nan_coords(structure)
 
     pdbx.set_structure(cif_file, structure, data_block=id, include_bonds=include_bonds, extra_fields=extra_fields)
 
@@ -850,7 +810,7 @@ def to_pdb_buffer(
     # Create a PDBFile object
     pdb_file = biotite_pdb.PDBFile()
 
-    if _has_ambiguous_bond_annotation(structure):
+    if has_ambiguous_annotation_set(structure):
         raise ValueError(
             "Ambiguous bond annotations detected. This happens when there are atoms that "
             "have the same `(chain_id, res_id, res_name, atom_id, ins_code)` identifier. "

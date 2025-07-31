@@ -219,7 +219,11 @@ def maybe_fix_non_polymer_at_symmetry_center(
     atom_array = atom_array_stack[0]
 
     # Filter to only atoms with coordinates to avoid non-physical clashes at the origin
-    resolved_atom_array = atom_array[(atom_array.occupancy > 0) & (~is_any_coord_nan(atom_array))]
+    if "occupancy" in atom_array.get_annotation_categories():
+        resolved_mask = atom_array.occupancy > 0
+    else:
+        resolved_mask = np.ones(atom_array.array_length(), dtype=bool)
+    resolved_atom_array = atom_array[(resolved_mask) & (~is_any_coord_nan(atom_array))]
 
     if not np.any(~resolved_atom_array.is_polymer):
         return atom_array_stack  # Early exit
@@ -416,13 +420,18 @@ def add_charge_from_ccd_codes(atom_array: AtomArray | AtomArrayStack) -> AtomArr
     return atom_array
 
 
-def add_hydrogen_atom_positions(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+def add_hydrogen_atom_positions(
+    atom_array: AtomArray | AtomArrayStack,
+    residue_level_annots_to_copy_to_hydrogens: list[str] = [],
+) -> AtomArray | AtomArrayStack:
     """Add hydrogens using biotite supported hydride library.
 
     Removes any existing hydrogens first, then adds new hydrogens using the hydride library.
 
     Args:
         atom_array: The atom array to which hydrogens will be added.
+        residue_level_annots_to_copy_to_hydrogens (list[str]): A list of residue-level annotations that will be copied
+            over to the newly-added hydrogens for each residue.
 
     Returns:
         The updated atom array with hydrogens added, preserving the input type.
@@ -432,6 +441,7 @@ def add_hydrogen_atom_positions(atom_array: AtomArray | AtomArrayStack) -> AtomA
 
     # Determine which fields to copy from the original array to the new hydrogens
     fields_to_copy_from_residue_if_present = ["auth_seq_id", "label_entity_id"]
+    fields_to_copy_from_residue_if_present.extend(residue_level_annots_to_copy_to_hydrogens)
     fields_to_copy_from_residue_if_present = list(
         set(fields_to_copy_from_residue_if_present).intersection(set(atom_array.get_annotation_categories()))
     )
@@ -447,30 +457,55 @@ def add_hydrogen_atom_positions(atom_array: AtomArray | AtomArrayStack) -> AtomA
         """Copy specified annotations residue-wise from one AtomArray to another. Updates annotations in-place."""
         residue_starts = struc.get_residue_starts(from_array)
         residue_starts_atom_array = from_array[residue_starts]
-        annot = {item: getattr(residue_starts_atom_array, item) for item in fields_to_copy}
+        annot = {item: getattr(residue_starts_atom_array, item) for item in fields_to_copy_from_residue_if_present}
         for field in fields_to_copy:
             updated_field = struc.spread_residue_wise(to_array, annot[field])
             to_array.set_annotation(field, updated_field)
         return to_array
 
-    # Process based on input type
+    def _add_hydrogens_nan_tolerant(atom_array: AtomArray) -> AtomArray:
+        """Adds hydrogens to the input AtomArray, safely handling the case in which some atoms have NaN coordinates"""
+        original_nan_coords_mask = np.any(np.isnan(atom_array.coord), axis=1)
+        if np.any(original_nan_coords_mask):
+            # Temporarily set NaN coordinates to zero so that hydride doesn't error
+            atom_array.coord[original_nan_coords_mask] = np.zeros((np.sum(original_nan_coords_mask), 3))
+
+            # Add hydrogens using hydride
+            result_atom_array, original_atoms_mask = hydride.add_hydrogen(atom_array)
+
+            # Reset the coordinates of atoms that originally had at least one NaN coordinate to be fully NaN
+            originally_nan_inds = np.arange(result_atom_array.array_length())[original_atoms_mask][
+                original_nan_coords_mask
+            ]
+            result_atom_array.coord[originally_nan_inds, :] = np.nan
+
+            # For any newly-added hydrogens bonded to heavy atoms with NaN coordinates, set their coordinates to NaN as well
+            result_nan_coords_mask = np.any(np.isnan(result_atom_array.coord), axis=1)
+            heavy_atom_nan_idces = np.where(result_nan_coords_mask & ~(result_atom_array.element == "H"))[0]
+            for idx in heavy_atom_nan_idces:
+                bonded_atoms = result_atom_array.bonds.get_bonds(idx)[0]
+                bonded_h_atoms = bonded_atoms[result_atom_array[bonded_atoms].element == "H"]
+                new_bonded_h_atoms = bonded_h_atoms[~original_atoms_mask[bonded_h_atoms]]
+                result_atom_array.coord[new_bonded_h_atoms, :] = np.nan
+        else:
+            result_atom_array, original_atoms_mask = hydride.add_hydrogen(atom_array)
+
+        return result_atom_array
+
     if isinstance(atom_array, AtomArrayStack):
-        # Handle stack case - process each model separately
         updated_arrays = []
-        for i in range(len(atom_array)):
-            updated_array, _ = hydride.add_hydrogen(atom_array[i])
-            updated_array = _copy_missing_annotations_residue_wise(
-                atom_array[i], updated_array, fields_to_copy_from_residue_if_present
-            )
-            updated_arrays.append(updated_array)
-        return stack(updated_arrays)
-    else:
-        # Handle single array case
-        updated_array, _ = hydride.add_hydrogen(atom_array)
-        updated_array = _copy_missing_annotations_residue_wise(
-            atom_array, updated_array, fields_to_copy_from_residue_if_present
-        )
-        return updated_array
+        for old_arr in atom_array:
+            arr = _add_hydrogens_nan_tolerant(old_arr)
+            arr = _copy_missing_annotations_residue_wise(old_arr, arr, fields_to_copy_from_residue_if_present)
+            updated_arrays.append(arr)
+
+        ret_array = struc.stack(updated_arrays)
+
+    elif isinstance(atom_array, AtomArray):
+        arr = _add_hydrogens_nan_tolerant(atom_array)
+        ret_array = _copy_missing_annotations_residue_wise(atom_array, arr, fields_to_copy_from_residue_if_present)
+
+    return ret_array
 
 
 def add_pn_unit_id_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:

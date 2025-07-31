@@ -21,6 +21,12 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
+from biotite.structure.io.pdbx.convert import (
+    PDBX_BOND_TYPE_TO_TYPE_ID,
+    _filter_bonds,
+    _filter_canonical_links,
+    _get_struct_conn_col_name,
+)
 
 from cifutils.common import sum_string_arrays, to_hashable
 from cifutils.constants import (
@@ -35,6 +41,7 @@ from cifutils.constants import (
 from cifutils.enums import ChainType, ChainTypeInfo
 from cifutils.utils.ccd import get_chem_comp_leaving_atom_names, get_chem_comp_type
 from cifutils.utils.selection import get_annotation, get_residue_starts
+from cifutils.utils.testing import has_ambiguous_annotation_set
 
 logger = logging.getLogger("cifutils")
 
@@ -188,6 +195,95 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
     return np.array(bonds).reshape(-1, 3), np.concatenate(leaving) if len(leaving) > 0 else np.array([], dtype=int)
 
 
+def get_struct_conn_dict_from_atom_array(
+    atom_array: AtomArray,
+) -> dict[str, np.ndarray]:
+    """Returns a struct_conn dictionary corresponding to a given AtomArray.
+
+    This contains the keys used in `get_struct_conn_bonds`.
+    NOTE: These AtomArray-derived struct_conn_dicts will never contain disulfide or hydrogen bonds,
+    as Biotite does not distinguish these in the BondList. Possible types are "covale" and "metalc".
+
+    Args:
+        atom_array (AtomArray): The atom array to get the struct_conn dictionary from.
+
+    Returns:
+        dict[str, np.ndarray]: The struct_conn dictionary.
+    """
+
+    struct_conn_dict = {}
+
+    for res_array in struc.residue_iter(atom_array):
+        if len(np.unique(res_array.atom_name)) != len(res_array.atom_name):
+            raise ValueError(
+                "Duplicate atom names detected in the same residue -- cannot infer struct_conn. "
+                "This may happen when a non-polymer is loaded from a CIF file without using `cifutils.parser.parse`. "
+            )
+
+    # Keep only inter-residue bonds
+    bond_array = _filter_bonds(atom_array, "inter")
+    if len(bond_array) == 0:
+        return struct_conn_dict
+
+    # Filter out 'standard' links, i.e. backbone bonds between adjacent canonical
+    # nucleotide/amino acid residues
+    bond_array = bond_array[~_filter_canonical_links(atom_array, bond_array)]
+    if len(bond_array) == 0:
+        return struct_conn_dict
+
+    use_iids = False  # By default, we use chain_ids to determine bonds
+    has_chain_iids = "chain_iid" in atom_array.get_annotation_categories()
+
+    # Determine whether we need to fall back to using chain_iids
+    if has_ambiguous_annotation_set(atom_array):
+        if not has_chain_iids:
+            raise ValueError(
+                "Ambiguous bond annotations detected. This happens when there are atoms that "
+                "have the same `(chain_id, res_id, res_name, atom_id, ins_code)` identifier. "
+                "This happens for example when you have a bio-assembly with multiple copies "
+                "of a chain that only differ by `transformation_id`.\n"
+                "You can fix this for example by re-naming the chains to be named uniquely. "
+                "For the purposes of this function, you can also add a unambiguous chain_iid annotation instead. "
+                "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
+            )
+        elif has_ambiguous_annotation_set(
+            atom_array, annotation_set=["chain_iid", "res_id", "res_name", "atom_name", "ins_code"]
+        ):
+            raise ValueError(
+                "Ambiguous bond annotations detected. This happens when there are atoms that "
+                "have the same `(chain_id, res_id, res_name, atom_id, ins_code)` identifier. "
+                "This happens for example when you have a bio-assembly with multiple copies "
+                "of a chain that only differ by `transformation_id`.\n"
+                "In this case, falling back to the `chain_iid` annotation was insufficient to resolve the ambiguity."
+                "You can fix this for example by re-naming the chains to be named uniquely. "
+                "For the purposes of this function, you can also add a unambiguous chain_iid annotation instead. "
+                "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
+            )
+        else:
+            use_iids = True
+
+    # Add the bond type information
+    struct_conn_dict["conn_type_id"] = np.array([PDBX_BOND_TYPE_TO_TYPE_ID[btype] for btype in bond_array[:, 2]])
+
+    label_asym_id_field = "chain_iid" if use_iids else "chain_id"
+    cif_field_to_annot = {
+        "label_asym_id": label_asym_id_field,
+        "label_comp_id": "res_name",
+        "label_seq_id": "res_id",
+        "label_atom_id": "atom_name",
+        "pdbx_PDB_ins_code": "ins_code",
+    }
+
+    for col_name, annot_name in cif_field_to_annot.items():
+        annot = atom_array.get_annotation(annot_name)
+        # ...for each bond partner
+        for i in range(2):
+            atom_indices = bond_array[:, i]
+            struct_conn_dict[_get_struct_conn_col_name(col_name, i + 1)] = annot[atom_indices].astype(str)
+
+    return struct_conn_dict
+
+
 def get_struct_conn_bonds(
     atom_array: AtomArray,
     struct_conn_dict: dict[str, np.ndarray],
@@ -218,7 +314,7 @@ def get_struct_conn_bonds(
             ```
             However, in this function, we only require the following fields:
                 - conn_type_id (e.g., "covale")
-                - ptnr1_label_asym_id (chain_id, e.g., "A")
+                - ptnr1_label_asym_id (chain_id or chain_iid, e.g., "A" or "A_1")
                 - ptnr1_label_comp_id (residue name in the CCD, e.g., "CYS")
                 - ptnr1_label_seq_id (residue ID, e.g., "6")
                 - ptnr1_label_atom_id (atom name, e.g., "SG")
@@ -228,12 +324,14 @@ def get_struct_conn_bonds(
                 - ptnr2_label_atom_id
 
         add_bond_types (list[str]): A list of bond types that should be added. Valid bond types
-            are: ["covale", "disulf", "metalc"]. Hydrogen bonds are not supported since Biotite
-            does not have a BondType for these, so they would have to be stored as covalent single bonds,
-            which is incorrect. This argument defaults to ["covale"], which is the use-case in structure-prediction,
-            where we would a-priori know covalent bonds (except for disulfides).
+            are: ["covale", "disulf", "metalc", "hydrog"]. Defaults to ["covale"], which is
+            the use-case in structure-prediction, where we would a-priori know covalent bonds
+            (except for disulfides).
         raise_on_failure(bool): If True, raise an error if specified bonds cannot be made (e.g.,
             if the atoms are missing). Defaults to False.
+
+        NOTE: While chain_iid annotations are allowed, a given bond is expected to contain only one annotation type,
+            i.e. both chain_id or both chain_iid
 
     Returns:
         bonds (np.array[[int, int, struc.BondType]]): A List of bonds to be added to the atom array.
@@ -274,6 +372,16 @@ def get_struct_conn_bonds(
     all_chain_ids = np.unique(chain_ids)
     polymer_chain_ids = np.unique(chain_ids[is_polymer])
 
+    # Get iid-level annotations if present
+    if "chain_iid" in atom_array.get_annotation_categories():
+        chain_iids = atom_array.chain_iid
+        all_chain_iids = np.unique(chain_iids)
+        polymer_chain_iids = np.unique(chain_iids[is_polymer])
+    else:
+        chain_iids = None
+        all_chain_iids = None
+        polymer_chain_iids = None
+
     # ... initialize return values
     bonds: list[tuple[int, int, struc.BondType]] = []
     leaving: list[np.ndarray] = []
@@ -289,30 +397,40 @@ def get_struct_conn_bonds(
 
         chain_id1 = row["ptnr1_label_asym_id"]
         chain_id2 = row["ptnr2_label_asym_id"]
+
+        # Default to using id-level identifiers
+        relevant_chain_identifiers = chain_ids
+        relevant_polymer_chain_identifiers = polymer_chain_ids
+
+        # If iid-level identifiers are present, use these as a fallback
         if (chain_id1 not in all_chain_ids) or (chain_id2 not in all_chain_ids):
-            # ... skip, but warn if the chains are not present in the structure
-            logger.info(
-                f"Found covalent bond involving chains {chain_id1} and {chain_id2}, but at least one "
-                "chain was removed during cleaning. This is likely because the chain is made up of a "
-                "residue that is not in the local CCD. This should automatically be resolved once you "
-                "update your CCD, unless you are working with an outdated structure file."
-            )
-            if raise_on_failure:
-                raise ValueError(f"Chain {chain_id1} or {chain_id2} not found in the atom array!")
-            continue
+            if (chain_iids is not None) and (chain_id1 in all_chain_iids) and (chain_id2 in all_chain_iids):
+                relevant_chain_identifiers = chain_iids
+                relevant_polymer_chain_identifiers = polymer_chain_iids
+            else:
+                # ... skip, but warn if the chains are not present in the structure
+                logger.info(
+                    f"Found covalent bond involving chains {chain_id1} and {chain_id2}, but at least one "
+                    "chain was removed during cleaning. This is likely because the chain is made up of a "
+                    "residue that is not in the local CCD. This should automatically be resolved once you "
+                    "update your CCD, unless you are working with an outdated structure file."
+                )
+                if raise_on_failure:
+                    raise ValueError(f"Chain {chain_id1} or {chain_id2} not found in the atom array!")
+                continue
 
         # For non-polymers, we use the auth_seq_id if available and valid (i.e., not "." or "?"); otherwise we use the label_seq_id
         # (Required to avoid ambiguity, since if using `label` only we may have multiple residue within a
         # chain with the same label_seq_id and the same res_name; see: 6MUB)
         res_id1 = int(
             row["ptnr1_label_seq_id"]
-            if ((chain_id1 in polymer_chain_ids) or ("ptnr1_auth_seq_id" not in row))
+            if ((chain_id1 in relevant_polymer_chain_identifiers) or ("ptnr1_auth_seq_id" not in row))
             and row["ptnr1_label_seq_id"] != "."
             else row["ptnr1_auth_seq_id"]
         )
         res_id2 = int(
             row["ptnr2_label_seq_id"]
-            if ((chain_id2 in polymer_chain_ids) or ("ptnr2_auth_seq_id" not in row))
+            if ((chain_id2 in relevant_polymer_chain_identifiers) or ("ptnr2_auth_seq_id" not in row))
             and row["ptnr2_label_seq_id"] != "."
             else row["ptnr2_auth_seq_id"]
         )
@@ -323,8 +441,18 @@ def get_struct_conn_bonds(
         ins_code2 = "" if ins_code2 in (".", "?") else ins_code2
 
         # ... get masks for the residues to which atoms 1 & 2 belong
-        in_res1 = (chain_ids == chain_id1) & (res_ids == res_id1) & (res_names == res_name1) & (ins_codes == ins_code1)
-        in_res2 = (chain_ids == chain_id2) & (res_ids == res_id2) & (res_names == res_name2) & (ins_codes == ins_code2)
+        in_res1 = (
+            (relevant_chain_identifiers == chain_id1)
+            & (res_ids == res_id1)
+            & (res_names == res_name1)
+            & (ins_codes == ins_code1)
+        )
+        in_res2 = (
+            (relevant_chain_identifiers == chain_id2)
+            & (res_ids == res_id2)
+            & (res_names == res_name2)
+            & (ins_codes == ins_code2)
+        )
 
         if (not in_res1.any()) or (not in_res2.any()):
             logger.info(

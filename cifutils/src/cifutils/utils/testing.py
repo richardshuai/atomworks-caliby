@@ -1,13 +1,16 @@
 """Utility functions for writings tests for AtomArray objects."""
 
+__all__ = ["assert_same_atom_array"]
+
 import os
+from collections.abc import Iterable
 
 import biotite.structure as struc
 import numpy as np
 from biotite.structure.atoms import AtomArray, AtomArrayStack
 
+import cifutils.utils.bonds as cb
 from cifutils.constants import PDB_MIRROR_PATH
-from cifutils.utils.bonds import hash_atom_array
 from cifutils.utils.scatter import apply_group_wise, apply_segment_wise
 
 
@@ -140,6 +143,7 @@ def assert_same_atom_array(
     arr2: AtomArray | AtomArrayStack,
     compare_coords: bool = True,
     compare_bonds: bool = True,
+    compare_box: bool = False,
     annotations_to_compare: list[str] | None = None,
     enforce_order: bool = True,
     compare_bond_order: bool = True,
@@ -152,6 +156,7 @@ def assert_same_atom_array(
         arr2 (AtomArray): The second AtomArray to compare.
         compare_coords (bool, optional): Whether to compare coordinates. Defaults to True.
         compare_bonds (bool, optional): Whether to compare bonds. Defaults to True.
+        compare_box (bool, optional): Whether to compare the box attribute. Defaults to False.
         annotations_to_compare (list[str] | None, optional): List of annotation categories to compare.
             Defaults to None, in which case all annotations are compared.
         enforce_order (bool, optional): Whether to enforce the order of the atoms. Defaults to True.
@@ -211,6 +216,13 @@ def assert_same_atom_array(
             for idx in mismatch_idxs[:_n_mismatches_to_show]:
                 msg += f"\t{idx}: {arr1.coord[idx]} != {arr2.coord[idx]}\n"
             raise AssertionError(msg)
+
+    # Not returned by `get_annotation_categories`
+    if compare_box:
+        if arr1._box is None:
+            assert arr2._box is None
+        else:
+            assert np.array_equal(arr1._box, arr2._box, equal_nan=True)
 
     if annotations_to_compare is None:
         arr1_annotation_keys = arr1.get_annotation_categories()
@@ -293,10 +305,63 @@ def assert_same_atom_array(
                 raise AssertionError(msg)
         else:
             # Check graph isomorphisms, labeling nodes with element
-            arr1_hash = hash_atom_array(
+            arr1_hash = cb.hash_atom_array(
                 arr1, annotations=["element"], bond_order=compare_bond_order, cast_aromatic_bonds_to_same_type=True
             )
-            arr2_hash = hash_atom_array(
+            arr2_hash = cb.hash_atom_array(
                 arr2, annotations=["element"], bond_order=compare_bond_order, cast_aromatic_bonds_to_same_type=True
             )
             assert arr1_hash == arr2_hash, f"Graph hashes do not match: {arr1_hash} != {arr2_hash}"
+
+
+def has_ambiguous_annotation_set(
+    atom_array: AtomArray,
+    annotation_set: Iterable = ["chain_id", "res_id", "res_name", "atom_name", "ins_code"],
+) -> bool:
+    """Detect whether a given set of annotations is insufficient to distinguish
+        all atoms in the input AtomArray.
+
+    For example, this is used to detect ambiguous annotation of the structure
+    that would lead to loss of information when writing out the structure.
+
+    This happens because the `struct_conn` category distinguishes bonds
+    between different atoms based on the 5-tuple:
+        (chain_id, res_id, res_name, atom_name, ins_code)
+
+    To properly save bonds with a structure, make sure that all atoms
+    have unique 5-tuples.
+
+    Args:
+        atom_array (AtomArray): The atom array to check for ambiguous annotations.
+        annotation_set (Iterable, optional): The set of annotations to check for ambiguity.
+        Defaults to ["chain_id", "res_id", "res_name", "atom_name", "ins_code"], which is relevant for determining possible bond ambiguity.
+
+
+    Returns:
+        bool: True if ambiguous annotations are detected, False otherwise.
+    """
+    # Create a structured array with the 5-tuple elements
+    identifier_dtypes = [
+        (
+            annotation,
+            atom_array.get_annotation(annotation).dtype
+            if annotation in atom_array.get_annotation_categories()
+            else "U1",
+        )
+        for annotation in annotation_set
+    ]
+
+    structured_array = np.empty(atom_array.array_length(), dtype=identifier_dtypes)
+    for category in identifier_dtypes:
+        name, dtype = category
+        structured_array[name] = (
+            atom_array.get_annotation(name)
+            if name in atom_array.get_annotation_categories()
+            else ["."] * atom_array.array_length()
+        )
+
+    # Use numpy's unique function with return_counts=True to find duplicates
+    _, counts = np.unique(structured_array, return_counts=True)
+
+    # If any count is greater than 1, we have ambiguous annotations
+    return np.any(counts > 1)

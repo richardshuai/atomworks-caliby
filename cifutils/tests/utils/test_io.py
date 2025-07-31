@@ -1,4 +1,5 @@
 import io
+import pickle
 import tempfile
 from contextlib import nullcontext
 from pathlib import Path
@@ -10,8 +11,9 @@ from biotite.database import rcsb
 from biotite.structure import AtomArray, AtomArrayStack
 from conftest import TEST_DATA_DIR, get_pdb_path
 
-from cifutils import parse
+from cifutils.parser import parse, parse_atom_array
 from cifutils.tools.inference import build_msa_paths_by_chain_id_from_component_list, components_to_atom_array
+from cifutils.transforms.atom_array import ensure_atom_array_stack
 from cifutils.utils.io_utils import (
     get_structure,
     infer_pdb_file_type,
@@ -22,6 +24,7 @@ from cifutils.utils.io_utils import (
     to_cif_string,
     to_pdb_string,
 )
+from cifutils.utils.testing import assert_same_atom_array
 
 
 @pytest.mark.parametrize(
@@ -112,6 +115,45 @@ def test_get_structure_configurations(extra_fields, include_bonds, model):
         assert isinstance(structure, AtomArray)
     else:
         assert isinstance(structure, AtomArrayStack)
+
+
+def test_parse_atom_array_with_multiple_transformations():
+    # Until my fix for handling non-polymer ambiguities with add_missing_atoms=False gets merged, we'll add them twice
+    data_dict = parse(rcsb.fetch("1out", "cif"), file_type="cif", add_missing_atoms=True)
+    parsed_from_file = data_dict["assemblies"]["1"]
+    assert any(chain_iid.endswith("_2") for chain_iid in np.unique(parsed_from_file.chain_iid))
+    new_data_dict = parse_atom_array(parsed_from_file, add_missing_atoms=True)
+    parsed_from_atom_array = new_data_dict["asym_unit"][0]
+    assert "chain_iid" in parsed_from_atom_array.get_annotation_categories()
+    chain_iid = parsed_from_atom_array.chain_iid
+    res_id = parsed_from_atom_array.res_id
+    res_name = parsed_from_atom_array.res_name
+    atom_name = parsed_from_atom_array.atom_name
+
+    # Get indices for the test case atoms
+    tfm_1_atom_1_idx = np.where((chain_iid == "A_1") & (res_name == "ACE") & (res_id == 1) & (atom_name == "C"))[0]
+    tfm_1_atom_2_idx = np.where((chain_iid == "A_1") & (res_name == "SER") & (res_id == 2) & (atom_name == "N"))[0]
+    tfm_2_atom_1_idx = np.where((chain_iid == "A_2") & (res_name == "ACE") & (res_id == 1) & (atom_name == "C"))[0]
+    tfm_2_atom_2_idx = np.where((chain_iid == "A_2") & (res_name == "SER") & (res_id == 2) & (atom_name == "N"))[0]
+    for arr in [tfm_1_atom_1_idx, tfm_1_atom_2_idx, tfm_2_atom_1_idx, tfm_2_atom_2_idx]:
+        assert len(arr) == 1
+    tfm_1_atom_1_idx = tfm_1_atom_1_idx[0]
+    tfm_1_atom_2_idx = tfm_1_atom_2_idx[0]
+    tfm_2_atom_1_idx = tfm_2_atom_1_idx[0]
+    tfm_2_atom_2_idx = tfm_2_atom_2_idx[0]
+
+    tfm_1_atom_1_bonds = parsed_from_atom_array.bonds.get_bonds(tfm_1_atom_1_idx)[0]
+    tfm_2_atom_1_bonds = parsed_from_atom_array.bonds.get_bonds(tfm_2_atom_1_idx)[0]
+
+    # Assert the intra-transform bonds are present
+    assert tfm_1_atom_2_idx in tfm_1_atom_1_bonds
+    assert tfm_2_atom_2_idx in tfm_2_atom_1_bonds
+
+    # Assert that no inter-transform bonds are present
+    assert tfm_2_atom_2_idx not in tfm_1_atom_1_bonds
+    assert tfm_2_atom_1_idx not in tfm_1_atom_1_bonds
+    assert tfm_1_atom_2_idx not in tfm_2_atom_1_bonds
+    assert tfm_1_atom_1_idx not in tfm_2_atom_1_bonds
 
 
 def test_to_cif_string():
@@ -290,6 +332,213 @@ def test_load_from_af3_output(af3_cif_filename, pdb_id):
     )
     assert np.array_equal(
         np.sort(np.unique(atom_array_from_af3.atom_name)), np.sort(np.unique(atom_array_from_rcsb.atom_name))
+    )
+
+
+def assert_data_dicts_equal(
+    obtained_data_dict,
+    expected_data_dict,
+    ignore_metadata_id=False,
+    compare_assemblies=True,
+    asym_unit_annotations_to_compare=None,
+    assembly_annotations_to_compare=None,
+    compare_box=True,
+):
+    obtained_asym_unit, expected_asym_unit = obtained_data_dict.pop("asym_unit"), expected_data_dict.pop("asym_unit")
+    obtained_assemblies, expected_assemblies = (
+        obtained_data_dict.pop("assemblies"),
+        expected_data_dict.pop("assemblies"),
+    )
+
+    ensure_atom_array_stack(obtained_asym_unit)
+    ensure_atom_array_stack(expected_asym_unit)
+    assert len(obtained_asym_unit) == len(expected_asym_unit), "Asym unit stack depths do not match"
+    for i in range(len(obtained_asym_unit)):
+        assert_same_atom_array(
+            obtained_asym_unit[i], expected_asym_unit[i], annotations_to_compare=asym_unit_annotations_to_compare
+        )
+
+    if compare_assemblies:
+        for assembly_id, obtained_assembly in obtained_assemblies.items():
+            expected_assembly = expected_assemblies[assembly_id]
+            ensure_atom_array_stack(obtained_assembly)
+            ensure_atom_array_stack(expected_assembly)
+            assert len(obtained_assembly) == len(expected_assembly), "Asym unit stack depths do not match"
+            for i in range(len(obtained_assembly)):
+                assert_same_atom_array(
+                    obtained_assembly[i], expected_assembly[i], annotations_to_compare=assembly_annotations_to_compare
+                )
+    else:
+        obtained_data_dict["extra_info"].pop("struct_oper_category", None)
+        expected_data_dict["extra_info"].pop("struct_oper_category", None)
+        obtained_data_dict["extra_info"].pop("assembly_gen_category", None)
+        expected_data_dict["extra_info"].pop("assembly_gen_category", None)
+
+    if ignore_metadata_id:
+        obtained_data_dict["metadata"].pop("id")
+        expected_data_dict["metadata"].pop("id")
+
+    assert obtained_data_dict == expected_data_dict
+
+
+CONSISTENCY_TEST_CASES_FULL_DICT = [
+    (get_pdb_path("1a1e"), TEST_DATA_DIR / "1a1e_cif_data_dict.pkl"),
+    (TEST_DATA_DIR / "1qfe.pdb", TEST_DATA_DIR / "1qfe_pdb_data_dict.pkl"),
+]
+
+
+@pytest.mark.parametrize("filepath, expected_data_dict_path", CONSISTENCY_TEST_CASES_FULL_DICT)
+def test_parse_consistency_full_dict(filepath, expected_data_dict_path):
+    """
+    Compare the parsed structure to a reference structure (computed pre-refactor).
+    """
+
+    with open(expected_data_dict_path, "rb") as f:
+        expected_data_dict = pickle.load(f)
+
+    parse_kwargs = {
+        "convert_mse_to_met": True,
+        "hydrogen_policy": "remove",
+        "build_assembly": ["1"],
+    }
+
+    obtained_data_dict = parse(filepath, **parse_kwargs)
+
+    assert_data_dicts_equal(obtained_data_dict, expected_data_dict)
+
+
+@pytest.fixture
+def dict_inputs():
+    """Fixture providing example chemical components for testing."""
+    monomer = [
+        {
+            "seq": "KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDGRTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL",
+            "chain_type": "polypeptide(l)",
+            "chain_id": "A",
+            "is_polymer": True,
+        }
+    ]
+
+    dimer = [
+        {
+            "seq": "MRDTDVTVLGLGLMGQALAGAFLKDGHATTVWNRSEGKAGQLAEQGAVLASSARDAAEASPLVVVCVSDHAAVRAVLDPLGDVLAGRVLVNLTSGTSEQARATAEWAAERGITYLDGAIMAIPQVVGTADAFLLYSGPEAAYEAHEPTLRSLGAGTTYLGADHGLSSLYDVALLGIMWGTLNSFLHGAALLGTAKVEATTFAPFANRWIEAVTGFVSAYAGQVDQGAYPALDATIDTHVATVDHLIHESEAAGVNTELPRLVRTLADRALAGGQGGLGYAAMIEQFRSPSA",
+            "chain_type": "polypeptide(l)",
+            "is_polymer": True,
+            "chain_id": "B",
+        },
+        {
+            "seq": "MRDTDVTVLGLGLMGQALAGAFLKDGHATTVWNRSEGKAGQLAEQGAVLASSARDAAEASPLVVVCVSDHAAVRAVLDPLGDVLAGRVLVNLTSGTSEQARATAEWAAERGITYLDGAIMAIPQVVGTADAFLLYSGPEAAYEAHEPTLRSLGAGTTYLGADHGLSSLYDVALLGIMWGTLNSFLHGAALLGTAKVEATTFAPFANRWIEAVTGFVSAYAGQVDQGAYPALDATIDTHVATVDHLIHESEAAGVNTELPRLVRTLADRALAGGQGGLGYAAMIEQFRSPSA",
+            "chain_type": "polypeptide(l)",
+            "is_polymer": True,
+            "chain_id": "C",
+        },
+    ]
+
+    noncanonical = [
+        {
+            "seq": "KVFGRCE(SEP)AAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDGRTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL",
+            "chain_type": "polypeptide(l)",
+            "is_polymer": True,
+        }
+    ]
+
+    custom_residues = [
+        {
+            "seq": "G(C:0)G(SEP)G",
+            "chain_type": "polypeptide(l)",
+        }
+    ]
+
+    ligand = [
+        {
+            "smiles": "O=C1OCC(=C1)C5C4(C(O)CC3C(CCC2CC(O)CCC23C)C4(O)CC5)C",
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "E",
+        }
+    ]
+
+    glycan_1 = [
+        {
+            "ccd_code": "NAG",
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "F",
+        }
+    ]
+    glycan_2 = [
+        {
+            "ccd_code": "NAG",
+            "chain_type": "non-polymer",
+            "is_polymer": False,
+            "chain_id": "G",
+        }
+    ]
+
+    sdf = [
+        {
+            "path": f"{TEST_DATA_DIR}/HEM_ideal.sdf",
+        }
+    ]
+
+    return {
+        "monomer": monomer,
+        "dimer": dimer,
+        "noncanonical": noncanonical,
+        "custom_residues": custom_residues,
+        "ligand": ligand,
+        "glycan_1": glycan_1,
+        "glycan_2": glycan_2,
+        "sdf": sdf,
+    }
+
+
+@pytest.fixture
+def custom_residues():
+    return {
+        "C:0": {
+            "path": f"{TEST_DATA_DIR}/example_ncaa.cif",
+            "chain_type": "polypeptide(l)",
+        }
+    }
+
+
+def test_write_read_vs_parse_atom_array(dict_inputs, custom_residues):
+    """Compare the write-read to/from CIF vs simply parsing an AtomArray."""
+
+    # Parse input components, as in inference code
+    components = sum(dict_inputs.values(), start=[])
+    input_atom_array = components_to_atom_array(components, return_components=False, custom_residues=custom_residues)
+
+    # Write-read, as was formerly done in the inference code
+    temp_dir = tempfile.TemporaryDirectory()
+    cif_path = Path(temp_dir.name) / "test.cif"
+    to_cif_file(input_atom_array, cif_path, include_nan_coords=True)
+
+    parse_kwargs = {
+        "convert_mse_to_met": True,
+        "hydrogen_policy": "remove",
+        "build_assembly": ["1"],
+    }
+
+    parsed_from_cif = parse(cif_path, **parse_kwargs)
+
+    # Directly parse the input AtomArray using new code
+    parsed_from_atom_array = parse_atom_array(input_atom_array, **parse_kwargs)
+
+    # The asym_unit does not typically have a chain_iid, but it will if parsing from an AtomArray that already had it
+    asym_unit_annotations_to_compare = [
+        annot for annot in parsed_from_atom_array["asym_unit"].get_annotation_categories() if annot != "chain_iid"
+    ]
+
+    # Check for equivalence, allowing differences only in the metadata ID and the assemblies (parsing an AtomArray
+    # directly does not build assemblies)
+    assert_data_dicts_equal(
+        parsed_from_cif,
+        parsed_from_atom_array,
+        ignore_metadata_id=True,
+        compare_assemblies=False,
+        asym_unit_annotations_to_compare=asym_unit_annotations_to_compare,
     )
 
 

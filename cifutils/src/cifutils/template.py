@@ -16,7 +16,9 @@ from cifutils.utils.bonds import (
     get_struct_conn_bonds,
 )
 from cifutils.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_available
+from cifutils.utils.non_rcsb import initialize_chain_info_from_atom_array
 from cifutils.utils.selection import get_annotation
+from cifutils.utils.testing import has_ambiguous_annotation_set
 
 logger = logging.getLogger(__file__)
 
@@ -105,7 +107,7 @@ def match_residue_to_template(
     # ... fail if there are multiple atoms with the same name in the `real` array
     atom_names = real.atom_name[gidx]
     if len(np.unique(atom_names)) != len(gidx):
-        raise ValueError(f"CCD {ccd_code}: Multiple atoms with the same name in \n{real}")
+        raise ValueError(f"CCD {ccd_code}: Multiple atoms with the same name in \n{real[gidx]}")
 
     # ... determine whether to use the standard or alternative atom naming
     match_by = "atom_name"
@@ -140,6 +142,10 @@ def match_residue_to_template(
     template.res_id = [real.res_id[gidx[0]]] * len(template)
     template.ins_code = [real.ins_code[gidx[0]]] * len(template)
 
+    # ... copy over chain_iid annotation, if present
+    if "chain_iid" in real.get_annotation_categories():
+        template.set_annotation("chain_iid", [real.chain_iid[gidx[0]]] * len(template))
+
     # ... return matched array
     return template
 
@@ -161,6 +167,9 @@ def build_template_atom_array(
     2. Leaves coordinates as NaN if no matching atoms exist, or
     3. Copies atoms verbatim from atom_array / custom_residues dictionary if no CCD template exists (e.g., for UNL) or for CCD codes that
         we want to ignore for matching (e.g., for water molecules)
+
+    In the case where an atom_array is provided, the function is robust to ambiguous (chain_id, res_id, res_name)
+    combinations, provided that the chain_iid annotation is present and resolves the ambiguity.
 
     Args:
         chain_info_dict (dict): Dictionary mapping chain IDs to dicts containing residue information with keys:
@@ -189,33 +198,85 @@ def build_template_atom_array(
             f"contains chains {chain_info_dict.keys()}."
         )
 
-    # ... extract the relevant entries from the chain_info_dict for readability
-    chain_id_to_res_ids = {chain_id: chain_info_dict[chain_id]["res_id"] for chain_id in chain_info_dict}
-    chain_id_to_res_names = {chain_id: chain_info_dict[chain_id]["res_name"] for chain_id in chain_info_dict}
-    chain_id_to_is_polymer = {chain_id: chain_info_dict[chain_id]["is_polymer"] for chain_id in chain_info_dict}
-    chain_id_to_types = {chain_id: chain_info_dict[chain_id]["chain_type"] for chain_id in chain_info_dict}
-    annotations = set(atom_array.get_annotation_categories()) if exists(atom_array) else set()
-
     # ... extract the relevant entries from the atom_array if it exists
     all_false = lambda n: np.zeros(n, dtype=bool)  # noqa: E731, convenience function
     chain_ids = atom_array.chain_id if exists(atom_array) else all_false(0)
     res_ids = atom_array.res_id if exists(atom_array) else all_false(0)
     res_names = atom_array.res_name if exists(atom_array) else all_false(0)
 
+    # Determine if we have ambiguous residue annotations, e.g. if parsing an AtomArray with multiple transformations
+    use_chain_iids = False
+    if exists(atom_array):
+        residue_start_indices = struc.get_residue_starts(atom_array)
+        residue_start_atoms = atom_array[residue_start_indices]
+        if has_ambiguous_annotation_set(residue_start_atoms, annotation_set=["chain_id", "res_id", "res_name"]):
+            if "chain_iid" not in atom_array.get_annotation_categories():
+                raise ValueError(
+                    "Ambiguous residue annotations detected. This happens when there are residues that "
+                    "have the same `(chain_id, res_id, res_name)` identifier. "
+                    "This happens for example when you have a bio-assembly with multiple copies "
+                    "of a chain that only differ by `transformation_id`.\n"
+                    "You can fix this for example by re-naming the chains to be named uniquely. "
+                    "For the purposes of this function, you can also add a unambiguous chain_iid annotation instead. "
+                    "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
+                )
+            elif has_ambiguous_annotation_set(residue_start_atoms, annotation_set=["chain_iid", "res_id", "res_name"]):
+                raise ValueError(
+                    "Ambiguous bond annotations detected. This happens when there are atoms that "
+                    "have the same `(chain_id, res_id, res_name)` identifier. "
+                    "This happens for example when you have a bio-assembly with multiple copies "
+                    "of a chain that only differ by `transformation_id`.\n"
+                    "In this case, falling back to the `chain_iid` annotation was insufficient to resolve the ambiguity."
+                    "You can fix this for example by re-naming the chains to be named uniquely. "
+                    "For the purposes of this function, you can also add a unambiguous chain_iid annotation instead. "
+                    "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
+                )
+            else:
+                use_chain_iids = True
+                chain_iids = atom_array.chain_iid
+                chain_info_dict = initialize_chain_info_from_atom_array(atom_array, use_chain_iids=True)
+
+    # ... extract the relevant entries from the chain_info_dict for readability
+    chain_identifier_to_res_ids = {
+        chain_identifier: chain_info_dict[chain_identifier]["res_id"] for chain_identifier in chain_info_dict
+    }
+    chain_identifier_to_res_names = {
+        chain_identifier: chain_info_dict[chain_identifier]["res_name"] for chain_identifier in chain_info_dict
+    }
+    chain_identifier_to_is_polymer = {
+        chain_identifier: chain_info_dict[chain_identifier]["is_polymer"] for chain_identifier in chain_info_dict
+    }
+    chain_identifier_to_types = {
+        chain_identifier: chain_info_dict[chain_identifier]["chain_type"] for chain_identifier in chain_info_dict
+    }
+    annotations = set(atom_array.get_annotation_categories()) if exists(atom_array) else set()
+
     # ... create a list of atoms based on the reference CCD entries
     template_residues = []
-    for chain_id in list(dict.fromkeys(chain_info_dict)):
-        chain_res_ids = chain_id_to_res_ids[chain_id]
-        chain_res_names = chain_id_to_res_names[chain_id]
-        chain_is_polymer = chain_id_to_is_polymer[chain_id]
-        chain_type = chain_id_to_types[chain_id].value  # chain_type is an IntEnum; we want the value
+    chain_identifiers = chain_iids if use_chain_iids else chain_ids
+    for chain_identifier in list(dict.fromkeys(chain_info_dict)):
+        chain_res_ids = chain_identifier_to_res_ids[chain_identifier]
+        chain_res_names = chain_identifier_to_res_names[chain_identifier]
+        chain_is_polymer = chain_identifier_to_is_polymer[chain_identifier]
+        chain_type = chain_identifier_to_types[chain_identifier].value  # chain_type is an IntEnum; we want the value
 
         assert len(chain_res_ids) == len(chain_res_names), "Length mismatch between chain_res_ids, chain_res_names!"
 
         for res_id, (res_id_original, ccd_code) in enumerate(zip(chain_res_ids, chain_res_names, strict=True), start=1):
             res_id_original = int(res_id_original)
             # ... and corresponding mask
-            res_mask = (chain_ids == chain_id) & (res_names == ccd_code) & (res_ids == res_id_original)
+            res_mask = (chain_identifiers == chain_identifier) & (res_names == ccd_code) & (res_ids == res_id_original)
+
+            # res_mask might all False, in which case we fall back to the chain_id in the chain_info_dict (if present)
+            if res_mask.any():
+                chain_id = atom_array[res_mask].chain_id[0] if exists(atom_array) else chain_identifier
+            elif not use_chain_iids:
+                chain_id = chain_identifier
+            else:
+                raise ValueError(
+                    f"Could not infer chain_id, since chain_iids are being used but no atoms were found for residue "
+                    f"{ccd_code} in chain {chain_identifier} with ID {res_id_original}."
+                )
 
             # ... if we cannot get a template from the CCD (e.g., UNL), we check if the code was provided via the `custom_residues` argument,
             # or copy over the atoms from the atom_array verbatim
@@ -229,7 +290,7 @@ def build_template_atom_array(
                     if not res_mask.any():
                         # ... skip if we cannot find the residue in the reference atom_array
                         logger.warning(
-                            f"No atoms found for residue {ccd_code} in chain {chain_id} with ID {res_id_original}!"
+                            f"No atoms found for residue {ccd_code} in chain {chain_identifier} with ID {res_id_original}!"
                         )
                         continue
 

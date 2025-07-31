@@ -105,7 +105,10 @@ def infer_chain_type_from_ccd_codes(ccd_code_seq: Sequence[str]) -> ChainType:
 
 
 def initialize_chain_info_from_atom_array(
-    atom_array: AtomArray, infer_chain_type: bool = True, infer_chain_sequences: bool = True
+    atom_array: AtomArray,
+    infer_chain_type: bool = True,
+    infer_chain_sequences: bool = True,
+    use_chain_iids: bool = False,
 ) -> dict:
     """Infer specified information (chain type and sequence information) from an AtomArray.
 
@@ -125,6 +128,7 @@ def initialize_chain_info_from_atom_array(
         atom_array (AtomArray): The AtomArray object to infer chain information from.
         infer_chain_type (bool, optional): Whether to infer the chain type from the AtomArray. Defaults to True.
         infer_chain_sequences (bool, optional): Whether to infer the chain sequences from the AtomArray. Defaults to True.
+        use_chain_iids (bool, optional): Whether to use the chain_iid annotation rather than the chain_id. Defaults to False.
 
     Returns:
         dict: A dictionary containing the specified chain information as keys
@@ -135,14 +139,17 @@ def initialize_chain_info_from_atom_array(
     chain_info_dict = {}
 
     _res_starts = get_residue_starts(atom_array)
-    chain_ids = atom_array.chain_id[_res_starts]
+    if use_chain_iids:
+        chain_identifiers = atom_array.chain_iid[_res_starts]
+    else:
+        chain_identifiers = atom_array.chain_id[_res_starts]
     res_ids = atom_array.res_id[_res_starts]
     res_names = atom_array.res_name[_res_starts]
     hetero = atom_array.hetero[_res_starts]
 
     # Loop through chains
-    for chain_id in np.unique(chain_ids):
-        is_in_chain = chain_ids == chain_id
+    for chain_identifier in np.unique(chain_identifiers):
+        is_in_chain = chain_identifiers == chain_identifier
         seq = res_names[is_in_chain]
 
         # ... EDGE CASE: If all atoms are "HETATM", override the chain type to non-polymer
@@ -158,25 +165,28 @@ def initialize_chain_info_from_atom_array(
             get_1_from_3_letter_code(ccd_code, chain_type, use_closest_canonical=True) for ccd_code in seq
         )
 
-        chain_info_dict[chain_id] = {}
+        chain_info_dict[chain_identifier] = {}
 
         if "label_entity_id" in atom_array.get_annotation_categories():
             # (Entity ID is the same for all atoms in the chain)
-            chain_info_dict[chain_id]["rcsb_entity"] = int(
-                atom_array.label_entity_id[atom_array.chain_id == chain_id][0]
+            atom_level_chain_identifiers = atom_array.chain_iid if use_chain_iids else atom_array.chain_id
+            chain_info_dict[chain_identifier]["rcsb_entity"] = int(
+                atom_array.label_entity_id[atom_level_chain_identifiers == chain_identifier][0]
             )
 
         if infer_chain_type:
-            chain_info_dict[chain_id]["chain_type"] = chain_type
-            chain_info_dict[chain_id]["is_polymer"] = chain_type.is_polymer()
+            chain_info_dict[chain_identifier]["chain_type"] = chain_type
+            chain_info_dict[chain_identifier]["is_polymer"] = chain_type.is_polymer()
 
         if infer_chain_sequences:
-            chain_info_dict[chain_id]["res_id"] = list(res_ids[is_in_chain])
-            chain_info_dict[chain_id]["res_name"] = list(res_names[is_in_chain])
-            chain_info_dict[chain_id]["processed_entity_non_canonical_sequence"] = (
+            chain_info_dict[chain_identifier]["res_id"] = list(res_ids[is_in_chain])
+            chain_info_dict[chain_identifier]["res_name"] = list(res_names[is_in_chain])
+            chain_info_dict[chain_identifier]["processed_entity_non_canonical_sequence"] = (
                 processed_entity_non_canonical_sequence
             )
-            chain_info_dict[chain_id]["processed_entity_canonical_sequence"] = processed_entity_canonical_sequence
+            chain_info_dict[chain_identifier]["processed_entity_canonical_sequence"] = (
+                processed_entity_canonical_sequence
+            )
 
     return chain_info_dict
 

@@ -6,6 +6,7 @@ import io
 import logging
 import os
 import warnings
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,7 +14,8 @@ import biotite.structure as struc
 import numpy as np
 import pandas as pd
 from biotite.file import InvalidFileError
-from biotite.structure import AtomArrayStack
+from biotite.structure import AtomArray, AtomArrayStack
+from biotite.structure.io import pdbx
 from toolz import keyfilter
 
 import cifutils.transforms.atom_array as ta
@@ -29,9 +31,10 @@ from cifutils.transforms.categories import (
     load_monomer_sequence_information_from_category,
 )
 from cifutils.utils.assembly import build_assemblies_from_asym_unit
+from cifutils.utils.bonds import get_struct_conn_dict_from_atom_array
 from cifutils.utils.ccd import check_ccd_codes_are_available
 from cifutils.utils.chain import create_chain_id_generator
-from cifutils.utils.io_utils import get_structure, infer_pdb_file_type, read_any, to_cif_buffer
+from cifutils.utils.io_utils import get_structure, infer_pdb_file_type, read_any
 from cifutils.utils.non_rcsb import (
     get_identity_assembly_gen_category,
     get_identity_op_expr_category,
@@ -41,6 +44,21 @@ from cifutils.utils.non_rcsb import (
 logger = logging.getLogger("cifutils")
 
 __all__ = ["parse"]
+
+DEFAULT_PARSE_KWARGS = {
+    "add_missing_atoms": True,
+    "add_id_and_entity_annotations": True,
+    "add_bond_types_from_struct_conn": ["covale"],
+    "remove_ccds": CRYSTALLIZATION_AIDS,
+    "remove_waters": True,
+    "fix_ligands_at_symmetry_centers": True,
+    "hydrogen_policy": "keep",
+    "fix_arginines": True,
+    "fix_formal_charges": True,
+    "convert_mse_to_met": True,
+    "build_assembly": "all",
+}
+"""Some fairly standard parsing arguments that can be imported for convenience."""
 
 
 def parse(
@@ -71,18 +89,18 @@ def parse(
     """Entrypoint for general parsing of atomic-level structure files.
 
     Can either:
-        - Directly load structure from file, using the specified keyword arguments; or,
-        - Load the structure from a cached directory, re-building bioassemblies on-the-fly if necessary.
+        - Directly load structure from file, using the specified keyword arguments;
+        - Load the structure from a cached directory, re-building bioassemblies on-the-fly if necessary; or
+        - Perform analogous cleaning/processing steps on an existing AtomArray or AtomArrayStack.
 
     We categorize arguments into two groups:
         - Wrapper arguments: Arguments that are used within the wrapping `parse` method (e.g., caching)
         - CIF parsing arguments: Arguments that control structure parsing and are ultimately are passed
-            to the `parse_from_cif` method (regardless of file type, we convert to a CIF file before
-            parsing)
+            to the `_parse_from_atom_array` method (regardless of file type, we convert to an AtomArray before parsing)
 
     Args:
-        filename (PathLike | io.StringIO | io.BytesIO): Path or buffer to the structural file. May be any format
-            of atomic-evel structure (e.g. .cif, .bcif, .cif.gz, .pdb), Although .cif files are *strongly* recommended.
+        filename (PathLike | io.StringIO | io.BytesIO): Either a Path or buffer to the file. This may be any format of
+            atomic-level structure (e.g. .cif, .bcif, .cif.gz, .pdb), although .cif files are *strongly* recommended.
 
         *** Wrapper arguments ***
         file_type (Literal["cif", "pdb"] | None, optional): The file type of the structure file.
@@ -91,7 +109,7 @@ def parse(
         cache_dir (PathLike, optional): Directory path to save pre-compiled results. Defaults to None.
         save_to_cache (bool, optional): Whether to save the results to cache when building the structure. Defaults to False.
 
-        *** CIF parsing arguments ***
+        *** Parsing arguments ***
         ccd_mirror_path (str, optional): Path to the local mirror of the Chemical Component Dictionary (recommended).
             If not provided, Biotite's built-in CCD will be used.
         add_missing_atoms (bool, optional): Whether to add missing atoms to the
@@ -123,7 +141,7 @@ def parse(
         hydrogen_policy (Literal, optional): Whether to keep, remove or infer hydrogens using
             biotite-hydride (will remove existing hydrogens and infer fresh).
             Defaults to "keep". Options: "keep", "remove", "infer".
-        model (int, optional): The model number to parse from the CIF file for NMR entries.
+        model (int, optional): The model number to parse for files with multiple models (e.g., NMR).
             Defaults to all models (None).
         build_assembly (string, list, or tuple, optional): Specifies which assembly to build, if any. Options are None
             (e.g., asymmetric unit), "first", "all", or a list or tuple of assembly IDs. Defaults to "all".
@@ -261,6 +279,7 @@ def parse(
             hydrogen_policy=hydrogen_policy,
             model=model,
             build_assembly=build_assembly,
+            extra_fields=extra_fields,
         )
     elif file_type in ("cif", "bcif"):
         result = _parse_from_cif(
@@ -305,6 +324,277 @@ def parse(
     return result
 
 
+def parse_atom_array(
+    atom_array_or_stack: AtomArray | AtomArrayStack,
+    data_dict: dict | None = None,
+    _cif_file: pdbx.CIFFile | pdbx.BinaryCIFFile | None = None,
+    ccd_mirror_path: os.PathLike | None = CCD_MIRROR_PATH,
+    add_missing_atoms: bool = True,
+    add_id_and_entity_annotations: bool = True,
+    add_bond_types_from_struct_conn: list[str] = ["covale"],
+    remove_ccds: list[str] | None = CRYSTALLIZATION_AIDS,
+    remove_waters: bool = True,
+    fix_ligands_at_symmetry_centers: bool = True,
+    fix_arginines: bool = True,
+    fix_formal_charges: bool = True,
+    fix_bond_types: bool = True,
+    convert_mse_to_met: bool = False,
+    remove_hydrogens: bool | None = None,
+    hydrogen_policy: Literal["keep", "remove", "infer"] = "keep",
+    build_assembly: Literal["first", "all", "_spoof"] | list[str] | tuple[str] | None = "all",
+    extra_fields: list[str] | Literal["all"] | None = None,
+) -> dict[str, Any]:
+    """Parse, clean and augment an AtomArray or AtomArrayStack.
+
+    Args:
+        atom_array_or_stack (AtomArray | AtomArrayStack): The AtomArray or AtomArrayStack to parse.
+        data_dict (dict | None, optional): A dictionary to store the results of the parsing. If None, a new data_dict
+            will be created.
+        _cif_file (pdbx.CIFFile | pdbx.BinaryCIFFile | None, optional): The biotite CIF file object to use for parsing.
+            Intended for internal use only. Defaults to None, corresponding to direct AtomArray parsing.
+        build_assembly (Literal["first", "all", "_spoof"] | list[str] | tuple[str] | None, optional): Same as in parse,
+            with the addition of a "_spoof" option that will create a single assembly for the entire AtomArray. This
+            is risky as it will reset the transformation_id, and is intended for internal use only.
+
+
+        **additional_kwargs: See `parse` documentation for details.
+
+    Returns chain information, residue information, atom array, and metadata.
+    This method performs all aspects of `_parse_from_cif` that do not require a CIF file input.
+    """
+
+    # ... ensure that the input AtomArray or AtomArrayStack has a BondList
+    if atom_array_or_stack.bonds is None:
+        atom_array_or_stack.bonds = struc.BondList(atom_array_or_stack.array_length())
+
+    # (Handle default lists to avoid mutable default arguments)
+    remove_ccds = [] if remove_ccds is None else remove_ccds
+
+    # We must perform argument validation if the function was called directly without a top-level call to `parse`
+    if _cif_file is None:
+        # CCD mirror
+        if exists(ccd_mirror_path) and not os.path.exists(ccd_mirror_path):
+            raise FileNotFoundError(
+                f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. "
+                "To use Biotite's built-in CCD, set `ccd_mirror_path` to None."
+            )
+
+        # Argument validation
+        check_ccd_codes_are_available(remove_ccds, ccd_mirror_path=ccd_mirror_path, mode="warn")
+
+    if not exists(data_dict):
+        # (Default running dictionary, which we will populate through a series of Transforms)
+        data_dict = {"extra_info": {}}
+
+    if not exists(_cif_file):
+        # Assemble spoofed metadata for formatting consistency
+        data_dict["metadata"] = {}
+        for key in ["method", "deposition_date", "release_date", "resolution", "extra_metadata"]:
+            data_dict["metadata"][key] = None
+
+        # Add an informative name
+        data_dict["metadata"]["id"] = f"Parsed from AtomArray on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+        # Initialize unused keys
+        data_dict["cif_block"] = None
+        data_dict["assemblies"] = {}
+        data_dict["ligand_info"] = {"has_ligand_of_interest": False, "ligand_of_interest": []}
+
+    if exists(extra_fields) and not exists(_cif_file):
+        logger.warning("The `extra_fields` argument will be ignored if there is no CIF file input.")
+    if exists(build_assembly) and build_assembly != "_spoof" and not exists(_cif_file):
+        logger.warning(
+            "When parsing an AtomArray directly, `build_assembly` will be ignored unless set to '_spoof' (not advised)."
+        )
+        build_assembly = None
+
+    if "label_entity_id" not in atom_array_or_stack.get_annotation_categories():
+        if "chain_entity" in atom_array_or_stack.get_annotation_categories():
+            atom_array_or_stack.set_annotation("label_entity_id", np.copy(atom_array_or_stack.chain_entity))
+        else:
+            atom_array_or_stack.set_annotation(
+                "label_entity_id", pdbx.convert._determine_entity_id(atom_array_or_stack.chain_id)
+            )
+
+    # If occupancy is not an annotation, add it, defaulting to 1.0
+    if "occupancy" not in atom_array_or_stack.get_annotation_categories():
+        atom_array_or_stack.set_annotation("occupancy", np.ones(atom_array_or_stack.array_length()))
+
+    # ... ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
+    asym_unit_stack = ta.ensure_atom_array_stack(atom_array_or_stack)
+
+    # ... remove any explicitly excluded residues (e.g., crystallization solvents, waters)
+    if remove_ccds or remove_waters:
+        # NOTE: If the excluded residues are part of a polymer chain, or part of a
+        #  multi-chain ligand, this may create sequence gaps!
+        # ... remove the residues we don't want to keep
+        remove_ccds = set(map(str.upper, remove_ccds))
+        if remove_waters:
+            remove_ccds.update(WATER_LIKE_CCDS)
+
+        asym_unit_stack = ta.remove_ccd_components(asym_unit_stack, remove_ccds)
+
+    # ... initialize chain information from the first model (uses atom_array to build chain list)
+    if exists(_cif_file) and "entity" in _cif_file.block and "entity_poly" in _cif_file.block:
+        # We can get the chain entity-level information directly from the CIF file
+        data_dict["chain_info"] = initialize_chain_info_from_category(_cif_file.block, asym_unit_stack[0])
+    else:
+        if "auth_seq_id" in asym_unit_stack.get_annotation_categories():
+            # ... replace negative res_ids with auth_seq_id (as they are sometimes from AF-3 predictions)
+            asym_unit_stack = ta.replace_negative_res_ids_with_auth_seq_id(asym_unit_stack)
+        # ... infer the chain information from the AtomArray residue names (useful for inference; should not be used for RCSB files)
+        data_dict["chain_info"] = initialize_chain_info_from_atom_array(
+            asym_unit_stack[0], infer_chain_type=True, infer_chain_sequences=True
+        )
+
+    if "auth_seq_id" in asym_unit_stack.get_annotation_categories():
+        # ... replace non-polymeric chain sequence ids with author sequence ids (since the non-polymer sequence ID's are not informative)
+        asym_unit_stack = ta.update_nonpoly_seq_ids(asym_unit_stack, data_dict["chain_info"])
+
+    if exists(_cif_file) and "entity_poly_seq" in _cif_file.block:
+        # Use the `entity_poly_seq` category as ground-truth sequence for polymers, and the AtomArray as ground-truth for non-polymers
+        data_dict["chain_info"] = load_monomer_sequence_information_from_category(
+            cif_block=_cif_file.block,
+            chain_info_dict=data_dict["chain_info"],
+            atom_array=asym_unit_stack,
+            ccd_mirror_path=ccd_mirror_path,
+        )
+
+    # Handle sequence heterogeneity by selecting the residue that appears last
+    asym_unit_stack = ta.keep_last_residue(asym_unit_stack)
+
+    # ... add the is_polymer annotation to the AtomArray
+    asym_unit_stack = ta.add_polymer_annotation(asym_unit_stack, data_dict["chain_info"])
+
+    # ... add the ChainType annotation to the AtomArray
+    asym_unit_stack = ta.add_chain_type_annotation(asym_unit_stack, data_dict["chain_info"])
+
+    # (Most examples, except NMR studies and small molecules, will not have any hydrogens)
+    if hydrogen_policy == "keep":
+        pass
+    elif hydrogen_policy == "remove":
+        asym_unit_stack = ta.remove_hydrogens(asym_unit_stack)
+    elif hydrogen_policy == "infer":
+        # infer hydrogens using biotite-hydride, will replace existing hydrogens
+        asym_unit_stack = ta.add_hydrogen_atom_positions(asym_unit_stack)
+    else:
+        raise ValueError(f"Invalid hydrogen policy: {hydrogen_policy}. Must be 'keep', 'remove', or 'infer'.")
+
+    models = []
+    for model_idx in range(asym_unit_stack.stack_depth()):
+        atom_array = asym_unit_stack[model_idx]
+
+        # ... add any atoms that should be there based on the sequence information
+        #     but may not be resolved. These will have occupancy 0.0 and `nan` coords.
+        if add_missing_atoms:
+            if extra_fields is not None:
+                logger.warning(
+                    "Adding missing atoms will erase extra fields. If you just want to load a structure with the given extra fields, "
+                    "you should probably use the much faster 'load_any' function from cifutils.utils.io_utils instead of 'parse'. "
+                    "Parse is meant for cleaning up structures from the RCSB PDB."
+                )
+
+            if exists(_cif_file):
+                struct_conn_dict = category_to_dict(_cif_file.block, "struct_conn")
+            else:
+                struct_conn_dict = get_struct_conn_dict_from_atom_array(atom_array)
+
+            atom_array = template.add_missing_atoms(
+                atom_array,
+                chain_info_dict=data_dict["chain_info"],
+                struct_conn_dict=struct_conn_dict,
+                add_bond_types_from_struct_conn=add_bond_types_from_struct_conn,
+                remove_hydrogens=hydrogen_policy == "remove",
+                use_ccd_charges=True,
+                fix_formal_charges=fix_formal_charges,
+                fix_bond_types=fix_bond_types,
+            )
+
+        # ... resolve arginine naming ambiguity
+        if fix_arginines:
+            atom_array = ta.resolve_arginine_naming_ambiguity(atom_array, raise_on_error=False)
+
+        # ... convert MSE to MET
+        if convert_mse_to_met:
+            atom_array = ta.mse_to_met(atom_array)
+
+        # ... add identifiers and entity annotations
+        if add_id_and_entity_annotations:
+            atom_array = ta.add_id_and_entity_annotations(atom_array)
+
+        models.append(atom_array)
+
+    # ... create an AtomArrayStack from the list of AtomArrays
+    asym_unit_stack = struc.stack(models)
+
+    # ... add the atomic number annotation (vs. element, which is a string)
+    asym_unit_stack = ta.add_atomic_number_annotation(asym_unit_stack)
+
+    if "msa_path" in asym_unit_stack.get_annotation_categories():
+        # ... add the MSA information to the chain info dictionary
+        logger.info("MSA paths attribute detected in AtomArray. Adding to chain information...")
+
+        for chain in data_dict["chain_info"]:
+            msa_paths_in_chain = asym_unit_stack[asym_unit_stack.chain_id == chain].msa_path
+            unique_path_in_chain = np.unique(msa_paths_in_chain)
+            if len(unique_path_in_chain) > 1:
+                raise ValueError(f"Multiple distinct MSA paths found for chain {chain}.")
+            msa_path = unique_path_in_chain[0]
+            if msa_path != "":
+                data_dict["chain_info"][chain]["msa_path"] = Path(msa_path)
+
+    # ... optionally, build assemblies and add assembly-specifc annotation (instance IDs)
+    if exists(build_assembly):
+        assert (
+            build_assembly in ["first", "all", "_spoof"] or isinstance(build_assembly, list | tuple)
+        ), "Invalid `build_assembly` option. Must be 'first', 'all', '_spoof', or a list/tuple of assembly IDs as strings."
+
+        if exists(_cif_file) and "pdbx_struct_assembly" in data_dict["cif_block"]:
+            # ... build the assemblies from the CIF file, adding the `iid` annotations as we do so
+            assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
+            struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
+        else:
+            # If there are no assemblies, set the `assembly_gen_category` and `struct_oper_category` to identity operations
+            assembly_gen_category = get_identity_assembly_gen_category(list(data_dict["chain_info"].keys()))
+            struct_oper_category = get_identity_op_expr_category()
+
+        data_dict["assemblies"] = build_assemblies_from_asym_unit(
+            assembly_gen_category=assembly_gen_category,
+            struct_oper_category=struct_oper_category,
+            asym_unit_atom_array_stack=asym_unit_stack,
+            build_assembly=build_assembly if build_assembly != "_spoof" else "all",
+            fix_symmetry_centers=fix_ligands_at_symmetry_centers,
+        )
+
+        # Store the assembly generation and struct oper categories in extra_info for caching and future reference
+        data_dict["extra_info"]["assembly_gen_category"] = assembly_gen_category
+        data_dict["extra_info"]["struct_oper_category"] = struct_oper_category
+    else:
+        data_dict["assemblies"] = {}
+
+    # Handle instances where ph information is included in crystallization conditions
+    if exists(_cif_file) and "exptl_crystal_grow" in _cif_file.block:
+        crystal_key = "exptl_crystal_grow"
+        crystal_dict = category_to_dict(_cif_file.block, crystal_key)
+        data_dict["metadata"]["crystallization_details"] = extract_crystallization_details(crystal_dict)
+    else:
+        # No crystal growth section available in the CIF
+        data_dict["metadata"]["crystallization_details"] = {"pH": None}
+
+    if not exists(_cif_file):
+        # Remove temporary annotations from the asym_unit_stack
+        data_dict = _remove_tmp_annotations(data_dict, asym_unit_stack)
+
+        # ... subset to only the keys we want to return, verbosely for clarity
+        _keep_keys = {"chain_info", "ligand_info", "asym_unit", "assemblies", "metadata", "extra_info"}
+        data_dict = keyfilter(lambda k: k in _keep_keys, data_dict)
+    else:
+        # If more processing may be performed, we just save the asym_unit_stack temporarily
+        data_dict["asym_unit"] = asym_unit_stack
+
+    return data_dict
+
+
 def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) -> dict[str, Any]:
     """Parse the CIF file.
 
@@ -313,9 +603,6 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
 
     NOTE: This method is not intended to be called directly; use `parse` instead.
     """
-    # (Handle default lists to avoid mutable default arguments)
-    remove_ccds = [] if kwargs["remove_ccds"] is None else kwargs["remove_ccds"].copy()
-
     # (Default running dictionary, which we will populate through a series of Transforms)
     data_dict = {"extra_info": {}}
 
@@ -365,150 +652,12 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
             fix_bond_types=kwargs["fix_bond_types"],
         )
 
-    # If occupancy is not an annotation, add it, defaulting to 1.0
-    if "occupancy" not in asym_unit_stack.get_annotation_categories():
-        asym_unit_stack.set_annotation("occupancy", np.ones(asym_unit_stack.array_length()))
+    # process the asym_unit_stack according to the given keyword arguments
+    kwargs_to_pass = {k: v for k, v in kwargs.items() if k not in ["model", "file_type", "keep_cif_block"]}
+    data_dict = parse_atom_array(asym_unit_stack, data_dict=data_dict, _cif_file=cif_file, **kwargs_to_pass)
 
-    # ... ensure we have an atom array stack (e.g., if we selected a specific model, we may get an AtomArray)
-    if not isinstance(asym_unit_stack, AtomArrayStack):
-        asym_unit_stack = struc.stack([asym_unit_stack])
-
-        # ... remove any explicitly excluded residues (e.g., crystallization solvents, waters)
-    if remove_ccds or kwargs["remove_waters"]:
-        # NOTE: If the excluded residues are part of a polymer chain, or part of a
-        #  multi-chain ligand, this may create sequence gaps!
-        # ... remove the residues we don't want to keep
-        remove_ccds = set(map(str.upper, remove_ccds))
-        if kwargs["remove_waters"]:
-            remove_ccds.update(WATER_LIKE_CCDS)
-
-        asym_unit_stack = ta.remove_ccd_components(asym_unit_stack, remove_ccds)
-
-    # ... initialize chain information from the first model (uses atom_array to build chain list)
-    if "entity" in cif_file.block and "entity_poly" in cif_file.block:
-        # We can get the chain entity-level information directly from the CIF file
-        data_dict["chain_info"] = initialize_chain_info_from_category(cif_file.block, asym_unit_stack[0])
-    else:
-        # ... replace negative res_ids with auth_seq_id (as they are sometimes from AF-3 predictions)
-        asym_unit_stack = ta.replace_negative_res_ids_with_auth_seq_id(asym_unit_stack)
-        # ... infer the chain information from the AtomArray residue names (useful for inference; should not be used for RCSB files)
-        data_dict["chain_info"] = initialize_chain_info_from_atom_array(
-            asym_unit_stack[0], infer_chain_type=True, infer_chain_sequences=True
-        )
-
-    if "entity_poly_seq" in cif_file.block:
-        # ... replace non-polymeric chain sequence ids with author sequence ids (since the non-polymer sequence ID's are not informative)
-        asym_unit_stack = ta.update_nonpoly_seq_ids(asym_unit_stack, data_dict["chain_info"])
-
-        # Use the `entity_poly_seq` category as ground-truth sequence for polymers, and the AtomArray as ground-truth for non-polymers
-        data_dict["chain_info"] = load_monomer_sequence_information_from_category(
-            cif_block=cif_file.block,
-            chain_info_dict=data_dict["chain_info"],
-            atom_array=asym_unit_stack,
-            ccd_mirror_path=kwargs["ccd_mirror_path"],
-        )
-
-    # Handle sequence heterogeneity by selecting the residue that appears last
-    asym_unit_stack = ta.keep_last_residue(asym_unit_stack)
-
-    # ... add the is_polymer annotation to the AtomArray
-    asym_unit_stack = ta.add_polymer_annotation(asym_unit_stack, data_dict["chain_info"])
-
-    # ... add the ChainType annotation to the AtomArray
-    asym_unit_stack = ta.add_chain_type_annotation(asym_unit_stack, data_dict["chain_info"])
-
-    # (Most examples, except NMR studies and small molecules, will not have any hydrogens)
-    if kwargs["hydrogen_policy"] == "keep":
-        pass
-    elif kwargs["hydrogen_policy"] == "remove":
-        asym_unit_stack = ta.remove_hydrogens(asym_unit_stack)
-    elif kwargs["hydrogen_policy"] == "infer":
-        # infer hydrogens using biotite-hydride, will replace existing hydrogens
-        asym_unit_stack = ta.add_hydrogen_atom_positions(asym_unit_stack)
-    else:
-        raise ValueError(f"Invalid hydrogen policy: {kwargs['hydrogen_policy']}. Must be 'keep', 'remove', or 'infer'.")
-
-    models = []
-    for model_idx in range(asym_unit_stack.stack_depth()):
-        atom_array = asym_unit_stack[model_idx]
-
-        # ... add any atoms that should be there based on the sequence information
-        #     but may not be resolved. These will have occupancy 0.0 and `nan` coords.
-        if kwargs["add_missing_atoms"]:
-            if kwargs["extra_fields"] is not None:
-                logger.warning(
-                    "Adding missing atoms will erase extra fields. If you just want to load a structure with the given extra fields, "
-                    "you should probably use the much faster 'load_any' function from cifutils.utils.io_utils instead of 'parse'. "
-                    "Parse is meant for cleaning up structures from the RCSB PDB."
-                )
-            atom_array = template.add_missing_atoms(
-                atom_array,
-                chain_info_dict=data_dict["chain_info"],
-                struct_conn_dict=category_to_dict(cif_file.block, "struct_conn"),
-                add_bond_types_from_struct_conn=kwargs["add_bond_types_from_struct_conn"],
-                remove_hydrogens=kwargs["hydrogen_policy"] == "remove",
-                use_ccd_charges=True,
-                fix_formal_charges=kwargs["fix_formal_charges"],
-                fix_bond_types=kwargs["fix_bond_types"],
-            )
-
-        # ... resolve arginine naming ambiguity
-        if kwargs["fix_arginines"]:
-            atom_array = ta.resolve_arginine_naming_ambiguity(atom_array, raise_on_error=False)
-
-        # ... convert MSE to MET
-        if kwargs["convert_mse_to_met"]:
-            atom_array = ta.mse_to_met(atom_array)
-
-        # ... add identifiers and entity annotations
-        if kwargs["add_id_and_entity_annotations"]:
-            atom_array = ta.add_id_and_entity_annotations(atom_array)
-
-        models.append(atom_array)
-
-    # ... create an AtomArrayStack from the list of AtomArrays
-    asym_unit_stack = struc.stack(models)
-
-    # ... add the atomic number annotation (vs. element, which is a string)
-    asym_unit_stack = ta.add_atomic_number_annotation(asym_unit_stack)
-
-    # ... optionally, build assemblies and add assembly-specifc annotation (instance IDs)
-    if exists(kwargs["build_assembly"]):
-        assert kwargs["build_assembly"] in ["first", "all"] or isinstance(
-            kwargs["build_assembly"], list | tuple
-        ), "Invalid `build_assembly` option. Must be 'first', 'all', or a list/tuple of assembly IDs as strings."
-
-        if "pdbx_struct_assembly" in data_dict["cif_block"]:
-            # ... build the assemblies from the CIF file, adding the `iid` annotations as we do so
-            assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
-            struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
-        else:
-            # If there are no assemblies, set the `assembly_gen_category` and `struct_oper_category` to identity operations
-            assembly_gen_category = get_identity_assembly_gen_category(list(data_dict["chain_info"].keys()))
-            struct_oper_category = get_identity_op_expr_category()
-
-        data_dict["assemblies"] = build_assemblies_from_asym_unit(
-            assembly_gen_category=assembly_gen_category,
-            struct_oper_category=struct_oper_category,
-            asym_unit_atom_array_stack=asym_unit_stack,
-            build_assembly=kwargs["build_assembly"],
-            fix_symmetry_centers=kwargs["fix_ligands_at_symmetry_centers"],
-        )
-
-        # Store the assembly generation and struct oper categories in extra_info for caching and future reference
-        data_dict["extra_info"]["assembly_gen_category"] = assembly_gen_category
-        data_dict["extra_info"]["struct_oper_category"] = struct_oper_category
-    else:
-        data_dict["assemblies"] = {}
-
-    # Handle instances where ph information is included in crystallization conditions
-    if "exptl_crystal_grow" in cif_file.block:
-        crystal_key = "exptl_crystal_grow"
-        crystal_dict = category_to_dict(cif_file.block, crystal_key)
-        data_dict["metadata"]["crystallization_details"] = extract_crystallization_details(crystal_dict)
-    else:
-        # No crystal growth section available in the CIF
-        data_dict["metadata"]["crystallization_details"] = {"pH": None}
+    # Extract the asym_unit_stack from the returned data_dict
+    asym_unit_stack = data_dict.pop("asym_unit")
 
     # ... get ligand of interest information
     data_dict["ligand_info"] = get_ligand_of_interest_info(data_dict["cif_block"])
@@ -520,26 +669,16 @@ def _parse_from_cif(filename: os.PathLike | io.StringIO | io.BytesIO, **kwargs) 
         for chain_id, msa_path in msa_paths_by_chain_id.items():
             data_dict["chain_info"][chain_id]["msa_path"] = Path(msa_path.item())
 
-    # ... remove annotations that are no longer needed to save memory
-    _remove_annotations = {
-        "leaving_atom_flag",
-        "is_leaving_atom",
-        "is_n_terminal_atom",
-        "is_c_terminal_atom",
-        "index",
-    }
-    for annotation in _remove_annotations:
-        _remove_annotation_if_exists(asym_unit_stack, annotation)
-        if "assemblies" in data_dict:
-            for assembly in data_dict["assemblies"].values():
-                _remove_annotation_if_exists(assembly, annotation)
-    data_dict["asym_unit"] = asym_unit_stack
+    # Remove temporary annotations from the asym_unit_stack
+    data_dict = _remove_tmp_annotations(data_dict, asym_unit_stack)
 
     # ... subset to only the keys we want to return, verbosely for clarity
     _keep_keys = {"chain_info", "ligand_info", "asym_unit", "assemblies", "metadata", "extra_info"}
     if kwargs.get("keep_cif_block", False):
         _keep_keys.add("cif_block")
-    return keyfilter(lambda k: k in _keep_keys, data_dict)
+    data_dict = keyfilter(lambda k: k in _keep_keys, data_dict)
+
+    return data_dict
 
 
 def _parse_from_pdb(filename: os.PathLike, **parse_from_cif_kwargs) -> dict[str, Any]:
@@ -556,7 +695,7 @@ def _parse_from_pdb(filename: os.PathLike, **parse_from_cif_kwargs) -> dict[str,
     # ...read the PDB file into a CIF block
     pdb_file = read_any(filename)
     atom_array_stack = pdb_file.get_structure(
-        model=None,
+        model=parse_from_cif_kwargs["model"],
         altloc="first",
         extra_fields=["b_factor", "occupancy", "charge", "atom_id"],
         include_bonds=True,
@@ -588,12 +727,16 @@ def _parse_from_pdb(filename: os.PathLike, **parse_from_cif_kwargs) -> dict[str,
             updated_chain_hetero_annotations = atom_array_stack.hetero[atom_array_stack.chain_id == chain_id]
             assert np.all(updated_chain_hetero_annotations) or np.all(~updated_chain_hetero_annotations)
 
-    cif_buffer = to_cif_buffer(atom_array_stack, id=Path(filename).stem)
-
     # ...parse the CIF block into a dictionary
     parse_from_cif_kwargs["file_type"] = "pdb"
     parse_from_cif_kwargs["extra_fields"] = None
-    return _parse_from_cif(filename=cif_buffer, **parse_from_cif_kwargs)
+    parse_from_cif_kwargs["build_assembly"] = "_spoof"
+
+    kwargs_to_pass = {k: v for k, v in parse_from_cif_kwargs.items() if k not in ["model", "file_type"]}
+    data_dict = parse_atom_array(atom_array_stack, _cif_file=None, **kwargs_to_pass)
+    data_dict["metadata"]["id"] = Path(filename).stem.lower()
+
+    return data_dict
 
 
 # Helper functions
@@ -601,3 +744,29 @@ def _remove_annotation_if_exists(atom_array: struc.AtomArray | struc.AtomArraySt
     """Safely remove an annotation from an AtomArray or AtomArrayStack if it exists."""
     if annotation in atom_array.get_annotation_categories():
         atom_array.del_annotation(annotation)
+
+
+def _remove_tmp_annotations(data_dict: dict, asym_unit_stack: AtomArrayStack) -> dict:
+    """Clean the asym_unit_stack by removing unnecessary annotations.
+
+    Also adds the clean asym_unit_stack to the data dictionary.
+    """
+
+    # ... remove annotations that are no longer needed to save memory
+    _remove_annotations = {
+        "leaving_atom_flag",
+        "is_leaving_atom",
+        "is_n_terminal_atom",
+        "is_c_terminal_atom",
+        "index",
+    }
+    for annotation in _remove_annotations:
+        _remove_annotation_if_exists(asym_unit_stack, annotation)
+        if "assemblies" in data_dict:
+            for assembly in data_dict["assemblies"].values():
+                _remove_annotation_if_exists(assembly, annotation)
+
+    # ... add the asym_unit_stack to the data dict
+    data_dict["asym_unit"] = asym_unit_stack
+
+    return data_dict

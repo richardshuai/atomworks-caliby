@@ -17,6 +17,7 @@ from cifutils.tools.inference import (
     Protein,
     SequenceComponent,
     SmilesComponent,
+    build_msa_paths_by_chain_id_from_component_list,
     components_to_atom_array,
     one_letter_to_ccd_code,
     read_chai_fasta,
@@ -27,11 +28,20 @@ from cifutils.utils.testing import assert_same_atom_array
 @pytest.fixture
 def dict_inputs():
     """Fixture providing example chemical components for testing."""
+    cif_path = [
+        {
+            "path": f"{TEST_DATA_DIR}/test_cif_loading_4q8n.cif.gz",  # Contains two symmetry transformations
+            "msa_paths": {
+                "A": "/example/msa/path.a3m.gz",
+            },
+        }
+    ]
+
     monomer = [
         {
             "seq": "KVFGRCELAAAMKRHGLDNYRGYSLGNWVCAAKFESNFNTQATNRNTDGSTDYGILQINSRWWCNDGRTPGSRNLCNIPCSALLSSDITASVNCAKKIVSDGNGMNAWVAWRNRCKGTDVQAWIRGCRL",
             "chain_type": "polypeptide(l)",
-            "chain_id": "A",
+            "chain_id": "C",
             "is_polymer": True,
         }
     ]
@@ -41,13 +51,13 @@ def dict_inputs():
             "seq": "MRDTDVTVLGLGLMGQALAGAFLKDGHATTVWNRSEGKAGQLAEQGAVLASSARDAAEASPLVVVCVSDHAAVRAVLDPLGDVLAGRVLVNLTSGTSEQARATAEWAAERGITYLDGAIMAIPQVVGTADAFLLYSGPEAAYEAHEPTLRSLGAGTTYLGADHGLSSLYDVALLGIMWGTLNSFLHGAALLGTAKVEATTFAPFANRWIEAVTGFVSAYAGQVDQGAYPALDATIDTHVATVDHLIHESEAAGVNTELPRLVRTLADRALAGGQGGLGYAAMIEQFRSPSA",
             "chain_type": "polypeptide(l)",
             "is_polymer": True,
-            "chain_id": "B",
+            "chain_id": "D",
         },
         {
             "seq": "MRDTDVTVLGLGLMGQALAGAFLKDGHATTVWNRSEGKAGQLAEQGAVLASSARDAAEASPLVVVCVSDHAAVRAVLDPLGDVLAGRVLVNLTSGTSEQARATAEWAAERGITYLDGAIMAIPQVVGTADAFLLYSGPEAAYEAHEPTLRSLGAGTTYLGADHGLSSLYDVALLGIMWGTLNSFLHGAALLGTAKVEATTFAPFANRWIEAVTGFVSAYAGQVDQGAYPALDATIDTHVATVDHLIHESEAAGVNTELPRLVRTLADRALAGGQGGLGYAAMIEQFRSPSA",
             "chain_type": "polypeptide(l)",
             "is_polymer": True,
-            "chain_id": "C",
+            "chain_id": "E",
         },
     ]
 
@@ -61,7 +71,7 @@ def dict_inputs():
 
     custom_residues = [
         {
-            "seq": "G(L:0)G(SEP)G",
+            "seq": "G(C:0)G(SEP)G",
             "chain_type": "polypeptide(l)",
         }
     ]
@@ -71,7 +81,7 @@ def dict_inputs():
             "smiles": "O=C1OCC(=C1)C5C4(C(O)CC3C(CCC2CC(O)CCC23C)C4(O)CC5)C",
             "chain_type": "non-polymer",
             "is_polymer": False,
-            "chain_id": "E",
+            "chain_id": "F",
         }
     ]
 
@@ -80,7 +90,7 @@ def dict_inputs():
             "ccd_code": "NAG",
             "chain_type": "non-polymer",
             "is_polymer": False,
-            "chain_id": "F",
+            "chain_id": "G",
         }
     ]
     glycan_2 = [
@@ -88,7 +98,7 @@ def dict_inputs():
             "ccd_code": "NAG",
             "chain_type": "non-polymer",
             "is_polymer": False,
-            "chain_id": "G",
+            "chain_id": "H",
         }
     ]
 
@@ -107,20 +117,21 @@ def dict_inputs():
         "glycan_1": glycan_1,
         "glycan_2": glycan_2,
         "sdf": sdf,
+        "cif_path": cif_path,
     }
 
 
 @pytest.fixture
-def bonds():
+def bonds_glycan_glycan():
     # Bond between the two NAG residues (O4 and C1 atoms) and NAG and the protein (ND2 on ASN and C1 on NAG)
     # For details on the bond API, see `bonds.py`
-    return [("F/NAG/1/O4", "G/NAG/1/C1"), ("A/ASN/19/ND2", "F/NAG/1/C1")]
+    return [("G/NAG/1/O4", "H/NAG/1/C1"), ("C/ASN/19/ND2", "G/NAG/1/C1")]
 
 
 @pytest.fixture
 def custom_residues():
     return {
-        "L:0": {
+        "C:0": {
             "path": f"{TEST_DATA_DIR}/example_ncaa.cif",
             "chain_type": "polypeptide(l)",
         }
@@ -181,7 +192,7 @@ def test_components_to_atom_array_monomer(dict_inputs):
     # Check chain IDs
     chain_ids = np.unique(atom_array.chain_id)
     assert len(chain_ids) == 1
-    assert "A" in chain_ids
+    assert "C" in chain_ids
     print(chain_ids)
 
     # Verify polymer annotation
@@ -198,8 +209,8 @@ def test_components_to_atom_array_dimer(dict_inputs):
     # Check chain IDs
     chain_ids = np.unique(atom_array.chain_id)
     assert len(chain_ids) == 2
-    assert "B" in chain_ids
-    assert "C" in chain_ids
+    assert "D" in chain_ids
+    assert "E" in chain_ids
 
     # Verify polymer annotation
     assert np.all(atom_array.is_polymer)
@@ -231,7 +242,7 @@ def test_components_to_atom_array_ligand(dict_inputs):
     # Check chain IDs
     chain_ids = np.unique(atom_array.chain_id)
     assert len(chain_ids) == 1
-    assert "E" in chain_ids
+    assert "F" in chain_ids
 
     # Verify non-polymer annotation
     assert not np.any(atom_array.is_polymer)
@@ -241,10 +252,10 @@ def test_components_to_atom_array_ligand(dict_inputs):
     assert all(s.isupper() for s in atom_array.element)
 
 
-def test_components_to_atom_array_glycan(dict_inputs, bonds):
+def test_components_to_atom_array_glycan(dict_inputs, bonds_glycan_glycan):
     """Test conversion of ligand components to AtomArray."""
     components = dict_inputs["glycan_1"] + dict_inputs["glycan_2"] + dict_inputs["monomer"]
-    atom_array = components_to_atom_array(components, bonds=bonds)
+    atom_array = components_to_atom_array(components, bonds=bonds_glycan_glycan)
 
     assert isinstance(atom_array, AtomArray)
 
@@ -257,6 +268,32 @@ def test_components_to_atom_array_glycan(dict_inputs, bonds):
     # Check chain IDs
     chain_ids = np.unique(atom_array.chain_id)
     assert len(chain_ids) == 3
+
+
+def test_components_to_atom_array_cif(dict_inputs):
+    """Test modification of CIF file inputs and conversion of the modified CIF to AtomArray."""
+    component_dicts = dict_inputs["cif_path"] + dict_inputs["dimer"]
+    atom_array = components_to_atom_array(component_dicts)
+
+    assert isinstance(atom_array, AtomArray)
+
+    # Check chain IDs
+    chain_ids = np.unique(atom_array.chain_id)
+    assert len(chain_ids) == 4
+
+    # Check chain IIDs
+    chain_iids = np.unique(atom_array.chain_iid)
+    assert len(chain_iids) == 6  # Two additional iids due to the symmetry transformation in the input CIF
+    assert "A_1" in chain_iids
+    assert "A_2" in chain_iids
+
+    # Build MSA paths
+    components = [ChemicalComponent.from_dict(component_dict) for component_dict in component_dicts]
+    msa_paths_by_chain_id = build_msa_paths_by_chain_id_from_component_list(components)
+
+    # Ensure that the MSA path was assigned correctly
+    assert len(msa_paths_by_chain_id) == 1
+    assert msa_paths_by_chain_id["A"] == "/example/msa/path.a3m.gz"
 
 
 def test_chemical_component_from_dict():
@@ -338,13 +375,15 @@ def test_full_components_input(dict_inputs, custom_residues):
     # Sanity check outputs
     assert isinstance(atom_array, AtomArray)
     assert (
-        np.unique(atom_array.chain_id).shape[0] == 9
-    )  # 1 monomer, 2 dimers, 1 noncanonical, 1 ligand, 2 glycans, 1 SDF (HEM)
-    assert set(np.unique(atom_array.chain_id)) == {"A", "B", "C", "D", "E", "F", "G", "H", "I"}
-    assert set(np.unique(atom_array.chain_type)) == {ChainType.POLYPEPTIDE_L, ChainType.NON_POLYMER}
+        np.unique(atom_array.chain_id).shape[0] == 11
+    )  # 2 from CIF, 1 monomer, 2 dimers, 1 noncanonical, 1 custom residue, 1 ligand, 2 glycans, 1 SDF (HEM)
 
-    # Assert full occupancy
-    assert np.all(atom_array.occupancy == 1.0)
+    # fmt: off
+    # Note that duplicate chain IDs have been merged
+    assert set(np.unique(atom_array.chain_id)) == { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K" }
+    # fmt: on
+
+    assert set(np.unique(atom_array.chain_type)) == {ChainType.POLYPEPTIDE_L, ChainType.NON_POLYMER}
 
 
 def test_sdf_input(dict_inputs):
@@ -358,7 +397,7 @@ def test_sdf_input(dict_inputs):
 
 def test_custom_residues(dict_inputs, custom_residues):
     # (Name of the custom residue within the CIF file)
-    custom_residue_name = "L:0"
+    custom_residue_name = "C:0"
 
     atom_array = components_to_atom_array(dict_inputs["custom_residues"], custom_residues=custom_residues)
 
@@ -468,4 +507,4 @@ def test_same_atom_array_from_cif_and_inference():
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    pytest.main([__file__ + "::test_full_components_input"])

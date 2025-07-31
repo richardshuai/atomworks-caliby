@@ -5,7 +5,7 @@ from abc import ABC
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -15,7 +15,7 @@ from rdkit.Chem import AllChem
 
 import cifutils.transforms.atom_array as ta
 from cifutils import parse
-from cifutils.common import KeyToIntMapper
+from cifutils.common import KeyToIntMapper, exists
 from cifutils.constants import (
     CCD_MIRROR_PATH,
     STANDARD_AA_ONE_LETTER,
@@ -24,6 +24,7 @@ from cifutils.constants import (
     UNKNOWN_LIGAND,
 )
 from cifutils.enums import ChainType, ChainTypeInfo
+from cifutils.parser import DEFAULT_PARSE_KWARGS
 from cifutils.template import build_template_atom_array
 from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
 from cifutils.utils.bonds import (
@@ -41,6 +42,7 @@ from cifutils.utils.ccd import (
     get_chem_comp_type,
 )
 from cifutils.utils.chain import create_chain_id_generator
+from cifutils.utils.io_utils import CIF_LIKE_EXTENSIONS
 
 logger = logging.getLogger("cifutils")
 
@@ -57,8 +59,8 @@ class ChemicalComponent(ABC):  # noqa: B024
             return SmilesComponent(**args_dict)
         elif "path" in args_dict and args_dict["path"].endswith(".sdf"):
             return SDFComponent(**args_dict)
-        elif "path" in args_dict and args_dict["path"].endswith(".cif"):
-            return CIFFileComponent(**args_dict)
+        elif "path" in args_dict and any(extension in args_dict["path"] for extension in CIF_LIKE_EXTENSIONS):
+            return CIFOrPDBFileComponent(**args_dict)
         elif "ccd_code" in args_dict:
             return CCDComponent(**args_dict)
         else:
@@ -201,24 +203,61 @@ class SDFComponent(LigandComponent):
 
 
 @dataclass
-class CIFFileComponent(ChemicalComponent):
+class CIFOrPDBFileComponent(ChemicalComponent):
     path: os.PathLike | io.StringIO
     msa_paths: dict[str, os.PathLike] | None = None
-    assembly: int = "1"
-    model: int = 0
     chain_type: ChainType | str | None = None
+    custom_parse_kwargs: dict[str, Any] | None = None
 
     def __post_init__(self):
-        # Parse the file to set the AtomArray
-        atom_array = parse(self.path, add_missing_atoms=False)["assemblies"][self.assembly][self.model]
-        # ... extract chain IDs
-        self.chain_ids = np.unique(atom_array.chain_id)
-        # ... set the chain type
-        # (If mixed chain types, use chain_type=None)
         if self.chain_type:
             self.chain_type = ChainType.as_enum(self.chain_type)
+        if self.custom_parse_kwargs is None:
+            self.custom_parse_kwargs = {}
 
-        self.atom_array = atom_array
+        parse_kwargs = {**DEFAULT_PARSE_KWARGS, "add_missing_atoms": False} | self.custom_parse_kwargs
+
+        if parse_kwargs["add_missing_atoms"]:
+            logger.warning(
+                "Missing atoms will be added later to the fully-concatenated inference AtomArray. "
+                "It is recommended to set this argument to False in initial CIFOrPDBFileComponent parsing. "
+            )
+
+        # Parse using cifutils
+        parsing_results = parse(self.path, **parse_kwargs)
+
+        if "assemblies" in parsing_results:
+            assemblies = parsing_results["assemblies"]
+
+            # We will keep only the first assembly that was parsed
+            first_assembly_id = next(iter(assemblies.keys()))
+
+            # Give warning if multiple assemblies were parsed
+            if len(assemblies) > 1:
+                logger.warning(
+                    f"Multiple biological assemblies found in {self.path} and none were specified. "
+                    f"Only the first assembly (assembly_id={first_assembly_id}) will be used for inference. "
+                    f"If you would like to use a different assembly, please specify this in the `parse_kwargs`."
+                )
+
+            # Get the atom array stack corresponding to this assembly
+            atom_array_stack = assemblies[first_assembly_id]
+
+        # Use the asymmetric unit if no assemblies were returned
+        else:
+            atom_array_stack = parsing_results["asym_unit"]
+
+        # We will keep only the first model of the parsed structure
+        if atom_array_stack.stack_depth() > 1:
+            logger.warning(
+                f"Multiple models found in {self.path}. Only the first model will be used for inference. "
+                f"If you would like to use a different model, please specify this in the `parse_kwargs`."
+            )
+        structure_file_atom_array = atom_array_stack[0]
+
+        # Record chain ids and AtomArray
+        self.chain_ids = np.unique(structure_file_atom_array.chain_id)
+        self.atom_array = structure_file_atom_array
 
 
 @dataclass
@@ -484,21 +523,6 @@ def assign_res_name_from_atom_array_hash(atom_array: AtomArray, hash_to_id: KeyT
     return atom_array
 
 
-def add_inference_iid_id_entity_annotations(atom_array: AtomArray) -> AtomArray:
-    # ... annotate ids and entities
-    atom_array = ta.add_id_and_entity_annotations(atom_array)
-
-    # ... annotate iids (assumes we are only given the asym)
-    atom_array.set_annotation("chain_iid", np.char.add(atom_array.chain_id, "_1"))
-    atom_array.set_annotation("pn_unit_iid", np.char.add(atom_array.pn_unit_id, "_1"))
-    atom_array.set_annotation("molecule_iid", atom_array.molecule_id)
-
-    # ... set transformation ID to string "1"
-    atom_array.set_annotation("transformation_id", np.full(atom_array.array_length(), "1"))
-
-    return atom_array
-
-
 def standardize_component_keys(component_dict: dict) -> dict:
     """Standardize component dictionary keys for compatibility with AF3's inference API.
 
@@ -566,6 +590,10 @@ def components_to_atom_array(
 
     Returns:
         AtomArray: The assembled AtomArray, used for visualization or inference.
+
+    Raises:
+        ValueError: If there are duplicate chain_ids across input Components
+        ValueError: If there are duplicate chain_ids that correspond to non-identical molecular entities.
     """
     standardized_components = []
     for component in components:
@@ -592,14 +620,30 @@ def components_to_atom_array(
         for component in standardized_components
     ]
 
-    # Extract all assigned chain IDs
     chain_ids = []
-    for component in components:
-        if hasattr(component, "chain_ids") and component.chain_ids:
-            chain_ids.extend(component.chain_ids)
-        elif hasattr(component, "chain_id") and component.chain_id:
-            chain_ids.append(component.chain_id)
 
+    # Get existing chain ids
+    for component in components:
+        if hasattr(component, "chain_id") and exists(component.chain_id):
+            chain_ids.append(component.chain_id)
+        elif hasattr(component, "chain_ids") and exists(component.chain_ids):
+            chain_ids.extend(component.chain_ids)
+
+    # Raise an exception if there are duplicate chain_ids across input components
+    # Note that intra-component duplicates may still be present due to multiple transformations of the same asym_unit
+    if len(chain_ids) > len(set(chain_ids)):
+        duplicated_chain_ids = set()
+        for chain_id in chain_ids:
+            if chain_ids.count(chain_id) > 1:
+                duplicated_chain_ids.add(chain_id)
+        chain_counter = Counter(chain_ids)
+        duplicated_chain_ids = {chain_id for chain_id, count in chain_counter.items() if count > 1}
+        raise ValueError(
+            f"The following chain_ids were present in multiple input components: {duplicated_chain_ids}. "
+            f"Please rename chains to avoid this issue."
+        )
+
+    # Instantiate a chain id generator
     chain_id_generator = create_chain_id_generator(chain_ids)
 
     # Convert the custom_residues to a dictionary mapping strings to AtomArrays, if given
@@ -617,9 +661,8 @@ def components_to_atom_array(
     atom_arrays = []
     ligand_hash_to_id = KeyToIntMapper()  # ... to keep track of identical ligands
     for component in components:
-        if isinstance(component, CIFFileComponent):
-            # ... append and skip to the next component, as we already have the
-            # annotated AtomArray
+        # CIFOrPDBFileComponents already have parsed AtomArrays
+        if isinstance(component, CIFOrPDBFileComponent):
             atom_arrays.append(component.atom_array)
             continue
 
@@ -638,10 +681,27 @@ def components_to_atom_array(
         else:
             raise ValueError(f"Unknown chemical component type: {type(component)}")
 
+    # ... add (possibly spoofed) annotations to each AtomArray
+    for atom_array in atom_arrays:
+        if "transformation_id" not in atom_array.get_annotation_categories():
+            atom_array.set_annotation("transformation_id", np.full(atom_array.array_length(), "1"))
+        if "charge" not in atom_array.get_annotation_categories():
+            atom_array.set_annotation("charge", np.zeros(atom_array.array_length(), dtype=int))
+        if "b_factor" not in atom_array.get_annotation_categories():
+            atom_array.set_annotation("b_factor", np.full(atom_array.array_length(), np.nan))
+        if "occupancy" not in atom_array.get_annotation_categories():
+            atom_array.set_annotation("occupancy", np.ones(atom_array.array_length(), dtype=float))
+        if "atom_id" not in atom_array.get_annotation_categories():
+            # This is 1-indexed for consistency with the PDB. However, biotite 0-indexes it if not present in the CIF.
+            atom_array.set_annotation("atom_id", np.arange(1, atom_array.array_length() + 1))
+
     # ... concatenate all atom arrays into a single AtomArray
     atom_array = struc.concatenate(atom_arrays)
 
     # TODO: We may be able to simplify by casting to a buffer and running `parse`
+
+    # ... add the chain_iid annotation
+    ta.add_chain_iid_annotation(atom_array)
 
     if bonds:
         # ... spoof the struct_conn CIFCategory
@@ -676,8 +736,19 @@ def components_to_atom_array(
     # ... remove hydrogens
     atom_array = ta.remove_hydrogens(atom_array)
 
-    # ... add iid, id, entity annotations
-    atom_array = add_inference_iid_id_entity_annotations(atom_array)
+    # ... add (pn_unit, molecule) x (id, iid) entity annotations
+    atom_array = ta.add_id_and_entity_annotations(atom_array)
+    atom_array = ta.add_pn_unit_iid_annotation(atom_array)
+    atom_array = ta.add_molecule_iid_annotation(atom_array)
+
+    # Raise an error if chain_ids with the same name correspond to different entities
+    for chain_id in np.unique(atom_array.chain_id):
+        subsetted_atom_array = atom_array[atom_array.chain_id == chain_id]
+        if len(np.unique(subsetted_atom_array.chain_entity)) > 1:
+            raise ValueError(
+                f"Chain ID {chain_id} corresponds to multiple non-identical molecular entities. "
+                f"Please ensure that each chain_id corresponds to only a single entity."
+            )
 
     if return_components:
         return atom_array, components
