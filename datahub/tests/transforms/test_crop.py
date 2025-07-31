@@ -170,15 +170,17 @@ def test_af3_like_spatial_crop_transform(
         # Eval if no crop was performed
         if not data["crop_info"]["requires_crop"]:
             # ... no crop was performed
-            assert np.isnan(
-                data["crop_info"]["crop_center_atom_id"]
-            ), "Crop center atom id is not nan when no crop was performed."
-            assert np.isnan(
-                data["crop_info"]["crop_center_atom_idx"]
-            ), "Crop center atom index is not nan when no crop was performed."
-            assert np.isnan(
-                data["crop_info"]["crop_center_token_idx"]
-            ), "is_atom_in_crop is not nan when no crop was performed."
+            crop_info = data["crop_info"]
+            n_atoms = len(pre_crop_atom_array)
+            n_tokens = get_token_count(pre_crop_atom_array)
+            crop_atom_idxs = crop_info["crop_atom_idxs"]
+            crop_token_idxs = crop_info["crop_token_idxs"]
+            np.testing.assert_array_equal(
+                crop_atom_idxs, np.arange(n_atoms), err_msg="Not all atoms in crop despite not cropping."
+            )
+            np.testing.assert_array_equal(
+                crop_token_idxs, np.arange(n_tokens), err_msg="Not all atoms in crop despite not cropping."
+            )
             assert_same_atom_array(pre_crop_atom_array, post_crop_atom_array)
             return
 

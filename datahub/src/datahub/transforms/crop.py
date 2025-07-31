@@ -443,32 +443,30 @@ def crop_spatial_like_af3(
         - AF3 https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
         - AF2 Multimer https://www.biorxiv.org/content/10.1101/2021.10.04.463034v2.full.pdf
     """
-    token_start_stops = get_token_starts(atom_array, add_exclusive_stop=True)
-    n_tokens = len(token_start_stops) - 1
+    token_segments = get_token_starts(atom_array, add_exclusive_stop=True)
+    n_tokens = len(token_segments) - 1
     requires_crop = n_tokens > crop_size
+
+    # ... get possible crop centers
+    can_be_crop_center = get_spatial_crop_center(
+        atom_array, query_pn_unit_iids, crop_center_cutoff_distance, raise_if_missing_query=raise_if_missing_query
+    )
+
+    # ... sample crop center atom
+    crop_center_atom_id = np.random.choice(atom_array[can_be_crop_center].atom_id)
+    crop_center_atom_idx = atom_id_to_atom_idx(atom_array, crop_center_atom_id)
+    crop_center_token_idx = atom_id_to_token_idx(atom_array, crop_center_atom_id)
+
+    # ... sample crop
     if force_crop or requires_crop:
-        # Get possible crop centers
-        can_be_crop_center = get_spatial_crop_center(
-            atom_array, query_pn_unit_iids, crop_center_cutoff_distance, raise_if_missing_query=raise_if_missing_query
-        )
-
-        # ... sample crop center atom
-        crop_center_atom_id = np.random.choice(atom_array[can_be_crop_center].atom_id)
-        crop_center_atom_idx = atom_id_to_atom_idx(atom_array, crop_center_atom_id)
-
-        # ... sample crop
         token_coords = get_af3_token_center_coords(atom_array)
-        crop_center_token_idx = atom_id_to_token_idx(atom_array, crop_center_atom_id)
         is_token_in_crop = get_spatial_crop_mask(
             token_coords, crop_center_token_idx, crop_size=crop_size, jitter_scale=jitter_scale
         )
         # ... spread token-level crop mask to atom-level
-        is_atom_in_crop = spread_token_wise(atom_array, is_token_in_crop, token_starts=token_start_stops)
+        is_atom_in_crop = spread_token_wise(atom_array, is_token_in_crop, token_starts=token_segments)
     else:
         # ... no need to crop since the atom array is already small enough
-        crop_center_atom_id = np.nan
-        crop_center_atom_idx = np.nan
-        crop_center_token_idx = np.nan
         is_atom_in_crop = np.ones(len(atom_array), dtype=bool)
         is_token_in_crop = np.ones(n_tokens, dtype=bool)
 
