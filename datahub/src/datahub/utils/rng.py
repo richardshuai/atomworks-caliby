@@ -186,6 +186,18 @@ def serialize_rng_state_dict(rng_state_dict: dict[str, Any]) -> str:
     return "{" + ",\n".join([f"'{key}': {val}" for key, val in rng_state_serialized.items()]) + "}"
 
 
+def get_rng_state_hash(rng_state_dict: dict[str, Any]) -> int:
+    """Get the hash of the RNG state dictionary."""
+    return hash(serialize_rng_state_dict(rng_state_dict))
+
+
+def get_numpy_rng_state_hash(rng: np.random.RandomState | None = None) -> int:
+    """Get the hash of the current state of the Numpy RNG."""
+    rng = rng or np.random
+    algorithm, state, *rest = rng.get_state()
+    return hash((algorithm,) + tuple(state) + tuple(rest))
+
+
 if __name__ == "__main__":
     # Outside the context manager
     print("NumPy:", np.random.random(3))

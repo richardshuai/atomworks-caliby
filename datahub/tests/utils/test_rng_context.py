@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import torch
 
+from datahub.utils import rng
 from datahub.utils.rng import (
     create_rng_state_from_seeds,
     rng_state,
@@ -55,6 +56,16 @@ def test_rng_state():
     assert np.allclose(numpy_inside, NUMPY_INSIDE), "NumPy values should be the same inside the context manager"
     assert torch.allclose(torch_inside, TORCH_INSIDE), "PyTorch values should be the same inside the context manager"
     assert python_inside == PYTHON_INSIDE, "Python random values should be the same inside the context manager"
+
+
+def test_numpy_rng_state_hash():
+    with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
+        np_rng_state = rng.get_numpy_rng_state_hash()
+        assert isinstance(np_rng_state, int)
+        rng_generator = np.random.RandomState(seed=42)
+        np_rng_state2 = rng.get_numpy_rng_state_hash(rng_generator)
+        assert isinstance(np_rng_state2, int)
+        assert np_rng_state == np_rng_state2
 
 
 if __name__ == "__main__":
