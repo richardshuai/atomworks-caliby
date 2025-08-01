@@ -6,7 +6,6 @@ dependencies:
   # Core dependencies
   - pip
   - python=3.12
-  - cuda
   
   # Small molecule libraries
   - rdkit>=2024.3.5
