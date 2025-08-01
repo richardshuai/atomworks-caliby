@@ -19,7 +19,7 @@ from biotite.structure.io import pdbx
 from toolz import keyfilter
 
 import atomworks.io.transforms.atom_array as ta
-from atomworks.io import __version__, template
+from atomworks import __version__, template
 from atomworks.io.common import exists, md5_hash_string
 from atomworks.io.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS
 from atomworks.io.transforms.categories import (
@@ -313,7 +313,7 @@ def parse(
 
         # Add parse_arguments and version to metadata before saving
         result.setdefault("metadata", {}).update(
-            {"parse_arguments": parse_arguments, "atomworks.io_version": __version__}
+            {"parse_arguments": parse_arguments, "atomworks.version": __version__}
         )
 
         # Ensure all parent directories exist
