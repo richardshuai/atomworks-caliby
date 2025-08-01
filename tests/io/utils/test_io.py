@@ -23,8 +23,8 @@ from atomworks.io.utils.io_utils import (
     to_cif_string,
     to_pdb_string,
 )
-from atomworks.io.utils.testing import assert_same_atom_array
-from tests.io.conftest import TEST_DATA_DIR, get_pdb_path
+from atomworks.io.utils.testing import assert_same_atom_array, get_pdb_path
+from tests.io.conftest import TEST_DATA_DIR
 
 
 @pytest.mark.parametrize(
@@ -392,7 +392,6 @@ def test_parse_consistency_full_dict(filepath, expected_data_dict_path):
     """
     Compare the parsed structure to a reference structure (computed pre-refactor).
     """
-
     with open(expected_data_dict_path, "rb") as f:
         expected_data_dict = pickle.load(f)
 

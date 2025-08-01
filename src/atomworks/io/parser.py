@@ -19,7 +19,7 @@ from biotite.structure.io import pdbx
 from toolz import keyfilter
 
 import atomworks.io.transforms.atom_array as ta
-from atomworks.io.template import add_missing_atoms
+from atomworks.io import template
 from atomworks.io.common import exists, md5_hash_string
 from atomworks.io.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS
 from atomworks.io.transforms.categories import (
@@ -508,7 +508,7 @@ def parse_atom_array(
             else:
                 struct_conn_dict = get_struct_conn_dict_from_atom_array(atom_array)
 
-            atom_array = add_missing_atoms(
+            atom_array = template.add_missing_atoms(
                 atom_array,
                 chain_info_dict=data_dict["chain_info"],
                 struct_conn_dict=struct_conn_dict,
