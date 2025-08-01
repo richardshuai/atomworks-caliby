@@ -4,12 +4,12 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 import torch
+
 from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from atomworks.io.enums import ChainType
 from atomworks.io.tools.inference import components_to_atom_array
 from atomworks.io.tools.rdkit import atom_array_from_rdkit
 from atomworks.io.utils.selection import get_residue_starts
-
 from atomworks.ml.enums import GroundTruthConformerPolicy
 from atomworks.ml.transforms.af3_reference_molecule import (
     GetAF3ReferenceMoleculeFeatures,
@@ -188,9 +188,9 @@ def _assert_ref_pos_matches_ground_truth(
     mask: np.ndarray,
 ) -> None:
     """Assert that the reference positions are correctly aligned with the ground truth."""
-    assert not np.any(np.isclose(ref_pos, ground_truth_coord)), (
-        "Reference positions should differ from atom array coordinates under a transformation."
-    )
+    assert not np.any(
+        np.isclose(ref_pos, ground_truth_coord)
+    ), "Reference positions should differ from atom array coordinates under a transformation."
 
     # Assert similar distances in masked positions
     dist1 = np.linalg.norm(ground_truth_coord[mask][:, None] - ground_truth_coord[mask], axis=2)
@@ -244,17 +244,16 @@ def test_random_apply_ground_truth_conformer_by_chain_type(seed: int = 42):
 
     # Assert that all polymer atoms have the IGNORE policy
     polymer_mask = atom_array.is_polymer
-    assert np.all(atom_array.ground_truth_conformer_policy[polymer_mask] == GroundTruthConformerPolicy.IGNORE), (
-        f"Expected all polymer atoms to have IGNORE policy, but got {atom_array.ground_truth_conformer_policy[polymer_mask]}"
-    )
+    assert np.all(
+        atom_array.ground_truth_conformer_policy[polymer_mask] == GroundTruthConformerPolicy.IGNORE
+    ), f"Expected all polymer atoms to have IGNORE policy, but got {atom_array.ground_truth_conformer_policy[polymer_mask]}"
 
     # Assert that most non-polymer atoms have the REPLACE policy...
     non_polymer_mask = ~polymer_mask
-    assert np.sum(
-        atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE
-    ) > 0.5 * np.sum(non_polymer_mask), (
-        f"Expected most non-polymer atoms to have REPLACE policy, but got {np.sum(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE)}"
-    )
+    assert (
+        np.sum(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE)
+        > 0.5 * np.sum(non_polymer_mask)
+    ), f"Expected most non-polymer atoms to have REPLACE policy, but got {np.sum(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE)}"
     # ... but not all
     assert np.any(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.IGNORE)
 
@@ -344,11 +343,11 @@ def test_ref_space_uid():
 
     # fmt: off
     expected_ref_space_uid = np.array(
-        [0] * len(ala1) + 
-        [1] * len(tyr1) + 
-        [2] * len(ala2) + 
-        [3] * len(ala3) + 
-        [4] * len(eoh1) + 
+        [0] * len(ala1) +
+        [1] * len(tyr1) +
+        [2] * len(ala2) +
+        [3] * len(ala3) +
+        [4] * len(eoh1) +
         [5] * len(eoh2)
     )
     # fmt: on
@@ -357,9 +356,9 @@ def test_ref_space_uid():
     pipe = GetAF3ReferenceMoleculeFeatures(apply_random_rotation_and_translation=True)
     out = pipe({"atom_array": atom_array})
 
-    assert np.all(out["feats"]["ref_space_uid"] == expected_ref_space_uid), (
-        f"{out['feats']['ref_space_uid']}, but expected {expected_ref_space_uid}"
-    )
+    assert np.all(
+        out["feats"]["ref_space_uid"] == expected_ref_space_uid
+    ), f"{out['feats']['ref_space_uid']}, but expected {expected_ref_space_uid}"
 
 
 def test_max_conformers_per_residue_functionality():
@@ -467,7 +466,7 @@ def test_af3_reference_molecule_features_with_subsampled_conformers(data_with_su
 
     # Loop through each residue and check that the reference conformer coordinates match
     # the coordinates using the appropriate index from the subsampled conformer indices
-    for res_start, res_end in zip(_res_starts, _res_ends):
+    for res_start, res_end in zip(_res_starts, _res_ends, strict=False):
         res_name = atom_array.res_name[res_start]
         res_global_id = int(atom_array.res_id_global[res_start])
 

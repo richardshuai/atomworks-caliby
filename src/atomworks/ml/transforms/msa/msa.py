@@ -12,8 +12,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from biotite.structure import AtomArray
-from atomworks.io.enums import ChainType
 
+from atomworks.io.enums import ChainType
 from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding, TokenEncoding
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
@@ -116,7 +116,7 @@ class PairAndMergePolymerMSAs(Transform):
         # (2) Keep track of the number of residues for each entity ID
         msa_list = []
         num_residues_by_chain_with_msa_entity = {}
-        for chain_entity in chain_with_msa_entity_to_ids.keys():
+        for chain_entity in chain_with_msa_entity_to_ids:
             first_chain_id = chain_with_msa_entity_to_ids[chain_entity][0]  # All chains in the entity are the same
             msa = data["polymer_msas_by_chain_id"][first_chain_id]
             msa_list.append(msa)
@@ -127,11 +127,11 @@ class PairAndMergePolymerMSAs(Transform):
         chain_entity_array = np.concatenate(
             [
                 [chain_entity] * num_residues_by_chain_with_msa_entity[chain_entity]
-                for chain_entity in chain_with_msa_entity_to_ids.keys()
+                for chain_entity in chain_with_msa_entity_to_ids
                 if chain_entity in num_residues_by_chain_with_msa_entity
             ]
         )
-        for chain_entity in chain_with_msa_entity_to_ids.keys():
+        for chain_entity in chain_with_msa_entity_to_ids:
             entity_masks[chain_entity] = chain_entity_array == chain_entity
 
         if len(msa_list) > 1:
@@ -149,7 +149,7 @@ class PairAndMergePolymerMSAs(Transform):
 
         # Distribute entity-level MSAs to chain-level MSAs by pointing each chain_id to the MSA for its corresponding chain_entity
         polymer_msas_by_chain_entity = {}
-        for chain_entity in chain_with_msa_entity_to_ids.keys():
+        for chain_entity in chain_with_msa_entity_to_ids:
             entity_mask = entity_masks[chain_entity]
             msa = merged_polymer_msas["msa"][:, entity_mask]
             ins = merged_polymer_msas["ins"][:, entity_mask]

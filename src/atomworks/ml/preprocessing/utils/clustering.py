@@ -205,9 +205,9 @@ def cluster_all_sequences(
 
         # Create a short string of the cluster mode for the column name
         cluster_mode_str = (
-            f"(id:{str(float(config.cluster_identity))})"
-            + f"(cov:{str(float(config.coverage))})"
-            + f"(cov_mode:{str(int(config.coverage_mode))})"
+            f"(id:{float(config.cluster_identity)!s})"
+            + f"(cov:{float(config.coverage)!s})"
+            + f"(cov_mode:{int(config.coverage_mode)!s})"
         ).replace(".", ",")
 
         logger.info("Merging clustering information into the master DataFrame...")

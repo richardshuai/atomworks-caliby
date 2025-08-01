@@ -1,7 +1,8 @@
 import itertools
 import logging
 import math
-from typing import Any, Hashable, Sequence
+from collections.abc import Hashable, Sequence
+from typing import Any
 
 import biotite.structure as struc
 import einops
@@ -10,8 +11,8 @@ import networkx.algorithms.isomorphism as iso
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from atomworks.io.utils.bonds import hash_atom_array
 
+from atomworks.io.utils.bonds import hash_atom_array
 from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
 from atomworks.ml.transforms.atomize import AtomizeByCCDName
@@ -211,9 +212,9 @@ def get_isomorphisms_from_symmetry_groups(
         # Determine tile size and number of tiles needed to fill the array
         tile_size = n_perm * n_reps  # ... each tile has the permutation repeated n_reps times
         n_tile = math.ceil(n_isomorphisms / tile_size)  # ... number of tiles needed to fill the array
-        assert (n_isomorphisms <= get_perm_count(permutations)) or (n_tile * tile_size == n_isomorphisms), (
-            f"{n_tile} * {tile_size} != {n_isomorphisms} (={n_tile * tile_size})"
-        )
+        assert (n_isomorphisms <= get_perm_count(permutations)) or (
+            n_tile * tile_size == n_isomorphisms
+        ), f"{n_tile} * {tile_size} != {n_isomorphisms} (={n_tile * tile_size})"
 
         # Fill the isomorphisms array with `n_tile` copies of `perm`, each of which is repeated `n_reps` times
         isomorphisms[:, start_idx : start_idx + n_instances] = np.tile(np.repeat(perm, n_reps, axis=0), (n_tile, 1))[
@@ -738,7 +739,7 @@ class CreateSymmetryCopyAxisLikeRF2AA(Transform):
 
         # ... fill
         start_idx = 0
-        for xyz, mask in zip(nonpoly_xyzs, nonpoly_masks):
+        for xyz, mask in zip(nonpoly_xyzs, nonpoly_masks, strict=False):
             n_permutations = xyz.shape[0]
             n_atoms = xyz.shape[1]
             nonpoly_xyz[:n_permutations, start_idx : start_idx + n_atoms] = xyz
@@ -856,7 +857,7 @@ def generate_automorphisms_from_atom_array_with_networkx(
     max_automorphs: int = 1000,
     node_features: str | list = "element",
     ignore_bond_type: bool = True,
-    hash_key: Hashable = None,  # noqa
+    hash_key: Hashable = None,
 ) -> np.ndarray:
     """Generate automorphisms of a molecular graph using NetworkX.
 

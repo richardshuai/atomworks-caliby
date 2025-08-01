@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import Any, Callable, Iterator, Literal
+from collections.abc import Callable, Iterator
+from typing import Any, Literal
 
 import biotite.structure as struc
 import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray, get_residue_count, spread_residue_wise
+
 from atomworks.io.enums import ChainType
 from atomworks.io.utils.testing import has_annotation
-
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -364,9 +365,9 @@ def copy_annotation(atom_array: AtomArray, annotation_to_copy: str, new_annotati
         updated_atom_array = copy_annotation(atom_array, "coord", "coord_to_be_noised")
     """
 
-    assert new_annotation not in atom_array.get_annotation_categories() and new_annotation != "coord", (
-        f"Annotation {new_annotation} already exists in the AtomArray."
-    )
+    assert (
+        new_annotation not in atom_array.get_annotation_categories() and new_annotation != "coord"
+    ), f"Annotation {new_annotation} already exists in the AtomArray."
 
     if annotation_to_copy == "coord":
         # We must handle the special case of copying the coordinates (since "coord" is not technically an annotation)
@@ -624,9 +625,9 @@ def sort_like_rf2aa(atom_array: AtomArray) -> AtomArray:
         pn_unit_mask = atom_array.pn_unit_iid == pn_unit_iid
         is_bonded_non_poly[pn_unit_mask] = np.any(is_poly[pn_unit_mask]) & is_non_poly[pn_unit_mask]
     is_free_non_poly = is_non_poly & (~is_bonded_non_poly)
-    assert np.sum(is_poly) + np.sum(is_bonded_non_poly) + np.sum(is_free_non_poly) == len(atom_array), (
-        "overlapping groups"
-    )
+    assert np.sum(is_poly) + np.sum(is_bonded_non_poly) + np.sum(is_free_non_poly) == len(
+        atom_array
+    ), "overlapping groups"
 
     # Sort by indexing according to
     #  0: by poly / bonded non-poly / free non-poly

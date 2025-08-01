@@ -2,16 +2,18 @@ import gzip
 import hashlib
 import pickle
 import warnings
+from collections.abc import Callable
 from functools import wraps
 from os import PathLike
 from pathlib import Path
-from typing import Any, Callable, TextIO
+from typing import Any, TextIO
 
 import biotite.structure as struc
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+
 from atomworks.io.constants import (
     AA_LIKE_CHEM_TYPES,
     ATOMIC_NUMBER_TO_ELEMENT,
@@ -23,8 +25,11 @@ from atomworks.io.constants import (
     UNKNOWN_LIGAND,
 )
 from atomworks.io.utils.ccd import get_chem_comp_type
-
-from atomworks.ml.utils.misc import convert_pn_unit_iids_to_pn_unit_ids, extract_transformation_id_from_pn_unit_iid, logger
+from atomworks.ml.utils.misc import (
+    convert_pn_unit_iids_to_pn_unit_ids,
+    extract_transformation_id_from_pn_unit_iid,
+    logger,
+)
 
 
 def open_file(filename: PathLike) -> TextIO:

@@ -1,7 +1,7 @@
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
+from tests.io.conftest import get_pdb_path
 
 TEST_CASES = [
     {"pdb_id": "4oji", "pH": [8.0, 8.0]},  # _exptl_crystal_grow.pdbx_pH_range   pH8.0

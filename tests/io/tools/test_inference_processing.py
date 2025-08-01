@@ -7,7 +7,6 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
-from tests.io.conftest import TEST_DATA_DIR, get_pdb_path
 
 from atomworks.io import parse
 from atomworks.io.enums import ChainType
@@ -23,6 +22,7 @@ from atomworks.io.tools.inference import (
     read_chai_fasta,
 )
 from atomworks.io.utils.testing import assert_same_atom_array
+from tests.io.conftest import TEST_DATA_DIR, get_pdb_path
 
 
 @pytest.fixture

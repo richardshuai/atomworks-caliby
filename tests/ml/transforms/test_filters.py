@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 import pytest
 from biotite.structure import AtomArray
-from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 
+from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from atomworks.ml.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from atomworks.ml.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES, ChainType
 from atomworks.ml.transforms.atomize import AtomizeByCCDName
@@ -203,9 +203,9 @@ def test_remove_unsupported_chain_types(pdb_id: str, pn_units_df: pd.DataFrame):
             num_unsupported_atoms = len(original_atom_array) - len(atom_array)
             assert num_unsupported_atoms > 0, "There should be some atoms removed"
             chain_types = np.unique(atom_array.chain_type)
-            assert np.all(np.isin(chain_types, TRAINING_SUPPORTED_CHAIN_TYPES)), (
-                "All remaining chain types should be supported"
-            )
+            assert np.all(
+                np.isin(chain_types, TRAINING_SUPPORTED_CHAIN_TYPES)
+            ), "All remaining chain types should be supported"
 
 
 def test_handle_undesired_res_single():

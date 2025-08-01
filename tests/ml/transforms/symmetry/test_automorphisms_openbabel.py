@@ -52,7 +52,7 @@ def test_create_automorph_permutations(case):
     data = torch.arange(mol.NumAtoms()).view(-1, 1).repeat(1, 3)
     data_automorphs = apply_automorphs(data, automorphisms)
     assert data_automorphs.shape == (len(automorphisms), mol.NumAtoms(), 3)
-    for automorph, data_automorph in zip(automorphisms, data_automorphs):
+    for automorph, data_automorph in zip(automorphisms, data_automorphs, strict=False):
         assert automorph.shape == (mol.NumAtoms(), 2)
         assert data_automorph.shape == (mol.NumAtoms(), 3)
         assert torch.equal(data_automorph, automorph[:, 1].unsqueeze(-1).expand(mol.NumAtoms(), 3))
@@ -61,7 +61,7 @@ def test_create_automorph_permutations(case):
     data = torch.arange(mol.NumAtoms())
     data_automorphs = apply_automorphs(data, automorphisms)
     assert data_automorphs.shape == (len(automorphisms), mol.NumAtoms())
-    for automorph, data_automorph in zip(automorphisms, data_automorphs):
+    for automorph, data_automorph in zip(automorphisms, data_automorphs, strict=False):
         assert automorph.shape == (mol.NumAtoms(), 2)
         assert data_automorph.shape == (mol.NumAtoms(),)
         assert torch.allclose(data_automorph, automorph[:, 1])
@@ -122,7 +122,7 @@ def _legacy_get_automorphs(mol, xyz_sm, mask_sm, max_symm=1000):
     if xyz_sm.shape[0] > max_symm:
         xyz_sm = xyz_sm[:max_symm]
         mask_sm = mask_sm[:max_symm]
-    
+
     return xyz_sm, mask_sm
 # fmt: on
 

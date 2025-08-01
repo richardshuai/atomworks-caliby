@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import torch
@@ -24,7 +24,7 @@ class PackageConfidenceFeats(Transform):
         "AddPolymerFrameIndices",
     ]
 
-    def check_input(self, data: Dict[str, Any]) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(
             data,
             [

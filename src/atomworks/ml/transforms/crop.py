@@ -3,9 +3,9 @@ import logging
 
 import numpy as np
 from biotite.structure import AtomArray
-from atomworks.io.transforms.atom_array import is_any_coord_nan
 from scipy.spatial import KDTree
 
+from atomworks.io.transforms.atom_array import is_any_coord_nan
 from atomworks.ml.common import exists
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
@@ -135,7 +135,7 @@ def crop_contiguous_af2_multimer(iids: list[int | str], instance_lens: list[int]
     n_available = np.sum(instance_lens)  # ... number of tokens that are still available in the remaining instances
 
     keep_tokens = {}
-    for iid, instance_len in zip(iids, instance_lens):
+    for iid, instance_len in zip(iids, instance_lens, strict=False):
         if n_budget == 0:
             # ... early stop if budget is already exhausted
             break
@@ -657,7 +657,7 @@ class CropSpatialLikeAF3(CropTransformBase):
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
 
-        if "query_pn_unit_iids" in data and data["query_pn_unit_iids"]:
+        if data.get("query_pn_unit_iids"):
             query_pn_units = data["query_pn_unit_iids"]
         else:
             query_pn_units = np.unique(atom_array.pn_unit_iid)

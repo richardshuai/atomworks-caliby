@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from atomworks.io.constants import AF3_EXCLUDED_LIGANDS_REGEX, _load_env_var
-from atomworks.io.tools.inference import SequenceComponent
 from dotenv import load_dotenv
 
 import atomworks.ml.databases.data_source_utils as ds_utils
+from atomworks.io.constants import AF3_EXCLUDED_LIGANDS_REGEX, _load_env_var
+from atomworks.io.tools.inference import SequenceComponent
 from atomworks.ml.databases.enums import (
     BindingLabel,
     ConfidenceLabel,

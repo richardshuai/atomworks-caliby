@@ -61,9 +61,7 @@ def test_fallback_sampler_wrapper():
     fallback_dataloader = DataLoader(wrapped_dataset, sampler=wrapped_sampler, collate_fn=lambda x: x, batch_size=1)
 
     for idx, example in enumerate(iter(fallback_dataloader)):
-        if idx == 5:
-            assert all(example[0] == fallback_dataset[5])
-        elif idx == 15:
+        if idx == 5 or idx == 15:
             assert all(example[0] == fallback_dataset[5])
         else:
             assert all(example[0] == primary_dataset[idx])

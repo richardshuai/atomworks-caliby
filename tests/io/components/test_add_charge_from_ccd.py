@@ -2,10 +2,10 @@ from typing import Any
 
 import numpy as np
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
 from atomworks.io.transforms.atom_array import add_charge_from_ccd_codes
+from tests.io.conftest import get_pdb_path
 
 TEST_CASES = [{"pdb_id": "1jj8", "charge_sum": 7}, {"pdb_id": "2r5z", "charge_sum": 32}]
 

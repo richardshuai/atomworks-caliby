@@ -2,8 +2,8 @@ import os
 import re
 import subprocess
 from abc import ABC, ABCMeta, abstractmethod
+from collections.abc import Iterable
 from os import PathLike
-from typing import Iterable
 
 __all__ = ["Executable", "ExecutableError", "get_executable", "list_executables"]
 

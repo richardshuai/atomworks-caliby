@@ -312,7 +312,9 @@ def parse(
         #   (3) The parse_arguments and atomworks.io version
 
         # Add parse_arguments and version to metadata before saving
-        result.setdefault("metadata", {}).update({"parse_arguments": parse_arguments, "atomworks.io_version": __version__})
+        result.setdefault("metadata", {}).update(
+            {"parse_arguments": parse_arguments, "atomworks.io_version": __version__}
+        )
 
         # Ensure all parent directories exist
         cache_file_path.parent.mkdir(parents=True, exist_ok=True)

@@ -3,10 +3,11 @@ import os
 import socket
 import time
 from abc import abstractmethod
+from collections.abc import Callable
 from functools import cached_property
 from os import PathLike
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd

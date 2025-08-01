@@ -1,8 +1,9 @@
 import json
 import logging
 import pickle
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -20,7 +21,7 @@ logger = logging.getLogger("atomworks.ml")
 FILE_LOADERS: dict[str, Callable[[Path], Any]] = {
     ".pt": lambda path: torch.load(path, map_location="cpu", weights_only=False),
     ".pkl": lambda path: pickle.load(open(path, "rb")),
-    ".json": lambda path: json.load(open(path, "r")),
+    ".json": lambda path: json.load(open(path)),
 }
 
 

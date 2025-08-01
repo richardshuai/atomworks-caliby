@@ -6,12 +6,12 @@ import biotite.structure as struc
 import numpy as np
 import torch
 from biotite.structure import AtomArray
+from rdkit import Chem
+
 from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
 from atomworks.io.tools.rdkit import atom_array_from_rdkit, remove_hydrogens
 from atomworks.io.utils.ccd import get_available_ccd_codes
 from atomworks.io.utils.selection import get_residue_starts
-from rdkit import Chem
-
 from atomworks.ml.common import exists
 from atomworks.ml.enums import GroundTruthConformerPolicy
 from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
@@ -235,7 +235,7 @@ def get_af3_reference_molecule_features(
     _res_start_ends = get_residue_starts(atom_array, add_exclusive_stop=True)
     _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
     _res_names = atom_array.res_name[_res_starts]
-    res_stochiometry = dict(zip(*np.unique(_res_names, return_counts=True)))
+    res_stochiometry = dict(zip(*np.unique(_res_names, return_counts=True), strict=False))
 
     # Extract cached conformers and get remaining stochiometry
     if cached_residue_level_data is not None:
@@ -292,7 +292,7 @@ def get_af3_reference_molecule_features(
 
     # ... iterate over all residues in the atom array and fill the `ref_pos` and `ref_mask` arrays using the next reference conformer for each residue type
     # We also check the `ground_truth_conformer_policy` annotation to see if we should use the ground-truth conformer
-    for res_start, res_end in zip(_res_starts, _res_ends):
+    for res_start, res_end in zip(_res_starts, _res_ends, strict=False):
         res_name = atom_array.res_name[res_start]
 
         if _has_global_res_id and residue_conformer_indices is not None:
@@ -404,9 +404,9 @@ def get_af3_reference_molecule_features(
     ref_atom_name_chars = _encode_atom_names_like_af3(atom_array.atom_name)
 
     if use_element_for_atom_names_of_atomized_tokens:
-        assert "atomize" in atom_array.get_annotation_categories(), (
-            "Atomize annotation is required when using element for atom names of atomized tokens."
-        )
+        assert (
+            "atomize" in atom_array.get_annotation_categories()
+        ), "Atomize annotation is required when using element for atom names of atomized tokens."
         ref_atom_name_chars[atom_array.atomize] = _encode_atom_names_like_af3(atom_array.element[atom_array.atomize])
 
     # ... space uid (type conversion needed for some older torch versions)

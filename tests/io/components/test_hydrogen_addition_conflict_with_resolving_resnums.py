@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
+from tests.io.conftest import get_pdb_path
 
 TEST_CASES = ["1iau"]
 # has multiple NAG with same res number loaded as -1.

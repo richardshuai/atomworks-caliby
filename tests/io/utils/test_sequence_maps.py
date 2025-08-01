@@ -2,7 +2,6 @@ import re
 
 import numpy as np
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.enums import ChainType
 from atomworks.io.parser import parse
@@ -10,6 +9,7 @@ from atomworks.io.utils.sequence import (
     get_1_from_3_letter_code,
     get_3_from_1_letter_code,
 )
+from tests.io.conftest import get_pdb_path
 
 SEQUENCE_TEST_CASES = ["155c", "2e2h", "4cpa", "1en2", "1aqc", "1ivo", "3k4a", "1cbn", "133d", "1l2y", "3nez"]
 

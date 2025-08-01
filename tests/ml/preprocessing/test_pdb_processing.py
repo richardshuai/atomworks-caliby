@@ -116,9 +116,9 @@ def validate_interfaces_dataframe(interfaces_df, test_cases):
         expected_interfaces = test_case["expected_interfaces"]
 
         if test_case["require_matching_interfaces"]:
-            assert len(expected_interfaces) == len(interfaces_df[interfaces_df["pdb_id"] == pdb_id]), (
-                f"{pdb_id}: Number of interfaces is incorrect."
-            )
+            assert len(expected_interfaces) == len(
+                interfaces_df[interfaces_df["pdb_id"] == pdb_id]
+            ), f"{pdb_id}: Number of interfaces is incorrect."
 
         for expected_interface in expected_interfaces:
             pn_unit_1 = expected_interface["pn_unit_1"]
@@ -133,18 +133,18 @@ def validate_interfaces_dataframe(interfaces_df, test_cases):
                 & (interfaces_df["pn_unit_2_iid"] == pn_unit_2)
             ]
 
-            assert len(interface_df) == 1, (
-                f"{pdb_id}: Interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} not found or multiple found"
-            )
-            assert interface_df["involves_loi"].iloc[0] == involves_loi, (
-                f"{pdb_id}: LOI involvement for interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} is incorrect"
-            )
-            assert interface_df["involves_covalent_modification"].iloc[0] == involves_covalent_modification, (
-                f"{pdb_id}: Covalent modification involvement for interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} is incorrect"
-            )
-            assert interface_df["involves_metal"].iloc[0] == involves_metal, (
-                f"{pdb_id}: Metal involvement for interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} is incorrect"
-            )
+            assert (
+                len(interface_df) == 1
+            ), f"{pdb_id}: Interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} not found or multiple found"
+            assert (
+                interface_df["involves_loi"].iloc[0] == involves_loi
+            ), f"{pdb_id}: LOI involvement for interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} is incorrect"
+            assert (
+                interface_df["involves_covalent_modification"].iloc[0] == involves_covalent_modification
+            ), f"{pdb_id}: Covalent modification involvement for interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} is incorrect"
+            assert (
+                interface_df["involves_metal"].iloc[0] == involves_metal
+            ), f"{pdb_id}: Metal involvement for interface between {pn_unit_1} and {pn_unit_2} in {pdb_id} is incorrect"
 
 
 if __name__ == "__main__":

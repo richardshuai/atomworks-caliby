@@ -7,11 +7,12 @@ import queue
 import signal
 import time
 import weakref
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from logging import getLogger
-from typing import Any, Callable, Iterator, Optional
+from typing import Any
 
 import psutil
 import torch
@@ -107,21 +108,21 @@ class WorkStealDataLoader(DataLoader):
     def __init__(
         self,
         dataset: Dataset,
-        batch_size: Optional[int] = 1,
+        batch_size: int | None = 1,
         shuffle: bool = False,
-        sampler: Optional[Sampler] = None,
-        batch_sampler: Optional[BatchSampler] = None,
+        sampler: Sampler | None = None,
+        batch_sampler: BatchSampler | None = None,
         num_workers: int = 0,
-        collate_fn: Optional[Callable] = None,
+        collate_fn: Callable | None = None,
         pin_memory: bool = False,
         drop_last: bool = False,
         timeout: float = 0,
-        worker_init_fn: Optional[Callable] = None,
+        worker_init_fn: Callable | None = None,
         multiprocessing_context: str = "spawn",
         generator=None,
         prefetch_factor: int = 2,
         persistent_workers: bool = False,
-        max_queue_size: Optional[int] = None,
+        max_queue_size: int | None = None,
     ):
         # Validate arguments
         if num_workers < 0:
@@ -359,7 +360,7 @@ class WorkStealDataLoader(DataLoader):
         result_queue: Queue,
         shutdown_event: Event,
         pickled_collate_fn: bytes,
-        pickled_init_fn: Optional[bytes],
+        pickled_init_fn: bytes | None,
         worker_stats: dict,
         timeout: float,
     ):

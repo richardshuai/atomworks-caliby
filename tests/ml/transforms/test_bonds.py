@@ -3,8 +3,8 @@ import networkx as nx
 import numpy as np
 import pytest
 import torch
-from atomworks.io.constants import STANDARD_AA
 
+from atomworks.io.constants import STANDARD_AA
 from atomworks.ml.encoding_definitions import AF3SequenceEncoding
 from atomworks.ml.transforms.atom_array import AddWithinChainInstanceResIdx, AddWithinPolyResIdxAnnotation
 from atomworks.ml.transforms.atomize import AtomizeByCCDName
@@ -46,8 +46,8 @@ def _adjacency_to_token_adjacency_slow(adjacency: np.ndarray, token_start_end_id
     token_adjacency = np.zeros((len(token_start_idxs), len(token_start_idxs)), dtype=np.bool_)
 
     # Collapse all token blocks via `any`
-    for i, (start_i, end_i) in enumerate(zip(token_start_idxs, token_end_idxs)):
-        for j, (start_j, end_j) in enumerate(zip(token_start_idxs, token_end_idxs)):
+    for i, (start_i, end_i) in enumerate(zip(token_start_idxs, token_end_idxs, strict=False)):
+        for j, (start_j, end_j) in enumerate(zip(token_start_idxs, token_end_idxs, strict=False)):
             token_adjacency[i, j] = np.any(adjacency[start_i:end_i, start_j:end_j])
 
     # Remove diagonal
@@ -170,9 +170,9 @@ def test_create_rf2aa_bond_features_matrix(test_case):
     output = _create_rf2aa_bond_features_matrix(
         test_case["token_bond_adjacency"], test_case["token_is_atom"], test_case["atom_biotite_bond_type_matrix"]
     )
-    assert np.array_equal(output, test_case["expected_output"]), (
-        f"Expected {test_case['expected_output']}, but got {output}"
-    )
+    assert np.array_equal(
+        output, test_case["expected_output"]
+    ), f"Expected {test_case['expected_output']}, but got {output}"
 
 
 @pytest.mark.parametrize("pdb_id", ["6wjc"])
@@ -233,7 +233,7 @@ def compute_expected_output_with_networkx(rf2aa_bond_features_matrix):
 
     # Add edges to the graph
     rows, cols = np.where(atom_bonds)
-    edges = list(zip(rows, cols))
+    edges = list(zip(rows, cols, strict=False))
     G.add_edges_from(edges)
 
     # Initialize the distance matrix with zeros
@@ -271,12 +271,12 @@ def test_generate_rf2aa_traversal_distance_matrix(test_case):
     result = transform(data)
 
     # Check if the result matches the expected output, which matches the networkx output
-    assert np.allclose(result["rf2aa_traversal_distance_matrix"], expected), (
-        f"Expected {expected}, but got {result['rf2aa_traversal_distance_matrix']}"
-    )
-    assert np.allclose(result["rf2aa_traversal_distance_matrix"], expected_from_nx), (
-        f"Expected {expected_from_nx}, but got {result['rf2aa_traversal_distance_matrix']}"
-    )
+    assert np.allclose(
+        result["rf2aa_traversal_distance_matrix"], expected
+    ), f"Expected {expected}, but got {result['rf2aa_traversal_distance_matrix']}"
+    assert np.allclose(
+        result["rf2aa_traversal_distance_matrix"], expected_from_nx
+    ), f"Expected {expected_from_nx}, but got {result['rf2aa_traversal_distance_matrix']}"
 
 
 AF3_TOKEN_BOND_FEATURES_TEST_CASES = [

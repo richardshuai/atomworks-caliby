@@ -3,8 +3,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from atomworks.io.common import default, exists  # noqa: F401
 from omegaconf import ListConfig
+
+from atomworks.io.common import default, exists  # noqa: F401
 
 
 def generate_example_id(dataset_names: list[str], pdb_id: str, assembly_id: str, query_pn_unit_iids: list) -> str:

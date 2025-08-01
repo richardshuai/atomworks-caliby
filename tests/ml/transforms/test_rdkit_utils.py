@@ -5,10 +5,10 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
-from atomworks.io.tools.inference import components_to_atom_array
-from atomworks.io.tools.rdkit import atom_array_from_rdkit, atom_array_to_rdkit, smiles_to_rdkit
 from rdkit import Chem
 
+from atomworks.io.tools.inference import components_to_atom_array
+from atomworks.io.tools.rdkit import atom_array_from_rdkit, atom_array_to_rdkit, smiles_to_rdkit
 from atomworks.ml.transforms.rdkit_utils import (
     ccd_code_to_rdkit_with_conformers,
     generate_conformers,
@@ -167,13 +167,13 @@ def test_chirality_in_rdkit_conformer_generation(ccd_code, target_chirality, str
     for i in range(n_iterations):
         mol = ccd_code_to_rdkit_with_conformers(ccd_code, n_conformers=1, timeout=2, timeout_strategy=strategy)
         coord = mol.GetConformer(0).GetPositions()[0][0]
-        assert coord != prev_coord, (
-            f"Conformer {i} has the same coordinate as the previous conformer: {coord} at iteration {i}/{n_iterations}."
-        )
+        assert (
+            coord != prev_coord
+        ), f"Conformer {i} has the same coordinate as the previous conformer: {coord} at iteration {i}/{n_iterations}."
         prev_coord = coord
-        assert Chem.FindMolChiralCenters(mol) == target_chirality, (
-            f"Chiral center assignment is incorrect for {ccd_code} at iteration {i}/{n_iterations}."
-        )
+        assert (
+            Chem.FindMolChiralCenters(mol) == target_chirality
+        ), f"Chiral center assignment is incorrect for {ccd_code} at iteration {i}/{n_iterations}."
 
 
 @pytest.mark.filterwarnings("ignore: This process")

@@ -1,7 +1,7 @@
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
+from tests.io.conftest import get_pdb_path
 
 TEST_CASES = [
     {"pdb_id": "6wtf", "release_date": "2020-12-23", "deposition_date": "2020-05-02"},

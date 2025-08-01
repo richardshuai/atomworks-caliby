@@ -1,8 +1,9 @@
 """MetadataRowParser implementations for chain- and interface-based datasets."""
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import pandas as pd
 
@@ -70,7 +71,7 @@ def find_existing_file_path(
     """Find the first existing file path by trying corresponding base_dirs, file_extensions, and path_templates in order."""
     assert len(base_dirs) == len(file_extensions) == len(path_templates), "All lists must have the same length"
 
-    for base_dir, file_extension, path_template in zip(base_dirs, file_extensions, path_templates):
+    for base_dir, file_extension, path_template in zip(base_dirs, file_extensions, path_templates, strict=False):
         base_dir = Path(base_dir)
         candidate_path = build_path_from_template(
             path_template, pdb_id=pdb_id, base_dir=base_dir, file_extension=file_extension
@@ -281,9 +282,9 @@ class GenericDFParser(MetadataRowParser):
 
         # Compose the path to the structure file, including the base path and extension if specified
         path = Path(str(row[self.path_colname]))
-        if "base_path" in extra_info and extra_info["base_path"]:
+        if extra_info.get("base_path"):
             path = Path(extra_info["base_path"]) / path
-        if "extension" in extra_info and extra_info["extension"]:
+        if extra_info.get("extension"):
             path = path.with_suffix(extra_info["extension"])
 
         # (Exclude columns that we've already used from the extra_info dictionary)

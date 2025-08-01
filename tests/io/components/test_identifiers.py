@@ -2,9 +2,9 @@
 
 import numpy as np
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
+from tests.io.conftest import get_pdb_path
 
 PN_UNIT_IID_TEST_CASES = [
     {

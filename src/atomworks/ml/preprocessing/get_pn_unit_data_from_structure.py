@@ -17,12 +17,12 @@ import biotite.structure as struc
 import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
+
+import atomworks.ml.preprocessing.utils.structure_utils as dp  # to avoid circular imports
 from atomworks.io import parse
 from atomworks.io.common import not_isin
 from atomworks.io.constants import CRYSTALLIZATION_AIDS, METAL_ELEMENTS
 from atomworks.io.enums import ChainType
-
-import atomworks.ml.preprocessing.utils.structure_utils as dp  # to avoid circular imports
 from atomworks.ml.common import exists
 from atomworks.ml.preprocessing.constants import CELL_SIZE, ClashSeverity
 from atomworks.ml.utils.misc import hash_sequence
@@ -332,7 +332,11 @@ class DataPreprocessor:
 
                 if exists(ligand_validity_scores):
                     _query_pn_unit_ligand_ids = sorted(
-                        set(list(zip(query_pn_unit_atom_array.chain_id, query_pn_unit_atom_array.res_name)))
+                        set(
+                            list(
+                                zip(query_pn_unit_atom_array.chain_id, query_pn_unit_atom_array.res_name, strict=False)
+                            )
+                        )
                     )
 
                     # ... subset to the ids that have validity scores

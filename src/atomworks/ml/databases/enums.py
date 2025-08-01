@@ -1,5 +1,4 @@
 from enum import Flag, StrEnum
-from typing import Union
 
 
 class FlagWithCast(Flag):
@@ -8,7 +7,7 @@ class FlagWithCast(Flag):
     """
 
     @classmethod
-    def _missing_(cls, value: Union[str, bool, int, float]):
+    def _missing_(cls, value: str | bool | int | float):
         try:
             value = bool(value)
         except ValueError:

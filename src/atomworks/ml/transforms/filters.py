@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from functools import lru_cache
-from typing import Any, Sequence
+from typing import Any
 
 import biotite.structure as struc
 import numpy as np
@@ -14,7 +15,6 @@ from atomworks.io.enums import ChainType, ChainTypeInfo
 from atomworks.io.utils.query import QueryExpression
 from atomworks.io.utils.selection import get_annotation
 from atomworks.io.utils.sequence import get_1_from_3_letter_code, get_3_from_1_letter_code
-
 from atomworks.ml.common import exists
 from atomworks.ml.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES
 from atomworks.ml.transforms._checks import (
@@ -61,7 +61,7 @@ def remove_unresolved_tokens(atom_array: AtomArray) -> AtomArray:
     # ... build atom mask
     atom_mask = np.zeros(len(atom_array), dtype=bool)
 
-    for start, stop in zip(token_starts, token_stops):
+    for start, stop in zip(token_starts, token_stops, strict=False):
         # Keep token if ANY atom has occupancy > 0
         if np.any(atom_array.occupancy[start:stop] > 0):
             atom_mask[start:stop] = True
@@ -119,9 +119,9 @@ def remove_unsupported_chain_types(
         query_pn_unit_chain_types = np.unique(
             atom_array.chain_type[np.isin(atom_array.pn_unit_iid, query_pn_unit_iids)]
         )
-        assert np.all(np.isin(query_pn_unit_chain_types, supported_chain_types)), (
-            f"Query PN unit has an unsupported chain type: {query_pn_unit_chain_types}"
-        )
+        assert np.all(
+            np.isin(query_pn_unit_chain_types, supported_chain_types)
+        ), f"Query PN unit has an unsupported chain type: {query_pn_unit_chain_types}"
 
     # Then, we filter out chains with unsupported chain types
     is_supported_chain_type = np.isin(atom_array.chain_type, supported_chain_types)
@@ -151,7 +151,7 @@ class RemoveUnsupportedChainTypes(Transform):
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
-        query_pn_unit_iids = data.get("query_pn_unit_iids", None)
+        query_pn_unit_iids = data.get("query_pn_unit_iids")
 
         # Apply transform
         atom_array = remove_unsupported_chain_types(atom_array, query_pn_unit_iids, self.supported_chain_types)

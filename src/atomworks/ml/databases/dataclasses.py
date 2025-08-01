@@ -6,11 +6,11 @@ and metadata desired for that data point.
 
 from abc import ABC
 from dataclasses import MISSING, dataclass, field, fields
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 from biotite.structure import AtomArray
-from atomworks.io.tools.inference import ChemicalComponent
 
+from atomworks.io.tools.inference import ChemicalComponent
 from atomworks.ml.databases.enums import (
     BindingLabel,
     ConfidenceLabel,
@@ -48,7 +48,7 @@ class DataObject(ABC):
         self.validate()
 
     @classmethod
-    def get_field_info(cls) -> Dict[str, Type]:
+    def get_field_info(cls) -> dict[str, type]:
         """
         Get all field names and their types from the dataclass.
 
@@ -58,7 +58,7 @@ class DataObject(ABC):
         return {field.name: field.type for field in fields(cls)}
 
     @classmethod
-    def get_required_fields(cls) -> Dict[str, Type]:
+    def get_required_fields(cls) -> dict[str, type]:
         """
         Get only the required fields (those without defaults) and their types.
 
@@ -72,7 +72,7 @@ class DataObject(ABC):
         }
 
     @classmethod
-    def get_optional_fields(cls) -> Dict[str, Type]:
+    def get_optional_fields(cls) -> dict[str, type]:
         """
         Get only the optional fields (those with defaults) and their types.
 
@@ -122,39 +122,39 @@ class BindNoBindMeasurement(DataObject):
     """
 
     # ============ REQUIRED FIELDS ============
-    atom_array: AtomArray | List[ChemicalComponent]
+    atom_array: AtomArray | list[ChemicalComponent]
     data_source_id: str
     target: str
     binding_label: BindingLabel
     label_confidence: ConfidenceLabel
-    partners: List[List[str]]
+    partners: list[list[str]]
 
     # ============ OPTIONAL FIELDS ============
-    target_chains: Optional[List[str]] = None
-    binder_chains: Optional[List[str]] = None  # TODO: should these be required?
-    fitness: Optional[float] = None
-    affinity: Optional[float] = None
-    affinity_std: Optional[float] = None
-    label_threshold: Optional[float] = None
-    pH: Optional[float] = None
-    temperature: Optional[float] = None
-    tag_type: Optional[TagType] = None
-    structure_method: Optional[StructureMethod] = None
-    structure_type: Optional[StructureType] = None
-    measurement_description: Optional[str] = None
+    target_chains: list[str] | None = None
+    binder_chains: list[str] | None = None  # TODO: should these be required?
+    fitness: float | None = None
+    affinity: float | None = None
+    affinity_std: float | None = None
+    label_threshold: float | None = None
+    pH: float | None = None
+    temperature: float | None = None
+    tag_type: TagType | None = None
+    structure_method: StructureMethod | None = None
+    structure_type: StructureType | None = None
+    measurement_description: str | None = None
 
     # ==== FIELDS DERIVED FROM DATA SOURCE ====
     # NOTE: These are all optional fields in BindNoBindMeasurement, but they are guarenteed to be present if you use
     # atomworks.ml.databases.io_utils.save_measurement_to_cif() to save this measurement
     # NOTE: Generally these should be left blank upon initialization, but will be populated during saving and loading of measurement cif files.
-    author: Optional[str] = None
-    year: Optional[int] = None
-    data_source_tag: Optional[str] = None
-    problem: Optional[ProblemType] = None
-    data_source_type: Optional[DataSourceType] = None
-    experiment_type: Optional[ExperimentType] = None
-    experiment_metadata: Optional[Dict[str, Any]] = None
-    data_source_description: Optional[str] = None
+    author: str | None = None
+    year: int | None = None
+    data_source_tag: str | None = None
+    problem: ProblemType | None = None
+    data_source_type: DataSourceType | None = None
+    experiment_type: ExperimentType | None = None
+    experiment_metadata: dict[str, Any] | None = None
+    data_source_description: str | None = None
 
 
 @dataclass
@@ -188,9 +188,9 @@ class DataSource(DataObject):
     data_source_id: str = field(init=False)
 
     # ======== OPTIONAL FIELDS ========
-    experiment_type: Optional[ExperimentType] = None
-    experiment_metadata: Optional[Dict[str, Any]] = None
-    data_source_description: Optional[str] = None
+    experiment_type: ExperimentType | None = None
+    experiment_metadata: dict[str, Any] | None = None
+    data_source_description: str | None = None
 
     def __post_init__(self):
         self.data_source_id = f"{self.author}_{self.year}_{self.data_source_tag}"

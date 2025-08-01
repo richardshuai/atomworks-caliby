@@ -1,14 +1,15 @@
 """Definitions of the various standard encodings."""
 
 import copy
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from itertools import cycle
 from logging import getLogger
-from typing import Sequence
 
 import biotite.structure as struc
 import numpy as np
+
 from atomworks.io.constants import (
     AA_LIKE_CHEM_TYPES,
     CHEM_COMP_TYPES,
@@ -20,7 +21,6 @@ from atomworks.io.constants import (
     STANDARD_RNA,
 )
 from atomworks.io.utils.ccd import get_chem_comp_type
-
 from atomworks.ml.common import exists
 
 logger = getLogger(__name__)
@@ -66,8 +66,8 @@ class TokenEncoding:
     chemcomp_type_to_unknown: dict[str, str] = None
 
     def __post_init__(self):
-        _none_to_empty_str = np.vectorize(lambda x: x if x is not None else "")  # noqa
-        _strip_str = np.vectorize(lambda x: x.strip())  # noqa
+        _none_to_empty_str = np.vectorize(lambda x: x if x is not None else "")
+        _strip_str = np.vectorize(lambda x: x.strip())
         _process = lambda x: _strip_str(_none_to_empty_str(x))  # noqa
         self.token_atoms = {
             token.strip() if isinstance(token, str) else token: _process(np.asarray(atoms))
@@ -77,15 +77,15 @@ class TokenEncoding:
         # Ensure all values are of type `np.ndarray` and have the same 1-dimensional shape
         _target_len = len(next(iter(self.token_atoms.values())))
         for token, atoms in self.token_atoms.items():
-            assert isinstance(atoms, np.ndarray), (
-                f"Expected `atoms` to be a `np.ndarray`, but got {type(atoms)} for token {token}."
-            )
-            assert atoms.ndim == 1, (
-                f"Expected `atoms` to be a 1-dimensional array, but got {atoms.ndim} dimensions for token {token}."
-            )
-            assert len(atoms) == _target_len, (
-                f"Expected all atoms to have length {_target_len}, but got {len(atoms)} for token {token}."
-            )
+            assert isinstance(
+                atoms, np.ndarray
+            ), f"Expected `atoms` to be a `np.ndarray`, but got {type(atoms)} for token {token}."
+            assert (
+                atoms.ndim == 1
+            ), f"Expected `atoms` to be a 1-dimensional array, but got {atoms.ndim} dimensions for token {token}."
+            assert (
+                len(atoms) == _target_len
+            ), f"Expected all atoms to have length {_target_len}, but got {len(atoms)} for token {token}."
 
         # Define mapping of unknown `chemcomp_type` to unknown token names
         if not exists(self.chemcomp_type_to_unknown):
@@ -106,9 +106,9 @@ class TokenEncoding:
         # NOTE: This is set here to use caching.
         @lru_cache(maxsize=10000)
         def resolve_unknown_token_name(token_name: str | int, token_is_atom: bool) -> str:
-            assert isinstance(token_name, (str, int, np.integer)), (
-                f"Expected `token_name` to be a string or int, but got {type(token_name)}: token_name={token_name}, token_is_atom={token_is_atom}."
-            )
+            assert isinstance(
+                token_name, (str, int, np.integer)
+            ), f"Expected `token_name` to be a string or int, but got {type(token_name)}: token_name={token_name}, token_is_atom={token_is_atom}."
 
             # Case 1: Token is known & valid
             if token_name in self.token_atoms:
@@ -248,7 +248,7 @@ class TokenEncoding:
 
 # fmt: off
 AF2_ATOM14_ENCODING = TokenEncoding(
-    #            0    1     2    3    4     5     6      7      8      9      10     11     12     13     
+    #            0    1     2    3    4     5     6      7      8      9      10     11     12     13
     token_atoms= {
         'ALA': ['N', 'CA', 'C', 'O', 'CB', '',    '',    '',    '',    '',    '',    '',    '',    ''],    # 0
         'ARG': ['N', 'CA', 'C', 'O', 'CB', 'CG',  'CD',  'NE',  'CZ',  'NH1', 'NH2', '',    '',    ''],    # 1
@@ -283,7 +283,7 @@ Reference:
 
 AF2_ATOM37_ENCODING = TokenEncoding(
     token_atoms= {
-        #        0       1       2       3       4       5       6       7       8       9      10      11      12      13      14      15      16      17      18      19      20      21      22      23      24      25      26      27      28      29      30      31      32      33      34      35      36     
+        #        0       1       2       3       4       5       6       7       8       9      10      11      12      13      14      15      16      17      18      19      20      21      22      23      24      25      26      27      28      29      30      31      32      33      34      35      36
         'ALA': ['N  ' , 'CA ' , 'C  ' , 'CB ' , 'O  ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , 'OXT'],  # 0
         'ARG': ['N  ' , 'CA ' , 'C  ' , 'CB ' , 'O  ' , 'CG ' , '   ' , '   ' , '   ' , '   ' , '   ' , 'CD ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , 'NE ' , '   ' , '   ' , '   ' , '   ' , '   ' , 'NH1' , 'NH2' , '   ' , 'CZ ' , '   ' , '   ' , '   ' , 'OXT'],  # 1
         'ASN': ['N  ' , 'CA ' , 'C  ' , 'CB ' , 'O  ' , 'CG ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , 'ND2' , 'OD1' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , '   ' , 'OXT'],  # 2
@@ -354,7 +354,7 @@ try:
     RF2AA_STANDARDIZED_TOKENS = list(RF2AA_TOKEN_TO_STANDARD_TOKEN.values())
 
     RF2_ATOM36_ENCODING = TokenEncoding(
-        token_atoms=dict(zip(RF2AA_STANDARDIZED_TOKENS[: chemdata.NNAPROTAAS], chemdata.aa2long)),
+        token_atoms=dict(zip(RF2AA_STANDARDIZED_TOKENS[: chemdata.NNAPROTAAS], chemdata.aa2long, strict=False)),
         chemcomp_type_to_unknown=(
             {chem_type: "UNK" for chem_type in AA_LIKE_CHEM_TYPES}
             | {chem_type: "DX" for chem_type in DNA_LIKE_CHEM_TYPES}
@@ -369,7 +369,11 @@ try:
 
     RF2_ATOM23_ENCODING = TokenEncoding(
         token_atoms=dict(
-            zip(RF2AA_STANDARDIZED_TOKENS[: chemdata.NNAPROTAAS], np.array(chemdata.aa2long)[:, : chemdata.NHEAVY])
+            zip(
+                RF2AA_STANDARDIZED_TOKENS[: chemdata.NNAPROTAAS],
+                np.array(chemdata.aa2long)[:, : chemdata.NHEAVY],
+                strict=False,
+            )
         ),
         chemcomp_type_to_unknown=(
             {chem_type: "UNK" for chem_type in AA_LIKE_CHEM_TYPES}
@@ -385,7 +389,11 @@ try:
 
     RF2_ATOM14_ENCODING = TokenEncoding(
         token_atoms=dict(
-            zip(RF2AA_STANDARDIZED_TOKENS[: chemdata.NPROTAAS], np.array(chemdata.aa2long)[:, : chemdata.NHEAVYPROT])
+            zip(
+                RF2AA_STANDARDIZED_TOKENS[: chemdata.NPROTAAS],
+                np.array(chemdata.aa2long)[:, : chemdata.NHEAVYPROT],
+                strict=False,
+            )
         ),
         chemcomp_type_to_unknown={chem_type: "UNK" for chem_type in AA_LIKE_CHEM_TYPES},
     )
@@ -401,7 +409,7 @@ try:
         return empty
 
     RF2AA_ATOM36_ENCODING = TokenEncoding(
-        token_atoms=dict(zip(RF2AA_STANDARDIZED_TOKENS[: chemdata.NNAPROTAAS + 1], chemdata.aa2long))
+        token_atoms=dict(zip(RF2AA_STANDARDIZED_TOKENS[: chemdata.NNAPROTAAS + 1], chemdata.aa2long, strict=False))
         | {elt: _element_at_ca_pos(elt) for elt in RF2AA_STANDARDIZED_TOKENS[chemdata.NNAPROTAAS + 1 :]},
         chemcomp_type_to_unknown=(
             {chem_type: "UNK" for chem_type in AA_LIKE_CHEM_TYPES}
@@ -503,7 +511,7 @@ except Exception as e:  # noqa
         'Y': 39,
         'Zn': 30,
         'ATM': 0
-    } 
+    }
     """Dictionary to interconvert between RF2AA token names and standardized token names."""
 
     RF2AA_STANDARDIZED_TOKENS = list(RF2AA_TOKEN_TO_STANDARD_TOKEN.values())
@@ -809,7 +817,7 @@ class AF3SequenceEncoding:
         # Build mappings for all CCD residue names to AF3 tokens
         res_name_to_token = dict(zip(self.all_res_names[self.is_rna_like], cycle(["X"])))
         res_name_to_token |= dict(zip(self.all_res_names[self.is_dna_like], cycle(["DX"])))
-        res_name_to_token |= dict(zip(AF3_TOKENS, AF3_TOKENS))
+        res_name_to_token |= dict(zip(AF3_TOKENS, AF3_TOKENS, strict=False))
         self.res_name_to_token = res_name_to_token
 
         # Build mappings for AF3 tokens to indices

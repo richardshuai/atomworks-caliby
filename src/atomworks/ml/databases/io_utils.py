@@ -2,12 +2,11 @@ import json
 import os
 from dataclasses import asdict
 from enum import Flag, StrEnum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from atomworks.io import parse
 from atomworks.io.tools.inference import components_to_atom_array
 from atomworks.io.utils.io_utils import to_cif_file
-
 from atomworks.ml.databases.data_source_utils import DATA_SOURCE_DB_PATH, get_data_source
 from atomworks.ml.databases.dataclasses import BindNoBindMeasurement
 from atomworks.ml.databases.utils import _smart_cast
@@ -82,7 +81,7 @@ def load_measurement_from_cif(
     file: os.PathLike,
     *,
     assembly_id: str = "1",
-    cif_parser_args: Optional[Dict[str, Any]] = DATABASE_DEFAULT_CIF_PARSER_ARGS,
+    cif_parser_args: dict[str, Any] | None = DATABASE_DEFAULT_CIF_PARSER_ARGS,
 ) -> BindNoBindMeasurement:
     """
     Loads a BindNoBindMeasurement from a CIF file.

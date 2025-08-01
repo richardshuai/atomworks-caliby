@@ -377,7 +377,7 @@ def grouped_count(
     # Check input validity
     assert len(groups) == data.dim(), "Number of groups must match the number of dimensions in the data tensor."
     assert all(
-        [len(group) == shape for group, shape in zip(groups, data.shape)]
+        [len(group) == shape for group, shape in zip(groups, data.shape, strict=True)]
     ), "The i-th assignments `groups` must have the same length as the i-th dimension of the data tensor."
 
     # Infer the group sizes (= number of unique groups in each dimension)
@@ -395,7 +395,7 @@ def grouped_count(
 
     # Create graded index tensor for each group
     data = data.clone()
-    for group_idx, group, stride in zip(range(len(groups)), groups, strides):
+    for group_idx, group, stride in zip(range(len(groups)), groups, strides, strict=False):
         # ... compute index offsets for each cluster
         #  will be of the form e.g. `n_group -> () n_group () ()`
         unsqueeze_pattern = "n_group -> " + " ".join(
@@ -418,7 +418,7 @@ def grouped_count(
 
 def _randomly_select_items_with_weights(weight_dict: dict, n: int = 1):
     """Randomly select n items from a dictionary based on their weights."""
-    choices, weights = zip(*weight_dict.items())
+    choices, weights = zip(*weight_dict.items(), strict=False)
     weights = np.array(weights)
     probabilities = weights / sum(weights)
     chosen = np.random.choice(choices, size=n, p=probabilities)

@@ -6,10 +6,11 @@ Inspired by: https://github.com/Lightning-AI/pytorch-lightning/blob/709a2a9d3b79
 from __future__ import annotations
 
 import random
+from collections.abc import Generator
 from contextlib import contextmanager
 from random import getstate as python_get_rng_state
 from random import setstate as python_set_rng_state
-from typing import Any, Generator
+from typing import Any
 
 import numpy as np
 import torch

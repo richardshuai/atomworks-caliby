@@ -4,8 +4,8 @@ from os import PathLike
 from pathlib import Path
 
 import numpy as np
-from atomworks.io.enums import ChainType
 
+from atomworks.io.enums import ChainType
 from atomworks.ml.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
     RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
@@ -104,7 +104,7 @@ def parse_fasta(filename: PathLike, maxseq: int = 10000, query_tax_id: str = "qu
         L = len(msa[-1])
 
         # HACK: There are never insertions in RNA MSAs, so we set the insertion array to all zeros
-        i = np.zeros((L))
+        i = np.zeros(L)
         ins.append(i)
 
         # ...break if we've reached the maximum number of sequences
@@ -190,7 +190,7 @@ def parse_a3m(
 
         # (0 - match or gap; 1 - insertion)
         a = np.array([0 if c.isupper() or c == "-" else 1 for c in line])
-        i = np.zeros((L))
+        i = np.zeros(L)
 
         if np.sum(a) > 0:
             # ...get the positions of insertions

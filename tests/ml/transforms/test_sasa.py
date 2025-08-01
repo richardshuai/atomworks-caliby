@@ -48,7 +48,7 @@ def _define_residue_keys(
     # Create unique keys for each residue using chain_id, res_id, and res_name
     res_keys = [
         f"{chain}_{transform}:{name}_{res_id}"
-        for chain, transform, name, res_id in zip(chain_ids, transformation_ids, res_names, res_ids)
+        for chain, transform, name, res_id in zip(chain_ids, transformation_ids, res_names, res_ids, strict=False)
     ]
     return res_keys
 
@@ -59,7 +59,7 @@ def _count_atoms_in_each_residue(atom_array: AtomArray) -> dict[int, int]:
     res_keys = _define_residue_keys(atom_array)
     # Count atoms per unique residue
     unique_keys, counts = np.unique(res_keys, return_counts=True)
-    return dict(zip(unique_keys, counts))
+    return dict(zip(unique_keys, counts, strict=False))
 
 
 def _get_indices_of_singleton_residues(atom_array: AtomArray) -> np.ndarray:

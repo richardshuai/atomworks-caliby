@@ -1,6 +1,5 @@
-from tests.io.conftest import TEST_DATA_DIR
-
 from atomworks.io import parse
+from tests.io.conftest import TEST_DATA_DIR
 
 
 def test_structure_with_non_ccd_ligand():

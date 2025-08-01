@@ -14,9 +14,9 @@ import pandas as pd
 import torch
 from assertpy import assert_that
 from biotite.structure import AtomArray
-from atomworks.io.enums import ChainType
 from torch.nn.functional import normalize
 
+from atomworks.io.enums import ChainType
 from atomworks.ml.encoding_definitions import (
     LEGACY_RF2_ATOM14_ENCODING,
     RF2AA_ATOM36_ENCODING,
@@ -258,7 +258,7 @@ def _lazy_load_template_lookup_dict(template_msa_lookup_df_path: PathLike) -> di
     template_msa_lookup_df = pd.read_csv(template_msa_lookup_df_path, keep_default_na=False, na_values=NA_VALUES)
     template_msa_lookup_df["HASH"] = template_msa_lookup_df["HASH"].apply(lambda x: f"{x:06d}")
     pdb_chain_id_to_hash_dict = dict(
-        zip(template_msa_lookup_df["CHAINID"].tolist(), template_msa_lookup_df["HASH"].tolist())
+        zip(template_msa_lookup_df["CHAINID"].tolist(), template_msa_lookup_df["HASH"].tolist(), strict=False)
     )
     return pdb_chain_id_to_hash_dict
 
@@ -508,9 +508,9 @@ class FeaturizeTemplatesLikeRF2AA(Transform):
         assert_that(n_template).is_instance_of(int).is_greater_than(0)
         assert_that(encoding).is_instance_of(TokenEncoding)
         assert_that(allowed_chain_types).is_instance_of(list).is_not_empty()
-        assert np.isin(allowed_chain_types, ChainType).all(), (
-            f"Allowed chain types must be a list of ChainType enums. Got {allowed_chain_types=}."
-        )
+        assert np.isin(
+            allowed_chain_types, ChainType
+        ).all(), f"Allowed chain types must be a list of ChainType enums. Got {allowed_chain_types=}."
         self.n_template = n_template
         self.mask_token_idx = mask_token_idx
         self.init_coords = init_coords

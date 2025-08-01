@@ -1,6 +1,7 @@
 """Constants used internally by the MSA transforms"""
 
 import numpy as np
+
 from atomworks.io.enums import ChainType
 from atomworks.io.utils.sequence import get_3_from_1_letter_code
 

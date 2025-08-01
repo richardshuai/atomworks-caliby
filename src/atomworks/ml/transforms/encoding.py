@@ -13,11 +13,11 @@ import numpy as np
 import torch
 from assertpy import assert_that
 from biotite.structure import AtomArray
+from torch.nn import functional as F
+
 from atomworks.io.common import KeyToIntMapper, exists
 from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 from atomworks.io.utils.ccd import get_std_to_alt_atom_name_map
-from torch.nn import functional as F
-
 from atomworks.ml.encoding_definitions import AF3SequenceEncoding, TokenEncoding
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
@@ -174,7 +174,7 @@ def atom_array_to_encoding(
                 raise ValueError(msg)
 
         # Encode additional annotation
-        for key in extra_annot_counters.keys():
+        for key in extra_annot_counters:
             annot = token.get_annotation(key)[0]
             extra_annot_encoded[key].append(extra_annot_counters[key](annot))
 
@@ -183,8 +183,8 @@ def atom_array_to_encoding(
         "mask": encoded_mask,  # [n_token_in_atom_array, n_atoms_per_token] (bool)
         "seq": encoded_seq,  # [n_token_in_atom_array] (int)
         "token_is_atom": encoded_token_is_atom,  # [n_token_in_atom_array] (bool)
-        **{annot: np.array(extra_annot_encoded[annot], dtype=np.int16) for annot in extra_annot_encoded.keys()},
-        **{annot + "_to_int": extra_annot_counters[annot].key_to_id for annot in extra_annot_counters.keys()},
+        **{annot: np.array(extra_annot_encoded[annot], dtype=np.int16) for annot in extra_annot_encoded},
+        **{annot + "_to_int": extra_annot_counters[annot].key_to_id for annot in extra_annot_counters},
     }
 
 
@@ -239,7 +239,7 @@ def atom_array_from_encoding(
     atom_name = encoding.idx_to_atom[encoded_seq]  # [n_res, n_atoms_per_token] (str)
 
     # Determine which atoms should exist in each token, and how many atoms are in each token
-    atom_should_exist = atom_name != ""  # noqa  # [n_res, n_atoms_per_token] (bool)
+    atom_should_exist = atom_name != ""  # [n_res, n_atoms_per_token] (bool)
     atoms_per_res = np.sum(atom_should_exist, axis=1)  # [n_res] (int)
 
     # Set up atom array

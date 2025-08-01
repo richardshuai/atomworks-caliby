@@ -10,7 +10,8 @@ import pprint
 import re
 import time
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any, Callable, Iterable, Type
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import numpy as np
 import torch
@@ -278,9 +279,9 @@ class Transform(ABC):
 
         # apply the transformation
         data = self.forward(data, *args, **kwargs)
-        assert isinstance(data, dict), (
-            f"`forward` method of {self.__class__.__name__} must return a dictionary, not {type(data)}."
-        )
+        assert isinstance(
+            data, dict
+        ), f"`forward` method of {self.__class__.__name__} must return a dictionary, not {type(data)}."
 
         # restore the transform history if `data` was copied (which loses the transform history)
         data = self._ensure_has_transform_history(data)
@@ -302,7 +303,7 @@ class Transform(ABC):
             repr_str += "(\n " + ",\n  ".join(attributes) + "\n)"
         return repr_str
 
-    def __add__(self, other: Transform) -> "Compose":
+    def __add__(self, other: Transform) -> Compose:
         # Case 1: self & other are `Compose` instances
         #  ... overridden in `Compose` class
         # Case 2: self is a `Compose` instance and other is a `Transform` instance
@@ -368,7 +369,7 @@ class Compose(Transform):
         self.latest_rng_state_dict = None
         self.print_rng_state = print_rng_state
 
-    def __add__(self, other: Transform | list[Transform] | Compose) -> "Compose":
+    def __add__(self, other: Transform | list[Transform] | Compose) -> Compose:
         if isinstance(other, Compose):
             return Compose(
                 self.transforms + other.transforms, track_rng_state=self.track_rng_state or other.track_rng_state
@@ -680,7 +681,7 @@ class RandomRoute(Transform):
 
     @classmethod
     def from_list(cls, transform_list: list[tuple[float, Transform]]) -> RandomRoute:
-        probs, transforms = zip(*transform_list)
+        probs, transforms = zip(*transform_list, strict=False)
         return cls(transforms, probs)
 
     def check_input(self, data: dict[str, Any]) -> None:
@@ -821,7 +822,7 @@ class RaiseOnCondition(Transform):
     Raises a user-specified exception if a given condition is met.
     """
 
-    def __init__(self, condition: callable, error_message: str, exception_to_raise: Type[Exception] = ValueError):
+    def __init__(self, condition: callable, error_message: str, exception_to_raise: type[Exception] = ValueError):
         self.condition = condition
         self.error_message = error_message
         self.exception_class = exception_to_raise

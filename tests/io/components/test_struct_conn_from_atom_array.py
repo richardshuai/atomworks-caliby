@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
 from atomworks.io.transforms.categories import category_to_dict
 from atomworks.io.utils.bonds import get_struct_conn_dict_from_atom_array
 from atomworks.io.utils.io_utils import read_any
+from tests.io.conftest import get_pdb_path
 
 # (pdb_id, assembly_id)
 TEST_CASES = [

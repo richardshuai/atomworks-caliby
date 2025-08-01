@@ -5,13 +5,13 @@ from typing import Any, Literal, Union, get_args, get_origin
 import numpy as np
 
 
-def _smart_cast(value: Any, dtype: type) -> Any:  # noqa: E721
+def _smart_cast(value: Any, dtype: type) -> Any:
     """Cast a value to the correct type, handling special cases like and dicts (which are saved as json strings) and Optional / union types"""
     if (
         isinstance(dtype, dict) or get_origin(dtype) == dict  # noqa: E721
     ):
         return json.loads(value)
-    elif get_origin(dtype) == Union:  # noqa: E721 handle Optional and Union types
+    elif get_origin(dtype) == Union:
         for arg in get_args(dtype):
             try:
                 return _smart_cast(value, arg)
@@ -26,7 +26,7 @@ def _smart_cast(value: Any, dtype: type) -> Any:  # noqa: E721
         return eval(value)
     elif dtype == Literal:
         return value
-    elif dtype == NoneType and (value is None or np.isnan(value)):  # noqa: E721
+    elif dtype == NoneType and (value is None or np.isnan(value)):
         return None  # cast to None if the value is nan
     try:
         return dtype(value)

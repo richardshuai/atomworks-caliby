@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -26,7 +26,7 @@ class AggregateFeaturesLikeAF3(Transform):
     ]
     incompatible_previous_transforms = ["AggregateFeaturesLikeAF3"]
 
-    def check_input(self, data: Dict[str, Any]) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         """
         Checks if the input data contains the required keys and types.
 
@@ -56,7 +56,7 @@ class AggregateFeaturesLikeAF3(Transform):
         # Check atom array annotations
         check_atom_array_annotation(data, ["coord_to_be_noised", "chain_iid", "occupancy"])
 
-    def forward(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         """
         Aggregates features into the format expected by AlphaFold 3.
 

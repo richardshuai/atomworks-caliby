@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
 from atomworks.io.utils.testing import assert_same_atom_array
+from tests.io.conftest import get_pdb_path
 
 TEST_CASES = ["2w3o"]
 

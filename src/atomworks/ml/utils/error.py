@@ -4,7 +4,8 @@ import os
 import socket
 import sys
 import traceback
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from pygments import highlight
 from pygments.formatters import TerminalFormatter
@@ -59,7 +60,7 @@ def context(
         yield
     except exc_types as ex:
         # Format the error message with more robust handling
-        error_msg = f"{msg}: {str(ex)}" if str(ex) else msg
+        error_msg = f"{msg}: {ex!s}" if str(ex) else msg
 
         # Add hostname and process ID to error context
         host_info = f"[host={socket.gethostname()}, pid={os.getpid()}]"
@@ -86,7 +87,7 @@ def context(
 
     except BaseException as ex:  # Catches system exits, keyboard interrupts etc.
         # Format the error message with more robust handling
-        error_msg = f"Unexpected error in context: \n\t{msg}\n\n{str(ex)}" if str(ex) else msg
+        error_msg = f"Unexpected error in context: \n\t{msg}\n\n{ex!s}" if str(ex) else msg
 
         # Add hostname and process ID to error context
         host_info = f"[host={socket.gethostname()}, pid={os.getpid()}]"

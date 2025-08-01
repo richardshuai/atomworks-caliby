@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.common import not_isin
 from atomworks.io.parser import parse
 from atomworks.io.transforms.atom_array import annotate_entities
+from tests.io.conftest import get_pdb_path
 
 # fmt: off
 MOLECULE_ENTITY_TEST_CASES = [

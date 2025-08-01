@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
 from atomworks.io import parse
 from atomworks.io.constants import CRYSTALLIZATION_AIDS
 
@@ -112,7 +113,7 @@ def load_example_from_metadata_row(
         cif_parser_args = {}
 
     # Convenience utilities to default to loading from and saving to cache if a cache_dir is provided, unless explicitly overridden
-    if "cache_dir" in cif_parser_args and cif_parser_args["cache_dir"]:
+    if cif_parser_args.get("cache_dir"):
         cif_parser_args.setdefault("load_from_cache", True)
         cif_parser_args.setdefault("save_to_cache", True)
 

@@ -54,7 +54,7 @@ def test_generate_bform_dna():
         "DC": 19,
         "DG": 22,
     }
-    for res_name, n_atoms, target_res_name in zip(ccd_seq, n_atoms_per_res, target_ccd_seq):
+    for res_name, n_atoms, target_res_name in zip(ccd_seq, n_atoms_per_res, target_ccd_seq, strict=False):
         assert res_name == target_res_name, f"{res_name} != {target_res_name}"
         assert n_atoms == heavy_atoms_per_res[target_res_name], f"{n_atoms} != {heavy_atoms_per_res[target_res_name]}"
 

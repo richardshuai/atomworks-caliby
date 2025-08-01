@@ -1,7 +1,6 @@
-from tests.io.conftest import TEST_DATA_DIR, get_pdb_path
-
 from atomworks.io.parser import parse
 from atomworks.io.utils.testing import assert_same_atom_array
+from tests.io.conftest import TEST_DATA_DIR, get_pdb_path
 
 
 def test_arginine_renaming():

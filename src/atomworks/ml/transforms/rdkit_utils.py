@@ -4,6 +4,9 @@ from typing import Any, Literal
 
 import numpy as np
 from biotite.structure import AtomArray
+from rdkit import Chem, RDLogger
+from rdkit.Chem import AllChem, Mol, rdDistGeom
+
 from atomworks.io.tools.rdkit import (
     add_hydrogens,
     atom_array_from_rdkit,
@@ -12,9 +15,6 @@ from atomworks.io.tools.rdkit import (
     preserve_annotations,
     remove_hydrogens,
 )
-from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, Mol, rdDistGeom
-
 from atomworks.ml.common import default
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
@@ -121,9 +121,9 @@ def generate_conformers(
 
     """
     # Ensure that all properties are being pickled (needed when we use timeout)
-    assert Chem.GetDefaultPickleProperties() == Chem.PropertyPickleOptions.AllProps, (
-        "Default pickle properties are not set to all properties. Annotation loss will occur."
-    )
+    assert (
+        Chem.GetDefaultPickleProperties() == Chem.PropertyPickleOptions.AllProps
+    ), "Default pickle properties are not set to all properties. Annotation loss will occur."
     assert attempts_with_distance_geometry > 0, "Attempts with distance geometry must be greater than 0."
     assert attempts_with_random_coordinates > 0, "Attempts with random coordinates must be greater than 0."
 
@@ -593,7 +593,7 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
             raise
         except Exception as e:
             logger.error(
-                f"Failed to convert molecule {atom_array.res_name[0]} to RDKit: {str(e)}. "
+                f"Failed to convert molecule {atom_array.res_name[0]} to RDKit: {e!s}. "
                 "Trying again and attempting to fix the corrupted molecule."
             )
             return atom_array_to_rdkit(atom_array, attempt_fixing_corrupted_molecules=True, **conversion_kwargs)

@@ -1,10 +1,10 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
+
 from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from atomworks.io.utils.sequence import STANDARD_PURINE_RESIDUES, STANDARD_PYRIMIDINE_RESIDUES
 from atomworks.io.utils.testing import assert_same_atom_array
-
 from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
 from atomworks.ml.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
@@ -35,7 +35,7 @@ def test_tokens_are_residues_without_atomization(pdb_id: str):
         get_token_starts(atom_array, add_exclusive_stop=True)
         == struc.get_residue_starts(atom_array, add_exclusive_stop=True)
     )
-    for res_1, res_2 in zip(struc.residue_iter(atom_array), token_iter(atom_array)):
+    for res_1, res_2 in zip(struc.residue_iter(atom_array), token_iter(atom_array), strict=False):
         assert_same_atom_array(res_1, res_2)
 
 
@@ -75,15 +75,15 @@ def test_add_global_token_id_annotation_when_fully_atomized(pdb_id):
 
     assert "atom_id" in atom_array.get_annotation_categories()
     assert "token_id" in atom_array.get_annotation_categories()
-    assert np.all(atom_array.atom_id == atom_array.token_id), (
-        "atom_id and token_id should be the same for a fully atomized atom_array"
-    )
+    assert np.all(
+        atom_array.atom_id == atom_array.token_id
+    ), "atom_id and token_id should be the same for a fully atomized atom_array"
 
     # cross check by iterating over the tokens
     # ... via token starts
     counter = 0
     token_start_idxs = get_token_starts(atom_array, add_exclusive_stop=True)
-    for start, end in zip(token_start_idxs[:-1], token_start_idxs[1:]):
+    for start, end in zip(token_start_idxs[:-1], token_start_idxs[1:], strict=False):
         token = atom_array[start:end]
         assert len(token) == 1, f"token should have length 1 but has length {len(token)}"
         assert np.all(token.token_id == counter), f"token_id should be {counter} but is {token.token_id}"
@@ -126,7 +126,7 @@ def test_add_global_token_id_annotation_when_not_atomized(pdb_id):
     # ... via token starts
     counter = 0
     token_start_idxs = get_token_starts(atom_array, add_exclusive_stop=True)
-    for start, end in zip(token_start_idxs[:-1], token_start_idxs[1:]):
+    for start, end in zip(token_start_idxs[:-1], token_start_idxs[1:], strict=False):
         token = atom_array[start:end]
         assert len(token) >= 1, f"token should have length at least 1 but has length {len(token)}"
         assert np.all(token.token_id == counter), f"token_id should be {counter} but is {token.token_id}"
@@ -171,7 +171,7 @@ def test_add_global_token_id_annotation_when_partially_atomized(pdb_id):
     # ... via token starts
     counter = 0
     token_start_idxs = get_token_starts(atom_array, add_exclusive_stop=True)
-    for start, end in zip(token_start_idxs[:-1], token_start_idxs[1:]):
+    for start, end in zip(token_start_idxs[:-1], token_start_idxs[1:], strict=False):
         token = atom_array[start:end]
         assert len(token) >= 1, f"token should have length at least 1 but has length {len(token)}"
         assert np.all(token.token_id == counter), f"token_id should be {counter} but is {token.token_id}"
@@ -204,7 +204,7 @@ def test_get_token_center_atoms(pdb_id):
     token_center_atoms = token_center_masks.nonzero()[0]
     assert len(token_center_atoms) == get_token_count(atom_array)
     # test that nucleotides get C1' as the center atom, and proteins get CA and the rest of the nodes are atomized
-    for token, mask in zip(token_iter(atom_array), token_center_atoms):
+    for token, mask in zip(token_iter(atom_array), token_center_atoms, strict=False):
         assert len(set(token.res_name)) == 1
         res_name = token.res_name[0]
         if res_name in STANDARD_AA:
@@ -236,7 +236,7 @@ def test_get_token_representative_atoms(pdb_id):
 
     assert len(representative_atoms) == get_token_count(atom_array)
     # test that purines get C4, pyrimdines get C2, proteins other than glycine get CB, glycine gets CB and the rest are atoms
-    for token, mask in zip(token_iter(atom_array), representative_atoms):
+    for token, mask in zip(token_iter(atom_array), representative_atoms, strict=False):
         assert len(set(token.res_name)) == 1
         res_name = token.res_name[0]
         if res_name in STANDARD_PURINE_RESIDUES:

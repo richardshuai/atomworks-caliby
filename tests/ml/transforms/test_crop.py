@@ -6,8 +6,8 @@ from typing import Any
 import biotite.structure as struc
 import numpy as np
 import pytest
-from atomworks.io.utils.testing import assert_same_atom_array
 
+from atomworks.io.utils.testing import assert_same_atom_array
 from atomworks.ml.datasets.datasets import get_row_and_index_by_example_id
 from atomworks.ml.datasets.parsers import InterfacesDFParser, PNUnitsDFParser, load_example_from_metadata_row
 from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
@@ -424,7 +424,7 @@ def test_compute_local_hash():
 
         # fmt: off
         # NOTE: These were manually checked in pymol for a 6 A cut-off radius
-        _AFFECTED_IDXS = np.array([  
+        _AFFECTED_IDXS = np.array([
             0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,
             13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,
             26,  27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  37,  38,
@@ -453,7 +453,7 @@ def test_compute_local_hash():
 
         # fmt: off
         # NOTE: These were manually checked in pymol for a 6 A cut-off radius
-        _AFFECTED_IDXS = np.array([  
+        _AFFECTED_IDXS = np.array([
             0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,
             13,  14,  15,  16,  17,  18,  19,  20,  22,  23,  24,  25,  26,
             27,  28,  29,  30,  31,  32,  33,  34,  35,  36,  40,  46,  47,

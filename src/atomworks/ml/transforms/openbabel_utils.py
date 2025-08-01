@@ -17,9 +17,9 @@ from typing import Any
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
-from atomworks.io.constants import ATOMIC_NUMBER_TO_ELEMENT, ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
 from openbabel import openbabel, pybel
 
+from atomworks.io.constants import ATOMIC_NUMBER_TO_ELEMENT, ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -437,9 +437,9 @@ def find_automorphisms(obmol: openbabel.OBMol, max_automorphs: int = 1000, max_m
               [7 2]]]
     """
     n_atoms = obmol.NumAtoms()
-    assert n_atoms == obmol.NumHvyAtoms(), (
-        f"Found {n_atoms - obmol.NumHvyAtoms()} explicit hydrogens. This function assumes that the input molecule has no explicit hydrogens. Please remove."
-    )
+    assert (
+        n_atoms == obmol.NumHvyAtoms()
+    ), f"Found {n_atoms - obmol.NumHvyAtoms()} explicit hydrogens. This function assumes that the input molecule has no explicit hydrogens. Please remove."
 
     # ... initialize a vector container to store automorphs
     automorphs = openbabel.vvpairUIntUInt()  # vector<vector<pair<unsigned int, unsigned int>>>

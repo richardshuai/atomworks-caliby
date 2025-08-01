@@ -7,10 +7,10 @@ from typing import Any
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from atomworks.io.tools.rdkit import atom_array_from_rdkit
-from atomworks.io.utils.selection import get_residue_starts
 from rdkit.Chem import Mol
 
+from atomworks.io.tools.rdkit import atom_array_from_rdkit
+from atomworks.io.utils.selection import get_residue_starts
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -287,7 +287,7 @@ class AddRF2AAChiralFeatures(Transform):
         atom_array: AtomArray = data["atom_array"]
 
         token_idxs = spread_token_wise(atom_array, np.arange(get_token_count(atom_array)))
-        _id_to_token_idx = dict(zip(atom_array.atom_id, token_idxs))
+        _id_to_token_idx = dict(zip(atom_array.atom_id, token_idxs, strict=False))
         id_to_idx = np.vectorize(_id_to_token_idx.get)
 
         chiral_centers_by_idx = []
@@ -359,7 +359,7 @@ def add_af3_chiral_features(
     _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
 
     all_chirals = []
-    for res_start, res_end in zip(_res_starts, _res_ends):
+    for res_start, res_end in zip(_res_starts, _res_ends, strict=False):
         res_name = atom_array.res_name[res_start]
 
         chirals = chiral_centers[res_name]

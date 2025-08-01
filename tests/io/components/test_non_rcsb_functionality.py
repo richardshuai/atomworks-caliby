@@ -3,11 +3,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 from components.test_chain_types import CHAIN_TYPE_TEST_CASES
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.enums import ChainType
 from atomworks.io.parser import parse
 from atomworks.io.utils.non_rcsb import initialize_chain_info_from_atom_array
+from tests.io.conftest import get_pdb_path
 
 DIR = Path(__file__).parent.parent / "data"
 CIF_PATHS = [DIR / "example_distillation_output.cif"]

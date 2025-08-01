@@ -11,7 +11,12 @@ from atomworks.ml.transforms.af3_reference_molecule import GetAF3ReferenceMolecu
 from atomworks.ml.transforms.atom_array import AddGlobalAtomIdAnnotation
 from atomworks.ml.transforms.atomize import AtomizeByCCDName
 from atomworks.ml.transforms.base import Compose
-from atomworks.ml.transforms.chirals import AddAF3ChiralFeatures, AddRF2AAChiralFeatures, get_dih, get_rf2aa_chiral_features
+from atomworks.ml.transforms.chirals import (
+    AddAF3ChiralFeatures,
+    AddRF2AAChiralFeatures,
+    get_dih,
+    get_rf2aa_chiral_features,
+)
 from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
 from atomworks.ml.transforms.crop import CropSpatialLikeAF3
 from atomworks.ml.transforms.filters import RemoveHydrogens

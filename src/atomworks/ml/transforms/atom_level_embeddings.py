@@ -88,7 +88,7 @@ def featurize_atom_level_embeddings(
     embeddings = np.full((n_conformers, L, embedding_dim), np.nan, dtype=np.float32)
     has_embedding = np.zeros(L, dtype=bool)
 
-    for i, (res_name, atom_name, global_res_id) in enumerate(zip(res_names, atom_names, global_res_ids)):
+    for i, (res_name, atom_name, global_res_id) in enumerate(zip(res_names, atom_names, global_res_ids, strict=False)):
         # (Skip checks)
         if ignore_res_names is not None and res_name in ignore_res_names:
             continue

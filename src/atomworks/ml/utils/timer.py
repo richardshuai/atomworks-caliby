@@ -5,16 +5,15 @@ Adapted from https://github.com/pnpnpn/timeout-decorator/blob/master/timeout_dec
 and from https://github.com/chaidiscovery/chai-lab/blob/main/chai_lab/utils/timeout.py
 """
 
-from __future__ import division, print_function, unicode_literals
-
 import multiprocessing
 import queue as _queue
 import signal
 import time
+from collections.abc import Callable
 from enum import Enum
 from functools import wraps
 from multiprocessing import Queue
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 
 def timeout(timeout: float | int | None = None, strategy: Literal["signal", "subprocess"] = "subprocess"):
@@ -196,7 +195,7 @@ def timeout_using_subprocess(timeout: float | int | None) -> Callable:
 
 # TODO: This is dangerous: revert once the underlying problem in rdkit is fixed
 # RDKit Issue(https://github.com/rdkit/rdkit/discussions/7289)
-class _AllowSubprocessForDeamonicProcess(object):
+class _AllowSubprocessForDeamonicProcess:
     """Context Manager to resolve AssertionError: daemonic processes are not allowed to have children
     See https://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic"""
 

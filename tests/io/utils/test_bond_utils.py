@@ -1,7 +1,6 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
 from atomworks.io.template import get_empty_ccd_template
@@ -12,6 +11,7 @@ from atomworks.io.utils.bonds import (
     hash_atom_array,
 )
 from atomworks.io.utils.ccd import get_chem_comp_leaving_atom_names
+from tests.io.conftest import get_pdb_path
 
 LEAVING_GROUP_TEST_CASES = {
     "ALA": {"N": ("H2",), "C": ("OXT", "HXT"), "OXT": ("HXT",)},

@@ -37,7 +37,7 @@ def generate_esm_embedding(
     model, alphabet = model["model"], model["alphabet"]
 
     # Create a dataset object for ESM
-    dataset = FastaBatchedDataset(list(sequences.keys()), [sequences[k] for k in sequences.keys()])
+    dataset = FastaBatchedDataset(list(sequences.keys()), [sequences[k] for k in sequences])
     batches = dataset.get_batch_indices(toks_per_batch, extra_toks_per_seq=1)
 
     # Pass None to truncation_seq_length to avoid truncation
@@ -48,7 +48,7 @@ def generate_esm_embedding(
     with torch.no_grad():
         for _, (labels, _, toks) in enumerate(data_loader):
             out = model(toks, repr_layers=[model.num_layers], return_contacts=False)
-            for sequence_hash, representation in zip(labels, out["representations"][model.num_layers]):
+            for sequence_hash, representation in zip(labels, out["representations"][model.num_layers], strict=False):
                 representations[sequence_hash] = representation[1:-1]  # remove the BOS and EOS tokens
 
     return representations

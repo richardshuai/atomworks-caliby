@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.constants import CRYSTALLIZATION_AIDS
 from atomworks.io.parser import parse
+from tests.io.conftest import get_pdb_path
 
 CRYSTALLIZATION_AIDS_PDB_IDS_TO_TEST = ["101M", "1AH8", "1ATG", "1ARX"]
 

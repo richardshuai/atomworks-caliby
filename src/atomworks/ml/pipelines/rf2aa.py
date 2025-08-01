@@ -5,8 +5,8 @@ from typing import NamedTuple
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from atomworks.io.constants import AF3_EXCLUDED_LIGANDS
 
+from atomworks.io.constants import AF3_EXCLUDED_LIGANDS
 from atomworks.ml.common import exists
 from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
 from atomworks.ml.transforms.atom_array import (
@@ -266,9 +266,9 @@ def build_rf2aa_transform_pipeline(
         Compose: A composed transformation pipeline.
     """
     if crop_contiguous_probability > 0 or crop_spatial_probability > 0:
-        assert np.isclose(crop_contiguous_probability + crop_spatial_probability, 1.0, atol=1e-6), (
-            "Crop probabilities must sum to 1.0"
-        )
+        assert np.isclose(
+            crop_contiguous_probability + crop_spatial_probability, 1.0, atol=1e-6
+        ), "Crop probabilities must sum to 1.0"
         assert crop_size > 0, "Crop size must be greater than 0"
         assert crop_center_cutoff_distance > 0, "Crop center cutoff distance must be greater than 0"
 

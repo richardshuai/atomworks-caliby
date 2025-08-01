@@ -10,10 +10,10 @@ import networkx as nx
 import numpy as np
 import requests
 from biotite.structure import AtomArray, CellList
-from atomworks.io.common import not_isin
-from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, METAL_ELEMENTS
 from scipy.spatial.distance import cdist
 
+from atomworks.io.common import not_isin
+from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, METAL_ELEMENTS
 from atomworks.ml.common import default
 from atomworks.ml.preprocessing.constants import ClashSeverity
 

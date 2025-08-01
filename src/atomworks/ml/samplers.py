@@ -1,8 +1,8 @@
 import itertools
 import logging
 import math
+from collections.abc import Iterator, Sequence
 from operator import add
-from typing import Iterator, Sequence
 
 import pandas as pd
 import torch
@@ -308,7 +308,7 @@ class DistributedMixedSampler(Sampler):
         # Create a list representing the number of items to sample from each dataset (sampler)
         self.n_examples_per_dataset = [math.ceil(prob * self.total_size) for prob in self.probabilities]  # ordered
 
-        for sampler, n_examples in zip(self.samplers, self.n_examples_per_dataset):
+        for sampler, n_examples in zip(self.samplers, self.n_examples_per_dataset, strict=False):
             # Set the `n_examples_per_epoch` for each sampler, if they allow it...
             # NOTE: Required for MixedSamplers, which must continue propagating the number of examples per epoch
             if hasattr(sampler, "_set_num_examples_per_epoch"):
@@ -332,7 +332,7 @@ class DistributedMixedSampler(Sampler):
         # Take the first n_examples_per_dataset indices from each sampler
         indices = [
             list(itertools.islice(sampler_iter, n))
-            for sampler_iter, n in zip(sampler_iters, self.n_examples_per_dataset)
+            for sampler_iter, n in zip(sampler_iters, self.n_examples_per_dataset, strict=False)
         ]
 
         # Convert to global indices
@@ -424,7 +424,7 @@ class FallbackSamplerWrapper(Sampler):
         # Create a list of iterators, each of which will yield the next n_fallback_retries indices from the fallback sampler
         fallback_iterators = [itertools.cycle(iter(self.fallback_sampler)) for _ in range(self.n_fallback_retries)]
         iterators = [iter(self.sampler)] + fallback_iterators
-        return zip(*iterators)
+        return zip(*iterators, strict=False)
 
     def __len__(self):
         return len(self.sampler)

@@ -1,10 +1,10 @@
 import pytest
 from biotite.structure.io import pdbx
-from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
 from atomworks.io.utils import io_utils
 from atomworks.io.utils.testing import assert_same_atom_array
+from tests.io.conftest import get_pdb_path
 
 MULTIPLE_ASSEMBLY_TEST_CASES = [
     {"pdbid": "1a7j", "n_assemblies": 3},

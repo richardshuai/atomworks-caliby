@@ -99,11 +99,11 @@ def test_view_pymol_remote(sample_atom_array):
     from io import StringIO
 
     import biotite.structure as struc
-    from tests.io.conftest import get_pdb_path
 
     from atomworks.io.parser import parse
     from atomworks.io.utils.io_utils import load_any
     from atomworks.io.utils.visualize import get_pymol_session, view_pymol
+    from tests.io.conftest import get_pdb_path
 
     result = parse(get_pdb_path("5ocm"), ccd_mirror_path=None)
 

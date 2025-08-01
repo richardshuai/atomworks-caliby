@@ -17,10 +17,10 @@ from biotite.structure import AtomArray
 from biotite.structure.basepairs import _check_dssr_criteria, _get_proximate_residues
 from biotite.structure.filter import filter_nucleotides
 from biotite.structure.residues import get_residue_masks, get_residue_starts_for
+
 from atomworks.io.utils.io_utils import load_any
 from atomworks.io.utils.selection import ResIdxSlice
 from atomworks.io.utils.sequence import get_1_from_3_letter_code
-
 from atomworks.ml.executables.x3dna import X3DNAFiber
 from atomworks.ml.preprocessing.constants import ChainType
 from atomworks.ml.transforms._checks import (
@@ -161,7 +161,7 @@ def base_pairs(atom_array, min_atoms_per_base=3, unique=True, no_hbond_dist_cut=
     base_masks = base_masks.reshape((basepair_candidates.shape[0], 2, nucleosides.shape[0]))
 
     for (base1_index, base2_index), (base1_mask, base2_mask), n_o_pairs in zip(
-        basepair_candidates, base_masks, n_o_matches
+        basepair_candidates, base_masks, n_o_matches, strict=False
     ):
         base1 = nucleosides[base1_mask]
         base2 = nucleosides[base2_mask]
@@ -189,7 +189,7 @@ def base_pairs(atom_array, min_atoms_per_base=3, unique=True, no_hbond_dist_cut=
 
         # Get all bases that have non-unique pairing interactions
         base_indices, occurrences = np.unique(basepairs, return_counts=True)
-        for base_index, occurrence in zip(base_indices, occurrences):
+        for base_index, occurrence in zip(base_indices, occurrences, strict=False):
             if occurrence > 1:
                 # Write the non-unique base pairs to a dictionary as
                 # 'index: number of hydrogen bonds'
@@ -604,7 +604,7 @@ class PadDNA(Transform):
         dna_array.set_annotation("is_overhang", dna_array.is_chain_paired & ~dna_array.is_base_paired)
 
         # ... get number of partner-chains for each chain
-        n_partner_chains = dict(zip(*np.unique(chain_pair_iids, return_counts=True)))
+        n_partner_chains = dict(zip(*np.unique(chain_pair_iids, return_counts=True), strict=False))
 
         # ... filter to 'extensible' chains, i.e. chains which are uniquely paired with only one other chain
         chain_pair_iids_in_duplex = [
@@ -679,9 +679,9 @@ class PadDNA(Transform):
                 seq2_rhs = "".join(chain2["canonical_seq"][-chain2_overhang[1] :])
 
             try:
-                assert seq1_paired == to_reverse_complement(seq2_paired), (
-                    "sequences to be joined must be reverse-complements of each other"
-                )
+                assert seq1_paired == to_reverse_complement(
+                    seq2_paired
+                ), "sequences to be joined must be reverse-complements of each other"
                 assert seq1_lhs == "" or seq2_rhs == "", "overhang1_lhs and overhang1_rhs are mutually exclusive"
                 assert seq1_rhs == "" or seq2_lhs == "", "overhang2_lhs and overhang2_rhs are mutually exclusive"
             except AssertionError:
