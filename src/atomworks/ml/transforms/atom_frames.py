@@ -19,7 +19,7 @@ from atomworks.ml.transforms.encoding import EncodeAtomArray
 from atomworks.ml.transforms.filters import RemoveNucleicAcidTerminalOxygen, RemoveTerminalOxygen
 from atomworks.ml.utils.token import get_token_starts
 
-# Constants copied from `chemdata` to decouple the RF2AA repository from the datahub pipeline
+# Constants copied from `chemdata` to decouple the RF2AA repository from the atomworks.ml pipeline
 NUM2AA = [
     "ALA",
     "ARG",

@@ -1,4 +1,4 @@
-"""Shared test utils and fixtures for all tests"""
+"""ML-specific test fixtures and utilities for atomworks.ml tests."""
 
 import os
 import shutil

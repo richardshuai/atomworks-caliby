@@ -13,7 +13,7 @@ from atomworks.io.utils.ccd import (
 )
 from atomworks.io.utils.sequence import get_3_from_1_letter_code
 
-logger = logging.getLogger("cifutils")
+logger = logging.getLogger("atomworks.io")
 
 
 def split_generalized_fasta_sequence(sequence: str) -> list[str]:

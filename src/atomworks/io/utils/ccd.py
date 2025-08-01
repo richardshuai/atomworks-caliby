@@ -482,7 +482,7 @@ def _chem_comp_type_dict() -> dict[str, str]:
 def get_chem_comp_type(ccd_code: str, mode: Literal["warn", "raise"] = "warn") -> str:
     """Get the chemical component type for a CCD code from the Chemical Component Dictionary (CCD).
 
-    Can be combined with CHEM_TYPES from `cifutils_biotite.constants` to determine if a component is a
+    Can be combined with CHEM_TYPES from `atomworks.io_biotite.constants` to determine if a component is a
     protein, nucleic acid, or carbohydrate.
 
     Args:

@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - main
+      - production
     paths:
       - 'src/**'
       - 'tests/**'
   pull_request:
     branches:
       - main
+      - production
     paths:
       - 'src/**'
       - 'tests/**'
@@ -34,9 +36,9 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.12"
-    - name: Extract ruff version from environment.yaml
+    - name: Extract ruff version from pyproject.toml
       run: |
-        echo "RUFF_VERSION=$(grep 'ruff==' environment.yaml | sed 's/.*ruff==\(.*\)/\1/')" >> $GITHUB_ENV
+        echo "RUFF_VERSION=$(grep -E 'ruff.*=' pyproject.toml | sed -E 's/.*"ruff==([^"]+)".*/\1/')" >> $GITHUB_ENV
         echo "Extracted Ruff version: ${{ env.RUFF_VERSION }}"
     - name: Install ruff
       run: pip install ruff==${{ env.RUFF_VERSION }}

@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from atomworks.ml.utils.testing import get_pdb_mirror_path
-from tests.preprocessing.conftest import DATA_PREPROCESSOR
+from tests.ml.preprocessing.conftest import DATA_PREPROCESSOR
 
 FIND_CONTACTS_TEST_CASES = [
     # Defined with:

@@ -22,7 +22,7 @@ from atomworks.ml.transforms.rdkit_utils import (
 )
 from atomworks.ml.utils.geometry import masked_center, random_rigid_augmentation
 
-logger = logging.getLogger("datahub")
+logger = logging.getLogger("atomworks.ml")
 
 # UNL is a special CCD code for unknown ligands; we do not consider it "known" as it has no structure
 KNOWN_CCD_CODES = get_available_ccd_codes() - {UNKNOWN_LIGAND}
@@ -404,9 +404,9 @@ def get_af3_reference_molecule_features(
     ref_atom_name_chars = _encode_atom_names_like_af3(atom_array.atom_name)
 
     if use_element_for_atom_names_of_atomized_tokens:
-        assert (
-            "atomize" in atom_array.get_annotation_categories()
-        ), "Atomize annotation is required when using element for atom names of atomized tokens."
+        assert "atomize" in atom_array.get_annotation_categories(), (
+            "Atomize annotation is required when using element for atom names of atomized tokens."
+        )
         ref_atom_name_chars[atom_array.atomize] = _encode_atom_names_like_af3(atom_array.element[atom_array.atomize])
 
     # ... space uid (type conversion needed for some older torch versions)

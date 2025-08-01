@@ -145,7 +145,7 @@ class BindNoBindMeasurement(DataObject):
 
     # ==== FIELDS DERIVED FROM DATA SOURCE ====
     # NOTE: These are all optional fields in BindNoBindMeasurement, but they are guarenteed to be present if you use
-    # datahub.databases.io_utils.save_measurement_to_cif() to save this measurement
+    # atomworks.ml.databases.io_utils.save_measurement_to_cif() to save this measurement
     # NOTE: Generally these should be left blank upon initialization, but will be populated during saving and loading of measurement cif files.
     author: Optional[str] = None
     year: Optional[int] = None

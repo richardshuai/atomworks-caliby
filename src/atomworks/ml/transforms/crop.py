@@ -22,7 +22,7 @@ from atomworks.ml.utils.token import (
     spread_token_wise,
 )
 
-logger = logging.getLogger("datahub")
+logger = logging.getLogger("atomworks.ml")
 
 
 class CropTransformBase(Transform):

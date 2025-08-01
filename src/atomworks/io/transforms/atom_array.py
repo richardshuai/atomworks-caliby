@@ -23,7 +23,7 @@ from atomworks.io.utils.bonds import (
 from atomworks.io.utils.ccd import atom_array_from_ccd_code
 from atomworks.io.utils.selection import annot_start_stop_idxs
 
-logger = logging.getLogger("cifutils")
+logger = logging.getLogger("atomworks.io")
 
 try:
     import hydride

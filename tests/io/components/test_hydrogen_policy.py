@@ -2,7 +2,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from conftest import get_pdb_path
+from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
 from atomworks.io.transforms.atom_array import add_hydrogen_atom_positions

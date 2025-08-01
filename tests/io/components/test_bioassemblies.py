@@ -1,6 +1,6 @@
 import pytest
 from biotite.structure.io import pdbx
-from conftest import get_pdb_path
+from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
 from atomworks.io.utils import io_utils
@@ -53,8 +53,7 @@ def test_assembly_atom_coordinates(pdb_id: str):
     )
     resolved_biotite_assembly = biotite_assembly[(biotite_assembly.occupancy > 0) & (biotite_assembly.element != "H")]
 
-    # CIFUtils
-    cifutils_assembly = parse(
+    assembly = parse(
         filename=path,
         build_assembly="first",
         fix_arginines=False,
@@ -63,11 +62,11 @@ def test_assembly_atom_coordinates(pdb_id: str):
         remove_ccds=[],  # Do not remove crystallization solvents
         ccd_mirror_path=None,  # Use Biotite's CCD mirror
     )["assemblies"]["1"][0]
-    resolved_cifutils_assembly = cifutils_assembly[cifutils_assembly.occupancy > 0]
+    resolved_assembly = assembly[assembly.occupancy > 0]
 
     assert_same_atom_array(
         resolved_biotite_assembly,
-        resolved_cifutils_assembly,
+        resolved_assembly,
         annotations_to_compare=["chain_id", "res_name", "atom_name"],
         compare_bonds=False,
         # NOTE: We do not compare res_id as waters don't match in the res_id and elements as we turn elements into integers

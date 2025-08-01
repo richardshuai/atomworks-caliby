@@ -33,7 +33,7 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
 
     We make the following modifications to the original AF-3 formula:
         - We introduce n_peptide and a_peptide to better control the sampling over peptides (which were being over-sampled). We define peptides
-        as proteins with fewer than PEPTIDE_MAX_RESIDUES residues (see `datahub.preprocessing.constants`).
+        as proteins with fewer than PEPTIDE_MAX_RESIDUES residues (see `atomworks.ml.preprocessing.constants`).
         - We introduce an incremental a_loi weight to control the sampling of ligands of interests (LOI), also described as Subject of Investigation.
 
     Thus, our full formula is:

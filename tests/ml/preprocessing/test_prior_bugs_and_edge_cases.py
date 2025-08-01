@@ -3,7 +3,7 @@
 import pytest
 
 from atomworks.ml.utils.testing import get_pdb_mirror_path
-from tests.preprocessing.conftest import DATA_PREPROCESSOR
+from tests.ml.preprocessing.conftest import DATA_PREPROCESSOR
 
 """
 PDB IDs with unusual characteristics that we will ensure run through the data preprocessing pipeline

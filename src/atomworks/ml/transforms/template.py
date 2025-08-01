@@ -73,7 +73,7 @@ class RF2AATemplate:
     ids: list[tuple[str]]  # Holds the f"{pdb_id}_{chain_id}" of the template
     label: list[str]  # holds the lookup_id for this template
 
-    # RF2AA ideal N, CA, C initial coordinates (protein), copied from `chemdata` in RF2AA to decouple from `datahub`
+    # RF2AA ideal N, CA, C initial coordinates (protein), copied from `chemdata` in RF2AA to decouple from `atomworks.ml`
     _INIT_N = torch.tensor([-0.5272, 1.3593, 0.000]).float()
     _INIT_CA = torch.zeros_like(_INIT_N)
     _INIT_C = torch.tensor([1.5233, 0.000, 0.000]).float()
@@ -508,9 +508,9 @@ class FeaturizeTemplatesLikeRF2AA(Transform):
         assert_that(n_template).is_instance_of(int).is_greater_than(0)
         assert_that(encoding).is_instance_of(TokenEncoding)
         assert_that(allowed_chain_types).is_instance_of(list).is_not_empty()
-        assert np.isin(
-            allowed_chain_types, ChainType
-        ).all(), f"Allowed chain types must be a list of ChainType enums. Got {allowed_chain_types=}."
+        assert np.isin(allowed_chain_types, ChainType).all(), (
+            f"Allowed chain types must be a list of ChainType enums. Got {allowed_chain_types=}."
+        )
         self.n_template = n_template
         self.mask_token_idx = mask_token_idx
         self.init_coords = init_coords

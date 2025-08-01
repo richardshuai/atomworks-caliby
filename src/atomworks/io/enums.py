@@ -1,4 +1,4 @@
-"""Enums used in the `cifutils` package."""
+"""Enums used in the `atomworks.io` package."""
 
 from enum import IntEnum
 from types import MappingProxyType

@@ -8,7 +8,7 @@ from biotite.structure import AtomArray
 from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys
 from atomworks.ml.transforms.base import Transform
 
-logger = logging.getLogger("datahub")
+logger = logging.getLogger("atomworks.ml")
 
 
 def featurize_atom_level_embeddings(

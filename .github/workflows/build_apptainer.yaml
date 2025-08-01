@@ -3,7 +3,7 @@ name: build-apptainer
 on:
   workflow_dispatch:  # enable manual triggering
   pull_request:
-    branches: [main]
+    branches: [main, production]
     types: [ready_for_review, synchronize]
     paths:
       - 'environment.yaml'

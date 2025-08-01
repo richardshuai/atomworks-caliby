@@ -29,7 +29,7 @@ from atomworks.io.transforms.categories import category_to_dict
 from atomworks.io.utils.sequence import get_1_from_3_letter_code
 from atomworks.io.utils.testing import has_ambiguous_annotation_set
 
-logger = logging.getLogger("cifutils")
+logger = logging.getLogger("atomworks.io")
 
 CIF_LIKE_EXTENSIONS = {".cif", ".pdb", ".bcif", ".cif.gz", ".pdb.gz", ".bcif.gz"}
 
@@ -109,8 +109,8 @@ def _add_bonds(
         raise ValueError(
             "To ensure that bonds are added correctly when there are uninformative `label_seq_id` values present "
             "(occurs for non-polymers), the `auth_seq_id` annotation must be given in the `AtomArray`."
-            "This error should not occur if the `AtomArray` was loaded with `cifutils`, but may "
-            "occur if biotite was used directly. Please re-load the structure from CIF using `cifutils`."
+            "This error should not occur if the `AtomArray` was loaded with `atomworks.io`, but may "
+            "occur if biotite was used directly. Please re-load the structure from CIF using `atomworks.io`."
         )
 
     # Add intra-residue bonds as specified in the CIF, or fallback to CCD
@@ -505,7 +505,6 @@ def _to_cif_or_bcif(
             "This happens for example when you have a bio-assembly with multiple copies "
             "of a chain that only differ by `transformation_id`.\n"
             "You can fix this for example by re-naming the chains to be named uniquely."
-            "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
         )
 
     # If elements are given as atomic numbers, convert them to (uppercase) element symbols
@@ -817,7 +816,6 @@ def to_pdb_buffer(
             "This happens for example when you have a bio-assembly with multiple copies "
             "of a chain that only differ by `transformation_id`.\n"
             "You can fix this for example by re-naming the chains to be named uniquely."
-            "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
         )
 
     # Set the structure and bonds

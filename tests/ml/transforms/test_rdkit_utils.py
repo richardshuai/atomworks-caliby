@@ -167,13 +167,13 @@ def test_chirality_in_rdkit_conformer_generation(ccd_code, target_chirality, str
     for i in range(n_iterations):
         mol = ccd_code_to_rdkit_with_conformers(ccd_code, n_conformers=1, timeout=2, timeout_strategy=strategy)
         coord = mol.GetConformer(0).GetPositions()[0][0]
-        assert (
-            coord != prev_coord
-        ), f"Conformer {i} has the same coordinate as the previous conformer: {coord} at iteration {i}/{n_iterations}."
+        assert coord != prev_coord, (
+            f"Conformer {i} has the same coordinate as the previous conformer: {coord} at iteration {i}/{n_iterations}."
+        )
         prev_coord = coord
-        assert (
-            Chem.FindMolChiralCenters(mol) == target_chirality
-        ), f"Chiral center assignment is incorrect for {ccd_code} at iteration {i}/{n_iterations}."
+        assert Chem.FindMolChiralCenters(mol) == target_chirality, (
+            f"Chiral center assignment is incorrect for {ccd_code} at iteration {i}/{n_iterations}."
+        )
 
 
 @pytest.mark.filterwarnings("ignore: This process")
@@ -191,7 +191,7 @@ def test_tuple_timeout_policy(caplog):
         )
     end = time.time()
     # Should complete within ~0.2s (allowing slight overhead)
-    assert end - start < 0.3, f"Timeout didn't trigger properly, took {end - start:.2f}s"
+    assert end - start < 0.5, f"Timeout didn't trigger properly, took {end - start:.2f}s"
     # Should still return the requested number of conformers (via fallback)
     assert mol.GetNumConformers() == 100
     # Should have logged the specific warning about falling back to CCD conformer

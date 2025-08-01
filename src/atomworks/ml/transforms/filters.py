@@ -119,9 +119,9 @@ def remove_unsupported_chain_types(
         query_pn_unit_chain_types = np.unique(
             atom_array.chain_type[np.isin(atom_array.pn_unit_iid, query_pn_unit_iids)]
         )
-        assert np.all(
-            np.isin(query_pn_unit_chain_types, supported_chain_types)
-        ), f"Query PN unit has an unsupported chain type: {query_pn_unit_chain_types}"
+        assert np.all(np.isin(query_pn_unit_chain_types, supported_chain_types)), (
+            f"Query PN unit has an unsupported chain type: {query_pn_unit_chain_types}"
+        )
 
     # Then, we filter out chains with unsupported chain types
     is_supported_chain_type = np.isin(atom_array.chain_type, supported_chain_types)
@@ -241,7 +241,7 @@ def random_remove_pn_units_by_annotation_query(
 
     Args:
         atom_array: The AtomArray to filter
-        query: Query string in cifutils Query syntax to identify pn_units to potentially delete
+        query: Query string in atomworks.io Query syntax to identify pn_units to potentially delete
         delete_probability: Probability of deleting matched pn_units (0.0 = never delete, 1.0 = always delete)
         rng: Random number generator for probabilistic deletion
     """
@@ -281,7 +281,7 @@ class RandomlyRemovePNUnitsByAnnotationQuery(Transform):
     """Randomly remove pn_units from atom_array based on a query string with configurable probability.
 
     Args:
-        query: Query string in cifutils query syntax to identify pn_units to potentially delete
+        query: Query string in atomworks.io query syntax to identify pn_units to potentially delete
         delete_probability: Probability of deleting matched pn_units (0.0 = never delete, 1.0 = always delete)
         rng_seed: Random seed for reproducibility (default: 42)
     """

@@ -43,7 +43,7 @@ from atomworks.io.utils.ccd import get_chem_comp_leaving_atom_names, get_chem_co
 from atomworks.io.utils.selection import get_annotation, get_residue_starts
 from atomworks.io.utils.testing import has_ambiguous_annotation_set
 
-logger = logging.getLogger("cifutils")
+logger = logging.getLogger("atomworks.io")
 
 
 def _get_leaving_atom_idxs_for(atom_name: str, res_name: str, atom_names: np.ndarray, offset: int = 0) -> np.ndarray:
@@ -217,7 +217,7 @@ def get_struct_conn_dict_from_atom_array(
         if len(np.unique(res_array.atom_name)) != len(res_array.atom_name):
             raise ValueError(
                 "Duplicate atom names detected in the same residue -- cannot infer struct_conn. "
-                "This may happen when a non-polymer is loaded from a CIF file without using `cifutils.parser.parse`. "
+                "This may happen when a non-polymer is loaded from a CIF file without using `atomworks.io.parser.parse`. "
             )
 
     # Keep only inter-residue bonds
@@ -244,7 +244,6 @@ def get_struct_conn_dict_from_atom_array(
                 "of a chain that only differ by `transformation_id`.\n"
                 "You can fix this for example by re-naming the chains to be named uniquely. "
                 "For the purposes of this function, you can also add a unambiguous chain_iid annotation instead. "
-                "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
             )
         elif has_ambiguous_annotation_set(
             atom_array, annotation_set=["chain_iid", "res_id", "res_name", "atom_name", "ins_code"]
@@ -257,7 +256,6 @@ def get_struct_conn_dict_from_atom_array(
                 "In this case, falling back to the `chain_iid` annotation was insufficient to resolve the ambiguity."
                 "You can fix this for example by re-naming the chains to be named uniquely. "
                 "For the purposes of this function, you can also add a unambiguous chain_iid annotation instead. "
-                "For more info, see: https://git.ipd.uw.edu/ai/cifutils/-/issues/15"
             )
         else:
             use_iids = True

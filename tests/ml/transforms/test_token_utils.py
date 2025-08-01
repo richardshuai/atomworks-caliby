@@ -75,9 +75,9 @@ def test_add_global_token_id_annotation_when_fully_atomized(pdb_id):
 
     assert "atom_id" in atom_array.get_annotation_categories()
     assert "token_id" in atom_array.get_annotation_categories()
-    assert np.all(
-        atom_array.atom_id == atom_array.token_id
-    ), "atom_id and token_id should be the same for a fully atomized atom_array"
+    assert np.all(atom_array.atom_id == atom_array.token_id), (
+        "atom_id and token_id should be the same for a fully atomized atom_array"
+    )
 
     # cross check by iterating over the tokens
     # ... via token starts

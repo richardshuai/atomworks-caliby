@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from tests.conftest import TEST_DIFFUSION_BATCH_SIZE
+from tests.ml.conftest import TEST_DIFFUSION_BATCH_SIZE
 
 
 @pytest.fixture

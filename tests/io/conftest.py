@@ -1,4 +1,4 @@
-"""Shared test utils and fixtures for all tests"""
+"""IO-specific test fixtures and utilities for atomworks.io tests."""
 
 import logging
 import os

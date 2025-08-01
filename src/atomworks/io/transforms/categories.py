@@ -23,7 +23,7 @@ from atomworks.io.enums import ChainType
 from atomworks.io.utils.selection import get_residue_starts
 from atomworks.io.utils.sequence import get_1_from_3_letter_code
 
-logger = logging.getLogger("cifutils")
+logger = logging.getLogger("atomworks.io")
 
 
 def category_to_df(cif_block: CIFBlock, category: str) -> pd.DataFrame | None:

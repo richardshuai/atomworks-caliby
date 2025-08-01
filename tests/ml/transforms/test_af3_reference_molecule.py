@@ -27,7 +27,7 @@ from atomworks.ml.transforms.chirals import AddAF3ChiralFeatures
 from atomworks.ml.transforms.rdkit_utils import GetRDKitChiralCenters
 from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
 from atomworks.ml.utils.testing import cached_parse
-from tests.conftest import TEST_DATA_DIR
+from tests.ml.conftest import TEST_DATA_DIR
 
 
 def test_contrived_tyr():
@@ -92,6 +92,7 @@ def test_get_af3_reference_molecule_features_res(res_name):
 
     # Check feature shapes
     features, _ = get_af3_reference_molecule_features(atom_array)
+
     assert features["ref_pos"].shape == (n_atom, 3)
     assert features["ref_mask"].shape == (n_atom,)
     assert features["ref_element"].shape == (n_atom,)
@@ -187,9 +188,9 @@ def _assert_ref_pos_matches_ground_truth(
     mask: np.ndarray,
 ) -> None:
     """Assert that the reference positions are correctly aligned with the ground truth."""
-    assert not np.any(
-        np.isclose(ref_pos, ground_truth_coord)
-    ), "Reference positions should differ from atom array coordinates under a transformation."
+    assert not np.any(np.isclose(ref_pos, ground_truth_coord)), (
+        "Reference positions should differ from atom array coordinates under a transformation."
+    )
 
     # Assert similar distances in masked positions
     dist1 = np.linalg.norm(ground_truth_coord[mask][:, None] - ground_truth_coord[mask], axis=2)
@@ -243,16 +244,17 @@ def test_random_apply_ground_truth_conformer_by_chain_type(seed: int = 42):
 
     # Assert that all polymer atoms have the IGNORE policy
     polymer_mask = atom_array.is_polymer
-    assert np.all(
-        atom_array.ground_truth_conformer_policy[polymer_mask] == GroundTruthConformerPolicy.IGNORE
-    ), f"Expected all polymer atoms to have IGNORE policy, but got {atom_array.ground_truth_conformer_policy[polymer_mask]}"
+    assert np.all(atom_array.ground_truth_conformer_policy[polymer_mask] == GroundTruthConformerPolicy.IGNORE), (
+        f"Expected all polymer atoms to have IGNORE policy, but got {atom_array.ground_truth_conformer_policy[polymer_mask]}"
+    )
 
     # Assert that most non-polymer atoms have the REPLACE policy...
     non_polymer_mask = ~polymer_mask
-    assert (
-        np.sum(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE)
-        > 0.5 * np.sum(non_polymer_mask)
-    ), f"Expected most non-polymer atoms to have REPLACE policy, but got {np.sum(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE)}"
+    assert np.sum(
+        atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE
+    ) > 0.5 * np.sum(non_polymer_mask), (
+        f"Expected most non-polymer atoms to have REPLACE policy, but got {np.sum(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.REPLACE)}"
+    )
     # ... but not all
     assert np.any(atom_array.ground_truth_conformer_policy[non_polymer_mask] == GroundTruthConformerPolicy.IGNORE)
 
@@ -355,9 +357,9 @@ def test_ref_space_uid():
     pipe = GetAF3ReferenceMoleculeFeatures(apply_random_rotation_and_translation=True)
     out = pipe({"atom_array": atom_array})
 
-    assert np.all(
-        out["feats"]["ref_space_uid"] == expected_ref_space_uid
-    ), f"{out['feats']['ref_space_uid']}, but expected {expected_ref_space_uid}"
+    assert np.all(out["feats"]["ref_space_uid"] == expected_ref_space_uid), (
+        f"{out['feats']['ref_space_uid']}, but expected {expected_ref_space_uid}"
+    )
 
 
 def test_max_conformers_per_residue_functionality():

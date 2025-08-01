@@ -13,13 +13,13 @@ echo "Running tests with max $N_CPU CPUs"
 
 # Ensure we can collect all tests (i.e. imports succeed)
 echo "Testing imports by trying to collect all tests"
-apptainer exec ./.ipd/cifutils.sif pytest -m "not benchmark" --collect-only tests/
+apptainer exec ./.ipd/atomworks.sif pytest -m "not benchmark" --collect-only tests/
 
 # Run the tests in coverage mode
-apptainer exec ./.ipd/cifutils.sif pytest -m "not benchmark" --cov=cifutils --cov-report=xml --cov-report=term-missing -n=auto --maxprocesses=$N_CPU --dist=worksteal tests/
+apptainer exec ./.ipd/atomworks.sif pytest -m "not benchmark" --cov=atomworks --cov-report=xml --cov-report=term-missing -n=auto --maxprocesses=$N_CPU --dist=worksteal tests/
 
 # Require at least 85% coverage
-apptainer exec ./.ipd/cifutils.sif coverage report --fail-under=80
+apptainer exec ./.ipd/atomworks.sif coverage report --fail-under=80
 
 # Output the coverage in a format GitLab can parse
-apptainer exec ./.ipd/cifutils.sif coverage report | tail -n 1 | awk '{print "TOTAL", $NF}'
+apptainer exec ./.ipd/atomworks.sif coverage report | tail -n 1 | awk '{print "TOTAL", $NF}'

@@ -28,7 +28,7 @@ from atomworks.io.utils.ccd import get_chem_comp_type
 from atomworks.io.utils.selection import get_residue_starts
 from atomworks.io.utils.sequence import get_1_from_3_letter_code
 
-logger = logging.getLogger("cifutils")
+logger = logging.getLogger("atomworks.io")
 
 
 def infer_chain_type_from_ccd_codes(ccd_code_seq: Sequence[str]) -> ChainType:

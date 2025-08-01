@@ -198,7 +198,7 @@ class GenericDFParser(MetadataRowParser):
 
     Args:
         example_id_colname (str): Name of the column containing a unique identifier for each example (across ALL datasets, not just this dataset).
-            By convention, the columns values should be generated with `datahub.common.generate_example_id`. Default: "example_id"
+            By convention, the columns values should be generated with `atomworks.ml.common.generate_example_id`. Default: "example_id"
         path_colname (str): Name of the column containing paths (relative or absolute) to the relevant structure files. Default: "path"
         pn_unit_iid_colnames (str | List[str]): The name(s) of the column(s) containing the CIFUtils pn_unit_iid(s); used for cropping.
             If given as a list, should contain one element for a monomers dataset and two for an interfaces dataset.
@@ -225,7 +225,7 @@ class GenericDFParser(MetadataRowParser):
             For example, the "extra_info" key could contain information about which chain(s) to score during validation, metadata for specific metrics, etc.
 
     NOTE: We must avoid duplication of interfaces due to order inversion. If not using the preprocessing
-        scripts in `datahub`, ensure that the interfaces dataframe has been checked for duplicates.
+        scripts in `atomworks.ml`, ensure that the interfaces dataframe has been checked for duplicates.
         For example, [A, B] and [B, A] should be considered the same interface.
 
     Example dataframe:

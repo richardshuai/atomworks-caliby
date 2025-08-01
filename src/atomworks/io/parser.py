@@ -41,7 +41,7 @@ from atomworks.io.utils.non_rcsb import (
     initialize_chain_info_from_atom_array,
 )
 
-logger = logging.getLogger("cifutils")
+logger = logging.getLogger("atomworks.io")
 
 __all__ = ["parse"]
 
@@ -309,10 +309,10 @@ def parse(
         # We want our cache to include:
         #   (1) All keys in `result` excep the assemblies and
         #   (2) The information needed to rebuild the assembly(s), which is stored in `result["extra_info"]`
-        #   (3) The parse_arguments and cifutils version
+        #   (3) The parse_arguments and atomworks.io version
 
         # Add parse_arguments and version to metadata before saving
-        result.setdefault("metadata", {}).update({"parse_arguments": parse_arguments, "cifutils_version": __version__})
+        result.setdefault("metadata", {}).update({"parse_arguments": parse_arguments, "atomworks.io_version": __version__})
 
         # Ensure all parent directories exist
         cache_file_path.parent.mkdir(parents=True, exist_ok=True)

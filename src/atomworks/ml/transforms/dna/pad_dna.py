@@ -34,7 +34,7 @@ from atomworks.ml.utils.geometry import align_atom_arrays
 from atomworks.ml.utils.misc import _randomly_select_items_with_weights
 from atomworks.ml.utils.testing import is_clash
 
-logger = logging.getLogger("datahub")
+logger = logging.getLogger("atomworks.ml")
 
 dna_transform_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -45,7 +45,7 @@ _WATSON_CRICK_COMPLEMENT_TRANSLATION_TABLE = str.maketrans(_WATSON_CRICK_COMPLEM
 """Translation table for the Watson-Crick complement of nucleotides."""
 
 
-# TODO: move to cifutils
+# TODO: move to atomworks.io
 def remove_nan_coords(atom_array: AtomArray) -> AtomArray:
     """Returns a copy of the AtomArray with rows where any coordinate is NaN removed."""
     is_any_coord_nan = np.isnan(atom_array.coord).any(axis=-1)
@@ -679,9 +679,9 @@ class PadDNA(Transform):
                 seq2_rhs = "".join(chain2["canonical_seq"][-chain2_overhang[1] :])
 
             try:
-                assert seq1_paired == to_reverse_complement(
-                    seq2_paired
-                ), "sequences to be joined must be reverse-complements of each other"
+                assert seq1_paired == to_reverse_complement(seq2_paired), (
+                    "sequences to be joined must be reverse-complements of each other"
+                )
                 assert seq1_lhs == "" or seq2_rhs == "", "overhang1_lhs and overhang1_rhs are mutually exclusive"
                 assert seq1_rhs == "" or seq2_lhs == "", "overhang2_lhs and overhang2_rhs are mutually exclusive"
             except AssertionError:

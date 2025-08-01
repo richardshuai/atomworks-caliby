@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script tests a cifutils apptainer container with appropriate bind mounts.
+# This script tests a atomworks.io apptainer container with appropriate bind mounts.
 set -e  # Exit on error
 
 echo "Running from $PWD"
@@ -13,7 +13,7 @@ fi
 echo "Using apptainer at: $APPTAINER_BINARY"
 
 # Get the image name from command line argument or use latest
-IMAGE_NAME=${1:-./ipd/cifutils.sif}
+IMAGE_NAME=${1:-./ipd/atomworks.io.sif}
 if [ ! -f "$IMAGE_NAME" ]; then
     echo "Error: Container image not found: $IMAGE_NAME"
     exit 1

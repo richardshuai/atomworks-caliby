@@ -15,7 +15,7 @@ from atomworks.ml.transforms._checks import (
 )
 from atomworks.ml.transforms.base import Transform
 
-logger = logging.getLogger("datahub")
+logger = logging.getLogger("atomworks.ml")
 
 
 def compute_spatial_knn_mask(coords: np.ndarray, k: int) -> np.ndarray:
@@ -93,9 +93,9 @@ class AddSpatialKNNMask(Transform):
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_iid"])
 
-        assert (
-            len(data["atom_array"].coord) < self.max_atoms_in_crop
-        ), "Number of atoms in the atom array exceeds the maximum number of atoms in the crop"
+        assert len(data["atom_array"].coord) < self.max_atoms_in_crop, (
+            "Number of atoms in the atom array exceeds the maximum number of atoms in the crop"
+        )
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         """

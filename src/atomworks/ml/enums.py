@@ -1,4 +1,4 @@
-"""Enums for datahub."""
+"""Enums for atomworks.ml."""
 
 from enum import IntEnum
 

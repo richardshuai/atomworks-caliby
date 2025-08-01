@@ -1,7 +1,7 @@
 import time
 
 import pytest
-from conftest import get_pdb_path
+from tests.io.conftest import get_pdb_path
 
 from atomworks.io.parser import parse
 from atomworks.io.utils.testing import assert_same_atom_array
@@ -66,8 +66,8 @@ def test_caching(pdb_id: str, tmp_path):
     # Check that metadata fields are present and correct
     assert "metadata" in cached_result
     assert "parse_arguments" in cached_result["metadata"]
-    assert "cifutils_version" in cached_result["metadata"]
-    assert isinstance(cached_result["metadata"]["cifutils_version"], str)
+    assert "atomworks.io_version" in cached_result["metadata"]
+    assert isinstance(cached_result["metadata"]["atomworks.io_version"], str)
 
     # Load with different parsing arguments
     def different_args_parse():

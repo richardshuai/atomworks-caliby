@@ -29,7 +29,7 @@ from atomworks.io.constants import (
 )
 from atomworks.io.enums import ChainType
 
-logger = logging.getLogger("cifutils")
+logger = logging.getLogger("atomworks.io")
 
 
 def get_1_from_3_letter_code(

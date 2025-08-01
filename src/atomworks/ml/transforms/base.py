@@ -278,9 +278,9 @@ class Transform(ABC):
 
         # apply the transformation
         data = self.forward(data, *args, **kwargs)
-        assert isinstance(
-            data, dict
-        ), f"`forward` method of {self.__class__.__name__} must return a dictionary, not {type(data)}."
+        assert isinstance(data, dict), (
+            f"`forward` method of {self.__class__.__name__} must return a dictionary, not {type(data)}."
+        )
 
         # restore the transform history if `data` was copied (which loses the transform history)
         data = self._ensure_has_transform_history(data)

@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 
 from atomworks.ml.utils.testing import get_pdb_mirror_path
-from tests.preprocessing.conftest import DATA_PREPROCESSOR
+from tests.ml.preprocessing.conftest import DATA_PREPROCESSOR
 
 FILTERING_CRITERIA_TEST_CASES = [
     # Clashing test cases
@@ -46,9 +46,9 @@ def test_filtering_criteria(test_case: dict[str, Any]):
     assert set(pn_unit_iids) >= set(df["q_pn_unit_iid"].unique().tolist())
 
     # ...assert that all of the rows have the same PN units
-    assert (
-        df["all_pn_unit_iids_after_processing"] == df["all_pn_unit_iids_after_processing"].iloc[0]
-    ).all(), "Not all rows have the same pn_units"
+    assert (df["all_pn_unit_iids_after_processing"] == df["all_pn_unit_iids_after_processing"].iloc[0]).all(), (
+        "Not all rows have the same pn_units"
+    )
 
     pn_units_to_keep = set(test_case["pn_units_to_keep"])
     pn_units_to_remove = set(test_case["pn_units_to_remove"])

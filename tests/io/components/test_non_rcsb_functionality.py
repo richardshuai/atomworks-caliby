@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from components.test_chain_types import CHAIN_TYPE_TEST_CASES
-from conftest import get_pdb_path
+from tests.io.conftest import get_pdb_path
 
 from atomworks.io.enums import ChainType
 from atomworks.io.parser import parse

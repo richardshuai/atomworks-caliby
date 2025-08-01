@@ -14,7 +14,7 @@ from atomworks.ml.transforms.msa.msa import (
     PairAndMergePolymerMSAs,
 )
 from atomworks.ml.utils.testing import cached_parse
-from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
+from tests.ml.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 PAIR_MSA_TEST_CASES = [
     {

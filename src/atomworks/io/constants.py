@@ -1,4 +1,4 @@
-"""Constants used in the `cifutils` package."""
+"""Constants used in the `atomworks.io` package."""
 
 import logging
 import os
@@ -26,7 +26,7 @@ def _load_env_var(var_name: str) -> str | None:
             "To set it you may:\n"
             "  (1) add the line 'export VAR_NAME=path/to/variable' to your .bashrc or .zshrc file\n"
             "  (2) set it in your current shell with 'export VAR_NAME=path/to/variable'\n"
-            "  (3) write it to a .env file in the root of the cifutils repository"
+            "  (3) write it to a .env file in the root of the atomworks.io repository"
         )
         return None
 

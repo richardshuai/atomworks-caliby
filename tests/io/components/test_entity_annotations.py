@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
-from conftest import get_pdb_path
+from tests.io.conftest import get_pdb_path
 
 from atomworks.io.common import not_isin
 from atomworks.io.parser import parse

@@ -44,7 +44,7 @@ from atomworks.io.utils.ccd import (
 from atomworks.io.utils.chain import create_chain_id_generator
 from atomworks.io.utils.io_utils import CIF_LIKE_EXTENSIONS
 
-logger = logging.getLogger("cifutils")
+logger = logging.getLogger("atomworks.io")
 
 
 class ChemicalComponent(ABC):  # noqa: B024
@@ -223,7 +223,7 @@ class CIFOrPDBFileComponent(ChemicalComponent):
                 "It is recommended to set this argument to False in initial CIFOrPDBFileComponent parsing. "
             )
 
-        # Parse using cifutils
+        # Parse using atomworks.io
         parsing_results = parse(self.path, **parse_kwargs)
 
         if "assemblies" in parsing_results:
@@ -420,7 +420,7 @@ def smiles_to_annotated_atom_array(
         try:
             # ... generate a conformer to keep the stereochemistry encoded in the SMILES
             #   NOTE: This may stall for 40ish seconds for some difficult molecules like HEM
-            #   TODO: Migrate the timeout utils to cifutils so we can timeout here.
+            #   TODO: Migrate the timeout utils to atomworks.io so we can timeout here.
             mol = Chem.AddHs(mol)
             params = AllChem.ETKDGv3()
             params.maxAttempts = 1

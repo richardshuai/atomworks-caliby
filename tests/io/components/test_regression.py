@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from assertpy import assert_that
-from conftest import get_pdb_path
+from tests.io.conftest import get_pdb_path
 
 from atomworks.io.constants import CRYSTALLIZATION_AIDS
 from atomworks.io.parser import parse
@@ -44,12 +44,12 @@ def test_regression_against_stored_result(pdb_id: str):
     regression_dir.mkdir(parents=True, exist_ok=True)
     pickle_path = regression_dir / f"{pdb_id}.pkl"
 
-    # # Uncomment the following lines to create the pickle file
-    # with pickle_path.open("wb") as f:
-    #     import atomworks.io
+    # Uncomment the following lines to create the pickle file
+    with pickle_path.open("wb") as f:
+        import atomworks.io
 
-    #     result["cifutils_version"] = cifutils.__version__
-    #     pickle.dump(result, f)
+        result["atomworks.version"] = atomworks.__version__
+        pickle.dump(result, f)
 
     with pickle_path.open("rb") as f:
         expected_result = pickle.load(f)

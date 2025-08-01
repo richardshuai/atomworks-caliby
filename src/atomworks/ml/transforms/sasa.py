@@ -12,7 +12,7 @@ from atomworks.ml.transforms._checks import (
 )
 from atomworks.ml.transforms.base import Transform
 
-logger = logging.getLogger("datahub")
+logger = logging.getLogger("atomworks.ml")
 
 
 def calculate_atomwise_sasa(

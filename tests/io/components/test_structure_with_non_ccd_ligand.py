@@ -1,4 +1,4 @@
-from conftest import TEST_DATA_DIR
+from tests.io.conftest import TEST_DATA_DIR
 
 from atomworks.io import parse
 

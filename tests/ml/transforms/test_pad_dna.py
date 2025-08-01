@@ -37,7 +37,6 @@ def test_to_reverse_complement():
 
 
 @pytest.mark.requires_x3dna
-@pytest.mark.skip(reason="Unstable, file-system dependent behavior in CI")
 def test_generate_bform_dna():
     """Test that the bform DNA is generated correctly."""
     X3DNAFiber.get_or_initialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
@@ -61,7 +60,6 @@ def test_generate_bform_dna():
 
 
 @pytest.mark.requires_x3dna
-@pytest.mark.skip(reason="Unstable, file-system dependent behavior in CI")
 @pytest.mark.parametrize("example_id", ["6w13"])
 def test_augment_pad_dna(example_id: str, np_seed: int = 1):
     data = cached_parse(example_id)

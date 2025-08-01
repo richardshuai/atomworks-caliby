@@ -1,4 +1,4 @@
-from conftest import TEST_DATA_DIR, get_pdb_path
+from tests.io.conftest import TEST_DATA_DIR, get_pdb_path
 
 from atomworks.io.parser import parse
 from atomworks.io.utils.testing import assert_same_atom_array

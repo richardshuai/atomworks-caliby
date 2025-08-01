@@ -10,4 +10,4 @@ echo "#                                                                         
 echo "###############################################################################"
 echo
 source ./.ipd/setup.sh
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 apptainer exec .ipd/cifutils.sif python -m debugpy --listen 2345 --wait-for-client -m pytest "$1"
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 apptainer exec .ipd/atomworks.io.sif python -m debugpy --listen 2345 --wait-for-client -m pytest "$1"

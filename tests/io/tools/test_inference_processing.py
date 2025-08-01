@@ -7,7 +7,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
-from conftest import TEST_DATA_DIR, get_pdb_path
+from tests.io.conftest import TEST_DATA_DIR, get_pdb_path
 
 from atomworks.io import parse
 from atomworks.io.enums import ChainType

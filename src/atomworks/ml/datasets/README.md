@@ -1,6 +1,6 @@
 # Datasets and Samplers Overview
 
-This README provides an overview of how to handle, extend, and add new datasets for training structure-based models utilizing the `datahub` and `cifutils` repositories.
+This README provides an overview of how to handle, extend, and add new datasets for training structure-based models utilizing the `atomworks.ml` and `atomworks.io` repositories.
 It's still a work-in-progress; additional contributions (to the codebase, AND the README) welcome - and encouraged!
 
 ## How do I add a new dataset for training?
@@ -48,9 +48,9 @@ generate_and_save_interfaces_df(OUTPUT_DIR / "pn_units_df.parquet", OUTPUT_DIR /
 #### Case B: Subsetting the PDB
 
 If your dataset is a subset of the PDB, this step is even faster! You simply need to subset the existing dataframe for the entire PDB, then adjust the `example_id` to be unique to your dataset.
-By convention, the `example_id` values are generated with `datahub.common.generate_example_id`.
+By convention, the `example_id` values are generated with `atomworks.ml.common.generate_example_id`.
 
-Dataframes for the full PDB are located on the `DIGS` at `/projects/ml/datahub/dfs/2024_12_01_pn_units_df.parquet` and `/projects/ml/datahub/dfs/2024_12_01_interfaces_df.parquet`.
+Dataframes for the full PDB are located on the `DIGS` at `/projects/ml/atomworks.ml/dfs/2024_12_01_pn_units_df.parquet` and `/projects/ml/atomworks.ml/dfs/2024_12_01_interfaces_df.parquet`.
 
 As an example, to keep all `pn_units` from a specified list of PDB IDs:
 
@@ -86,7 +86,7 @@ my_pn_units.to_parquet("/path/to/my_dataset.parquet")
 If using the standard MSA loading transforms, for MSAs to be correctly recognized, we must:
 
 - Move the MSA's to `/projects/msa` (if others may find them useful; not required)
-- Rename the MSA files according to the SHA-256 hash of the query sequence (we MUST use the function provided at `datahub.utils.misc.hash_sequence`) (the scripts in `scripts/preprocessing/msa` may be helpful)
+- Rename the MSA files according to the SHA-256 hash of the query sequence (we MUST use the function provided at `atomworks.ml.utils.misc.hash_sequence`) (the scripts in `scripts/preprocessing/msa` may be helpful)
 - Ensure that the msa directory is a **flat** directory (again, the scripts in `scripts/preprocessing/msa` may be helpful)
 - Add the directory path to the `msa_dirs` argument for `LoadPolymerMSAs` within the `hydra` configuration
 
@@ -96,15 +96,15 @@ For templates, we don't currently support any way to add additional sources.
 
 Your new dataset is now ready to go! All that remains is telling the model to include it.
 
-While different models will have their config files structured differently, any model using `datahub` to parse input structures will at some point instantiate `StructuralDatasetWrapper`(s). Let's suppose you've followed the steps above to create a dataset parquet file at `/path/to/my_dataset.parquet`. Assuming the model is using `hydra`, you should add something like this to the YAML file:
+While different models will have their config files structured differently, any model using `atomworks.ml` to parse input structures will at some point instantiate `StructuralDatasetWrapper`(s). Let's suppose you've followed the steps above to create a dataset parquet file at `/path/to/my_dataset.parquet`. Assuming the model is using `hydra`, you should add something like this to the YAML file:
 
 ```yaml
 my_dataset:
-    _target_: datahub.datasets.datasets.StructuralDatasetWrapper
+    _target_: atomworks.ml.datasets.datasets.StructuralDatasetWrapper
     dataset_parser:
-        _target_: datahub.datasets.parsers.GenericDFParser
+        _target_: atomworks.ml.datasets.parsers.GenericDFParser
     dataset:
-        _target_: datahub.datasets.datasets.PandasDataset
+        _target_: atomworks.ml.datasets.datasets.PandasDataset
         name: my_dataset
         id_column: example_id
         data: /path/to/my_dataset.parquet
@@ -113,15 +113,15 @@ my_dataset:
 **Important Note:** Both the `StructuralDatasetWrapper` and the `PandasDataset` have additional arguments not listed in this example. Please see the relevant documentation to decide how you would like to set these other argumetns.
 
 One other thing to consider is weighted dataset sampling. The default behavior is to sample each example with equal probability, but cluster and/or type info can often be used to construct better sampling schemes. While
-different models will handle the config structure differently here, a few useful functions for computing a tensor of sampling weights can be found in `datahub.samplers`. For example, to compute weights as the inverse of the example's cluster size:
+different models will handle the config structure differently here, a few useful functions for computing a tensor of sampling weights can be found in `atomworks.ml.samplers`. For example, to compute weights as the inverse of the example's cluster size:
 
 ```yaml
 weights:
-    _target_: datahub.samplers.calculate_weights_by_inverse_cluster_size
+    _target_: atomworks.ml.samplers.calculate_weights_by_inverse_cluster_size
     cluster_column_name: "cluster"
 ```
 
-As always, if you develop a broadly-applicable sampling scheme that is not represented yet, please consider contributing to `datahub`!
+As always, if you develop a broadly-applicable sampling scheme that is not represented yet, please consider contributing to `atomworks.ml`!
 
 And that's it -- happy training!
 
@@ -129,7 +129,7 @@ And that's it -- happy training!
 
 At a high-level, dataloading occurs through the following steps:
 
-1. Sample a dataset index to load via a Sampler, like standard PyTorch. Dataset indices represent examples in a dataframe that we want featurize and pass to the model for training. For example, the index "1" in the dataset "PDB Chains" might correspond to PDB ID "3ne2", biassembly "2", PN Unit (similar to a chain, see the `Glossary` in the `cifutils` `README`) "A_1".
+1. Sample a dataset index to load via a Sampler, like standard PyTorch. Dataset indices represent examples in a dataframe that we want featurize and pass to the model for training. For example, the index "1" in the dataset "PDB Chains" might correspond to PDB ID "3ne2", biassembly "2", PN Unit (similar to a chain, see the `Glossary` in the `atomworks.io` `README`) "A_1".
 2. Call `__getitem__` on the top-level dataset associated with the Torch `DataLoader` using the dataset index (e.g., "1"). There may be multiple datasets concatenated together, so we must identify which dataset the example came from to call the appropriate `__getitem__` method to load the dataframe row.
 3. Given that dataset index (e.g., "1"), call `__getitem__` on the corresponding sub-dataset to retrieve the relevant row. For example, our row could be a `pd.Series` containing values: `{"pdb_id": "3ne2", "q_pn_unit_iid": "A_1", "assembly": "2", "extra_info": "proteins4ever"}`
 4. (Within `load_example_from_metadata_row`) Parse the dataframe row into a standardized format we can proceed with. Although often trivial, we must standardize the outputs of individual dataset `__getitem__` before proceeding, build the path to the CIF/PDB file, and aggregate the appropriate information. For our example, we may use the `PNUnitsDFParser` (which inherits the `ABC` `MetadataRowParser`) to parse our `pd.Series` row into a dictionary like `{"example_id": "{pn_unit}{3ne2}{2}{A_1}", "path": "/somewhere/on/digs/3ne2.cif", "q_pn_units": "A_1"}`. Only the `example_id` and the `path` are required; however, some transformations must receive additional fiels (`q_pn_units` for cropping, for example).

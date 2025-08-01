@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script builds a cifutils apptainer container.
+# This script builds a atomworks.io apptainer container.
 set -e  # Exit on error
 
 echo "Running from $PWD"
@@ -14,7 +14,7 @@ echo "Using apptainer at: $APPTAINER_BINARY"
 
 # Generate the image name with today's date
 DATE=$(date +%Y-%m-%d)
-IMAGE_NAME="cifutils_${DATE}.sif"
+IMAGE_NAME="atomworks.io_${DATE}.sif"
 echo "Building apptainer image: $IMAGE_NAME"
 
 # Build Phase

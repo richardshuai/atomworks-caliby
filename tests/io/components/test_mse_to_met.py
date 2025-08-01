@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import pytest
-from conftest import get_pdb_path
+from tests.io.conftest import get_pdb_path
 
 from atomworks.io.common import not_isin
 from atomworks.io.constants import CCD_MIRROR_PATH, HYDROGEN_LIKE_SYMBOLS

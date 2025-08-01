@@ -6,7 +6,7 @@ from datetime import datetime
 
 from atomworks.ml.common import default
 
-logger = logging.getLogger("datahub")
+logger = logging.getLogger("atomworks.ml")
 _USER = default(os.getenv("USER"), "")
 
 try:

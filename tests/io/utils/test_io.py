@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from biotite.database import rcsb
 from biotite.structure import AtomArray, AtomArrayStack
-from conftest import TEST_DATA_DIR, get_pdb_path
+from tests.io.conftest import TEST_DATA_DIR, get_pdb_path
 
 from atomworks.io.parser import parse, parse_atom_array
 from atomworks.io.tools.inference import build_msa_paths_by_chain_id_from_component_list, components_to_atom_array

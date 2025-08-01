@@ -5,8 +5,8 @@ name: Release and Deploy Versioned Docs
 on:
   push:
     branches:
+      - main
       - production
-      - docs_setup
 
 jobs:
   release_and_docs:
@@ -50,22 +50,20 @@ jobs:
           VERSION=$(git describe --tags --abbrev=0 --match "v*")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Set up Micromamba
-        uses: mamba-org/setup-micromamba@v2
-        with:
-          environment-file: environment.yaml
-          init-shell: bash
-          cache-environment: true
-          post-cleanup: 'all'
+      # - name: Set up Micromamba
+      #   uses: mamba-org/setup-micromamba@v2
+      #   with:
+      #     environment-file: environment.yaml
+      #     init-shell: bash
+      #     cache-environment: true
+      #     post-cleanup: 'all'
 
       - name: Build documentation
         run: |
-          micromamba install -c conda-forge pandoc
-          pip install -e .
+          pip install -e ".[ml,dev]"
           cd docs/
           pip install -r docs_requirements.txt
           make html
-        shell: micromamba-shell {0}
 
       - name: Checkout gh-pages
         uses: actions/checkout@v4
@@ -92,11 +90,11 @@ jobs:
           first=1
           for v in "${versions[@]}"; do
             if [[ "$v" == "latest" ]]; then
-              entry="{\"version\": \"latest\", \"url\": \"https://baker-laboratory.github.io/cifutils/latest/\", \"name\": \"dev\"}"
+              entry="{\"version\": \"latest\", \"url\": \"https://baker-laboratory.github.io/atomworks/latest/\", \"name\": \"dev\"}"
             else
               disp="${v#v}"
               preferred="false"
-              entry="{\"version\": \"$disp\", \"url\": \"https://baker-laboratory.github.io/cifutils/$v/\", \"name\": \"v$disp\", \"preferred\": $preferred}"
+              entry="{\"version\": \"$disp\", \"url\": \"https://baker-laboratory.github.io/atomworks/$v/\", \"name\": \"v$disp\", \"preferred\": $preferred}"
             fi
 
             if [ $first -eq 1 ]; then

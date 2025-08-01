@@ -226,9 +226,9 @@ class StructuralDatasetWrapper(BaseDataset):
 
         Args:
             dataset (Dataset): The dataset to wrap. For example, a PandasDataset, PolarsDataset, or standard PyTorch Dataset.
-            dataset_parser (MetadataRowParser): Parser to convert dataset metadata rows into a common dictionary format. See `datahub.datasets.dataframe_parsers`.
-            cif_parser_args (dict, optional): Arguments to pass to `cifutils.parse` (will override the defaults). Defaults to None.
-            transform (Transform | Compose, optional): Transformation pipeline to apply to the data. See `datahub.transforms.base`.
+            dataset_parser (MetadataRowParser): Parser to convert dataset metadata rows into a common dictionary format. See `atomworks.ml.datasets.dataframe_parsers`.
+            cif_parser_args (dict, optional): Arguments to pass to `atomworks.io.parse` (will override the defaults). Defaults to None.
+            transform (Transform | Compose, optional): Transformation pipeline to apply to the data. See `atomworks.ml.transforms.base`.
             return_key (str, optional): Key to return from the data dictionary instead of the entire dictionary.
             save_failed_examples_to_dir (PathLike | str | None, optional): Directory to save failed examples. Defaults to f"/net/scratch/{_USER}/failures".
 
@@ -260,7 +260,7 @@ class StructuralDatasetWrapper(BaseDataset):
             (1) Retrieve the row at the specified index from the dataset using the __getitem__ method.
             (2) Parse the row into a common dictionary format using the dataset parser.
             (3) Load the CIF file from the information in the common dictionary format (i.e., the "path" key).
-            (4) Apply the transformation pipeline to the data which, at a minimum, contains the output of `cifutils` parsing.
+            (4) Apply the transformation pipeline to the data which, at a minimum, contains the output of `atomworks.io` parsing.
 
         Args:
             idx (int): The index of the item to retrieve.

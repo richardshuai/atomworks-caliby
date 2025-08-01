@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from atomworks.ml.utils.testing import get_pdb_mirror_path
-from tests.preprocessing.conftest import DATA_PREPROCESSOR
+from tests.ml.preprocessing.conftest import DATA_PREPROCESSOR
 
 LOI_EXTRACTION_TEST_CASES = [
     {
@@ -49,7 +49,7 @@ def test_loi_extraction(test_case: dict[str, Any]):
     path = get_pdb_mirror_path(pdb_id)
 
     # Check that the LOI is extracted correctly from the CIF file
-    parsed = DATA_PREPROCESSOR._load_structure_with_cifutils(path)
+    parsed = DATA_PREPROCESSOR._load_structure_with_atomworks(path)
     loi_set = set(parsed["ligand_info"]["ligand_of_interest"])
     assert loi_set == test_case["loi"]
 
@@ -67,9 +67,9 @@ def test_loi_extraction(test_case: dict[str, Any]):
                 structure[(np.isin(structure.chain_id, chain_ids)) & (structure.occupancy > 0)].res_name
             )
             if test_case.get("has_covalently_bonded_loi", False):
-                assert any(
-                    res in loi_set for res in res_names
-                ), f"No LOI molecule found for {row.q_pn_unit_iid} in {res_names}. LOIs: {loi_set}"
+                assert any(res in loi_set for res in res_names), (
+                    f"No LOI molecule found for {row.q_pn_unit_iid} in {res_names}. LOIs: {loi_set}"
+                )
                 for res in res_names:
                     if res in loi_set:
                         loi_seen[res] += 1

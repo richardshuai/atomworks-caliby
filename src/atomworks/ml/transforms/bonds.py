@@ -13,7 +13,7 @@ from atomworks.ml.transforms.atomize import AtomizeByCCDName
 from atomworks.ml.transforms.base import Transform
 from atomworks.ml.utils.token import apply_segment_wise_2d, get_token_starts
 
-# Constants copied from `chemdata` to decouple the RF2AA repository from the datahub pipeline
+# Constants copied from `chemdata` to decouple the RF2AA repository from the atomworks.ml pipeline
 RF2AA_NO_BOND = 0
 RF2AA_SINGLE_BOND = 1
 RF2AA_DOUBLE_BOND = 2

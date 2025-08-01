@@ -7,7 +7,7 @@ import pandas as pd
 from atomworks.ml.databases.dataclasses import DataSource
 from atomworks.ml.databases.utils import _smart_cast
 
-DATA_SOURCE_DB_PATH = "/projects/ml/datahub/experimental_data/experimental_data_sources.csv"
+DATA_SOURCE_DB_PATH = "/projects/ml/atomworks.ml/experimental_data/experimental_data_sources.csv"
 
 
 def get_data_source_db(data_source_db_path: str | None = None, create_if_not_exists: bool = False) -> pd.DataFrame:

@@ -1,7 +1,5 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![pipeline status](https://github.com/baker-laboratory/cifutils/actions/workflows/lint_and_test.yaml/badge.svg)](https://github.com/baker-laboratory/cifutils/actions/workflows/lint_and_test.yaml)
-
-# ! CIFUTILS IS FROZEN AS WE BEGIN THE MOVE TO ATOMWORKS !
+[![pipeline status](https://github.com/baker-laboratory/atomworks.io/actions/workflows/lint_and_test.yaml/badge.svg)](https://github.com/baker-laboratory/atomworks.io/actions/workflows/lint_and_test.yaml)
 
 
 # Table of Contents
@@ -11,9 +9,9 @@
     - [CIFUtils](#cifutils-1)
     - [Datahub](#datahub)
 - [Install instructions](#install-instructions)
-  - [1. (⭐️ Recommended) Using `cifutils` via the standalone cifutils apptainer](#1-️-recommended-using-cifutils-via-the-standalone-cifutils-apptainer)
-  - [2. Using `cifutils` with a local conda version](#2-using-cifutils-with-a-local-conda-version)
-  - [3. Using `cifutils` in your apptainer environment](#3-using-cifutils-in-your-apptainer-environment)
+  - [1. (⭐️ Recommended) Using `atomworks.io` via the standalone atomworks.io apptainer](#1-️-recommended-using-atomworksio-via-the-standalone-atomworksio-apptainer)
+  - [2. Using `atomworks.io` with a local conda version](#2-using-atomworksio-with-a-local-conda-version)
+  - [3. Using `atomworks.io` in your apptainer environment](#3-using-atomworksio-in-your-apptainer-environment)
 - [Apptainer build instructions](#apptainer-build-instructions)
 - [Basic Usage](#basic-usage)
     - [Example Flow](#example-flow)
@@ -31,59 +29,59 @@
 - [Contributing guidelines](#contributing-guidelines)
 
 # CIFUtils
-We introduce `CIFUtils` — a full-featured toolkit for converting arbitrary biological inputs (e.g., `mmCIF`, `pdb`, `SMILES`, `MOL`, `FASTA`, etc.) into Biotite's general `AtomArray` API, performing structural and chemical operations, and ultimately passing over the `AtomArray` to a deep-learning model (see: [`datahub`](https://github.com/baker-laboratory/datahub) or saving back out to arbitrary formats.
+We introduce `CIFUtils` — a full-featured toolkit for converting arbitrary biological inputs (e.g., `mmCIF`, `pdb`, `SMILES`, `MOL`, `FASTA`, etc.) into Biotite's general `AtomArray` API, performing structural and chemical operations, and ultimately passing over the `AtomArray` to a deep-learning model (see: [`atomworks.ml`](https://github.com/baker-laboratory/atomworks.ml) or saving back out to arbitrary formats.
 
 We leverage the open-source [`biotite` library](https://www.biotite-python.org/) for our core parsing operations due to the library's speed and flexibility. 
 
 ## CIFUtils vs. Datahub
-The two Baker Lab data loading and featurization codebases — `cifutils` and `datahub` — are symbiotic, with catering to distinct use cases and user bases. The separation of concerns between the two repositories is as follows:
+The two Baker Lab data loading and featurization codebases — `atomworks.io` and `atomworks.ml` — are symbiotic, with catering to distinct use cases and user bases. The separation of concerns between the two repositories is as follows:
 
 ### CIFUtils
-Roughly speaking, we define `cifutils` as "get any arbitrary inputs into an `AtomArray`, perform custom operations, and convert the modified `AtomArray` back to arbitraty inputs." Since the `AtomArray` is our common structural API, once we load inputs into that format, we can process with relevant tools (e.g., `RDKit`, `OpenBabel`) and ultimately export as any other supported format (e.g., `PDB`, `CIF`, `FASTA`, `SMILES`, etc. etc.). User Base: Protein designers, model developers, and other computational users who want to load, modify, and save structural representations of proteins or small molecules.
+Roughly speaking, we define `atomworks.io` as "get any arbitrary inputs into an `AtomArray`, perform custom operations, and convert the modified `AtomArray` back to arbitraty inputs." Since the `AtomArray` is our common structural API, once we load inputs into that format, we can process with relevant tools (e.g., `RDKit`, `OpenBabel`) and ultimately export as any other supported format (e.g., `PDB`, `CIF`, `FASTA`, `SMILES`, etc. etc.). User Base: Protein designers, model developers, and other computational users who want to load, modify, and save structural representations of proteins or small molecules.
 
 Common use cases include:
 * **Structural data format to sequence data format:** Load a structural file (e.g., PDB, CIF, etc.) and convert to sequence files (e.g., FASTA, SMILES). Essentially, "hides" all structural information, while preserving all sequence information.
-* **Sequence data format to structural data format:** Load a series of sequence files (e.g., FASTA, SMILES) into an `AtomArray`, populated with empty coordinates for all atoms. This `AtomArray` can then be the starting point for structure prediction model inference (e.g., through `datahub`)
-* **Structural data format to structural data format:** Load structural data (e.g., CIF) into an `AtomArray`, perform operations (e.g., with `RDKit`, `OpenBabel`, or directly `python` and `biotite`), then save back to a structural data format (or pass the `AtomArray` to `datahub` directly for model training)
+* **Sequence data format to structural data format:** Load a series of sequence files (e.g., FASTA, SMILES) into an `AtomArray`, populated with empty coordinates for all atoms. This `AtomArray` can then be the starting point for structure prediction model inference (e.g., through `atomworks.ml`)
+* **Structural data format to structural data format:** Load structural data (e.g., CIF) into an `AtomArray`, perform operations (e.g., with `RDKit`, `OpenBabel`, or directly `python` and `biotite`), then save back to a structural data format (or pass the `AtomArray` to `atomworks.ml` directly for model training)
 
 <br/>
 
-<img src="assets/cifutils_overview.png" width="100%" />
+<img src="assets/atomworks.io_overview.png" width="100%" />
 
 ### Datahub
 Take an `AtomArray` (and possibly some metadata) and featurize for model training pipelines, including full datasets, sampling, etc. User Base: Model developers preparing data pipelines for deep-learning tasks.
 # Install instructions
-All the basic operations (building apptainers, instaling, formatting, testing) are handled by the [Makefile](./Makefile). For example, to install `cifutils` in a fresh conda environment, you can run `make env`. If you want to see all available make recipes, just run `make` or `make help` (they are equivalent).
+All the basic operations (building apptainers, instaling, formatting, testing) are handled by the [Makefile](./Makefile). For example, to install `atomworks.io` in a fresh conda environment, you can run `make env`. If you want to see all available make recipes, just run `make` or `make help` (they are equivalent).
 
-Below is a bit more in-depth information on the different ways to use `cifutils`. We recommend approach #1 for most users.
+Below is a bit more in-depth information on the different ways to use `atomworks.io`. We recommend approach #1 for most users.
 
-## 1. (⭐️ Recommended) Using `cifutils` via the standalone cifutils apptainer
+## 1. (⭐️ Recommended) Using `atomworks.io` via the standalone atomworks.io apptainer
 This option is recommended for dataset parsing and generation if you save a static
 version of your dataset that you then use with your own project's apptainer and do not 
-require `cifutils` in your project's environment. It will only work if you are at the IPD.
+require `atomworks.io` in your project's environment. It will only work if you are at the IPD.
 
-We built a standalone apptainer for `cifutils` that includes all the dependencies needed to 
-run or develop with `cifutils`. The apptainer is based on the [apptainer.spec](./apptainer.spec) file
+We built a standalone apptainer for `atomworks.io` that includes all the dependencies needed to 
+run or develop with `atomworks.io`. The apptainer is based on the [apptainer.spec](./apptainer.spec) file
 and can be found at:
 
 ```bash
 # set up the IPD-specific environment variables
 source ./.ipd/setup.sh
 
-# Path to latest development & production apptainer for cifutils on `digs`
+# Path to latest development & production apptainer for atomworks.io on `digs`
 # ... you can use this one to execute any files
-./.ipd/cifutils.sif
+./.ipd/atomworks.io.sif
 ```
 
-## 2. Using `cifutils` with a local conda version
-This option is recommended for development and testing of the `cifutils` package.
+## 2. Using `atomworks.io` with a local conda version
+This option is recommended for development and testing of the `atomworks.io` package.
 
 **Option 1: Install into existing environment**:
 
 ```bash
 # If you just want to use the project
-git clone git@git.ipd.uw.edu:ai/cifutils.git
-cd cifutils
+git clone git@git.ipd.uw.edu:ai/atomworks.io.git
+cd atomworks.io
 make install  # (or alternatively `pip install -e "."` if you don't need to also update the dependencies)
 
 # NOTE: It is important that you `pip install` the package, since we use a src-layout. If for some reason you
@@ -95,11 +93,11 @@ make install  # (or alternatively `pip install -e "."` if you don't need to also
 You will then need to create a `.env` file (see: `.env.sample`) with a path to the CCD that you wish to use and, optionally, the PDB path (required for tests).
 
 **Option 2: Install into a fresh environment**
-You can use this simplified workflow below to install `cifutils` into a fresh conda environment that will be called `cifutils-dev`. Alternatively, you can manually install from the [environment.yaml](./environment.yaml) file.
+You can use this simplified workflow below to install `atomworks.io` into a fresh conda environment that will be called `atomworks.io-dev`. Alternatively, you can manually install from the [environment.yaml](./environment.yaml) file.
 ```bash
 ## Step 1. Clone git repo
-git clone git@git.ipd.uw.edu:ai/cifutils.git
-cd cifutils
+git clone git@git.ipd.uw.edu:ai/atomworks.io.git
+cd atomworks.io
 
 ## Step 2. Set up Gitlab username and token in a .bashrc file
 ## Fill in with your own Gitlab username and Gitlab token
@@ -119,13 +117,13 @@ pytest tests
 
 Like in (1), you will then need to create a `.env` file (see: `.env.sample`) with a path to the CCD that you wish to use.
 
-## 3. Using `cifutils` in your apptainer environment
-This is recommended if you are developing a project that will use `cifutils` as a dependency 
-and you want to use tools from `cifutils` within your project's code. This option will
+## 3. Using `atomworks.io` in your apptainer environment
+This is recommended if you are developing a project that will use `atomworks.io` as a dependency 
+and you want to use tools from `atomworks.io` within your project's code. This option will
 be the preferred option for code developers.
 
 **For existing apptainers**:
-You need to add `cifutils/src` to your apptainer environment's PYTHONPATH. You can do this by
+You need to add `atomworks.io/src` to your apptainer environment's PYTHONPATH. You can do this by
 running the following command in your apptainer environment:
 ```bash
 export PYTHONPATH=$PWD/src:$PYTHONPATH
@@ -139,11 +137,11 @@ which automatically also sets up the correct CCD & PDB mirror paths on digs.
 
 **For new apptainers**:
 For more information, see the `apptainer.spec` file in the root of the repo, which builds the
-standalone `cifutils` apptainer. You can copy the sections from there to your project's apptainer
+standalone `atomworks.io` apptainer. You can copy the sections from there to your project's apptainer
 spec file, add your project dependencies and then build your project's apptainer.
 
 # Apptainer build instructions
-To rebuild the standalone `cifutils` apptainer, simply run `make apptainer` in the root of the repo.
+To rebuild the standalone `atomworks.io` apptainer, simply run `make apptainer` in the root of the repo.
 
 If that should not work for some reason, you can also manually build the apptainer image
 ```bash
@@ -154,12 +152,12 @@ export GITLAB_USER=<Gitlab_Username>
 export GITLAB_TOKEN=<Gitlab_PAT_Token>
 # If you want to permanently add these tokens to your environment variables, you
 # can append the export statements to your .bashrc or .zshrc file.
-apptainer build --bind $PWD:/cifutils_host cifutils.sif apptainer.spec
+apptainer build --bind $PWD:/atomworks.io_host atomworks.io.sif apptainer.spec
 ```
 # Basic Usage
 
 ### Example Flow
-Import the `parse` method from the `cifutils` module:
+Import the `parse` method from the `atomworks.io` module:
 ```python
 from atomworks.io.parser import parse
 ```
@@ -190,31 +188,31 @@ For more detail, see the documentation within the code.
 
 These arguments modify how the CIF or PDB file is parsed and processed:
 
-| Name                              | Type                                                              | Default                | Description                                                                                                                                                                                                                                                              |
-| --------------------------------- | ----------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `filename`                        | `PathLike \| io.StringIO \| io.BytesIO`                           | —                      | The path to the structural file. Supports various file formats, including `.cif`, `.cif.gz`, and `.pdb`. `.cif` files are strongly recommended for reliability.                                                                                                          |
-| `add_missing_atoms`               | `bool`                                                            | `True`                 | Determines whether missing atoms should be added to the structure. Useful for structures with unresolved residues (e.g., those coming from the PDB). Not that when adding missing atoms, we also add intra- and inter-residue bonds (required to remove leaving groups). |
-| `add_id_and_entity_annotations`   | `bool`                                                            | `True`                 | Whether to add `id` and `entity` annotations at the `chain`, `pn-unit`, and `molecule`-level to the `AtomArray`.                                                                                                                                                         |
-| `add_bond_types_from_struct_conn` | `list[str]`                                                       | `["covale"]`           | A list of bond types to add to the structure from the `struct_conn` category. For example, "covale" means that only covalent bonds will be added, no disulfide bonds, metal coordination bonds, etc..                                                                    |
-| `remove_ccds`                     | `list[str]`                                                       | `CRYSTALLIZATION_AIDS` | A list of CCD codes (e.g., `DMO`, ...) to remove from the structure. Exclusion of polymer residues and common multi-chain ligands must be done with care to avoid sequence gaps.                                                                                         |
-| `remove_waters`                   | `bool`                                                            | `True`                 | Option to remove water molecules from the structure.                                                                                                                                                                                                                     |
-| `fix_ligands_at_symmetry_centers` | `bool`                                                            | `True`                 | Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed; important when building biological assemblies.                                                                                                                    |
-| `fix_arginines`                   | `bool`                                                            | `True`                 | Resolves arginine naming ambiguities, as detailed in the AF-3 supplement.                                                                                                                                                                                                |
-| `fix_formal_charges`              | `bool`                                                            | `True`                 | Corrects formal charges after forming inter-residue bonds (`add_missing_atoms` must be `True`, or has no effect)                                                                                                                                                         |
-| `convert_mse_to_met`              | `bool`                                                            | `False`                | Converts selenomethionine (MSE) residues to methionine (MET) residues.                                                                                                                                                                                                   |
-| `remove_hydrogens`                | `bool`                                                            | `False`                | Determines whether hydrogens should be removed from structure.                                                                                                                                                                                                           |
-| `model`                           | `int \| None`                                                     | `None`                 | The model number to parse for NMR entries. Defaults to parsing all models.                                                                                                                                                                                               |
-| `build_assembly`                  | `Literal["first", "all"] \| list[str] \| tuple[str, ...] \| None` | `"all"`                | Specifies which assembly to build: `None` for the asymmetric unit, `"first"` for the first assembly, `"all"`, or a list or tuple of specific assembly IDs.                                                                                                               |
+| Name                                 | Type                               | Default                | Description                                                                                                                                                      |
+|--------------------------------------|------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `filename`                           | `PathLike \| io.StringIO \| io.BytesIO` | —                      | The path to the structural file. Supports various file formats, including `.cif`, `.cif.gz`, and `.pdb`. `.cif` files are strongly recommended for reliability. |
+| `add_missing_atoms`                  | `bool`                             | `True`                 | Determines whether missing atoms should be added to the structure. Useful for structures with unresolved residues (e.g., those coming from the PDB). Not that when adding missing atoms, we also add intra- and inter-residue bonds (required to remove leaving groups).|
+| `add_id_and_entity_annotations`      | `bool`                             | `True`                 | Whether to add `id` and `entity` annotations at the `chain`, `pn-unit`, and `molecule`-level to the `AtomArray`.                                                                 |
+| `add_bond_types_from_struct_conn`    | `list[str]`                        | `["covale"]`           | A list of bond types to add to the structure from the `struct_conn` category. For example, "covale" means that only covalent bonds will be added, no disulfide bonds, metal coordination bonds, etc..     |
+| `remove_ccds`                        | `list[str]`                        | `CRYSTALLIZATION_AIDS` | A list of CCD codes (e.g., `DMO`, ...) to remove from the structure. Exclusion of polymer residues and common multi-chain ligands must be done with care to avoid sequence gaps. |
+| `remove_waters`                      | `bool`                             | `True`                 | Option to remove water molecules from the structure.                                                                                                             |
+| `fix_ligands_at_symmetry_centers`    | `bool`                             | `True`                 | Whether to patch non-polymer residues at symmetry centers that clash with themselves when transformed; important when building biological assemblies.           |
+| `fix_arginines`                      | `bool`                             | `True`                 | Resolves arginine naming ambiguities, as detailed in the AF-3 supplement.                                                                                        |
+| `fix_formal_charges`                      | `bool`                             | `True`                 | Corrects formal charges after forming inter-residue bonds (`add_missing_atoms` must be `True`, or has no effect)|
+| `convert_mse_to_met`                 | `bool`                             | `False`                | Converts selenomethionine (MSE) residues to methionine (MET) residues.                                                                                           |
+| `remove_hydrogens`                     | `bool`                             | `False`                 | Determines whether hydrogens should be removed from structure.                                                                                                     |
+| `model`                              | `int \| None`                      | `None`                 | The model number to parse for NMR entries. Defaults to parsing all models.                                                                                       |
+| `build_assembly`                     | `Literal["first", "all"] \| list[str] \| tuple[str, ...] \| None` | `"all"` | Specifies which assembly to build: `None` for the asymmetric unit, `"first"` for the first assembly, `"all"`, or a list or tuple of specific assembly IDs.      |
 
 #### Caching Arguments
 
 These arguments control the caching behavior of the parsing process:
 
-| Name              | Type               | Default | Description                                                                                                                       |
-| ----------------- | ------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `load_from_cache` | `bool`             | `False` | Specifies whether to load pre-compiled results from cache. Speeds up repeated parsing operations when the structure is unchanged. |
-| `save_to_cache`   | `bool`             | `False` | Indicates whether to save the parsed results to cache, allowing for faster future retrievals of the same structure.               |
-| `cache_dir`       | `PathLike \| None` | `None`  | The directory path where cached results are stored. Must be provided if either `load_from_cache` or `save_to_cache` is `True`.    |
+| Name              | Type                | Default | Description                                                                                                                   |
+|-------------------|---------------------|---------|-------------------------------------------------------------------------------------------------------------------------------|
+| `load_from_cache` | `bool`              | `False` | Specifies whether to load pre-compiled results from cache. Speeds up repeated parsing operations when the structure is unchanged. |
+| `save_to_cache`   | `bool`              | `False` | Indicates whether to save the parsed results to cache, allowing for faster future retrievals of the same structure.             |
+| `cache_dir`       | `PathLike \| None`  | `None`  | The directory path where cached results are stored. Must be provided if either `load_from_cache` or `save_to_cache` is `True`. |
 
 
 # Glossary
@@ -262,7 +260,7 @@ Putting it all together, we arrive at the following combinatorial nomenclature t
 When contributing to this repository, please follow these steps:
 
 1. Clone the repository
-2. Create the development environment (see [option 2](#2-using-cifutils-with-a-local-conda-version) above)
+2. Create the development environment (see [option 2](#2-using-atomworks.io-with-a-local-conda-version) above)
 3. Create a new branch for your changes. 
 - Use the following convention to name your branch: `<category>/<description>`. We use the following categories:
     - `feat` for adding or removing a feature

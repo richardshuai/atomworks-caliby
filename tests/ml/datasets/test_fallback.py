@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 
 from atomworks.ml.datasets.datasets import ConcatDatasetWithID, FallbackDatasetWrapper, PandasDataset
 from atomworks.ml.samplers import DistributedMixedSampler, FallbackSamplerWrapper, MixedSampler
-from tests.datasets.test_datasets import create_dummy_dataset
+from tests.ml.datasets.test_datasets import create_dummy_dataset
 
 
 class FaultyDataset(PandasDataset):

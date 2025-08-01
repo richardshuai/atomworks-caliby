@@ -14,7 +14,7 @@ from atomworks.ml.transforms._checks import check_atom_array_annotation, check_c
 from atomworks.ml.transforms.base import Transform
 from atomworks.ml.utils.io import get_sharded_file_path
 
-logger = logging.getLogger("datahub")
+logger = logging.getLogger("atomworks.ml")
 
 
 FILE_LOADERS: dict[str, Callable[[Path], Any]] = {

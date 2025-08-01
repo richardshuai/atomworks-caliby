@@ -21,7 +21,7 @@ from torch.utils.data import BatchSampler, DataLoader, Dataset, Sampler
 from torch.utils.data._utils.pin_memory import pin_memory
 from torch.utils.data._utils.worker import WorkerInfo
 
-logger = getLogger("datahub")
+logger = getLogger("atomworks.ml")
 
 SAFETY_TIMEOUT = 10.0 * 60  # 10 minutes
 

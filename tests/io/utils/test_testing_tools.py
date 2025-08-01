@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from conftest import TEST_DATA_DIR
+from tests.io.conftest import TEST_DATA_DIR
 
 from atomworks.io.utils.io_utils import load_any
 from atomworks.io.utils.testing import assert_same_atom_array, is_same_in_group, is_same_in_segment

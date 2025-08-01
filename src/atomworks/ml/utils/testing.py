@@ -36,7 +36,7 @@ def cached_parse(pdb_id: str, **kwargs) -> dict:
 
 def is_clash(atom_array_1: AtomArray, atom_array_2: AtomArray, clash_distance: float = 1.0) -> bool:
     """
-    Checks for clashes between two arrays. Based on datahub.preprocessing.process.DataPreprocessor.
+    Checks for clashes between two arrays. Based on atomworks.ml.preprocessing.process.DataPreprocessor.
     Recommended to pass in minimal masks of arrays to check to reduce runtime.
     """
     cell_list = CellList(atom_array_1, cell_size=CELL_SIZE)

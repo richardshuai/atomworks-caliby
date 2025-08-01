@@ -203,9 +203,9 @@ def test_remove_unsupported_chain_types(pdb_id: str, pn_units_df: pd.DataFrame):
             num_unsupported_atoms = len(original_atom_array) - len(atom_array)
             assert num_unsupported_atoms > 0, "There should be some atoms removed"
             chain_types = np.unique(atom_array.chain_type)
-            assert np.all(
-                np.isin(chain_types, TRAINING_SUPPORTED_CHAIN_TYPES)
-            ), "All remaining chain types should be supported"
+            assert np.all(np.isin(chain_types, TRAINING_SUPPORTED_CHAIN_TYPES)), (
+                "All remaining chain types should be supported"
+            )
 
 
 def test_handle_undesired_res_single():

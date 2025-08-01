@@ -1,6 +1,6 @@
 """Pre-process mmCIF files and return a dataframe containing a record for each PN unit in the structure.
 
-See the `cifutils` README for a term glosssary.
+See the `atomworks` README for a term glosssary.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ class DataPreprocessor:
     def __post_init__(self):
         logger.info(f"Initialized DataPreprocessor with the following parameters: {self.__dict__}")
 
-    def _load_structure_with_cifutils(self, path: PathLike) -> dict[str, Any]:
+    def _load_structure_with_atomworks(self, path: PathLike) -> dict[str, Any]:
         """Load structure file using CIFUtils parser.
 
         Supported file types: .cif, .cif.gz, .pdb, .pdb.gz
@@ -136,7 +136,7 @@ class DataPreprocessor:
         if not path_to_structure.exists():
             raise FileNotFoundError(f"File not found: {path_to_structure}")
 
-        result_dict = self._load_structure_with_cifutils(path_to_structure)
+        result_dict = self._load_structure_with_atomworks(path_to_structure)
         id = result_dict["metadata"]["id"]
         self.id = id  # For logging
 
