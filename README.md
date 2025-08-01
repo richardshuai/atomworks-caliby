@@ -41,7 +41,7 @@ pip install "atomworks[ml,dev]" # with all dependencies
 
 ```
 
-For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/).
+For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest).
 
 ---
 
@@ -65,7 +65,7 @@ Output includes:
 - **assemblies** — Built biological assemblies
 - **metadata** — Experimental and source information
 
-See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/usage/).
+See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/auto_examples/).
 
 ---
 
@@ -86,7 +86,7 @@ See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/usa
 ## Contribution
 
 We welcome improvements!  
-Please see the [contributing guide](CONTRIBUTING.md) or [full documentation](https://baker-laboratory.github.io/atomworks-dev/).
+Please see the [contributing guide](CONTRIBUTING.md) or [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest).
 
 ---
 
