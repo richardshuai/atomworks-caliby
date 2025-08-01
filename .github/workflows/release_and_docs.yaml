@@ -5,7 +5,6 @@ name: Release and Deploy Versioned Docs
 on:
   push:
     branches:
-      - main
       - production
 
 jobs:
@@ -44,19 +43,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TWINE_USERNAME: __token__
-          TWINE_PASSWORD: dummy-fake-token
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_TOKEN }}
         run: |
           npx semantic-release
           VERSION=$(git describe --tags --abbrev=0 --match "v*")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      # - name: Set up Micromamba
-      #   uses: mamba-org/setup-micromamba@v2
-      #   with:
-      #     environment-file: environment.yaml
-      #     init-shell: bash
-      #     cache-environment: true
-      #     post-cleanup: 'all'
 
       - name: Build documentation
         run: |
@@ -90,11 +81,11 @@ jobs:
           first=1
           for v in "${versions[@]}"; do
             if [[ "$v" == "latest" ]]; then
-              entry="{\"version\": \"latest\", \"url\": \"https://baker-laboratory.github.io/atomworks/latest/\", \"name\": \"dev\"}"
+              entry="{\"version\": \"latest\", \"url\": \"https://baker-laboratory.github.io/atomworks-dev/latest/\", \"name\": \"dev\"}"
             else
               disp="${v#v}"
               preferred="false"
-              entry="{\"version\": \"$disp\", \"url\": \"https://baker-laboratory.github.io/atomworks/$v/\", \"name\": \"v$disp\", \"preferred\": $preferred}"
+              entry="{\"version\": \"$disp\", \"url\": \"https://baker-laboratory.github.io/atomworks-dev/$v/\", \"name\": \"v$disp\", \"preferred\": $preferred}"
             fi
 
             if [ $first -eq 1 ]; then

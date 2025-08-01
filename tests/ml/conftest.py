@@ -46,7 +46,7 @@ def pytest_configure(config):
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Construct path to .env file in the parent directory
-    dotenv_path = os.path.join(current_dir, "..", ".env")
+    dotenv_path = os.path.join(current_dir, "../..", ".env")
 
     # Check if the .env file exists
     if not os.path.exists(dotenv_path):

@@ -1,7 +1,7 @@
 data_1twr_new
 #
 _entry.id       1twr_new
-_entry.author   kdidi
+_entry.author   unknown_user
 _entry.date     True
 _entry.time     True
 #

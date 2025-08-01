@@ -45,11 +45,11 @@ def test_regression_against_stored_result(pdb_id: str):
     pickle_path = regression_dir / f"{pdb_id}.pkl"
 
     # Uncomment the following lines to create the pickle file
-    with pickle_path.open("wb") as f:
-        import atomworks.io
+    # with pickle_path.open("wb") as f:
+    #     import atomworks.io
 
-        result["atomworks.version"] = atomworks.__version__
-        pickle.dump(result, f)
+    #     result["atomworks.version"] = atomworks.__version__
+    #     pickle.dump(result, f)
 
     with pickle_path.open("rb") as f:
         expected_result = pickle.load(f)

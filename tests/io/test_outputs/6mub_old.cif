@@ -1,7 +1,7 @@
 data_6mub_old
 #
 _entry.id       6mub_old
-_entry.author   kdidi
+_entry.author   unknown_user
 _entry.date     True
 _entry.time     True
 #
