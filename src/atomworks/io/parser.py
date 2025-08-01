@@ -19,7 +19,7 @@ from biotite.structure.io import pdbx
 from toolz import keyfilter
 
 import atomworks.io.transforms.atom_array as ta
-from atomworks import __version__, template
+from atomworks.io.template import add_missing_atoms
 from atomworks.io.common import exists, md5_hash_string
 from atomworks.io.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS
 from atomworks.io.transforms.categories import (
@@ -60,6 +60,13 @@ DEFAULT_PARSE_KWARGS = {
 }
 """Some fairly standard parsing arguments that can be imported for convenience."""
 
+def _get_atomworks_version():
+    """Lazy import of atomworks version to avoid circular imports."""
+    try:
+        from atomworks import __version__
+        return __version__
+    except ImportError:
+        return "unknown"
 
 def parse(
     filename: os.PathLike | io.StringIO | io.BytesIO,
@@ -313,7 +320,7 @@ def parse(
 
         # Add parse_arguments and version to metadata before saving
         result.setdefault("metadata", {}).update(
-            {"parse_arguments": parse_arguments, "atomworks.version": __version__}
+            {"parse_arguments": parse_arguments, "atomworks.version": _get_atomworks_version()}
         )
 
         # Ensure all parent directories exist
@@ -501,7 +508,7 @@ def parse_atom_array(
             else:
                 struct_conn_dict = get_struct_conn_dict_from_atom_array(atom_array)
 
-            atom_array = template.add_missing_atoms(
+            atom_array = add_missing_atoms(
                 atom_array,
                 chain_info_dict=data_dict["chain_info"],
                 struct_conn_dict=struct_conn_dict,
