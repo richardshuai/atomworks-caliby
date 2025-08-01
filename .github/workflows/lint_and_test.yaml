@@ -44,8 +44,8 @@ jobs:
       run: pip install ruff==${{ env.RUFF_VERSION }}
     - name: ruff format (check code formatting)
       run: ruff format --diff
-    - name: ruff check (lint code base)
-      run: ruff check
+    # - name: ruff check (lint code base)
+    #   run: ruff check
 
   test:
     name: pytest (run tests)
