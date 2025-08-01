@@ -60,13 +60,16 @@ DEFAULT_PARSE_KWARGS = {
 }
 """Some fairly standard parsing arguments that can be imported for convenience."""
 
+
 def _get_atomworks_version():
     """Lazy import of atomworks version to avoid circular imports."""
     try:
         from atomworks import __version__
+
         return __version__
     except ImportError:
         return "unknown"
+
 
 def parse(
     filename: os.PathLike | io.StringIO | io.BytesIO,
