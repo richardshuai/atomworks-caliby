@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 from biotite.structure import AtomArray
+from cifutils.constants import NUCLEIC_ACID_FRAME_ATOM_NAMES, PROTEIN_FRAME_ATOM_NAMES
 from cifutils.enums import ChainTypeInfo
 
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
@@ -46,8 +47,8 @@ def mask_residues_with_specific_unresolved_atoms(
     # Use default AF-3 frame atoms if not specified
     if chain_type_to_atom_names is None:
         chain_type_to_atom_names = {
-            ChainTypeInfo.PROTEINS: ["N", "CA", "C"],
-            ChainTypeInfo.NUCLEIC_ACIDS: ["C1'", "C3'", "C4'"],
+            ChainTypeInfo.PROTEINS: PROTEIN_FRAME_ATOM_NAMES,
+            ChainTypeInfo.NUCLEIC_ACIDS: NUCLEIC_ACID_FRAME_ATOM_NAMES,
         }
 
     unresolved_backbone_mask = np.zeros(len(atom_array), dtype=bool)

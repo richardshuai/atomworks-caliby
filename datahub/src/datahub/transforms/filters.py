@@ -7,7 +7,7 @@ from typing import Any, Sequence
 
 import biotite.structure as struc
 import numpy as np
-from biotite.structure import AtomArray
+from biotite.structure import AtomArray, AtomArrayStack
 from cifutils.common import not_isin
 from cifutils.constants import HYDROGEN_LIKE_SYMBOLS
 from cifutils.enums import ChainType, ChainTypeInfo
@@ -525,7 +525,7 @@ class HandleUndesiredResTokens(Transform):
         return data
 
 
-def remove_terminal_oxygen(atom_array: AtomArray) -> AtomArray:
+def remove_protein_terminal_oxygen(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
     """Remove terminal oxygen atoms (`OXT`) from protein chains.
 
     Terminal oxygen atoms are only removed from protein residues that are not atomized.
@@ -535,18 +535,39 @@ def remove_terminal_oxygen(atom_array: AtomArray) -> AtomArray:
     is_protein = np.isin(atom_array.chain_type, ChainTypeInfo.PROTEINS)
     remove = is_terminal & is_protein & ~is_atomized
 
-    return atom_array[~remove]
+    if isinstance(atom_array, AtomArray):
+        return atom_array[~remove]
+    elif isinstance(atom_array, AtomArrayStack):
+        return atom_array[:, ~remove]
 
 
 class RemoveTerminalOxygen(Transform):
     """Remove terminal oxygen atoms (`OXT`) from the atom array."""
+    # TODO: Rename to RemoveProteinTerminalOxygen
 
     def check_input(self, data):
         check_atom_array_annotation(data, ["atom_name", "chain_type"])
 
     def forward(self, data):
-        data["atom_array"] = remove_terminal_oxygen(data["atom_array"])
+        data["atom_array"] = remove_protein_terminal_oxygen(data["atom_array"])
         return data
+
+
+def remove_nucleic_acid_terminal_oxygen(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
+    """Remove terminal oxygen atoms (`OP3`) in nucleic acids from the atom array."""
+    # Built mask non-atomized terminal oxygen atoms on nucleic acids
+    is_atomized = get_annotation(
+        atom_array, "atomize", n_body=1, default=np.zeros(atom_array.array_length(), dtype=bool)
+    )
+    is_terminal = atom_array.atom_name == "OP3"
+    is_nucleic_acid = np.isin(atom_array.chain_type, ChainTypeInfo.NUCLEIC_ACIDS)
+
+    remove = is_terminal & is_nucleic_acid & ~is_atomized
+
+    if isinstance(atom_array, AtomArray):
+        return atom_array[~remove]
+    elif isinstance(atom_array, AtomArrayStack):
+        return atom_array[:, ~remove]
 
 
 class RemoveNucleicAcidTerminalOxygen(Transform):
@@ -560,14 +581,6 @@ class RemoveNucleicAcidTerminalOxygen(Transform):
         check_atom_array_annotation(data, ["atom_name", "chain_type"])
 
     def forward(self, data):
-        atom_array = data["atom_array"]
-        is_atomized = get_annotation(
-            atom_array, "atomize", n_body=1, default=np.zeros(atom_array.array_length(), dtype=bool)
-        )
-        is_terminal = atom_array.atom_name == "OP3"
-        is_nucleic_acid = np.isin(atom_array.chain_type, ChainTypeInfo.NUCLEIC_ACIDS)
-        remove = is_terminal & is_nucleic_acid & ~is_atomized
-
-        atom_array = atom_array[~remove]
+        atom_array = remove_nucleic_acid_terminal_oxygen(data["atom_array"])
         data["atom_array"] = atom_array
         return data
