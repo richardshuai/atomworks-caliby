@@ -249,7 +249,7 @@ def set_structure(
         atom_site["Cartn_z"] = np.copy(np.ravel(array.coord[..., 2]))
         atom_site["pdbx_PDB_model_num"] = np.ones(array.array_length(), dtype=np.int32)
     # In case of multiple models repeat annotations
-    # and use model specific coordinates
+    # and use model-specific coordinates
     else:
         atom_site = _repeat(atom_site, array.stack_depth())
         coord = np.reshape(array.coord, (array.stack_depth() * array.array_length(), 3))
