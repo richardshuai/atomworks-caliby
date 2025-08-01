@@ -632,3 +632,9 @@ Tip atoms are defined as the side-chain heavy atoms that are furthest away
 from the backbone oxygen atom in the residue's bond graph. With the exception of GLY,
 which has no backbone oxygen atom and we therefore use the CA atom as the tip atom.
 """
+
+PROTEIN_FRAME_ATOM_NAMES: Final[tuple[str, ...]] = ("N", "CA", "C")
+"""A tuple of the names of the frame atoms (backbone) proteins."""
+
+NUCLEIC_ACID_FRAME_ATOM_NAMES: Final[tuple[str, ...]] = ("C1'", "C3'", "C4'")
+"""A tuple of the names of the frame atoms (backbone) for nucleic acids."""
