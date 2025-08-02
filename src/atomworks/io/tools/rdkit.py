@@ -6,7 +6,6 @@ import copy
 import io
 import logging
 import os
-import warnings
 from collections import Counter
 from collections.abc import Callable
 from functools import cache, wraps
@@ -634,7 +633,6 @@ def atom_array_to_rdkit(
     atom_array: AtomArray,
     *,
     set_coord: bool | None = None,
-    infer_hydrogens: bool | None = None,
     hydrogen_policy: Literal["infer", "remove", "keep"] = "keep",
     annotations_to_keep: list[str] = BIOTITE_DEFAULT_ANNOTATIONS,
     sanitize: bool = True,
@@ -647,8 +645,6 @@ def atom_array_to_rdkit(
         - atom_array (biotite.structure.AtomArray): The Biotite AtomArray to convert.
         - set_coord (bool | None): Whether to set atomic coordinates in the RDKit molecule.
             If None, coordinates are only set if they are not NaN.
-        - infer_hydrogens (bool): Whether to infer hydrogens in the RDKit molecule.
-            WARNING: This is deprecated. Use `hydrogen_policy = 'infer'` instead.
         - hydrogen_policy (Literal["infer", "remove", "keep"]): Whether to infer hydrogens in the RDKit molecule.
         - annotations_to_keep (list[str]): List of atom annotations to preserve from the AtomArray.
         - sanitize (bool): Whether to sanitize the molecule during conversion. Default is True.
@@ -671,15 +667,6 @@ def atom_array_to_rdkit(
     #     in the AtomArray from atoms that might have been added by RDKit implicitly later
     #     (implicit hydrogens)
     rdkit_atom_ids = []
-
-    # DEPRECATE: Remove this in the next major release
-    if exists(infer_hydrogens):
-        warnings.warn(
-            "'infer_hydrogens' is deprecated. Use 'hydrogen_policy = 'infer' instead.",
-            category=DeprecationWarning,
-            stacklevel=1,
-        )
-        hydrogen_policy = "infer" if infer_hydrogens else "keep"
 
     if hydrogen_policy in ("infer", "remove"):
         atom_array = ta.remove_hydrogens(atom_array)
@@ -811,34 +798,15 @@ def ccd_code_to_rdkit(
     Returns:
         Mol: The RDKit molecule corresponding to the given residue name.
     """
-    # DEPRECATE: Remove this argument in the next major release
-    if {"set_coord", "hydrogen_policy"}.issubset(atom_array_to_rdkit_kwargs):
-        warnings.warn(
-            "The 'set_coord' and 'hydrogen_policy' arguments are deprecated. They will be removed in the next major release."
-            "Coordinates will always be set from the CCD because they are needed for stereochemistry assignment."
-            "You can manually remove them after conversion if you don't want them.",
-            category=DeprecationWarning,
-            stacklevel=1,
-        )
-
-    if ccd_path is None:
+    if not ccd_path:
         # ... use Biotite's internal CCD (WARNING: may be outdated, depending on when you/your dependency
         #    last computed your Biotite CCD)
-        # DEPRECATE: Remove try-except once we updated to biotite 1.1.2+
-        try:
-            residue = struc.info.residue(ccd_code, allow_missing_coord=True)
-        except TypeError:
-            residue = struc.info.residue(ccd_code)
+        residue = struc.info.residue(ccd_code, allow_missing_coord=True)
     elif os.path.exists(ccd_path):
         path = os.path.join(ccd_path, ccd_code[0], ccd_code, f"{ccd_code}.cif")
         with open(path, encoding="utf-8") as file:
             cif_file = struc.io.pdbx.CIFFile.read(file)
-
-        # DEPRECATE: Remove try-except once we updated to biotite 1.1.2+
-        try:
-            residue = struc.io.pdbx.get_component(cif_file, allow_missing_coord=True)
-        except TypeError:
-            residue = struc.io.pdbx.get_component(cif_file)
+        residue = struc.io.pdbx.get_component(cif_file, allow_missing_coord=True)
     else:
         raise FileNotFoundError(f"CCD directory not found: {ccd_path}")
 

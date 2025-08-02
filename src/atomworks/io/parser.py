@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import logging
 import os
-import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -144,10 +143,6 @@ def parse(
             Defaults to True.
         convert_mse_to_met (bool, optional): Whether to convert selenomethionine (MSE)
             residues to methionine (MET) residues. Defaults to False.
-        remove_hydrogens (bool, optional): Whether to remove hydrogens from the structure
-            (e.g., when adding missing atoms). Only has an effect if `add_missing_atoms` is True.
-            WARNING: This parameter is deprecated and will be removed in a future release.
-            Use `hydrogen_policy = 'remove'` instead.
         hydrogen_policy (Literal, optional): Whether to keep, remove or infer hydrogens using
             biotite-hydride (will remove existing hydrogens and infer fresh).
             Defaults to "keep". Options: "keep", "remove", "infer".
@@ -198,16 +193,6 @@ def parse(
             "hydrogens bonded to a given atom, not the inferred number. This may lead to occasional inaccuracies "
             "after adding inter-residue bonds. To avoid this and fix formal charges, set `add_missing_atoms = True`."
         )
-
-    ## hydrogen policy checks
-    # ... deprecation handling for `remove_hydrogens`
-    if remove_hydrogens is not None:
-        warnings.warn(
-            "'remove_hydrogens' is deprecated. Use `hydrogen_policy = 'remove'` or 'keep'` instead.",
-            category=DeprecationWarning,
-            stacklevel=1,
-        )
-        hydrogen_policy = "remove" if remove_hydrogens else "keep"
 
     file_type = file_type or infer_pdb_file_type(filename)
     is_buffer = isinstance(filename, io.StringIO | io.BytesIO)

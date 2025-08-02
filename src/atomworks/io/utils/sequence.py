@@ -143,17 +143,6 @@ def is_pyrimidine(ccd_code_array: np.ndarray) -> np.ndarray:
     return np.isin(ccd_code_array, STANDARD_PYRIMIDINE_RESIDUES)
 
 
-def is_pyramidine(ccd_code_array: np.ndarray) -> np.ndarray:
-    import warnings
-
-    warnings.warn(
-        "'is_pyramidine' is deprecated and will be removed in a future version. Use 'is_pyrimidine' instead.",
-        category=DeprecationWarning,
-        stacklevel=2,
-    )
-    return is_pyrimidine(ccd_code_array)
-
-
 def is_purine(ccd_code_array: np.ndarray) -> np.ndarray:
     return np.isin(ccd_code_array, STANDARD_PURINE_RESIDUES)
 

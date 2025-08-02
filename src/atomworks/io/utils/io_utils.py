@@ -725,8 +725,7 @@ def to_cif_file(
     extra_fields: list[str] | Literal["all"] = [],
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
     _allow_ambiguous_bond_annotations: bool = False,
-    gzip_output: bool | None = None,
-) -> os.PathLike:
+    ) -> os.PathLike:
     """Convert an AtomArray structure to a CIF/BCIF formatted file.
 
     Args:
@@ -746,9 +745,7 @@ def to_cif_file(
         extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
-        gzip_output (bool | None): Whether to gzip the output file. If None, the file type will be inferred from the path.
-            WARNING: This option is deprecated. Please use `file_type` instead.
-
+        
     Returns:
         str: The file path where the CIF formatted structure was saved.
 
@@ -759,20 +756,17 @@ def to_cif_file(
     path = str(os.path.abspath(path))
     file_name = os.path.basename(path)
 
-    if gzip_output is not None:
-        warnings.warn(
-            "The `gzip_output` argument is deprecated. Please use `file_type` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+    if file_type is None:
         if str(path).endswith(".cif"):
-            path = path.replace(".cif", ".cif.gz") if gzip_output else path
+            file_type = "cif"
         elif str(path).endswith(".cif.gz"):
-            pass
+            file_type = "cif.gz"
+        elif str(path).endswith(".bcif"):
+            file_type = "bcif"
+        elif str(path).endswith(".bcif.gz"):
+            file_type = "bcif.gz"
         else:
-            path = path + ".cif.gz"
-
-        file_type = ".cif.gz" if gzip_output else "cif"
+            raise ValueError(f"Could not infer file type from path: {path}")
 
     file_obj = _to_cif_or_bcif(
         structure,
