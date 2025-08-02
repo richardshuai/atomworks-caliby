@@ -23,9 +23,6 @@ else
 fi
 
 # Perform rsync with file counting
-# ... existing code ...
-
-# Perform rsync with file counting
 echo "Syncing files from PDBeChem CCD..."
 if rsync -rltvz --stats --no-perms --chmod=ug=rwX,o=rX --delete --omit-dir-times \
     --include="*/" --include "*.cif" --exclude "*" \

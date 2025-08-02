@@ -53,7 +53,7 @@ jobs:
     timeout-minutes: 30
     needs: lint
     # ... only run on non-draft PRs to `main` to avoid unnecessary CI runs
-    # ... and only run on changed files in the `cifutils`, `tests`, or `scripts` directories
+    # ... and only run on changed files in the `atomworks`, `tests`, or `scripts` directories
     if: |
       (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
       (github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review')

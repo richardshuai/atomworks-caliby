@@ -12,7 +12,6 @@ DEST_PATH="$1"
 REMOTE_PATH="rsync.wwpdb.org::ftp/data/structures/divided/mmCIF/"
 ENV_FILE=".env"
 
-
 echo "Starting RCSB PDB mirror setup for target path: $DEST_PATH"
 
 # Create destination directory if it doesn't exist

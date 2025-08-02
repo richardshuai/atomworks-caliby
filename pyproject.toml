@@ -189,12 +189,10 @@ convention = "google"
 "docs/**/*.ipynb" = ["E402"]            # Ignore forcing imports to be at the top of the file
 
 
-[tool.pytest]
+[tool.pytest.ini_options]
 testpaths = "tests"  # Only run tests in the tests directory (speeds up collection)
 norecursedirs = "docs *.egg-info .git .tox htmlcov"
 addopts = "--import-mode=importlib"
-
-[tool.pytest.ini_options]
 pythonpath = ["src/atomworks", "tests"]
 
 [tool.coverage.run]
