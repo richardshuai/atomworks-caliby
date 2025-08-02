@@ -227,7 +227,7 @@ def parse_ccd_cif(
             continue
 
         try:
-            if coord_type == "ideal_rdkit":
+            if (coord_type == "ideal_rdkit") and (rdkit_data := block.get("pdbe_chem_comp_rdkit_conformer")):
                 # Special case for rdkit as it uses a different dataset
                 rdkit_data = block.get("pdbe_chem_comp_rdkit_conformer")
                 assert np.all(rdkit_data["atom_id"].as_array(str) == atoms.get_annotation("atom_name"))
