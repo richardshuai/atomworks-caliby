@@ -24,24 +24,6 @@ format:
 	ruff format .
 	ruff check --fix .
 
-_github_token_error:
-	@echo "==============================================================================="; \
-	echo "Error: Environment variables GITHUB_USER and GITHUB_TOKEN must be set."; \
-	echo ""; \
-	echo "You need to set the environment variables GITHUB_USER and GITHUB_TOKEN."; \
-	echo "You can create a personal access token on GitHub at:"; \
-	echo "   https://github.com/settings/tokens"; \
-	echo ""; \
-	echo "For more info see: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic"; \
-	echo ""; \
-	echo "To expose these variables, you can use:"; \
-	echo "export GITHUB_USER=<github-username>"; \
-	echo "export GITHUB_TOKEN=<github-token>"; \
-	echo ""; \
-	echo "It is recommended that you set these tokens in your .bashrc or .zshrc file for future use."; \
-	echo "===============================================================================";
-	exit 1;
-
 _check_conda:
 	@echo "... checking if conda/mamba is installed"
 	@command -v $(CONDA_BINARY) >/dev/null 2>&1 || { \
@@ -50,61 +32,80 @@ _check_conda:
 	}
 	@echo "... found conda executable: $(CONDA_BINARY)"
 
-_check_tokens:
-	@echo "... checking if GITHUB_USER and GITHUB_TOKEN are set"
-	@if [ -z "$(GITHUB_USER)" ] || [ -z "$(GITHUB_TOKEN)" ]; then \
-		$(MAKE) _github_token_error; \
-	fi
-	@echo "... found GITHUB_USER ($(GITHUB_USER)) and GITHUB_TOKEN."
-
-## Create a new conda environment and install datahub
+## Create a Python virtual environment and install atomworks via pip
 env:
-	@echo "Creating datahub conda environment: datahub"
+	@echo "Creating Python virtual environment and installing atomworks"
+	python -m venv venv
+	@echo "Activating virtual environment and installing dependencies..."
+	@echo "Run: source venv/bin/activate && pip install -e '.[dev,all]'"
+	@echo "Or on Windows: venv\\Scripts\\activate && pip install -e '.[dev,all]'"
 
-	@$(MAKE) --no-print-directory _check_tokens
+## Create a new conda environment and install atomworks
+env_conda:
+	@echo "Creating atomworks conda environment: `atomworks`"
+
 	@$(MAKE) --no-print-directory _check_conda
 
-	@$(CONDA_BINARY) env create -n datahub --file environment.yaml
-	@conda init
-	@conda activate datahub
-	@pip install -e ".[dev]"
+	$(CONDA_BINARY) env create -n atomworks --file environment.yaml
+	@echo "Environment created. Activate with: conda activate atomworks"
+	@echo "Then install atomworks with: pip install -e '.[dev,all]'"
 
-## Install datahub locally into the current environment
+## Install atomworks locally into the current environment
 install:
-	@echo "Installing datahub"
-
-	@$(MAKE) --no-print-directory _check_tokens
-	@$(MAKE) --no-print-directory _check_conda
-
-	@echo "Installing the conda requirements in the current activated environment"
-	$(CONDA_BINARY) env update --file environment.yaml
-
-	@echo "Installing the pip requirements in the current activated environment"
-	pip install -e ".[dev]"
+	@echo "Installing atomworks with all dependencies"
+	pip install -e ".[dev,all]"
 
 ## Build the apptainer image
 apptainer:
 	$(eval DATE := $(shell date +%Y-%m-%d))
-	$(eval IMAGE := datahub_$(DATE).sif)
+	$(eval IMAGE := atomworks_$(DATE).sif)
 	bash ./scripts/build_apptainer.sh && \
 	bash ./scripts/test_apptainer.sh $(IMAGE)
 
+## Run pytest on the latest IPD atomworks apptainer
 test_ipd:
 	source ./.ipd/setup.sh && \
 	OPENBLAS_NUM_THREADS=1 \
 	OMP_NUM_THREADS=1 \
-	apptainer exec ./.ipd/datahub.sif \
-	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml -n=auto --maxprocesses=24 --dist=worksteal tests/ -m "not very_slow"
+	apptainer exec ./.ipd/atomworks.sif \
+	pytest --cov=atomworks \
+		--cov-config=pyproject.toml \
+		--cov-report=term-missing \
+		--cov-report=html \
+		--cov-report=xml \
+		-n=auto \
+		--dist=load \
+		--maxprocesses=24 \
+		--max-worker-restart=4 \
+		tests/
 
 ## Run pytest and generate coverage report
 test:
-	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml --testmon-forceselect tests -m "not very_slow"
+	pytest --cov=atomworks --cov-report=term-missing --cov-report=html --cov-report=xml tests/
 
 ## Run pytest in parallel
 parallel_test:
 	OPENBLAS_NUM_THREADS=1 \
 	OMP_NUM_THREADS=1 \
-	pytest --cov=datahub --cov-report=term-missing --cov-report=html --cov-report=xml -n=auto --maxprocesses=24 --dist=worksteal tests/ -m "not very_slow"
+	pytest --cov=atomworks \
+		--cov-config=pyproject.toml \
+		--cov-report=term-missing \
+		--cov-report=html \
+		--cov-report=xml \
+		-n=auto \
+		--dist=load \
+		--maxprocesses=24 \
+		--max-worker-restart=4 \
+		tests/
+
+## Run parse-speed benchmark
+benchmark:
+	pytest tests/speed \
+		--benchmark-time-unit="s" \
+		--benchmark-warmup=False \
+		--benchmark-min-rounds=3 \
+		--benchmark-autosave \
+		--benchmark-compare
 
 #################################################################################
 # Self Documenting Commands                                                     #
