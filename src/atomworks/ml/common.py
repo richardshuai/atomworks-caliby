@@ -3,8 +3,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from omegaconf import ListConfig
-
 from atomworks.io.common import default, exists  # noqa: F401
 
 
@@ -60,12 +58,16 @@ def parse_example_id(example_id: str) -> dict:
 def as_list(value: Any) -> list:
     """Convert a value to a list.
 
-    Handles various types including:
+    Handles various types using duck typing:
+        - Iterable objects (lists, tuples, strings, etc.): converted to list
         - Single values: wrapped in a list
-        - Lists, tuples: converted to list
-        - Hydra ListConfig objects: converted to list
     """
-    if isinstance(value, (list, tuple, ListConfig)):
+    try:
+        # Try to iterate over the value (duck typing approach)
+        # Exclude strings since they're iterable but we want to treat them as single values
+        if isinstance(value, str):
+            return [value]
         return list(value)
-    else:
+    except TypeError:
+        # If it's not iterable, wrap it in a list
         return [value]

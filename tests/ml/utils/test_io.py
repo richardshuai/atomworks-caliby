@@ -3,7 +3,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from assertpy import assert_that
 from biotite.structure import AtomArrayStack
 
 from atomworks.io.constants import ATOMIC_NUMBER_TO_ELEMENT
@@ -35,17 +34,17 @@ def test_convert_af3_model_output_to_atom_array_stack(file_path: str):
     )
 
     # Smoke tests
-    assert_that(atom_array_stack).is_instance_of(AtomArrayStack)
-    assert_that(atom_array_stack[0]).is_length(len(model_outputs["xyz"]))
+    assert isinstance(atom_array_stack, AtomArrayStack)
+    assert len(atom_array_stack[0]) == len(model_outputs["xyz"])
 
     # Assert that the AtomArray has the correct elements
     uppercase_elements = np.array(
         [ATOMIC_NUMBER_TO_ELEMENT[atomic_number] for atomic_number in model_outputs["elements"]]
     )
-    assert_that(np.array_equal(atom_array_stack.element, uppercase_elements)).is_true()
+    assert np.array_equal(atom_array_stack.element, uppercase_elements)
 
     # Assert that the AtomArray has the correct coordinates for the first (and only) model
-    assert_that(np.array_equal(atom_array_stack.coord[0], model_outputs["xyz"])).is_true()
+    assert np.array_equal(atom_array_stack.coord[0], model_outputs["xyz"])
 
 
 if __name__ == "__main__":

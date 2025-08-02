@@ -6,7 +6,6 @@ from operator import add
 
 import pandas as pd
 import torch
-from assertpy import assert_that
 from toolz import accumulate
 from torch.utils.data import Dataset, DistributedSampler, Sampler, WeightedRandomSampler
 
@@ -270,13 +269,11 @@ class DistributedMixedSampler(Sampler):
 
         # Assert that:
         # ... the number of samplers, probabilities, and datasets match
-        assert_that(self.samplers).is_length(len(self.probabilities)).is_length(len(self.dataset_lengths))
+        assert len(self.samplers) == len(self.probabilities) == len(self.dataset_lengths)
         # ... the probabilities sum to 1
-        assert_that(sum(self.probabilities)).is_close_to(1.0, tolerance=1e-6).described_as(
-            "Probabilities must sum to 1"
-        )
+        assert abs(sum(self.probabilities) - 1.0) < 1e-6, "Probabilities must sum to 1"
         # ... the datasets_info contains keys for "sampler", "probability", and "dataset"
-        assert_that(datasets_info[0]).contains_key("sampler").contains_key("probability").contains_key("dataset")
+        assert "sampler" in datasets_info[0] and "probability" in datasets_info[0] and "dataset" in datasets_info[0]
 
         if n_examples_per_epoch is not None:
             self._set_num_examples_per_epoch(n_examples_per_epoch)
@@ -321,9 +318,9 @@ class DistributedMixedSampler(Sampler):
             # ... and assert that either we have more than n_examples_per_epoch examples or we are sampling with replacement
             sampler_has_enough_data = len(sampler) >= n_examples
             sampler_is_replacement = getattr(sampler, "replacement", False)
-            assert_that(sampler_has_enough_data or sampler_is_replacement).is_true().described_as(
-                "Must either have enough data or be sampling with replacement"
-            )
+            assert (
+                sampler_has_enough_data or sampler_is_replacement
+            ), "Must either have enough data or be sampling with replacement"
 
     def __iter__(self):
         # Trigger the __iter__ of each sampler upfront (generates a list of local indices based on the sampling scheme)

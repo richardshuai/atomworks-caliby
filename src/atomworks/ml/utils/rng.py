@@ -14,7 +14,6 @@ from typing import Any
 
 import numpy as np
 import torch
-from assertpy import assert_that
 
 _MAX_SEED_VALUE = np.iinfo(np.uint32).max
 _MIN_SEED_VALUE = np.iinfo(np.uint32).min
@@ -128,7 +127,9 @@ def create_rng_state_from_seeds(
     with rng_state(None):
         # Set seeds in context manager to reset RNG states after creating the rng_state_dict
         if np_seed is not None:
-            assert_that(np_seed).is_instance_of(int).is_between(_MIN_SEED_VALUE, _MAX_SEED_VALUE)
+            assert (
+                isinstance(np_seed, int) and _MIN_SEED_VALUE <= np_seed <= _MAX_SEED_VALUE
+            ), f"np_seed must be an int between {_MIN_SEED_VALUE} and {_MAX_SEED_VALUE}, got {np_seed}"
             np.random.seed(np_seed)
         if torch_seed is not None:
             torch.manual_seed(torch_seed)

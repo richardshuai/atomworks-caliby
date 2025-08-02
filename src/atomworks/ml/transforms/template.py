@@ -12,7 +12,6 @@ import biotite.structure as struc
 import numpy as np
 import pandas as pd
 import torch
-from assertpy import assert_that
 from biotite.structure import AtomArray
 from torch.nn.functional import normalize
 
@@ -154,7 +153,9 @@ class RF2AATemplate:
         return self
 
     def to_atom_array(self, template_idx: int) -> AtomArray:
-        assert_that(template_idx).is_instance_of(int).is_between(0, self.n_templates - 1)
+        assert (
+            isinstance(template_idx, int) and 0 <= template_idx <= self.n_templates - 1
+        ), f"template_idx must be an int between 0 and {self.n_templates - 1}, got {template_idx}"
 
         # Get pdb_id and chain_id
         template_id = self.ids[template_idx]
@@ -359,10 +360,18 @@ class AddRFTemplates(Transform):
             AssertionError: If `n_template` is not a positive integer.
             AssertionError: If `min_template_length` is not a non-negative integer.
         """
-        assert_that(min_seq_similarity).is_between(0.0, 100.0)
-        assert_that(max_seq_similarity).is_between(0.0, 100.0)
-        assert_that(max_n_template).is_instance_of(int).is_greater_than(0)
-        assert_that(min_template_length).is_instance_of(int).is_greater_than_or_equal_to(0)
+        assert (
+            0.0 <= min_seq_similarity <= 100.0
+        ), f"min_seq_similarity must be between 0.0 and 100.0, got {min_seq_similarity}"
+        assert (
+            0.0 <= max_seq_similarity <= 100.0
+        ), f"max_seq_similarity must be between 0.0 and 100.0, got {max_seq_similarity}"
+        assert (
+            isinstance(max_n_template, int) and max_n_template > 0
+        ), f"max_n_template must be a positive integer, got {max_n_template}"
+        assert (
+            isinstance(min_template_length, int) and min_template_length >= 0
+        ), f"min_template_length must be a non-negative integer, got {min_template_length}"
 
         self.n_template = max_n_template
         self.pick_top = pick_top
@@ -505,9 +514,15 @@ class FeaturizeTemplatesLikeRF2AA(Transform):
             AssertionError: If `init_coords` is a tensor and its dimensions do not match the expected shape.
             AssertionError: If `allowed_chain_types` is not a list or contains any elements that are not instances of `ChainType`.
         """
-        assert_that(n_template).is_instance_of(int).is_greater_than(0)
-        assert_that(encoding).is_instance_of(TokenEncoding)
-        assert_that(allowed_chain_types).is_instance_of(list).is_not_empty()
+        assert (
+            isinstance(n_template, int) and n_template > 0
+        ), f"n_template must be a positive integer, got {n_template}"
+        assert isinstance(
+            encoding, TokenEncoding
+        ), f"encoding must be an instance of TokenEncoding, got {type(encoding)}"
+        assert (
+            isinstance(allowed_chain_types, list) and len(allowed_chain_types) > 0
+        ), f"allowed_chain_types must be a non-empty list, got {allowed_chain_types}"
         assert np.isin(
             allowed_chain_types, ChainType
         ).all(), f"Allowed chain types must be a list of ChainType enums. Got {allowed_chain_types=}."
@@ -519,11 +534,13 @@ class FeaturizeTemplatesLikeRF2AA(Transform):
 
         if isinstance(init_coords, torch.Tensor):
             n_dim = init_coords.shape[-1]
-            assert_that(n_dim).is_equal_to(3)
+            assert n_dim == 3, f"init_coords must have 3 dimensions, got {n_dim}"
 
             if init_coords.ndim >= 2:
                 n_token = init_coords.shape[-2]
-                assert_that(n_token).is_equal_to(encoding.n_atoms_per_token)
+                assert (
+                    n_token == encoding.n_atoms_per_token
+                ), f"init_coords must have {encoding.n_atoms_per_token} tokens, got {n_token}"
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["template", "atom_array"])

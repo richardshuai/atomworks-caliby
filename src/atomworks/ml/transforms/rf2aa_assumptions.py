@@ -2,7 +2,6 @@ from typing import Any
 
 import numpy as np
 import torch
-from assertpy import assert_that
 
 from atomworks.ml.transforms.base import Transform
 
@@ -15,11 +14,11 @@ def _is_atom(seq: torch.Tensor | np.ndarray) -> torch.Tensor | np.ndarray:
 def _is_block_diagonal_with_full_blocks(array: torch.Tensor | np.ndarray) -> bool:
     # NOTE: This only
     # Check that matrix is 2D
-    assert_that(len(array.shape)).is_equal_to(2)
+    assert len(array.shape) == 2
 
     # Check that matrix is square
     n_rows, n_cols = array.shape
-    assert_that(n_rows).is_equal_to(n_cols)
+    assert n_rows == n_cols
 
     # Get occupied entries
     occupied = np.asarray(array != 0)
@@ -66,7 +65,7 @@ def _is_symmetric(array: torch.Tensor | np.ndarray) -> bool:
 
 
 def _assert_shape(t: torch.Tensor | np.ndarray, s: tuple[int, ...]):
-    assert_that(tuple(t.shape)).is_equal_to(s)
+    assert tuple(t.shape) == s
 
 
 def assert_satisfies_rf2aa_assumptions(sample: dict[str, Any]):

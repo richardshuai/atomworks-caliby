@@ -26,11 +26,9 @@ dependencies = [
     "GitPython>=3.0.0,<4", # GitPython is a Python library used to interact with Git repositories
     "cython>=3.0.0,<4", # Cython compiler for C extensions
     "cytoolz>=0.12.3,<1", # Cython-optimized tools for itertools and functional programming
-    "assertpy>=1.1.0,<2", # Assertions library
     "tqdm>=4.65.0,<5", # Fast, extensible progress bar for loops and more
     # ... CLI & config management
     "fire>=0.6.0,<1", # Argument parsing
-    "hydra-core>=1.3.0,<1.4", # Config management framework
     # ... linear algebra, maths & ml
     "numpy>=1.25.0,<2",
     "scipy>=1.13.1,<2",

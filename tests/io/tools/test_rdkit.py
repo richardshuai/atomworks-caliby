@@ -1,7 +1,6 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
-from assertpy import assert_that
 from biotite.structure import AtomArray
 from rdkit import Chem
 
@@ -144,25 +143,19 @@ def test_fingerprints(molecules):
     sim_nag_bma = Chem.DataStructs.TanimotoSimilarity(fingerprints["NAG"], fingerprints["BMA"])
     sim_nag_hem = Chem.DataStructs.TanimotoSimilarity(fingerprints["NAG"], fingerprints["HEM"])
     # Assert that leucine is more similar to isoleucine than to glycine
-    assert_that(sim_leu_ile).is_greater_than(sim_leu_gly).described_as(
-        "Leucine should be more similar to Isoleucine than to Glycine"
-    )
+    assert sim_leu_ile > sim_leu_gly, "Leucine should be more similar to Isoleucine than to Glycine"
 
     # Asser that sugars (NAG and BMA) are more similar to each other than to HEM by at least a factor of 5
-    assert_that(sim_nag_bma).is_greater_than(5 * sim_nag_hem).described_as(
-        "Sugars should be more similar to each other than to HEM"
-    )
+    assert sim_nag_bma > 5 * sim_nag_hem, "Sugars should be more similar to each other than to HEM"
 
     # Residues should have a similarity of 1.0 with themselves
-    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["Leucine"])).is_equal_to(1.0)
+    assert Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["Leucine"]) == 1.0
 
     # Lycine and [NAG, BMA, HEM] should be less similar than 0.3 (very different)
-    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["NAG"])).is_less_than(0.3)
-    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["BMA"])).is_less_than(0.3)
-    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["HEM"])).is_less_than(0.3)
-    assert_that(Chem.DataStructs.TanimotoSimilarity(fingerprints["CustomUNL"], fingerprints["Leucine"])).is_less_than(
-        0.3
-    )
+    assert Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["NAG"]) < 0.3
+    assert Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["BMA"]) < 0.3
+    assert Chem.DataStructs.TanimotoSimilarity(fingerprints["Leucine"], fingerprints["HEM"]) < 0.3
+    assert Chem.DataStructs.TanimotoSimilarity(fingerprints["CustomUNL"], fingerprints["Leucine"]) < 0.3
 
 
 def test_chirality_detection_from_ccd():

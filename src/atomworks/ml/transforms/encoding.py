@@ -11,7 +11,6 @@ from typing import Any
 
 import numpy as np
 import torch
-from assertpy import assert_that
 from biotite.structure import AtomArray
 from torch.nn import functional as F
 
@@ -249,7 +248,7 @@ def atom_array_from_encoding(
 
     # ... flatten occupancy & validate that masking did not miss any existing atoms
     atom_array.set_annotation("occupancy", np.asarray(encoded_mask[atom_should_exist], dtype=np.float32))
-    assert_that(np.sum(encoded_mask)).is_equal_to(np.sum(atom_array.occupancy))
+    assert np.sum(encoded_mask) == np.sum(atom_array.occupancy)
 
     # ... set atomize annotation if `token_is_atom` is provided
     if token_is_atom is not None:

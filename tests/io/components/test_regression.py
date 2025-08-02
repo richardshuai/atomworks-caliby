@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from assertpy import assert_that
 
 from atomworks.io.constants import CRYSTALLIZATION_AIDS
 from atomworks.io.parser import parse
@@ -113,7 +112,7 @@ def test_regression_against_stored_result(pdb_id: str):
         )
 
     # ... the ligand of interest information
-    assert_that(result["ligand_info"]).is_equal_to(expected_result["ligand_info"])
+    assert result["ligand_info"] == expected_result["ligand_info"]
 
     # ... the chain information
     assert set(result["chain_info"].keys()) == set(expected_result["chain_info"].keys())
@@ -135,12 +134,12 @@ def test_regression_against_stored_result(pdb_id: str):
         assert got == expected, f"Chain info for {chain=} does not match: {got} != {expected}"
 
     # ... the extra information
-    assert_that(result["extra_info"]).is_equal_to(expected_result["extra_info"])
+    assert result["extra_info"] == expected_result["extra_info"]
 
     # ... the metadata
     for key in expected_result.get("metadata", {}):
         assert key in result["metadata"], f"Missing metadata key: {key}"
-        assert_that(result["metadata"][key]).is_equal_to(expected_result["metadata"][key])
+        assert result["metadata"][key] == expected_result["metadata"][key]
 
 
 if __name__ == "__main__":
