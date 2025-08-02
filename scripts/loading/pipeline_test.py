@@ -33,11 +33,11 @@ from typing import Literal
 
 import fire
 import pandas as pd
-from atomworks.io.constants import AF3_EXCLUDED_LIGANDS_REGEX
 from toolz.curried import assoc, compose, keyfilter, map
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from atomworks.io.constants import AF3_EXCLUDED_LIGANDS_REGEX
 from atomworks.ml.datasets.datasets import StructuralDatasetWrapper
 from atomworks.ml.datasets.parsers import InterfacesDFParser, PNUnitsDFParser
 from atomworks.ml.preprocessing.constants import PREPROCESSING_SUPPORTED_CHAIN_TYPES_INTS
@@ -183,7 +183,7 @@ def test_dataset(dataset_path: Path, num_processes: int, pipeline_name: Literal[
         f.write("=" * 80 + "\n")
 
     timings = []
-    _filter_name_and_time = keyfilter(lambda x: x in ["name", "processing_time"])  # noqa
+    _filter_name_and_time = keyfilter(lambda x: x in ["name", "processing_time"])
     _add_id = lambda id: assoc(key="example_id", value=id)  # noqa
 
     failure_indices = []

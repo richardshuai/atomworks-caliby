@@ -17,7 +17,7 @@ from esm import FastaBatchedDataset, MSATransformer, pretrained
 
 def create_parser():
     parser = argparse.ArgumentParser(
-        description="Extract per-token representations and model outputs for sequences in a FASTA file"  # noqa
+        description="Extract per-token representations and model outputs for sequences in a FASTA file"
     )
 
     parser.add_argument(
@@ -95,13 +95,13 @@ def run(args):
             out = model(toks, repr_layers=repr_layers, return_contacts=return_contacts)
 
             if "all_layers" in args.include:
-                for sequence_hash, representation in zip(labels, out["representations"][model.num_layers]):
+                for sequence_hash, representation in zip(labels, out["representations"][model.num_layers], strict=False):
                     # save float32 to save disk memory
                     representations[sequence_hash] = torch.stack(
                         [out["representations"][i] for i in range(1, model.num_layers + 1)]
                     ).to(dtype=torch.float32)
             elif "last_layer" in args.include:
-                for sequence_hash, representation in zip(labels, out["representations"][model.num_layers]):
+                for sequence_hash, representation in zip(labels, out["representations"][model.num_layers], strict=False):
                     representations[sequence_hash] = representation[1:-1]
             else:
                 raise ValueError

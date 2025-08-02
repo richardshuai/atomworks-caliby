@@ -15,9 +15,9 @@ from pathlib import Path
 
 import fire
 import pandas as pd
-from atomworks.io.enums import ChainType
 from tqdm import tqdm
 
+from atomworks.io.enums import ChainType
 from atomworks.ml.common import generate_example_id
 from atomworks.ml.preprocessing.constants import NA_VALUES, PEPTIDE_MAX_RESIDUES
 

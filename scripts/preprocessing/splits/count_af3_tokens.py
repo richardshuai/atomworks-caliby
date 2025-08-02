@@ -11,10 +11,10 @@ from pathlib import Path
 import fire
 import pandas as pd
 from biotite.structure import AtomArray
-from atomworks.io import parse
-from atomworks.io.constants import AF3_EXCLUDED_LIGANDS, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from tqdm import tqdm
 
+from atomworks.io import parse
+from atomworks.io.constants import AF3_EXCLUDED_LIGANDS, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from atomworks.ml.common import exists
 from atomworks.ml.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
 from atomworks.ml.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization

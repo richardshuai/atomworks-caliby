@@ -36,12 +36,11 @@ import tempfile
 import time
 from os import PathLike
 from pathlib import Path
-from typing import List, Union
 
 import fire
 import pandas as pd
-from atomworks.io.enums import ChainType
 
+from atomworks.io.enums import ChainType
 from atomworks.ml.utils.misc import hash_sequence
 
 logger = logging.getLogger(__name__)
@@ -207,7 +206,7 @@ def _start_gpu_server(
     return gpu_server_process
 
 
-def _run_mmseqs(mmseqs: Path, params: List[Union[str, Path]]):
+def _run_mmseqs(mmseqs: Path, params: list[str | Path]):
     """
     Run an MMseqs2 command.
 
@@ -242,9 +241,9 @@ def _run_mmseqs_search_and_filter(
     output_name: str,
     db_load_mode: int,
     threads: int,
-    search_param: List[str],
-    expand_param: List[str],
-    filter_param: List[str],
+    search_param: list[str],
+    expand_param: list[str],
+    filter_param: list[str],
     align_eval: float,
     max_accept: int,
     qsc: float,
@@ -549,7 +548,7 @@ def _mmseqs_search_monomer(
     else:
         search_param += ["--prefilter-mode", str(prefilter_mode)]
         if s is not None:  # sensitivy can only be set for non-gpu version, gpu version runs at max sensitivity
-            search_param += ["-s", "{:.1f}".format(s)]
+            search_param += ["-s", f"{s:.1f}"]
         else:
             search_param += ["--k-score", "'seq:96,prof:80'"]
     if gpu_server:

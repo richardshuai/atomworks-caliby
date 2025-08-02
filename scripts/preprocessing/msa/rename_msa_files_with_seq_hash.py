@@ -23,7 +23,6 @@ import shutil
 from multiprocessing import Pool, cpu_count
 from os import PathLike
 from pathlib import Path
-from typing import List
 
 import fire
 from tqdm import tqdm
@@ -51,11 +50,11 @@ def rename_and_move_single_file(args: tuple) -> None:
     if ".a3m.gz" in file_extension:
         # Read the file using gzip
         with gzip.open(file, "rt") as f:
-            lines: List[str] = f.readlines()
+            lines: list[str] = f.readlines()
     elif ".afa" in file_extension or ".a3m" in file_extension:
         # Read the file directly
         with file.open("rt") as f:
-            lines: List[str] = f.readlines()
+            lines: list[str] = f.readlines()
     else:
         raise ValueError("Invalid file extension. Must be one of '.a3m.gz', '.a3m', or '.afa'.")
 

@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+
 from atomworks.io import parse
 from atomworks.io.constants import (
     AF3_EXCLUDED_LIGANDS,
@@ -13,7 +14,6 @@ from atomworks.io.constants import (
 )
 from atomworks.io.enums import ChainType
 from atomworks.io.utils.testing import assert_same_atom_array
-
 from atomworks.ml.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
 from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
 from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
@@ -136,7 +136,7 @@ def _assert_features_equal(feats: dict, expected_feats: dict, example_name: str,
     assert not missing_keys, f"Missing feature keys {missing_keys} for {example_name} in {mode} mode"
 
     # Only check features that were in the expected results (allows for new features)
-    for key in expected_feats.keys():
+    for key in expected_feats:
         feat = feats[key]
         expected_feat = expected_feats[key]
 
@@ -161,9 +161,7 @@ def _assert_tensor_or_array_equal(actual, expected, error_msg: str):
         else:
             assert torch.allclose(actual, expected, atol=1e-5, rtol=1e-5, equal_nan=True), error_msg
     elif isinstance(actual, np.ndarray):
-        if actual.dtype.kind in ["U", "S"]:  # String dtypes
-            assert np.array_equal(actual, expected), error_msg
-        elif actual.dtype == bool or np.issubdtype(actual.dtype, np.integer):
+        if actual.dtype.kind in ["U", "S"] or actual.dtype == bool or np.issubdtype(actual.dtype, np.integer):  # String dtypes
             assert np.array_equal(actual, expected), error_msg
         else:
             assert np.allclose(actual, expected, atol=1e-5, rtol=1e-5, equal_nan=True), error_msg

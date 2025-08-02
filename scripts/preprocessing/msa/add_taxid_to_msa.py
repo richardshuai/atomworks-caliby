@@ -58,7 +58,7 @@ def _parse_one_file(msa_file: Path, uniref_id_to_tax_id: dict) -> None:
             if line.startswith(">UniRef100"):  # header of uniprot hit
                 uniref_id = line.split("\t")[0].split("_")[1]
                 if extract_tax_id(line, "") == "":  # doesn't already have taxid
-                    taxid = uniref_id_to_tax_id.get(uniref_id, None)
+                    taxid = uniref_id_to_tax_id.get(uniref_id)
                     if taxid:
                         # write taxid to the end of the line
                         line = f"{line.strip()}\tTaxId={taxid}\n"

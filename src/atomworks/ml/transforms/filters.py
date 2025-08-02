@@ -9,6 +9,7 @@ from typing import Any
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
+
 from atomworks.io.common import not_isin
 from atomworks.io.constants import HYDROGEN_LIKE_SYMBOLS
 from atomworks.io.enums import ChainType, ChainTypeInfo
@@ -543,6 +544,7 @@ def remove_protein_terminal_oxygen(atom_array: AtomArray | AtomArrayStack) -> At
 
 class RemoveTerminalOxygen(Transform):
     """Remove terminal oxygen atoms (`OXT`) from the atom array."""
+
     # TODO: Rename to RemoveProteinTerminalOxygen
 
     def check_input(self, data):

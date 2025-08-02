@@ -27,14 +27,14 @@ DEFAULT_BASE_CIF_DIR = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb")
 
 # fmt: off
 PDB_IDS_TO_INCLUDE_IN_TEST_DATASETS = [
-    "1A80", "1IVO", "3K4A", "3KFA", "6WJC", "1EN2", "1CBN", "133D", "4JS1", 
-    "1L2Y", "2K0A", "4CPA", "1ZY8", "6DMH", "1FU2", "6DMG", "1Y1W", "5XNL", 
-    "2E2H", "4NDZ", "3NE7", "3NEZ", "1RXZ", "3J31", "7MUB", "1QK0", "1DYL", 
-    "7SBV", "3EPC", "6O7K", "104D", "5X3O", "5GAM", "6A5J", "3NE2", "1MNA", 
-    "1HGE", "3EJJ", "112M", "1A3G", "1A2N", "1A2Y", "1BDV", "184D", "4HF4", 
-    "3LPV", "2NVZ", "7KF1", "7CJG", "7B1W", "6ZIE", "7NMJ", "6M2Z", "5OCM", 
-    "3SJM", "4I7Z", "4OLB", "4RES", "6BGN", "6VET", "6ZSJ", "5RX1", "7D9H", 
-    "5S4P", "4GQA", "7AH0", "4U4H", "2PNO", "1PFI", 
+    "1A80", "1IVO", "3K4A", "3KFA", "6WJC", "1EN2", "1CBN", "133D", "4JS1",
+    "1L2Y", "2K0A", "4CPA", "1ZY8", "6DMH", "1FU2", "6DMG", "1Y1W", "5XNL",
+    "2E2H", "4NDZ", "3NE7", "3NEZ", "1RXZ", "3J31", "7MUB", "1QK0", "1DYL",
+    "7SBV", "3EPC", "6O7K", "104D", "5X3O", "5GAM", "6A5J", "3NE2", "1MNA",
+    "1HGE", "3EJJ", "112M", "1A3G", "1A2N", "1A2Y", "1BDV", "184D", "4HF4",
+    "3LPV", "2NVZ", "7KF1", "7CJG", "7B1W", "6ZIE", "7NMJ", "6M2Z", "5OCM",
+    "3SJM", "4I7Z", "4OLB", "4RES", "6BGN", "6VET", "6ZSJ", "5RX1", "7D9H",
+    "5S4P", "4GQA", "7AH0", "4U4H", "2PNO", "1PFI",
     "1S2K", # Polymer with < 4 resolved residues
     "6Z3R", # Causes NaN's to enter the network
     "2G37", # Leads to "RuntimeWarning: All-NaN slice encountered" from Biotite

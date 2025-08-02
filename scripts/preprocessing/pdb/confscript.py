@@ -5,7 +5,6 @@ import traceback
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import List
 
 import pandas as pd
 
@@ -24,7 +23,7 @@ def timeout_handler(signum, frame):
 
 
 def generate_csv_files_from_paths(
-    example_paths: List[PathLike],
+    example_paths: list[PathLike],
     preprocessor: DataPreprocessor,
     csv_dir: str,
     print_progress: bool = True,
@@ -132,7 +131,7 @@ def get_all_files_in_dir(
     base_dir: Path,
     file_extension: str = ".cif.gz",
     only_stem: bool = True,
-) -> List[Path]:
+) -> list[Path]:
     """Get all file paths or file stems with a given extension from a given directory."""
     files = base_dir.glob(f"**/*{file_extension}")
     if only_stem:

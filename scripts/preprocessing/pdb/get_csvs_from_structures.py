@@ -3,7 +3,6 @@ import random
 import time
 from os import PathLike
 from pathlib import Path
-from typing import List, Union
 
 import fire
 
@@ -18,7 +17,7 @@ def run_pipeline(
     out_dir: str,
     base_dir: PathLike = "/databases/rcsb/cif",
     # If a list or comma-separated string, selection should contain full file paths
-    selection: Union[int, str, List[PathLike]] = "all",
+    selection: int | str | list[PathLike] = "all",
     task_id: int = 0,
     num_tasks: int = 1,
     log_errors: bool = True,

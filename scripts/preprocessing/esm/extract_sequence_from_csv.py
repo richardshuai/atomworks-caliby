@@ -3,8 +3,8 @@ import sys
 
 import pandas as pd
 import tqdm
-from atomworks.io.enums import ChainType
 
+from atomworks.io.enums import ChainType
 from atomworks.ml.utils import hash_sequence
 
 # extract sequence and hash from all csv file
@@ -29,7 +29,7 @@ def extract_sequence_from_csv(Dataroot_path):
     # according to the first 2 digits of the hash,
     # devide into subgroups
     hash_dict = {}
-    for hash_ in protein_sequence_dict.keys():
+    for hash_ in protein_sequence_dict:
         if str(hash_)[:2] not in hash_dict:
             hash_dict[str(hash_)[:2]] = []
         hash_dict[str(hash_)[:2]].append(hash_)

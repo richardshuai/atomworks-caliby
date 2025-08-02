@@ -16,10 +16,10 @@ from pathlib import Path
 
 import fire
 import pandas as pd
-from atomworks.io import parse
-from atomworks.io.enums import ChainType
 from tqdm import tqdm
 
+from atomworks.io import parse
+from atomworks.io.enums import ChainType
 from atomworks.ml.utils.misc import hash_sequence
 
 logging.basicConfig(level=logging.INFO)
@@ -202,7 +202,7 @@ def find_missing_msa_protein_sequences(
         ):
             missing_sequences_mask.append(does_sequence_exist)
 
-    missing_sequences = [seq for seq, does_exist in zip(all_msa_sequences, missing_sequences_mask) if not does_exist]
+    missing_sequences = [seq for seq, does_exist in zip(all_msa_sequences, missing_sequences_mask, strict=False) if not does_exist]
 
     logger.info(f"Found {len(missing_sequences)} missing sequences. Saving to {output_path}.")
 

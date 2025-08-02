@@ -28,7 +28,7 @@ def _process_idmapping(idmapping_file: Path) -> dict:
         A dictionary mapping Uniref100 IDs to taxids. e.g. {"Q6GZX4": 654924, ...}
     """
     uniref_id_to_tax_id = {}
-    with open(idmapping_file, "r") as f:
+    with open(idmapping_file) as f:
         for line in tqdm(f, desc="Processing idmapping_selected.tab. Generally 250M+ lines"):
             parts = line.strip().split("\t")
             if len(parts) < 13:
