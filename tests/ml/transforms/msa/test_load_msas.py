@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pytest
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 
 from datahub.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,

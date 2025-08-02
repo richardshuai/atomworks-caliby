@@ -1,8 +1,8 @@
 """Constants used internally by the MSA transforms"""
 
 import numpy as np
-from cifutils.enums import ChainType
-from cifutils.utils.sequence import get_3_from_1_letter_code
+from atomworks.io.enums import ChainType
+from atomworks.io.utils.sequence import get_3_from_1_letter_code
 
 # Special codes for MSA sequences
 GAP_THREE_LETTER = "<G>"

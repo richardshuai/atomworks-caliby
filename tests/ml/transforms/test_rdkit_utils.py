@@ -5,8 +5,8 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 from biotite.structure import AtomArray
-from cifutils.tools.inference import components_to_atom_array
-from cifutils.tools.rdkit import atom_array_from_rdkit, atom_array_to_rdkit, smiles_to_rdkit
+from atomworks.io.tools.inference import components_to_atom_array
+from atomworks.io.tools.rdkit import atom_array_from_rdkit, atom_array_to_rdkit, smiles_to_rdkit
 from rdkit import Chem
 
 from datahub.transforms.rdkit_utils import (

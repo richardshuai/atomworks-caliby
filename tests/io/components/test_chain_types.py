@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.enums import ChainType
-from cifutils.parser import parse
+from atomworks.io.enums import ChainType
+from atomworks.io.parser import parse
 
 # General Enum tests
 

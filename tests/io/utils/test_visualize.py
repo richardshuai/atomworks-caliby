@@ -3,8 +3,8 @@ import py3Dmol
 import pytest
 from biotite.structure import AtomArray
 
-from cifutils.transforms.atom_array import is_any_coord_nan
-from cifutils.utils.visualize import view
+from atomworks.io.transforms.atom_array import is_any_coord_nan
+from atomworks.io.utils.visualize import view
 
 
 @pytest.fixture
@@ -101,9 +101,9 @@ def test_view_pymol_remote(sample_atom_array):
     import biotite.structure as struc
     from conftest import get_pdb_path
 
-    from cifutils.parser import parse
-    from cifutils.utils.io_utils import load_any
-    from cifutils.utils.visualize import get_pymol_session, view_pymol
+    from atomworks.io.parser import parse
+    from atomworks.io.utils.io_utils import load_any
+    from atomworks.io.utils.visualize import get_pymol_session, view_pymol
 
     result = parse(get_pdb_path("5ocm"), ccd_mirror_path=None)
 

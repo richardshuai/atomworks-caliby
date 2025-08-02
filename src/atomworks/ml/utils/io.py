@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-from cifutils.constants import (
+from atomworks.io.constants import (
     AA_LIKE_CHEM_TYPES,
     ATOMIC_NUMBER_TO_ELEMENT,
     DNA_LIKE_CHEM_TYPES,
@@ -22,7 +22,7 @@ from cifutils.constants import (
     RNA_LIKE_CHEM_TYPES,
     UNKNOWN_LIGAND,
 )
-from cifutils.utils.ccd import get_chem_comp_type
+from atomworks.io.utils.ccd import get_chem_comp_type
 
 from datahub.utils.misc import convert_pn_unit_iids_to_pn_unit_ids, extract_transformation_id_from_pn_unit_iid, logger
 

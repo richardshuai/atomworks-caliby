@@ -11,8 +11,8 @@ import networkx as nx
 import numpy as np
 import toolz
 
-from cifutils.common import exists, immutable_lru_cache
-from cifutils.constants import (
+from atomworks.io.common import exists, immutable_lru_cache
+from atomworks.io.constants import (
     AA_LIKE_CHEM_TYPES,
     CCD_MIRROR_PATH,
     DNA_LIKE_CHEM_TYPES,
@@ -23,7 +23,7 @@ from cifutils.constants import (
     UNKNOWN_LIGAND,
     UNKNOWN_RNA,
 )
-from cifutils.enums import ChainType, ChainTypeInfo
+from atomworks.io.enums import ChainType, ChainTypeInfo
 
 logger = logging.getLogger(__name__)
 

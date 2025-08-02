@@ -3,9 +3,9 @@ import pytest
 from biotite.structure import AtomArray
 from conftest import get_pdb_path
 
-from cifutils.common import not_isin
-from cifutils.parser import parse
-from cifutils.transforms.atom_array import annotate_entities
+from atomworks.io.common import not_isin
+from atomworks.io.parser import parse
+from atomworks.io.transforms.atom_array import annotate_entities
 
 # fmt: off
 MOLECULE_ENTITY_TEST_CASES = [

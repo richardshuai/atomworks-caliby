@@ -21,7 +21,7 @@ It is intended as a tutorial for new users and as a test script for developers.
 For more details, see the docstrings in the relevant modules.
 """
 
-from cifutils.tools.inference import SequenceComponent
+from atomworks.io.tools.inference import SequenceComponent
 
 from datahub.databases.data_source_utils import get_data_source, get_data_source_db, upload_data_source
 from datahub.databases.dataclasses import BindNoBindMeasurement, DataSource

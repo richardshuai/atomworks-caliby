@@ -1,7 +1,7 @@
 import biotite.structure as struc
 import pytest
 import torch
-from cifutils.tools.rdkit import (
+from atomworks.io.tools.rdkit import (
     atom_array_to_rdkit,
     smiles_to_rdkit,
 )

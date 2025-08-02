@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 from esm import pretrained
 
 from datahub.transforms._checks import (

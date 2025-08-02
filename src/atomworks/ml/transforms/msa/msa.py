@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from biotite.structure import AtomArray
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding, TokenEncoding
 from datahub.transforms._checks import (

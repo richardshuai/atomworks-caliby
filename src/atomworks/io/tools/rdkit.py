@@ -23,9 +23,9 @@ from rdkit.Chem import AllChem, Mol, rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.DataStructs import ExplicitBitVect
 
-import cifutils.transforms.atom_array as ta
-from cifutils.common import exists, immutable_lru_cache, not_isin
-from cifutils.constants import (
+import atomworks.io.transforms.atom_array as ta
+from atomworks.io.common import exists, immutable_lru_cache, not_isin
+from atomworks.io.constants import (
     BIOTITE_DEFAULT_ANNOTATIONS,
     CCD_MIRROR_PATH,
     HYDROGEN_LIKE_SYMBOLS,

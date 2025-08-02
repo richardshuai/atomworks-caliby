@@ -1,7 +1,7 @@
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.parser import parse
+from atomworks.io.parser import parse
 
 TEST_CASES = [
     # With the wrong version of biotite, these will lead to cif deserialization errors as the assembly category is represented slightly differently in these files

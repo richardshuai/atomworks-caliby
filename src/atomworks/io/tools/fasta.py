@@ -6,12 +6,12 @@ import logging
 import os
 import re
 
-from cifutils.constants import CCD_MIRROR_PATH
-from cifutils.enums import ChainType
-from cifutils.utils.ccd import (
+from atomworks.io.constants import CCD_MIRROR_PATH
+from atomworks.io.enums import ChainType
+from atomworks.io.utils.ccd import (
     check_ccd_codes_are_available,
 )
-from cifutils.utils.sequence import get_3_from_1_letter_code
+from atomworks.io.utils.sequence import get_3_from_1_letter_code
 
 logger = logging.getLogger("cifutils")
 

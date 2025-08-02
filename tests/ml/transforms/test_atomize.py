@@ -1,7 +1,7 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
-from cifutils.constants import STANDARD_AA
+from atomworks.io.constants import STANDARD_AA
 
 from datahub.transforms.atomize import AtomizeByCCDName
 from datahub.utils.testing import cached_parse

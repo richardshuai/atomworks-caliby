@@ -16,8 +16,8 @@ from pathlib import Path
 
 import fire
 import pandas as pd
-from cifutils import parse
-from cifutils.enums import ChainType
+from atomworks.io import parse
+from atomworks.io.enums import ChainType
 from tqdm import tqdm
 
 from datahub.utils.misc import hash_sequence

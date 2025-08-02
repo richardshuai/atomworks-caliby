@@ -2,9 +2,9 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 import torch
-from cifutils import parse
-from cifutils.tools.inference import components_to_atom_array
-from cifutils.utils.io_utils import to_cif_file
+from atomworks.io import parse
+from atomworks.io.tools.inference import components_to_atom_array
+from atomworks.io.utils.io_utils import to_cif_file
 
 from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
 from datahub.transforms.atom_array import (

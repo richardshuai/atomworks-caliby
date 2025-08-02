@@ -3,8 +3,8 @@ from typing import Callable
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
-from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
-from cifutils.utils.selection import get_annotation, get_residue_starts
+from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from atomworks.io.utils.selection import get_annotation, get_residue_starts
 
 from datahub.transforms._checks import check_atom_array_annotation
 from datahub.transforms.base import Transform

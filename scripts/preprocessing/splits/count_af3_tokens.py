@@ -11,8 +11,8 @@ from pathlib import Path
 import fire
 import pandas as pd
 from biotite.structure import AtomArray
-from cifutils import parse
-from cifutils.constants import AF3_EXCLUDED_LIGANDS, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from atomworks.io import parse
+from atomworks.io.constants import AF3_EXCLUDED_LIGANDS, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from tqdm import tqdm
 
 from datahub.common import exists

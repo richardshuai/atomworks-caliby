@@ -28,8 +28,8 @@ from biotite.structure.io.pdbx.convert import (
     _get_struct_conn_col_name,
 )
 
-from cifutils.common import sum_string_arrays, to_hashable
-from cifutils.constants import (
+from atomworks.io.common import sum_string_arrays, to_hashable
+from atomworks.io.constants import (
     AA_LIKE_CHEM_TYPES,
     CHEM_TYPE_POLYMERIZATION_ATOMS,
     DEFAULT_VALENCE,
@@ -38,10 +38,10 @@ from cifutils.constants import (
     STRUCT_CONN_BOND_ORDER_TO_INT,
     STRUCT_CONN_BOND_TYPES,
 )
-from cifutils.enums import ChainType, ChainTypeInfo
-from cifutils.utils.ccd import get_chem_comp_leaving_atom_names, get_chem_comp_type
-from cifutils.utils.selection import get_annotation, get_residue_starts
-from cifutils.utils.testing import has_ambiguous_annotation_set
+from atomworks.io.enums import ChainType, ChainTypeInfo
+from atomworks.io.utils.ccd import get_chem_comp_leaving_atom_names, get_chem_comp_type
+from atomworks.io.utils.selection import get_annotation, get_residue_starts
+from atomworks.io.utils.testing import has_ambiguous_annotation_set
 
 logger = logging.getLogger("cifutils")
 

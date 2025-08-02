@@ -15,7 +15,7 @@ from pathlib import Path
 
 import fire
 import pandas as pd
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 from tqdm import tqdm
 
 from datahub.common import generate_example_id

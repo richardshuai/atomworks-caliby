@@ -1,7 +1,7 @@
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.parser import parse
+from atomworks.io.parser import parse
 
 TEST_CASES = [
     {"pdb_id": "3bdp", "chain_id": "C", "ec_numbers": ["2.7.7.7"]},

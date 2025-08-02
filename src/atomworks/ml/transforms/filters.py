@@ -8,12 +8,12 @@ from typing import Any, Sequence
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
-from cifutils.common import not_isin
-from cifutils.constants import HYDROGEN_LIKE_SYMBOLS
-from cifutils.enums import ChainType, ChainTypeInfo
-from cifutils.utils.query import QueryExpression
-from cifutils.utils.selection import get_annotation
-from cifutils.utils.sequence import get_1_from_3_letter_code, get_3_from_1_letter_code
+from atomworks.io.common import not_isin
+from atomworks.io.constants import HYDROGEN_LIKE_SYMBOLS
+from atomworks.io.enums import ChainType, ChainTypeInfo
+from atomworks.io.utils.query import QueryExpression
+from atomworks.io.utils.selection import get_annotation
+from atomworks.io.utils.sequence import get_1_from_3_letter_code, get_3_from_1_letter_code
 
 from datahub.common import exists
 from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES

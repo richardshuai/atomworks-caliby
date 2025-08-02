@@ -14,7 +14,7 @@ from pathlib import Path
 
 import fire
 import pandas as pd
-from cifutils.enums import ChainType, ChainTypeInfo
+from atomworks.io.enums import ChainType, ChainTypeInfo
 
 from datahub.preprocessing.utils.clustering import MMSeqs2Config, cluster_all_sequences
 

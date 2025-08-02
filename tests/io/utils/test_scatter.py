@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from cifutils.utils.scatter import (
+from atomworks.io.utils.scatter import (
     apply_and_spread_group_wise,
     apply_and_spread_segment_wise,
     apply_group_wise,

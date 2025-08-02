@@ -12,16 +12,16 @@ import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray, AtomArrayStack, stack
 
-from cifutils.common import listmap, not_isin, sum_string_arrays
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
-from cifutils.utils.bonds import (
+from atomworks.io.common import listmap, not_isin, sum_string_arrays
+from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
+from atomworks.io.utils.bonds import (
     generate_inter_level_bond_hash,
     get_coarse_graph_as_nodes_and_edges,
     get_connected_nodes,
     hash_graph,
 )
-from cifutils.utils.ccd import atom_array_from_ccd_code
-from cifutils.utils.selection import annot_start_stop_idxs
+from atomworks.io.utils.ccd import atom_array_from_ccd_code
+from atomworks.io.utils.selection import annot_start_stop_idxs
 
 logger = logging.getLogger("cifutils")
 

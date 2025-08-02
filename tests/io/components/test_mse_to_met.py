@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.common import not_isin
-from cifutils.constants import CCD_MIRROR_PATH, HYDROGEN_LIKE_SYMBOLS
-from cifutils.parser import parse
-from cifutils.transforms.atom_array import mse_to_met
-from cifutils.utils.ccd import atom_array_from_ccd_code
-from cifutils.utils.testing import assert_same_atom_array
+from atomworks.io.common import not_isin
+from atomworks.io.constants import CCD_MIRROR_PATH, HYDROGEN_LIKE_SYMBOLS
+from atomworks.io.parser import parse
+from atomworks.io.transforms.atom_array import mse_to_met
+from atomworks.io.utils.ccd import atom_array_from_ccd_code
+from atomworks.io.utils.testing import assert_same_atom_array
 
 TEST_CASES = ["1aqc"]
 

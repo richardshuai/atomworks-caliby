@@ -1,7 +1,7 @@
 import numpy as np
 from conftest import get_pdb_path
 
-from cifutils.parser import parse
+from atomworks.io.parser import parse
 
 
 def test_charges():

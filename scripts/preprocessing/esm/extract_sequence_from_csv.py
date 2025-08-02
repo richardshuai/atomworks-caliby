@@ -3,7 +3,7 @@ import sys
 
 import pandas as pd
 import tqdm
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 
 from datahub.utils import hash_sequence
 

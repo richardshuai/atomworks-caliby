@@ -3,7 +3,7 @@ import networkx as nx
 import numpy as np
 import pytest
 import torch
-from cifutils.constants import STANDARD_AA
+from atomworks.io.constants import STANDARD_AA
 
 from datahub.encoding_definitions import AF3SequenceEncoding
 from datahub.transforms.atom_array import AddWithinChainInstanceResIdx, AddWithinPolyResIdxAnnotation

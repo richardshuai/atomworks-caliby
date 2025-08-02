@@ -4,8 +4,8 @@ import biotite.structure as struc
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.constants import STRUCT_CONN_BOND_TYPES
-from cifutils.parser import parse
+from atomworks.io.constants import STRUCT_CONN_BOND_TYPES
+from atomworks.io.parser import parse
 
 # (pdb_id, assembly_id, expected_num_coord_bonds)
 TEST_CASE_COORD = [

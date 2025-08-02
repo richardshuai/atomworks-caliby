@@ -8,11 +8,11 @@ import pytest
 from assertpy import assert_that
 from conftest import get_pdb_path
 
-from cifutils.constants import CRYSTALLIZATION_AIDS
-from cifutils.parser import parse
-from cifutils.transforms import atom_array as ta
-from cifutils.utils.io_utils import to_cif_file
-from cifutils.utils.testing import assert_same_atom_array
+from atomworks.io.constants import CRYSTALLIZATION_AIDS
+from atomworks.io.parser import parse
+from atomworks.io.transforms import atom_array as ta
+from atomworks.io.utils.io_utils import to_cif_file
+from atomworks.io.utils.testing import assert_same_atom_array
 
 TEST_CASES = [
     "6mub",  # Symmetry center clash
@@ -46,7 +46,7 @@ def test_regression_against_stored_result(pdb_id: str):
 
     # # Uncomment the following lines to create the pickle file
     # with pickle_path.open("wb") as f:
-    #     import cifutils
+    #     import atomworks.io
 
     #     result["cifutils_version"] = cifutils.__version__
     #     pickle.dump(result, f)
@@ -74,7 +74,7 @@ def test_regression_against_stored_result(pdb_id: str):
     )
 
     # ## FOR DEBUGGING REGRESSION TESTS UNCOMMENT:
-    from cifutils.common import sum_string_arrays
+    from atomworks.io.common import sum_string_arrays
 
     def get_atom_identifiers(atom_array):
         return sum_string_arrays(

@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA, UNKNOWN_AA, UNKNOWN_DNA, UNKNOWN_RNA
+from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA, UNKNOWN_AA, UNKNOWN_DNA, UNKNOWN_RNA
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.transforms.atom_array import (

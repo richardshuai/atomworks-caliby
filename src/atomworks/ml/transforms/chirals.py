@@ -7,8 +7,8 @@ from typing import Any
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from cifutils.tools.rdkit import atom_array_from_rdkit
-from cifutils.utils.selection import get_residue_starts
+from atomworks.io.tools.rdkit import atom_array_from_rdkit
+from atomworks.io.utils.selection import get_residue_starts
 from rdkit.Chem import Mol
 
 from datahub.transforms._checks import (

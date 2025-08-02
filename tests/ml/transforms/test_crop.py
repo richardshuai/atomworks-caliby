@@ -6,7 +6,7 @@ from typing import Any
 import biotite.structure as struc
 import numpy as np
 import pytest
-from cifutils.utils.testing import assert_same_atom_array
+from atomworks.io.utils.testing import assert_same_atom_array
 
 from datahub.datasets.datasets import get_row_and_index_by_example_id
 from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser, load_example_from_metadata_row

@@ -6,10 +6,10 @@ import biotite.structure as struc
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
-from cifutils.tools.rdkit import atom_array_from_rdkit, remove_hydrogens
-from cifutils.utils.ccd import get_available_ccd_codes
-from cifutils.utils.selection import get_residue_starts
+from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
+from atomworks.io.tools.rdkit import atom_array_from_rdkit, remove_hydrogens
+from atomworks.io.utils.ccd import get_available_ccd_codes
+from atomworks.io.utils.selection import get_residue_starts
 from rdkit import Chem
 
 from datahub.common import exists

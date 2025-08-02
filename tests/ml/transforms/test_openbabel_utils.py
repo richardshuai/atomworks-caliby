@@ -1,6 +1,6 @@
 import pytest
 from biotite.structure import AtomArray
-from cifutils.utils.testing import assert_same_atom_array
+from atomworks.io.utils.testing import assert_same_atom_array
 
 from datahub.transforms.openbabel_utils import atom_array_from_openbabel, atom_array_to_openbabel
 from datahub.utils.testing import cached_parse

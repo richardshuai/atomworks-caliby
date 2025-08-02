@@ -14,7 +14,7 @@ import pandas as pd
 import torch
 from assertpy import assert_that
 from biotite.structure import AtomArray
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 from torch.nn.functional import normalize
 
 from datahub.encoding_definitions import (

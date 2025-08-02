@@ -20,14 +20,14 @@ from biotite.structure import AtomArray, AtomArrayStack
 from biotite.structure.bonds import connect_via_residue_names
 from biotite.structure.io import mol, pdbx
 
-import cifutils.transforms.atom_array as ta  # to avoid circular import
-from cifutils.common import exists
-from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
-from cifutils.enums import ChainType
-from cifutils.template import add_inter_residue_bonds
-from cifutils.transforms.categories import category_to_dict
-from cifutils.utils.sequence import get_1_from_3_letter_code
-from cifutils.utils.testing import has_ambiguous_annotation_set
+import atomworks.io.transforms.atom_array as ta  # to avoid circular import
+from atomworks.io.common import exists
+from atomworks.io.constants import ATOMIC_NUMBER_TO_ELEMENT, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from atomworks.io.enums import ChainType
+from atomworks.io.template import add_inter_residue_bonds
+from atomworks.io.transforms.categories import category_to_dict
+from atomworks.io.utils.sequence import get_1_from_3_letter_code
+from atomworks.io.utils.testing import has_ambiguous_annotation_set
 
 logger = logging.getLogger("cifutils")
 

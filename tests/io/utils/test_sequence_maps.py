@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.enums import ChainType
-from cifutils.parser import parse
-from cifutils.utils.sequence import (
+from atomworks.io.enums import ChainType
+from atomworks.io.parser import parse
+from atomworks.io.utils.sequence import (
     get_1_from_3_letter_code,
     get_3_from_1_letter_code,
 )

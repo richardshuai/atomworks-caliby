@@ -17,7 +17,7 @@ from Bio.Data.PDBData import (
 )
 
 # TODO: Deprecate these in favour of the direct mappings from the CCD
-from cifutils.constants import (
+from atomworks.io.constants import (
     GAP,
     GAP_ONE_LETTER,
     STANDARD_AA,
@@ -27,7 +27,7 @@ from cifutils.constants import (
     UNKNOWN_DNA,
     UNKNOWN_RNA,
 )
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 
 logger = logging.getLogger("cifutils")
 

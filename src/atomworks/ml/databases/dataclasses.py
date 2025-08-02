@@ -9,7 +9,7 @@ from dataclasses import MISSING, dataclass, field, fields
 from typing import Any, Dict, List, Optional, Type
 
 from biotite.structure import AtomArray
-from cifutils.tools.inference import ChemicalComponent
+from atomworks.io.tools.inference import ChemicalComponent
 
 from datahub.databases.enums import (
     BindingLabel,

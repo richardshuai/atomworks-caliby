@@ -4,11 +4,11 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 import torch
-from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
-from cifutils.enums import ChainType
-from cifutils.tools.inference import components_to_atom_array
-from cifutils.tools.rdkit import atom_array_from_rdkit
-from cifutils.utils.selection import get_residue_starts
+from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from atomworks.io.enums import ChainType
+from atomworks.io.tools.inference import components_to_atom_array
+from atomworks.io.tools.rdkit import atom_array_from_rdkit
+from atomworks.io.utils.selection import get_residue_starts
 
 from datahub.enums import GroundTruthConformerPolicy
 from datahub.transforms.af3_reference_molecule import (

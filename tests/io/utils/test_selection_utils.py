@@ -2,7 +2,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
-from cifutils.utils.selection import (
+from atomworks.io.utils.selection import (
     AtomSelection,
     AtomSelectionStack,
     ChainIdxSlice,

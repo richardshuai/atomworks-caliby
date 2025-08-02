@@ -4,9 +4,9 @@ from dataclasses import asdict
 from enum import Flag, StrEnum
 from typing import Any, Dict, Optional
 
-from cifutils import parse
-from cifutils.tools.inference import components_to_atom_array
-from cifutils.utils.io_utils import to_cif_file
+from atomworks.io import parse
+from atomworks.io.tools.inference import components_to_atom_array
+from atomworks.io.utils.io_utils import to_cif_file
 
 from datahub.databases.data_source_utils import DATA_SOURCE_DB_PATH, get_data_source
 from datahub.databases.dataclasses import BindNoBindMeasurement

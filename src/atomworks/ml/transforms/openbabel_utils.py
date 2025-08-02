@@ -17,7 +17,7 @@ from typing import Any
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
-from cifutils.constants import ATOMIC_NUMBER_TO_ELEMENT, ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
+from atomworks.io.constants import ATOMIC_NUMBER_TO_ELEMENT, ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
 from openbabel import openbabel, pybel
 
 from datahub.transforms._checks import (

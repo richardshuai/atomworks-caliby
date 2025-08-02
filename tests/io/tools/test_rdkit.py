@@ -5,16 +5,16 @@ from assertpy import assert_that
 from biotite.structure import AtomArray
 from rdkit import Chem
 
-from cifutils.constants import STANDARD_AA
-from cifutils.tools.inference import components_to_atom_array
-from cifutils.tools.rdkit import (
+from atomworks.io.constants import STANDARD_AA
+from atomworks.io.tools.inference import components_to_atom_array
+from atomworks.io.tools.rdkit import (
     atom_array_from_rdkit,
     atom_array_to_rdkit,
     ccd_code_to_rdkit,
     get_morgan_fingerprint_from_rdkit_mol,
     smiles_to_rdkit,
 )
-from cifutils.utils.io_utils import load_any
+from atomworks.io.utils.io_utils import load_any
 
 try:
     # Settings for debugging & interactive tests

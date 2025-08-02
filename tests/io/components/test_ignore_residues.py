@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.constants import CRYSTALLIZATION_AIDS
-from cifutils.parser import parse
+from atomworks.io.constants import CRYSTALLIZATION_AIDS
+from atomworks.io.parser import parse
 
 CRYSTALLIZATION_AIDS_PDB_IDS_TO_TEST = ["101M", "1AH8", "1ATG", "1ARX"]
 

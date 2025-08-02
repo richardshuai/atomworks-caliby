@@ -3,7 +3,7 @@ import logging
 
 import numpy as np
 from biotite.structure import AtomArray
-from cifutils.transforms.atom_array import is_any_coord_nan
+from atomworks.io.transforms.atom_array import is_any_coord_nan
 from scipy.spatial import KDTree
 
 from datahub.common import exists

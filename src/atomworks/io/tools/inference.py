@@ -13,21 +13,21 @@ from biotite.structure import AtomArray
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-import cifutils.transforms.atom_array as ta
-from cifutils import parse
-from cifutils.common import KeyToIntMapper, exists
-from cifutils.constants import (
+import atomworks.io.transforms.atom_array as ta
+from atomworks.io import parse
+from atomworks.io.common import KeyToIntMapper, exists
+from atomworks.io.constants import (
     CCD_MIRROR_PATH,
     STANDARD_AA_ONE_LETTER,
     STANDARD_DNA_ONE_LETTER,
     STANDARD_RNA,
     UNKNOWN_LIGAND,
 )
-from cifutils.enums import ChainType, ChainTypeInfo
-from cifutils.parser import DEFAULT_PARSE_KWARGS
-from cifutils.template import build_template_atom_array
-from cifutils.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
-from cifutils.utils.bonds import (
+from atomworks.io.enums import ChainType, ChainTypeInfo
+from atomworks.io.parser import DEFAULT_PARSE_KWARGS
+from atomworks.io.template import build_template_atom_array
+from atomworks.io.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
+from atomworks.io.utils.bonds import (
     correct_bond_types_for_nucleophilic_additions,
     correct_formal_charges_for_specified_atoms,
     get_inferred_polymer_bonds,
@@ -35,14 +35,14 @@ from cifutils.utils.bonds import (
     hash_atom_array,
     spoof_struct_conn_dict_from_string,
 )
-from cifutils.utils.ccd import (
+from atomworks.io.utils.ccd import (
     atom_array_from_ccd_code,
     check_ccd_codes_are_available,
     get_chain_type_from_ccd_code,
     get_chem_comp_type,
 )
-from cifutils.utils.chain import create_chain_id_generator
-from cifutils.utils.io_utils import CIF_LIKE_EXTENSIONS
+from atomworks.io.utils.chain import create_chain_id_generator
+from atomworks.io.utils.io_utils import CIF_LIKE_EXTENSIONS
 
 logger = logging.getLogger("cifutils")
 
@@ -414,7 +414,7 @@ def smiles_to_annotated_atom_array(
     res_name: str = UNKNOWN_LIGAND,
 ) -> AtomArray:
     if backend == "rdkit":
-        from cifutils.tools.rdkit import atom_array_from_rdkit, smiles_to_rdkit
+        from atomworks.io.tools.rdkit import atom_array_from_rdkit, smiles_to_rdkit
 
         mol = smiles_to_rdkit(smiles)
         try:
@@ -458,7 +458,7 @@ def sdf_to_annotated_atom_array(
     backend: Literal["openbabel", "rdkit"] = "rdkit",
 ) -> AtomArray:
     if backend == "rdkit":
-        from cifutils.tools.rdkit import atom_array_from_rdkit, sdf_to_rdkit
+        from atomworks.io.tools.rdkit import atom_array_from_rdkit, sdf_to_rdkit
 
         mol = sdf_to_rdkit(path)
         array = atom_array_from_rdkit(mol)

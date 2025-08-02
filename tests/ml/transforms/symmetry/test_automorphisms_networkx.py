@@ -1,7 +1,7 @@
 import biotite.structure as struc
 import numpy as np
 import pytest
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
+from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 
 from datahub.encoding_definitions import AF3_TOKENS
 from datahub.transforms.atomize import AtomizeByCCDName

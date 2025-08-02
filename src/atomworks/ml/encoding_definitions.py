@@ -9,7 +9,7 @@ from typing import Sequence
 
 import biotite.structure as struc
 import numpy as np
-from cifutils.constants import (
+from atomworks.io.constants import (
     AA_LIKE_CHEM_TYPES,
     CHEM_COMP_TYPES,
     DNA_LIKE_CHEM_TYPES,
@@ -19,7 +19,7 @@ from cifutils.constants import (
     STANDARD_DNA,
     STANDARD_RNA,
 )
-from cifutils.utils.ccd import get_chem_comp_type
+from atomworks.io.utils.ccd import get_chem_comp_type
 
 from datahub.common import exists
 

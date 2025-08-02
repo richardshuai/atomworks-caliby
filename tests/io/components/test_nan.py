@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from biotite.structure import AtomArray, AtomArrayStack
 
-from cifutils.transforms.atom_array import is_any_coord_nan, remove_nan_coords
+from atomworks.io.transforms.atom_array import is_any_coord_nan, remove_nan_coords
 
 
 def test_is_any_coord_nan_atom_array():

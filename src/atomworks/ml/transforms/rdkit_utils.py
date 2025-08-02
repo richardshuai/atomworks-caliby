@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 import numpy as np
 from biotite.structure import AtomArray
-from cifutils.tools.rdkit import (
+from atomworks.io.tools.rdkit import (
     add_hydrogens,
     atom_array_from_rdkit,
     atom_array_to_rdkit,

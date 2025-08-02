@@ -18,11 +18,11 @@ from biotite.structure import AtomArray, AtomArrayStack
 from biotite.structure.io import pdbx
 from toolz import keyfilter
 
-import cifutils.transforms.atom_array as ta
-from cifutils import __version__, template
-from cifutils.common import exists, md5_hash_string
-from cifutils.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS
-from cifutils.transforms.categories import (
+import atomworks.io.transforms.atom_array as ta
+from atomworks.io import __version__, template
+from atomworks.io.common import exists, md5_hash_string
+from atomworks.io.constants import CCD_MIRROR_PATH, CRYSTALLIZATION_AIDS, WATER_LIKE_CCDS
+from atomworks.io.transforms.categories import (
     category_to_dict,
     extract_crystallization_details,
     get_ligand_of_interest_info,
@@ -30,12 +30,12 @@ from cifutils.transforms.categories import (
     initialize_chain_info_from_category,
     load_monomer_sequence_information_from_category,
 )
-from cifutils.utils.assembly import build_assemblies_from_asym_unit
-from cifutils.utils.bonds import get_struct_conn_dict_from_atom_array
-from cifutils.utils.ccd import check_ccd_codes_are_available
-from cifutils.utils.chain import create_chain_id_generator
-from cifutils.utils.io_utils import get_structure, infer_pdb_file_type, read_any
-from cifutils.utils.non_rcsb import (
+from atomworks.io.utils.assembly import build_assemblies_from_asym_unit
+from atomworks.io.utils.bonds import get_struct_conn_dict_from_atom_array
+from atomworks.io.utils.ccd import check_ccd_codes_are_available
+from atomworks.io.utils.chain import create_chain_id_generator
+from atomworks.io.utils.io_utils import get_structure, infer_pdb_file_type, read_any
+from atomworks.io.utils.non_rcsb import (
     get_identity_assembly_gen_category,
     get_identity_op_expr_category,
     initialize_chain_info_from_atom_array,
@@ -490,7 +490,7 @@ def parse_atom_array(
             if extra_fields is not None:
                 logger.warning(
                     "Adding missing atoms will erase extra fields. If you just want to load a structure with the given extra fields, "
-                    "you should probably use the much faster 'load_any' function from cifutils.utils.io_utils instead of 'parse'. "
+                    "you should probably use the much faster 'load_any' function from atomworks.io.utils.io_utils instead of 'parse'. "
                     "Parse is meant for cleaning up structures from the RCSB PDB."
                 )
 

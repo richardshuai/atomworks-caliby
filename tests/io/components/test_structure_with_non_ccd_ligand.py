@@ -1,6 +1,6 @@
 from conftest import TEST_DATA_DIR
 
-from cifutils import parse
+from atomworks.io import parse
 
 
 def test_structure_with_non_ccd_ligand():

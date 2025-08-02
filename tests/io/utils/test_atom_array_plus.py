@@ -4,7 +4,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
-from cifutils.utils.atom_array_plus import (
+from atomworks.io.utils.atom_array_plus import (
     AnnotationList2D,
     AtomArrayPlus,
     AtomArrayPlusStack,

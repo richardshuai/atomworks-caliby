@@ -10,8 +10,8 @@ import networkx as nx
 import numpy as np
 import requests
 from biotite.structure import AtomArray, CellList
-from cifutils.common import not_isin
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, METAL_ELEMENTS
+from atomworks.io.common import not_isin
+from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, METAL_ELEMENTS
 from scipy.spatial.distance import cdist
 
 from datahub.common import default

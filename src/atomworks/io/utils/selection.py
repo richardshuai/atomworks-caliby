@@ -11,8 +11,8 @@ import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
 
-from cifutils.utils.atom_array_plus import AtomArrayPlus
-from cifutils.utils.scatter import get_segments
+from atomworks.io.utils.atom_array_plus import AtomArrayPlus
+from atomworks.io.utils.scatter import get_segments
 
 
 def annot_start_stop_idxs(

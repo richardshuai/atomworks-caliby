@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from cifutils.utils.selection import get_annotation_categories
+from atomworks.io.utils.selection import get_annotation_categories
 
 
 def check_contains_keys(data: dict[str, Any], keys: list[str]):

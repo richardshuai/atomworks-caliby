@@ -13,9 +13,9 @@ import numpy as np
 import torch
 from assertpy import assert_that
 from biotite.structure import AtomArray
-from cifutils.common import KeyToIntMapper, exists
-from cifutils.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
-from cifutils.utils.ccd import get_std_to_alt_atom_name_map
+from atomworks.io.common import KeyToIntMapper, exists
+from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
+from atomworks.io.utils.ccd import get_std_to_alt_atom_name_map
 from torch.nn import functional as F
 
 from datahub.encoding_definitions import AF3SequenceEncoding, TokenEncoding

@@ -11,10 +11,10 @@ from biotite.database import rcsb
 from biotite.structure import AtomArray, AtomArrayStack
 from conftest import TEST_DATA_DIR, get_pdb_path
 
-from cifutils.parser import parse, parse_atom_array
-from cifutils.tools.inference import build_msa_paths_by_chain_id_from_component_list, components_to_atom_array
-from cifutils.transforms.atom_array import ensure_atom_array_stack
-from cifutils.utils.io_utils import (
+from atomworks.io.parser import parse, parse_atom_array
+from atomworks.io.tools.inference import build_msa_paths_by_chain_id_from_component_list, components_to_atom_array
+from atomworks.io.transforms.atom_array import ensure_atom_array_stack
+from atomworks.io.utils.io_utils import (
     get_structure,
     infer_pdb_file_type,
     load_any,
@@ -24,7 +24,7 @@ from cifutils.utils.io_utils import (
     to_cif_string,
     to_pdb_string,
 )
-from cifutils.utils.testing import assert_same_atom_array
+from atomworks.io.utils.testing import assert_same_atom_array
 
 
 @pytest.mark.parametrize(

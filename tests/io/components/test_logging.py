@@ -2,7 +2,7 @@ import importlib
 import logging
 import os
 
-import cifutils
+import atomworks.io
 
 
 def test_cifutils_logging_level():
@@ -36,7 +36,7 @@ def test_cifutils_logging_level_env_var():
         # Set the environment variable
         os.environ["CIFUTILS_LOG_LEVEL"] = "DEBUG"
 
-        # Re-import cifutils to trigger logger configuration
+        # Re-import atomworks.io to trigger logger configuration
         importlib.reload(cifutils)
 
         # Get the cifutils logger

@@ -17,9 +17,9 @@ from biotite.structure import AtomArray
 from biotite.structure.basepairs import _check_dssr_criteria, _get_proximate_residues
 from biotite.structure.filter import filter_nucleotides
 from biotite.structure.residues import get_residue_masks, get_residue_starts_for
-from cifutils.utils.io_utils import load_any
-from cifutils.utils.selection import ResIdxSlice
-from cifutils.utils.sequence import get_1_from_3_letter_code
+from atomworks.io.utils.io_utils import load_any
+from atomworks.io.utils.selection import ResIdxSlice
+from atomworks.io.utils.sequence import get_1_from_3_letter_code
 
 from datahub.executables.x3dna import X3DNAFiber
 from datahub.preprocessing.constants import ChainType

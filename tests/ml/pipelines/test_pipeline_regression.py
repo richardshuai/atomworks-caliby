@@ -6,13 +6,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from cifutils import parse
-from cifutils.constants import (
+from atomworks.io import parse
+from atomworks.io.constants import (
     AF3_EXCLUDED_LIGANDS,
     GAP,
 )
-from cifutils.enums import ChainType
-from cifutils.utils.testing import assert_same_atom_array
+from atomworks.io.enums import ChainType
+from atomworks.io.utils.testing import assert_same_atom_array
 
 from datahub.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
 from datahub.pipelines.af3 import build_af3_transform_pipeline

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.parser import parse
+from atomworks.io.parser import parse
 
 PN_UNIT_IID_TEST_CASES = [
     {

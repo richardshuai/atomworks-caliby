@@ -1,10 +1,10 @@
 import numpy as np
 import pytest
 
-from cifutils.transforms.atom_array import is_any_coord_nan
-from cifutils.utils.io_utils import load_any
-from cifutils.utils.query import QueryExpression, idxs, mask, query
-from cifutils.utils.testing import get_pdb_path
+from atomworks.io.transforms.atom_array import is_any_coord_nan
+from atomworks.io.utils.io_utils import load_any
+from atomworks.io.utils.query import QueryExpression, idxs, mask, query
+from atomworks.io.utils.testing import get_pdb_path
 
 
 @pytest.fixture(scope="module")

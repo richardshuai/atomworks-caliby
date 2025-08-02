@@ -6,19 +6,19 @@ import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray, BondList
 
-import cifutils.transforms.atom_array as ta
-from cifutils.common import exists, immutable_lru_cache
-from cifutils.constants import CCD_MIRROR_PATH, DO_NOT_MATCH_CCD
-from cifutils.utils.bonds import (
+import atomworks.io.transforms.atom_array as ta
+from atomworks.io.common import exists, immutable_lru_cache
+from atomworks.io.constants import CCD_MIRROR_PATH, DO_NOT_MATCH_CCD
+from atomworks.io.utils.bonds import (
     correct_bond_types_for_nucleophilic_additions,
     correct_formal_charges_for_specified_atoms,
     get_inferred_polymer_bonds,
     get_struct_conn_bonds,
 )
-from cifutils.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_available
-from cifutils.utils.non_rcsb import initialize_chain_info_from_atom_array
-from cifutils.utils.selection import get_annotation
-from cifutils.utils.testing import has_ambiguous_annotation_set
+from atomworks.io.utils.ccd import atom_array_from_ccd_code, check_ccd_codes_are_available
+from atomworks.io.utils.non_rcsb import initialize_chain_info_from_atom_array
+from atomworks.io.utils.selection import get_annotation
+from atomworks.io.utils.testing import has_ambiguous_annotation_set
 
 logger = logging.getLogger(__file__)
 

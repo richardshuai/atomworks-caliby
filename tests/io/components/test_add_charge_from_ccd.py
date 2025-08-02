@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.parser import parse
-from cifutils.transforms.atom_array import add_charge_from_ccd_codes
+from atomworks.io.parser import parse
+from atomworks.io.transforms.atom_array import add_charge_from_ccd_codes
 
 TEST_CASES = [{"pdb_id": "1jj8", "charge_sum": 7}, {"pdb_id": "2r5z", "charge_sum": 32}]
 

@@ -12,7 +12,7 @@ from biotite.structure import AtomArrayStack
 from biotite.structure.atoms import repeat
 from biotite.structure.io.pdbx import CIFCategory
 
-from cifutils.transforms.atom_array import (
+from atomworks.io.transforms.atom_array import (
     add_iid_annotations_to_assemblies,
     maybe_fix_non_polymer_at_symmetry_center,
 )

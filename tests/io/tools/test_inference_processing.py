@@ -9,10 +9,10 @@ import pytest
 from biotite.structure import AtomArray
 from conftest import TEST_DATA_DIR, get_pdb_path
 
-from cifutils import parse
-from cifutils.enums import ChainType
-from cifutils.tools.fasta import split_generalized_fasta_sequence
-from cifutils.tools.inference import (
+from atomworks.io import parse
+from atomworks.io.enums import ChainType
+from atomworks.io.tools.fasta import split_generalized_fasta_sequence
+from atomworks.io.tools.inference import (
     ChemicalComponent,
     Protein,
     SequenceComponent,
@@ -22,7 +22,7 @@ from cifutils.tools.inference import (
     one_letter_to_ccd_code,
     read_chai_fasta,
 )
-from cifutils.utils.testing import assert_same_atom_array
+from atomworks.io.utils.testing import assert_same_atom_array
 
 
 @pytest.fixture

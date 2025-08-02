@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 import torch
-from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding
 from datahub.transforms.atom_array import (

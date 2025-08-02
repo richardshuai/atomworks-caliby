@@ -2,9 +2,9 @@ import os
 
 import numpy as np
 from biotite.structure import AtomArray, CellList
-from cifutils import parse
-from cifutils.common import immutable_lru_cache
-from cifutils.constants import PDB_MIRROR_PATH
+from atomworks.io import parse
+from atomworks.io.common import immutable_lru_cache
+from atomworks.io.constants import PDB_MIRROR_PATH
 
 from datahub.preprocessing.constants import CELL_SIZE
 from datahub.preprocessing.utils.structure_utils import get_atom_mask_from_cell_list

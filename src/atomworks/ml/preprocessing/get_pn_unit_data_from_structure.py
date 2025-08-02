@@ -17,10 +17,10 @@ import biotite.structure as struc
 import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray
-from cifutils import parse
-from cifutils.common import not_isin
-from cifutils.constants import CRYSTALLIZATION_AIDS, METAL_ELEMENTS
-from cifutils.enums import ChainType
+from atomworks.io import parse
+from atomworks.io.common import not_isin
+from atomworks.io.constants import CRYSTALLIZATION_AIDS, METAL_ELEMENTS
+from atomworks.io.enums import ChainType
 
 import datahub.preprocessing.utils.structure_utils as dp  # to avoid circular imports
 from datahub.common import exists

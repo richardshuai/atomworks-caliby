@@ -2,7 +2,7 @@ from string import ascii_uppercase
 
 import pytest
 
-from cifutils.utils.chain import create_chain_id_generator
+from atomworks.io.utils.chain import create_chain_id_generator
 
 NEXT_CHAIN_ID_TEST_CASES = [
     {"input": ["A", "B", "C"], "expected": "D"},

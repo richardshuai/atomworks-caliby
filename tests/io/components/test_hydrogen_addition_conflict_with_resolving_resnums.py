@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.parser import parse
+from atomworks.io.parser import parse
 
 TEST_CASES = ["1iau"]
 # has multiple NAG with same res number loaded as -1.

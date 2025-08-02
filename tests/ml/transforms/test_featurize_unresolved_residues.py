@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from cifutils.utils.testing import assert_same_atom_array
+from atomworks.io.utils.testing import assert_same_atom_array
 
 from datahub.encoding_definitions import (
     RF2AA_ATOM36_ENCODING,

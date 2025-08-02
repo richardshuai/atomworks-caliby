@@ -3,7 +3,7 @@ from typing import Callable, Iterator
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
-from cifutils.utils.sequence import (
+from atomworks.io.utils.sequence import (
     is_glycine,
     is_protein_unknown,
     is_purine,

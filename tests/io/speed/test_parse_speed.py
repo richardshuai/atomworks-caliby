@@ -1,8 +1,8 @@
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.constants import CCD_MIRROR_PATH
-from cifutils.parser import parse
+from atomworks.io.constants import CCD_MIRROR_PATH
+from atomworks.io.parser import parse
 
 TEST_CASES = [
     {"pdb_id": "6lyz"},  # small

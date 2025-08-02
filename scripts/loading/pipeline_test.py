@@ -33,7 +33,7 @@ from typing import Literal
 
 import fire
 import pandas as pd
-from cifutils.constants import AF3_EXCLUDED_LIGANDS_REGEX
+from atomworks.io.constants import AF3_EXCLUDED_LIGANDS_REGEX
 from toolz.curried import assoc, compose, keyfilter, map
 from torch.utils.data import DataLoader
 from tqdm import tqdm

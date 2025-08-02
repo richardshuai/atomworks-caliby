@@ -3,15 +3,15 @@ import numpy as np
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.parser import parse
-from cifutils.template import get_empty_ccd_template
-from cifutils.utils.bonds import (
+from atomworks.io.parser import parse
+from atomworks.io.template import get_empty_ccd_template
+from atomworks.io.utils.bonds import (
     _get_bond_degree_per_atom,
     correct_formal_charges_for_specified_atoms,
     get_inferred_polymer_bonds,
     hash_atom_array,
 )
-from cifutils.utils.ccd import get_chem_comp_leaving_atom_names
+from atomworks.io.utils.ccd import get_chem_comp_leaving_atom_names
 
 LEAVING_GROUP_TEST_CASES = {
     "ALA": {"N": ("H2",), "C": ("OXT", "HXT"), "OXT": ("HXT",)},
@@ -85,7 +85,7 @@ def test_hash_atom_array():
     # DEBUG: Uncomment for manual inspection
     # import networkx as nx
     # import matplotlib.pyplot as plt
-    # from cifutils.utils.bonds import _atom_array_to_networkx_graph
+    # from atomworks.io.utils.bonds import _atom_array_to_networkx_graph
     # gs = []
     # annotations = ["element"]
     # for arr in [arr1, arr2]:

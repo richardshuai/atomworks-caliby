@@ -16,17 +16,17 @@ import numpy as np
 from biotite.structure import AtomArray
 from biotite.structure.io.pdbx import CIFCategory
 
-from cifutils.constants import (
+from atomworks.io.constants import (
     AA_LIKE_CHEM_TYPES,
     DNA_LIKE_CHEM_TYPES,
     POLYPEPTIDE_D_CHEM_TYPES,
     POLYPEPTIDE_L_CHEM_TYPES,
     RNA_LIKE_CHEM_TYPES,
 )
-from cifutils.enums import ChainType
-from cifutils.utils.ccd import get_chem_comp_type
-from cifutils.utils.selection import get_residue_starts
-from cifutils.utils.sequence import get_1_from_3_letter_code
+from atomworks.io.enums import ChainType
+from atomworks.io.utils.ccd import get_chem_comp_type
+from atomworks.io.utils.selection import get_residue_starts
+from atomworks.io.utils.sequence import get_1_from_3_letter_code
 
 logger = logging.getLogger("cifutils")
 

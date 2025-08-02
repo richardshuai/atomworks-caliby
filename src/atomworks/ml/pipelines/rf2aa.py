@@ -5,7 +5,7 @@ from typing import NamedTuple
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from cifutils.constants import AF3_EXCLUDED_LIGANDS
+from atomworks.io.constants import AF3_EXCLUDED_LIGANDS
 
 from datahub.common import exists
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING

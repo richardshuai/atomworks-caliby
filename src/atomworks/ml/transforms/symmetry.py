@@ -10,7 +10,7 @@ import networkx.algorithms.isomorphism as iso
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from cifutils.utils.bonds import hash_atom_array
+from atomworks.io.utils.bonds import hash_atom_array
 
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
 from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from cifutils.common import default, exists  # noqa: F401
+from atomworks.io.common import default, exists  # noqa: F401
 from omegaconf import ListConfig
 
 

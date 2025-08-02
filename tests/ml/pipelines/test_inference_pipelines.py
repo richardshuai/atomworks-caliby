@@ -2,15 +2,15 @@
 
 import pytest
 import torch
-from cifutils import parse
-from cifutils.tools.inference import (
+from atomworks.io import parse
+from atomworks.io.tools.inference import (
     build_msa_paths_by_chain_id_from_component_list,
     components_to_atom_array,
     read_chai_fasta,
 )
-from cifutils.utils.io_utils import to_cif_buffer
-from cifutils.utils.non_rcsb import initialize_chain_info_from_atom_array
-from cifutils.utils.testing import assert_same_atom_array
+from atomworks.io.utils.io_utils import to_cif_buffer
+from atomworks.io.utils.non_rcsb import initialize_chain_info_from_atom_array
+from atomworks.io.utils.testing import assert_same_atom_array
 
 from datahub.pipelines.af3 import build_af3_transform_pipeline
 from datahub.utils.testing import cached_parse

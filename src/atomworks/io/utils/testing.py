@@ -9,9 +9,9 @@ import biotite.structure as struc
 import numpy as np
 from biotite.structure.atoms import AtomArray, AtomArrayStack
 
-import cifutils.utils.bonds as cb
-from cifutils.constants import PDB_MIRROR_PATH
-from cifutils.utils.scatter import apply_group_wise, apply_segment_wise
+import atomworks.io.utils.bonds as cb
+from atomworks.io.constants import PDB_MIRROR_PATH
+from atomworks.io.utils.scatter import apply_group_wise, apply_segment_wise
 
 
 def get_pdb_path(pdbid: str, mirror_path: str | os.PathLike = PDB_MIRROR_PATH) -> str:

@@ -1,7 +1,7 @@
 import re
 from enum import Enum
 
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 
 # Cutoff for the number of residues in a peptide
 PEPTIDE_MAX_RESIDUES = 20

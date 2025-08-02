@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from biotite.structure import AtomArray
-from cifutils.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
+from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 
 from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
 from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES, ChainType

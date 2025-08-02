@@ -40,7 +40,7 @@ from typing import List, Union
 
 import fire
 import pandas as pd
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 
 from datahub.utils.misc import hash_sequence
 

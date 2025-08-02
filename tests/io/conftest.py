@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 
-from cifutils.utils.testing import get_pdb_path  # noqa: F401
+from atomworks.io.utils.testing import get_pdb_path  # noqa: F401
 
 TEST_DATA_DIR = Path(os.path.dirname(__file__)) / "data"
 

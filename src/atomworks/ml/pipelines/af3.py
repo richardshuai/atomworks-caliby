@@ -3,14 +3,14 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from cifutils.constants import (
+from atomworks.io.constants import (
     AF3_EXCLUDED_LIGANDS,
     GAP,
     STANDARD_AA,
     STANDARD_DNA,
     STANDARD_RNA,
 )
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 
 from datahub.common import exists
 from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding

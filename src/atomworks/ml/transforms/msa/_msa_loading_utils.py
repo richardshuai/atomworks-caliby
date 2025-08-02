@@ -4,7 +4,7 @@ from os import PathLike
 from pathlib import Path
 
 import numpy as np
-from cifutils.enums import ChainType
+from atomworks.io.enums import ChainType
 
 from datahub.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,

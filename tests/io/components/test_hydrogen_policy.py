@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 from conftest import get_pdb_path
 
-from cifutils.parser import parse
-from cifutils.transforms.atom_array import add_hydrogen_atom_positions
-from cifutils.utils.testing import has_ambiguous_annotation_set
+from atomworks.io.parser import parse
+from atomworks.io.transforms.atom_array import add_hydrogen_atom_positions
+from atomworks.io.utils.testing import has_ambiguous_annotation_set
 
 TEST_CASES = [{"pdb_id": "1jj8", "count": 705}, {"pdb_id": "3kz8", "count": 6258}, {"pdb_id": "2r5z", "count": 1632}]
 

@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from cifutils import parse
-from cifutils.constants import CRYSTALLIZATION_AIDS
+from atomworks.io import parse
+from atomworks.io.constants import CRYSTALLIZATION_AIDS
 
 """Default arguments for CIFUtils."""
 DEFAULT_CIF_PARSER_ARGS = {
