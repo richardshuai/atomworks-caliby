@@ -1,0 +1,120 @@
+# .github/workflows/release_and_docs.yaml
+
+name: Release and Deploy Versioned Docs
+
+on:
+  push:
+    branches:
+      - production
+      - docs_setup
+
+jobs:
+  release_and_docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      issues: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node dependencies
+        run: >
+          npm install --no-save
+          semantic-release
+          @semantic-release/commit-analyzer
+          @semantic-release/release-notes-generator
+          semantic-release-pypi
+          @semantic-release/git
+          @semantic-release/github
+
+      - name: Run semantic-release
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: dummy-fake-token
+        run: |
+          npx semantic-release
+          VERSION=$(git describe --tags --abbrev=0 --match "v*")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up Micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yaml
+          init-shell: bash
+          cache-environment: true
+          post-cleanup: 'all'
+
+      - name: Build documentation
+        run: |
+          micromamba install -c conda-forge pandoc
+          pip install -e .
+          cd docs/
+          pip install -r docs_requirements.txt
+          make html
+        shell: micromamba-shell {0}
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+          fetch-depth: 0
+
+      - name: Deploy versioned docs
+        run: |
+          mkdir -p gh-pages/${{ steps.release.outputs.version }}
+          rsync -av --delete docs/_build/html/ gh-pages/${{ steps.release.outputs.version }}/
+          
+          # Rebuild switcher.json
+          cd gh-pages
+          versions=()
+          for d in v* latest; do
+            if [ -d "$d" ]; then
+              versions+=("$d")
+            fi
+          done
+
+          echo "[" > latest/_static/switcher.json
+          first=1
+          for v in "${versions[@]}"; do
+            if [[ "$v" == "latest" ]]; then
+              entry="{\"version\": \"latest\", \"url\": \"https://baker-laboratory.github.io/cifutils/latest/\", \"name\": \"dev\"}"
+            else
+              disp="${v#v}"
+              preferred="false"
+              entry="{\"version\": \"$disp\", \"url\": \"https://baker-laboratory.github.io/cifutils/$v/\", \"name\": \"v$disp\", \"preferred\": $preferred}"
+            fi
+
+            if [ $first -eq 1 ]; then
+              first=0
+              echo "  $entry" >> latest/_static/switcher.json
+            else
+              echo "  ,$entry" >> latest/_static/switcher.json
+            fi
+          done
+          echo "]" >> latest/_static/switcher.json
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: gh-pages
+          keep_files: false
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'

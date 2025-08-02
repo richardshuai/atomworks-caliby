@@ -1,0 +1,69 @@
+name: lint_and_test
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'tests/**'
+  pull_request_target:
+    types: [ready_for_review]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+  
+jobs:
+  lint:
+    name: ruff (check code style)
+    # NOTE: We use an ubuntu runner to not be dependent on possibly limited digs infra
+    #   for this tiny linting job. This means we can have many lint jobs accross repos in parallel.
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Extract ruff version from environment.yaml
+      run: |
+        echo "RUFF_VERSION=$(grep 'ruff==' environment.yaml | sed 's/.*ruff==\(.*\)/\1/')" >> $GITHUB_ENV
+        echo "Extracted Ruff version: ${{ env.RUFF_VERSION }}"
+    - name: Install ruff
+      run: pip install ruff==${{ env.RUFF_VERSION }}
+    - name: ruff format (check code formatting)
+      run: ruff format --diff
+    - name: ruff check (lint code base)
+      run: ruff check
+
+  test:
+    name: pytest (run tests)
+    runs-on: [ jojo ]
+    timeout-minutes: 30
+    needs: lint
+    # ... only run on non-draft PRs to `main` to avoid unnecessary CI runs
+    # ... and only run on changed files in the `cifutils`, `tests`, or `scripts` directories
+    if: |
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      (github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review')
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run tests
+      timeout-minutes: 30
+      run: |
+        export N_CPU=4
+        srun --chdir=$PWD -p cpu -c $N_CPU -t 00:30:00 --mem=32G bash ./.github/ci/run_tests.sh
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.xml
