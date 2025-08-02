@@ -1,4 +1,5 @@
 #!/bin/bash
+# Usage: for example ./scripts/setup_ccd_mirror.sh ~/data/mirror/ccd
 
 echo "Setting up CCD mirror..."
 
@@ -22,8 +23,28 @@ else
     echo "Directory already exists: $DEST_PATH"
 fi
 
-# Perform rsync with file counting
-echo "Syncing files from PDBeChem CCD..."
+# Test rsync connection without timeout first
+echo "Testing rsync connection to EBI server..."
+if rsync --list-only "$REMOTE_PATH" > /tmp/rsync_test.out 2>&1; then
+    echo "✓ Connection test successful"
+    rm -f /tmp/rsync_test.out
+else
+    echo "✗ Connection test failed"
+    echo "Error output:"
+    cat /tmp/rsync_test.out
+    rm -f /tmp/rsync_test.out
+    echo ""
+    echo "Possible issues:"
+    echo "  - Network connectivity problems"
+    echo "  - Firewall blocking rsync port 873"
+    echo "  - EBI server temporarily unavailable"
+    echo ""
+    echo "You can test manually with:"
+    echo "  rsync --list-only $REMOTE_PATH"
+    exit 1
+fi
+
+echo "Syncing files from PDBeChem CCD (this will take a few minutes) ..."
 if rsync -rltvz --stats --no-perms --chmod=ug=rwX,o=rX --delete --omit-dir-times \
     --include="*/" --include "*.cif" --exclude "*" \
     "$REMOTE_PATH" "$DEST_PATH"; then
