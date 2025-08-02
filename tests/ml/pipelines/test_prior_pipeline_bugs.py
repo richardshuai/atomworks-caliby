@@ -2,9 +2,9 @@ import logging
 
 import pytest
 
-from datahub.pipelines.af3 import build_af3_transform_pipeline
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from datahub.utils.testing import cached_parse
+from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.utils.testing import cached_parse
 from tests.conftest import (
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,

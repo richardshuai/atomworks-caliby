@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from datahub.utils.numpy import get_nearest_true_index_for_each_false, insert_data_by_id_, select_data_by_id
+from atomworks.ml.utils.numpy import get_nearest_true_index_for_each_false, insert_data_by_id_, select_data_by_id
 
 
 def test_select_data_by_id():

@@ -5,7 +5,7 @@ from typing import Any
 
 import pandas as pd
 
-from datahub.datasets.parsers import MetadataRowParser
+from atomworks.ml.datasets.parsers import MetadataRowParser
 
 
 class AF2FB_DistillationParser(MetadataRowParser):

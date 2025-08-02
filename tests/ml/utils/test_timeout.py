@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from datahub.utils.timer import timeout
+from atomworks.ml.utils.timer import timeout
 
 
 def test_timeout_wrapper_no_timeout():

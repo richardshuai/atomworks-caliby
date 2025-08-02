@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from datahub.utils.testing import get_pdb_mirror_path
+from atomworks.ml.utils.testing import get_pdb_mirror_path
 from scripts.preprocessing.pdb.generate_interfaces_df import generate_interfaces_df
 from scripts.preprocessing.pdb.generate_pn_units_df import generate_pn_units_df
 from scripts.preprocessing.pdb.get_csvs_from_structures import run_pipeline as process_pdb

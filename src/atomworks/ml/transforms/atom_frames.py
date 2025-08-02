@@ -7,17 +7,17 @@ import numpy as np
 import torch
 from biotite.structure import AtomArray
 
-from datahub.transforms._checks import (
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atom_array import ComputeAtomToTokenMap
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Transform
-from datahub.transforms.encoding import EncodeAtomArray
-from datahub.transforms.filters import RemoveNucleicAcidTerminalOxygen, RemoveTerminalOxygen
-from datahub.utils.token import get_token_starts
+from atomworks.ml.transforms.atom_array import ComputeAtomToTokenMap
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.transforms.encoding import EncodeAtomArray
+from atomworks.ml.transforms.filters import RemoveNucleicAcidTerminalOxygen, RemoveTerminalOxygen
+from atomworks.ml.utils.token import get_token_starts
 
 # Constants copied from `chemdata` to decouple the RF2AA repository from the datahub pipeline
 NUM2AA = [

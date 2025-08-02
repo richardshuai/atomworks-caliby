@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from datahub.utils.testing import get_pdb_mirror_path
+from atomworks.ml.utils.testing import get_pdb_mirror_path
 from tests.preprocessing.conftest import DATA_PREPROCESSOR
 
 LOI_EXTRACTION_TEST_CASES = [

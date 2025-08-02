@@ -14,9 +14,9 @@ import tempfile
 import numpy as np
 import pytest
 
-import datahub.databases.data_source_utils as ds_utils
-from datahub.databases.dataclasses import BindNoBindMeasurement, DataSource
-from datahub.databases.io_utils import load_measurement_from_cif, save_measurement_to_cif
+import atomworks.ml.databases.data_source_utils as ds_utils
+from atomworks.ml.databases.dataclasses import BindNoBindMeasurement, DataSource
+from atomworks.ml.databases.io_utils import load_measurement_from_cif, save_measurement_to_cif
 
 
 def _compare_fields(

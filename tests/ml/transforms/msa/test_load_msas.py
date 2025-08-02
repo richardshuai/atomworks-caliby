@@ -8,13 +8,13 @@ import pandas as pd
 import pytest
 from atomworks.io.enums import ChainType
 
-from datahub.transforms.msa._msa_constants import (
+from atomworks.ml.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
     RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
 )
-from datahub.transforms.msa._msa_loading_utils import get_msa_path
-from datahub.transforms.msa.msa import LoadPolymerMSAs
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.msa._msa_loading_utils import get_msa_path
+from atomworks.ml.transforms.msa.msa import LoadPolymerMSAs
+from atomworks.ml.utils.testing import cached_parse
 from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 logging.basicConfig(level=logging.INFO)

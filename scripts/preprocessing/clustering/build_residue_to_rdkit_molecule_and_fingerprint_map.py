@@ -7,7 +7,7 @@ import fire
 import pandas as pd
 from tqdm import tqdm
 
-from datahub.transforms.rdkit_utils import ccd_code_to_rdkit, get_morgan_fingerprint_from_rdkit_mol
+from atomworks.ml.transforms.rdkit_utils import ccd_code_to_rdkit, get_morgan_fingerprint_from_rdkit_mol
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from datahub.utils.misc import grouped_sum, masked_mean
+from atomworks.ml.utils.misc import grouped_sum, masked_mean
 
 # Test cases for grouped_sum
 GROUPED_SUM_TEST_CASES = [

@@ -1,8 +1,8 @@
 import biotite.structure as struct
 import numpy as np
 
-from datahub.preprocessing.constants import ChainType
-from datahub.transforms.base import Transform
+from atomworks.ml.preprocessing.constants import ChainType
+from atomworks.ml.transforms.base import Transform
 
 MIROR_IMAGE_MAPPING = {
     "ALA": "DAL",

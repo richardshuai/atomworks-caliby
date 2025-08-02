@@ -3,9 +3,9 @@ from pathlib import Path
 
 import torch
 
-from datahub.transforms.base import Compose
-from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
-from datahub.transforms.diffusion.edm import sample_noise_edm, sample_t_edm
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
+from atomworks.ml.transforms.diffusion.edm import sample_noise_edm, sample_t_edm
 
 
 def test_edm_t_sampling():
@@ -66,7 +66,7 @@ def test_sample_edm_noise_transform():
     diffusion_batch_size = 1000
     sigma_data = 1.0
 
-    from datahub.transforms.diffusion.edm import SampleEDMNoise
+    from atomworks.ml.transforms.diffusion.edm import SampleEDMNoise
 
     transform = Compose(
         [BatchStructuresForDiffusionNoising(diffusion_batch_size), SampleEDMNoise(sigma_data, diffusion_batch_size)]

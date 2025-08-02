@@ -2,7 +2,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
-from datahub.encoding_definitions import (
+from atomworks.ml.encoding_definitions import (
     AF2_ATOM14_ENCODING,
     AF2_ATOM37_ENCODING,
     RF2_ATOM14_ENCODING,
@@ -11,15 +11,15 @@ from datahub.encoding_definitions import (
     RF2AA_ATOM36_ENCODING,
     TokenEncoding,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose, Identity
-from datahub.transforms.encoding import AddTokenAnnotation, EncodeAtomArray, get_token_count
-from datahub.transforms.filters import (
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose, Identity
+from atomworks.ml.transforms.encoding import AddTokenAnnotation, EncodeAtomArray, get_token_count
+from atomworks.ml.transforms.filters import (
     FilterToProteins,
     RemoveHydrogens,
     RemoveTerminalOxygen,
 )
-from datahub.utils.testing import cached_parse
+from atomworks.ml.utils.testing import cached_parse
 
 
 @pytest.mark.parametrize("pdb_id", ["5ocm", "5ocn"])

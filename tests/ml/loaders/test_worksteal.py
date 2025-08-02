@@ -5,7 +5,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from datahub.loaders.worksteal import WorkStealDataLoader
+from atomworks.ml.loaders.worksteal import WorkStealDataLoader
 
 logger = getLogger("datahub")
 

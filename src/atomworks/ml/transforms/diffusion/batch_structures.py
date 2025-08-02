@@ -1,5 +1,5 @@
-from datahub.transforms._checks import check_contains_keys
-from datahub.transforms.base import Transform
+from atomworks.ml.transforms._checks import check_contains_keys
+from atomworks.ml.transforms.base import Transform
 
 
 class BatchStructuresForDiffusionNoising(Transform):

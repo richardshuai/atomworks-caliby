@@ -1,4 +1,4 @@
-import datahub.preprocessing.utils.structure_utils as dp
+import atomworks.ml.preprocessing.utils.structure_utils as dp
 from tests.preprocessing.test_prior_bugs_and_edge_cases import EDGE_CASE_LIST
 
 

@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from biotite.structure import AtomArray
 
-from datahub.transforms.sasa import CalculateSASA, calculate_atomwise_rasa
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.sasa import CalculateSASA, calculate_atomwise_rasa
+from atomworks.ml.utils.testing import cached_parse
 
 # Define test cases
 # (all values for radii and SASA are from "WhatIF")

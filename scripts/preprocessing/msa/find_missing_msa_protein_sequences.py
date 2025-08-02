@@ -20,7 +20,7 @@ from atomworks.io import parse
 from atomworks.io.enums import ChainType
 from tqdm import tqdm
 
-from datahub.utils.misc import hash_sequence
+from atomworks.ml.utils.misc import hash_sequence
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

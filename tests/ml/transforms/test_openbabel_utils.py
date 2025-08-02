@@ -2,8 +2,8 @@ import pytest
 from biotite.structure import AtomArray
 from atomworks.io.utils.testing import assert_same_atom_array
 
-from datahub.transforms.openbabel_utils import atom_array_from_openbabel, atom_array_to_openbabel
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.openbabel_utils import atom_array_from_openbabel, atom_array_to_openbabel
+from atomworks.ml.utils.testing import cached_parse
 
 
 def _get_test_case(pdb_id: str, selector: callable) -> AtomArray:

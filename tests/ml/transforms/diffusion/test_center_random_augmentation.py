@@ -1,10 +1,10 @@
 import pytest
 import torch
 
-from datahub.transforms.base import Compose
-from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
-from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
-from datahub.utils.geometry import masked_center, random_rigid_augmentation
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.center_random_augmentation import CenterRandomAugmentation
+from atomworks.ml.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
+from atomworks.ml.utils.geometry import masked_center, random_rigid_augmentation
 
 
 def test_center():

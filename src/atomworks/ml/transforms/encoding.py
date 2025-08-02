@@ -18,16 +18,16 @@ from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 from atomworks.io.utils.ccd import get_std_to_alt_atom_name_map
 from torch.nn import functional as F
 
-from datahub.encoding_definitions import AF3SequenceEncoding, TokenEncoding
-from datahub.transforms._checks import (
+from atomworks.ml.encoding_definitions import AF3SequenceEncoding, TokenEncoding
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
     check_nonzero_length,
 )
-from datahub.transforms.atom_array import get_within_entity_idx
-from datahub.transforms.base import Transform
-from datahub.utils.token import get_token_count, get_token_starts, token_iter
+from atomworks.ml.transforms.atom_array import get_within_entity_idx
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.token import get_token_count, get_token_starts, token_iter
 
 logger = getLogger(__name__)
 

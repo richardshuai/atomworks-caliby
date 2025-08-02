@@ -7,7 +7,7 @@ from typing import List, Union
 
 import fire
 
-from datahub.preprocessing.get_pn_unit_data_from_structure import DataPreprocessor
+from atomworks.ml.preprocessing.get_pn_unit_data_from_structure import DataPreprocessor
 from scripts.preprocessing.pdb.confscript import generate_csv_files_from_paths, get_all_files_in_dir
 
 logging.basicConfig(level=logging.INFO)

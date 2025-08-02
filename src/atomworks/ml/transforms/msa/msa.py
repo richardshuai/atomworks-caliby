@@ -14,23 +14,23 @@ import torch.nn.functional as F
 from biotite.structure import AtomArray
 from atomworks.io.enums import ChainType
 
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding, TokenEncoding
-from datahub.transforms._checks import (
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding, TokenEncoding
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atom_array import (
+from atomworks.ml.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import ConvertToTorch, Transform
-from datahub.transforms.msa._msa_constants import (
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import ConvertToTorch, Transform
+from atomworks.ml.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_TO_INT,
     GAP_THREE_LETTER,
     MSA_INTEGER_TO_THREE_LETTER,
 )
-from datahub.transforms.msa._msa_featurizing_utils import (
+from atomworks.ml.transforms.msa._msa_featurizing_utils import (
     assign_extra_rows_to_cluster_representatives,
     build_indices_should_be_counted_masks,
     build_msa_index_can_be_masked,
@@ -39,11 +39,11 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     transform_ins_counts,
     uniformly_select_rows,
 )
-from datahub.transforms.msa._msa_loading_utils import get_msa_path, load_msa_data_from_path
-from datahub.transforms.msa._msa_pairing_utils import join_multiple_msas_by_tax_id
-from datahub.utils.io import cache_to_disk_as_pickle
-from datahub.utils.misc import grouped_count
-from datahub.utils.token import apply_token_wise, get_token_count, get_token_starts
+from atomworks.ml.transforms.msa._msa_loading_utils import get_msa_path, load_msa_data_from_path
+from atomworks.ml.transforms.msa._msa_pairing_utils import join_multiple_msas_by_tax_id
+from atomworks.ml.utils.io import cache_to_disk_as_pickle
+from atomworks.ml.utils.misc import grouped_count
+from atomworks.ml.utils.token import apply_token_wise, get_token_count, get_token_starts
 
 logger = logging.getLogger(__name__)
 

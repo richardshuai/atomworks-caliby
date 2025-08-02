@@ -3,9 +3,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from datahub.transforms.base import Compose
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from atomworks.ml.utils.testing import cached_parse
 
 COVALENT_MODIFICATION_TEST_CASES = [
     {

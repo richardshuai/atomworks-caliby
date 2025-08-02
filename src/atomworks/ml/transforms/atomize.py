@@ -4,13 +4,13 @@ import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
 
-from datahub.transforms._checks import (
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
     check_nonzero_length,
 )
-from datahub.transforms.base import Transform
+from atomworks.ml.transforms.base import Transform
 
 
 class FlagNonPolymersForAtomization(Transform):

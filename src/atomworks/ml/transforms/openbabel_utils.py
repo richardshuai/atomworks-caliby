@@ -20,14 +20,14 @@ from biotite.structure import AtomArray
 from atomworks.io.constants import ATOMIC_NUMBER_TO_ELEMENT, ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
 from openbabel import openbabel, pybel
 
-from datahub.transforms._checks import (
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_does_not_contain_keys,
     check_is_instance,
     check_nonzero_length,
 )
-from datahub.transforms.base import Transform
+from atomworks.ml.transforms.base import Transform
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ def atom_array_to_openbabel(
     Example:
         >>> from biotite.structure import AtomArray, BondType
         >>> import numpy as np
-        >>> from datahub.transforms.openbabel_utils import atom_array_to_openbabel
+        >>> from atomworks.ml.transforms.openbabel_utils import atom_array_to_openbabel
         >>> # Create AtomArray
         >>> atom_array = AtomArray(5)
         >>> atom_array.element = np.array(["C", "C", "O", "N", "H"])

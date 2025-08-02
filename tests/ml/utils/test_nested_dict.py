@@ -2,7 +2,7 @@
 
 import pytest
 
-from datahub.utils.nested_dict import flatten, get, getitem, unflatten
+from atomworks.ml.utils.nested_dict import flatten, get, getitem, unflatten
 
 
 @pytest.fixture

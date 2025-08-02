@@ -23,9 +23,9 @@ For more details, see the docstrings in the relevant modules.
 
 from atomworks.io.tools.inference import SequenceComponent
 
-from datahub.databases.data_source_utils import get_data_source, get_data_source_db, upload_data_source
-from datahub.databases.dataclasses import BindNoBindMeasurement, DataSource
-from datahub.databases.enums import (
+from atomworks.ml.databases.data_source_utils import get_data_source, get_data_source_db, upload_data_source
+from atomworks.ml.databases.dataclasses import BindNoBindMeasurement, DataSource
+from atomworks.ml.databases.enums import (
     BindingLabel,
     ConfidenceLabel,
     DataSourceType,
@@ -34,7 +34,7 @@ from datahub.databases.enums import (
     StructureType,
     TagType,
 )
-from datahub.databases.io_utils import load_measurement_from_cif, save_measurement_to_cif
+from atomworks.ml.databases.io_utils import load_measurement_from_cif, save_measurement_to_cif
 
 # =============================
 # 1. Create a DataSource object

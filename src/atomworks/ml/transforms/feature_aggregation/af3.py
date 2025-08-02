@@ -5,9 +5,9 @@ import torch.nn.functional as F
 from biotite.structure import AtomArray
 from einops import rearrange
 
-from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
-from datahub.transforms.base import Transform
-from datahub.utils.token import get_af3_token_representative_idxs, get_token_starts
+from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.token import get_af3_token_representative_idxs, get_token_starts
 
 
 class AggregateFeaturesLikeAF3(Transform):

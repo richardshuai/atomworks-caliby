@@ -38,10 +38,10 @@ from toolz.curried import assoc, compose, keyfilter, map
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from datahub.datasets.datasets import StructuralDatasetWrapper
-from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser
-from datahub.preprocessing.constants import PREPROCESSING_SUPPORTED_CHAIN_TYPES_INTS
-from datahub.utils.rng import (
+from atomworks.ml.datasets.datasets import StructuralDatasetWrapper
+from atomworks.ml.datasets.parsers import InterfacesDFParser, PNUnitsDFParser
+from atomworks.ml.preprocessing.constants import PREPROCESSING_SUPPORTED_CHAIN_TYPES_INTS
+from atomworks.ml.utils.rng import (
     capture_rng_states,
     create_rng_state_from_seeds,
     rng_state,
@@ -89,7 +89,7 @@ INTERFACES_FILTERS = _SHARED_FILTERS + [
 
 
 def _get_rf2aa_dataset_from_path(dataset_path: Path) -> StructuralDatasetWrapper:
-    from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
+    from atomworks.ml.pipelines.rf2aa import build_rf2aa_transform_pipeline
 
     assert (
         "pn_unit" in dataset_path.name or "interface" in dataset_path.name
@@ -118,7 +118,7 @@ def _get_rf2aa_dataset_from_path(dataset_path: Path) -> StructuralDatasetWrapper
 
 
 def _get_af3_dataset_from_path(dataset_path: Path) -> StructuralDatasetWrapper:
-    from datahub.pipelines.af3 import build_af3_transform_pipeline
+    from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
 
     assert (
         "pn_unit" in dataset_path.name or "interface" in dataset_path.name

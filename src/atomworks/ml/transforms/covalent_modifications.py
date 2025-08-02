@@ -5,14 +5,14 @@ from __future__ import annotations
 import numpy as np
 from biotite.structure import AtomArray
 
-from datahub.preprocessing.utils.structure_utils import get_inter_pn_unit_bond_mask
-from datahub.transforms._checks import (
+from atomworks.ml.preprocessing.utils.structure_utils import get_inter_pn_unit_bond_mask
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Transform
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Transform
 
 
 def flag_and_reassign_covalent_modifications(atom_array: AtomArray) -> AtomArray:

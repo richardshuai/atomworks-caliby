@@ -5,12 +5,12 @@ import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
 
-from datahub.transforms._checks import (
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.base import Transform
+from atomworks.ml.transforms.base import Transform
 
 logger = logging.getLogger("datahub")
 

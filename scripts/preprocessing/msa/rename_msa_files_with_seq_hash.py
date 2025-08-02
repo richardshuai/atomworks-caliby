@@ -28,8 +28,8 @@ from typing import List
 import fire
 from tqdm import tqdm
 
-from datahub.utils.io import get_sharded_file_path
-from datahub.utils.misc import hash_sequence
+from atomworks.ml.utils.io import get_sharded_file_path
+from atomworks.ml.utils.misc import hash_sequence
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 import pytest
 
-from datahub.transforms.base import AddData, Compose, ConditionalRoute, Identity, RandomRoute, RemoveKeys
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.transforms.base import AddData, Compose, ConditionalRoute, Identity, RandomRoute, RemoveKeys
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
 
 RANDOM_ROUTE_TEST_CASES = [
     {

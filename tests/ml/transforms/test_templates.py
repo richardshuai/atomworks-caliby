@@ -4,17 +4,17 @@ import numpy as np
 import pytest
 import torch
 
-from datahub.encoding_definitions import RF2_ATOM36_ENCODING, RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import (
+from atomworks.ml.encoding_definitions import RF2_ATOM36_ENCODING, RF2AA_ATOM36_ENCODING
+from atomworks.ml.transforms.atom_array import (
     AddGlobalTokenIdAnnotation,
     AddWithinChainInstanceResIdx,
     AddWithinPolyResIdxAnnotation,
     get_chain_instance_starts,
 )
-from datahub.transforms.base import Compose
-from datahub.transforms.encoding import AF3SequenceEncoding, EncodeAtomArray, TokenEncoding
-from datahub.transforms.filters import FilterToProteins, RemoveHydrogens, RemoveTerminalOxygen
-from datahub.transforms.template import (
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.encoding import AF3SequenceEncoding, EncodeAtomArray, TokenEncoding
+from atomworks.ml.transforms.filters import FilterToProteins, RemoveHydrogens, RemoveTerminalOxygen
+from atomworks.ml.transforms.template import (
     AddInputFileTemplate,
     AddRFTemplates,
     FeaturizeTemplatesLikeAF3,
@@ -23,8 +23,8 @@ from datahub.transforms.template import (
     RF2AATemplate,
     add_input_file_template,
 )
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from datahub.utils.testing import cached_parse
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.utils.testing import cached_parse
 
 TEST_CASES = [
     {

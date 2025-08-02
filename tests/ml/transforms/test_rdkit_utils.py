@@ -9,7 +9,7 @@ from atomworks.io.tools.inference import components_to_atom_array
 from atomworks.io.tools.rdkit import atom_array_from_rdkit, atom_array_to_rdkit, smiles_to_rdkit
 from rdkit import Chem
 
-from datahub.transforms.rdkit_utils import (
+from atomworks.ml.transforms.rdkit_utils import (
     ccd_code_to_rdkit_with_conformers,
     generate_conformers,
     sample_rdkit_conformer_for_atom_array,

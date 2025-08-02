@@ -4,27 +4,27 @@ import pytest
 import torch
 from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding
-from datahub.transforms.atom_array import (
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding
+from atomworks.ml.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     AddGlobalTokenIdAnnotation,
     AddWithinChainInstanceResIdx,
     AddWithinPolyResIdxAnnotation,
     ComputeAtomToTokenMap,
 )
-from datahub.transforms.atom_frames import (
+from atomworks.ml.transforms.atom_frames import (
     AddIsRealAtom,
     AddPolymerFrameIndices,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import (
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import (
     Compose,
     ConvertToTorch,
 )
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures, EncodeAtomArray
-from datahub.transforms.filters import RemoveHydrogens, RemoveNucleicAcidTerminalOxygen, RemoveTerminalOxygen
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from atomworks.ml.transforms.encoding import EncodeAF3TokenLevelFeatures, EncodeAtomArray
+from atomworks.ml.transforms.filters import RemoveHydrogens, RemoveNucleicAcidTerminalOxygen, RemoveTerminalOxygen
+from atomworks.ml.utils.testing import cached_parse
 
 CONFIDENCE_MODIFICATION_TEST_CASES = [
     {

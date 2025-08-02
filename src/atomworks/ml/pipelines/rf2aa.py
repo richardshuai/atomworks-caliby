@@ -7,18 +7,18 @@ import torch
 from biotite.structure import AtomArray
 from atomworks.io.constants import AF3_EXCLUDED_LIGANDS
 
-from datahub.common import exists
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import (
+from atomworks.ml.common import exists
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
+from atomworks.ml.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     AddGlobalTokenIdAnnotation,
     AddProteinTerminiAnnotation,
     AddWithinPolyResIdxAnnotation,
     SortLikeRF2AA,
 )
-from datahub.transforms.atom_frames import AddAtomFrames
-from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
-from datahub.transforms.base import (
+from atomworks.ml.transforms.atom_frames import AddAtomFrames
+from atomworks.ml.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
+from atomworks.ml.transforms.base import (
     AddData,
     ApplyFunction,
     Compose,
@@ -28,18 +28,18 @@ from datahub.transforms.base import (
     RandomRoute,
     SubsetToKeys,
 )
-from datahub.transforms.bonds import (
+from atomworks.ml.transforms.bonds import (
     AddRF2AABondFeaturesMatrix,
     AddRF2AATraversalDistanceMatrix,
     AddTokenBondAdjacency,
 )
-from datahub.transforms.chirals import AddRF2AAChiralFeatures
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
-from datahub.transforms.encoding import EncodeAtomArray, atom_array_from_encoding
-from datahub.transforms.feature_aggregation.rf2aa import AggregateFeaturesLikeRF2AA
-from datahub.transforms.featurize_unresolved_residues import MaskPolymerResiduesWithUnresolvedFrameAtoms
-from datahub.transforms.filters import (
+from atomworks.ml.transforms.chirals import AddRF2AAChiralFeatures
+from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from atomworks.ml.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
+from atomworks.ml.transforms.encoding import EncodeAtomArray, atom_array_from_encoding
+from atomworks.ml.transforms.feature_aggregation.rf2aa import AggregateFeaturesLikeRF2AA
+from atomworks.ml.transforms.featurize_unresolved_residues import MaskPolymerResiduesWithUnresolvedFrameAtoms
+from atomworks.ml.transforms.filters import (
     FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
     RemoveHydrogens,
@@ -48,24 +48,24 @@ from datahub.transforms.filters import (
     RemoveUnresolvedPNUnits,
     RemoveUnsupportedChainTypes,
 )
-from datahub.transforms.msa.msa import (
+from atomworks.ml.transforms.msa.msa import (
     EncodeMSA,
     FeaturizeMSALikeRF2AA,
     FillFullMSAFromEncoded,
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
 )
-from datahub.transforms.openbabel_utils import (
+from atomworks.ml.transforms.openbabel_utils import (
     AddOpenBabelMoleculesForAtomizedMolecules,
     GetChiralCentersFromOpenBabel,
 )
-from datahub.transforms.rf2aa_assumptions import AssertRF2AAAssumptions, _is_atom
-from datahub.transforms.symmetry import (
+from atomworks.ml.transforms.rf2aa_assumptions import AssertRF2AAAssumptions, _is_atom
+from atomworks.ml.transforms.symmetry import (
     AddPostCropMoleculeEntityToFreeFloatingLigands,
     CreateSymmetryCopyAxisLikeRF2AA,
 )
-from datahub.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeRF2AA, RF2AATemplate
-from datahub.utils.numpy import get_connected_components_from_adjacency
+from atomworks.ml.transforms.template import AddRFTemplates, FeaturizeTemplatesLikeRF2AA, RF2AATemplate
+from atomworks.ml.utils.numpy import get_connected_components_from_adjacency
 
 
 class RF2AAInputs(NamedTuple):

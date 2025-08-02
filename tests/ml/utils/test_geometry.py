@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from datahub.utils.geometry import (
+from atomworks.ml.utils.geometry import (
     apply_inverse_rigid,
     apply_rigid,
     compose_rigids,

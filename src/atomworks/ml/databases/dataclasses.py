@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Type
 from biotite.structure import AtomArray
 from atomworks.io.tools.inference import ChemicalComponent
 
-from datahub.databases.enums import (
+from atomworks.ml.databases.enums import (
     BindingLabel,
     ConfidenceLabel,
     DataSourceType,

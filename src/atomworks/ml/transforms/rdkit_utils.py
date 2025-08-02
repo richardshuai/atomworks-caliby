@@ -15,16 +15,16 @@ from atomworks.io.tools.rdkit import (
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Mol, rdDistGeom
 
-from datahub.common import default
-from datahub.transforms._checks import (
+from atomworks.ml.common import default
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_does_not_contain_keys,
     check_is_instance,
     check_nonzero_length,
 )
-from datahub.transforms.base import Transform
-from datahub.utils import timer
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils import timer
 
 logger = logging.getLogger(__name__)
 # ... disable RDKit logging

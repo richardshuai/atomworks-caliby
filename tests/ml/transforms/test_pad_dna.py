@@ -4,10 +4,10 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
-from datahub.executables.x3dna import X3DNAFiber
-from datahub.transforms.dna.pad_dna import PadDNA, generate_bform_dna, to_reverse_complement
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from datahub.utils.testing import cached_parse
+from atomworks.ml.executables.x3dna import X3DNAFiber
+from atomworks.ml.transforms.dna.pad_dna import PadDNA, generate_bform_dna, to_reverse_complement
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.utils.testing import cached_parse
 
 X3DNA_PATH = os.environ.get("X3DNA", "/projects/ml/prot_dna/x3dna-v2.4")
 

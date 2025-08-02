@@ -9,10 +9,10 @@ import torch
 from biotite.structure import AtomArray, residue_iter
 from toolz import keyfilter
 
-from datahub.common import exists
-from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys
-from datahub.transforms.base import Transform
-from datahub.utils.io import get_sharded_file_path
+from atomworks.ml.common import exists
+from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.io import get_sharded_file_path
 
 logger = logging.getLogger("datahub")
 

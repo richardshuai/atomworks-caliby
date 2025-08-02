@@ -11,11 +11,11 @@ from biotite.structure import AtomArray
 from atomworks.io.constants import NUCLEIC_ACID_FRAME_ATOM_NAMES, PROTEIN_FRAME_ATOM_NAMES
 from atomworks.io.enums import ChainTypeInfo
 
-from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
-from datahub.transforms.atom_array import apply_and_spread_residue_wise
-from datahub.transforms.base import Transform
-from datahub.utils.numpy import get_nearest_true_index_for_each_false
-from datahub.utils.token import (
+from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
+from atomworks.ml.transforms.atom_array import apply_and_spread_residue_wise
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.numpy import get_nearest_true_index_for_each_false
+from atomworks.ml.utils.token import (
     apply_token_wise,
     get_af3_token_center_masks,
     get_af3_token_representative_masks,

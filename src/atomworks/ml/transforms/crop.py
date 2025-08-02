@@ -6,15 +6,15 @@ from biotite.structure import AtomArray
 from atomworks.io.transforms.atom_array import is_any_coord_nan
 from scipy.spatial import KDTree
 
-from datahub.common import exists
-from datahub.transforms._checks import (
+from atomworks.ml.common import exists
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atom_array import atom_id_to_atom_idx, atom_id_to_token_idx
-from datahub.transforms.base import Transform
-from datahub.utils.token import (
+from atomworks.ml.transforms.atom_array import atom_id_to_atom_idx, atom_id_to_token_idx
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.token import (
     apply_token_wise,
     get_af3_token_center_coords,
     get_token_count,

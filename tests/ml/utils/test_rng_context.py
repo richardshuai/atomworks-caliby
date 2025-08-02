@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import torch
 
-from datahub.utils import rng
-from datahub.utils.rng import (
+from atomworks.ml.utils import rng
+from atomworks.ml.utils.rng import (
     create_rng_state_from_seeds,
     rng_state,
     serialize_rng_state_dict,

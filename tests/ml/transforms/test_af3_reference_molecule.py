@@ -10,8 +10,8 @@ from atomworks.io.tools.inference import components_to_atom_array
 from atomworks.io.tools.rdkit import atom_array_from_rdkit
 from atomworks.io.utils.selection import get_residue_starts
 
-from datahub.enums import GroundTruthConformerPolicy
-from datahub.transforms.af3_reference_molecule import (
+from atomworks.ml.enums import GroundTruthConformerPolicy
+from atomworks.ml.transforms.af3_reference_molecule import (
     GetAF3ReferenceMoleculeFeatures,
     RandomApplyGroundTruthConformerByChainType,
     _encode_atom_names_like_af3,
@@ -19,14 +19,14 @@ from datahub.transforms.af3_reference_molecule import (
     _map_reference_conformer_to_residue,
     get_af3_reference_molecule_features,
 )
-from datahub.transforms.atom_array import AddGlobalResIdAnnotation, add_global_token_id_annotation
-from datahub.transforms.atomize import atomize_by_ccd_name
-from datahub.transforms.base import Compose
-from datahub.transforms.cached_residue_data import LoadCachedResidueLevelData, RandomSubsampleCachedConformers
-from datahub.transforms.chirals import AddAF3ChiralFeatures
-from datahub.transforms.rdkit_utils import GetRDKitChiralCenters
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.atom_array import AddGlobalResIdAnnotation, add_global_token_id_annotation
+from atomworks.ml.transforms.atomize import atomize_by_ccd_name
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.cached_residue_data import LoadCachedResidueLevelData, RandomSubsampleCachedConformers
+from atomworks.ml.transforms.chirals import AddAF3ChiralFeatures
+from atomworks.ml.transforms.rdkit_utils import GetRDKitChiralCenters
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.utils.testing import cached_parse
 from tests.conftest import TEST_DATA_DIR
 
 

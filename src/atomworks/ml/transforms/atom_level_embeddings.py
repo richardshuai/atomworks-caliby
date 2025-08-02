@@ -5,8 +5,8 @@ import numpy as np
 import torch
 from biotite.structure import AtomArray
 
-from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys
-from datahub.transforms.base import Transform
+from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys
+from atomworks.ml.transforms.base import Transform
 
 logger = logging.getLogger("datahub")
 

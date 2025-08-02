@@ -8,8 +8,8 @@ from typing import Any
 
 import numpy as np
 
-from datahub.transforms.msa._msa_constants import AMINO_ACID_ONE_LETTER_TO_INT
-from datahub.utils.misc import cumcount
+from atomworks.ml.transforms.msa._msa_constants import AMINO_ACID_ONE_LETTER_TO_INT
+from atomworks.ml.utils.misc import cumcount
 
 logger = logging.getLogger(__name__)
 

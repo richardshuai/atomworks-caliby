@@ -7,11 +7,11 @@ from atomworks.io.tools.rdkit import (
 )
 from openbabel import openbabel
 
-import datahub.transforms.openbabel_utils as obutils
-from datahub.transforms.rdkit_utils import (
+import atomworks.ml.transforms.openbabel_utils as obutils
+from atomworks.ml.transforms.rdkit_utils import (
     find_automorphisms_with_rdkit,
 )
-from datahub.transforms.symmetry import apply_automorphs
+from atomworks.ml.transforms.symmetry import apply_automorphs
 
 TEST_CASES = [
     {

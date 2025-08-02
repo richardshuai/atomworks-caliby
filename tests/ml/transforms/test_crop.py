@@ -8,25 +8,25 @@ import numpy as np
 import pytest
 from atomworks.io.utils.testing import assert_same_atom_array
 
-from datahub.datasets.datasets import get_row_and_index_by_example_id
-from datahub.datasets.parsers import InterfacesDFParser, PNUnitsDFParser, load_example_from_metadata_row
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import (
+from atomworks.ml.datasets.datasets import get_row_and_index_by_example_id
+from atomworks.ml.datasets.parsers import InterfacesDFParser, PNUnitsDFParser, load_example_from_metadata_row
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
+from atomworks.ml.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     atom_id_to_token_idx,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from datahub.transforms.crop import (
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from atomworks.ml.transforms.crop import (
     CropContiguousLikeAF3,
     CropSpatialLikeAF3,
     compute_local_hash,
 )
-from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from datahub.utils.testing import cached_parse
-from datahub.utils.token import apply_and_spread_token_wise, get_token_count, get_token_starts
+from atomworks.ml.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.utils.testing import cached_parse
+from atomworks.ml.utils.token import apply_and_spread_token_wise, get_token_count, get_token_starts
 
 # fmt: off
 INTERFACE_EXAMPLES = [

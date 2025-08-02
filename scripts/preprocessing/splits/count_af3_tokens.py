@@ -15,18 +15,18 @@ from atomworks.io import parse
 from atomworks.io.constants import AF3_EXCLUDED_LIGANDS, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from tqdm import tqdm
 
-from datahub.common import exists
-from datahub.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
-from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
-from datahub.transforms.base import Compose
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from datahub.transforms.filters import (
+from atomworks.ml.common import exists
+from atomworks.ml.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
+from atomworks.ml.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from atomworks.ml.transforms.filters import (
     HandleUndesiredResTokens,
     RemoveHydrogens,
     RemoveUnresolvedPNUnits,
 )
-from datahub.utils.testing import get_pdb_mirror_path
-from datahub.utils.token import get_token_starts
+from atomworks.ml.utils.testing import get_pdb_mirror_path
+from atomworks.ml.utils.token import get_token_starts
 
 logging.basicConfig(
     level=logging.INFO,

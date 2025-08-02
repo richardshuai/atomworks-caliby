@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 from torch.utils.data import ConcatDataset, Dataset, SequentialSampler
 
-from datahub.samplers import DistributedMixedSampler, LoadBalancedDistributedSampler, MixedSampler
+from atomworks.ml.samplers import DistributedMixedSampler, LoadBalancedDistributedSampler, MixedSampler
 
 
 class DummyDataset(Dataset):

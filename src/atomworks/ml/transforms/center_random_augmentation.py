@@ -1,7 +1,7 @@
-from datahub.transforms._checks import check_contains_keys
-from datahub.transforms.base import Transform
-from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
-from datahub.utils.geometry import masked_center, random_rigid_augmentation
+from atomworks.ml.transforms._checks import check_contains_keys
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
+from atomworks.ml.utils.geometry import masked_center, random_rigid_augmentation
 
 
 class CenterRandomAugmentation(Transform):

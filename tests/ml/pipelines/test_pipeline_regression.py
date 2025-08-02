@@ -14,9 +14,9 @@ from atomworks.io.constants import (
 from atomworks.io.enums import ChainType
 from atomworks.io.utils.testing import assert_same_atom_array
 
-from datahub.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
-from datahub.pipelines.af3 import build_af3_transform_pipeline
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
+from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

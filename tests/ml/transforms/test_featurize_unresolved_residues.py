@@ -2,22 +2,22 @@ import numpy as np
 import pytest
 from atomworks.io.utils.testing import assert_same_atom_array
 
-from datahub.encoding_definitions import (
+from atomworks.ml.encoding_definitions import (
     RF2AA_ATOM36_ENCODING,
 )
-from datahub.transforms.atom_array import CopyAnnotation
-from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
-from datahub.transforms.base import Compose
-from datahub.transforms.encoding import EncodeAtomArray
-from datahub.transforms.featurize_unresolved_residues import (
+from atomworks.ml.transforms.atom_array import CopyAnnotation
+from atomworks.ml.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.encoding import EncodeAtomArray
+from atomworks.ml.transforms.featurize_unresolved_residues import (
     MaskPolymerResiduesWithUnresolvedFrameAtoms,
     PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
     mask_polymer_residues_with_unresolved_frame_atoms,
 )
-from datahub.transforms.filters import RemoveUnresolvedPNUnits
-from datahub.utils.testing import cached_parse
-from datahub.utils.token import (
+from atomworks.ml.transforms.filters import RemoveUnresolvedPNUnits
+from atomworks.ml.utils.testing import cached_parse
+from atomworks.ml.utils.token import (
     get_af3_token_center_idxs,
     get_af3_token_center_masks,
     get_af3_token_representative_idxs,

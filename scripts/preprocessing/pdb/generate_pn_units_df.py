@@ -18,8 +18,8 @@ import pandas as pd
 from atomworks.io.enums import ChainType
 from tqdm import tqdm
 
-from datahub.common import generate_example_id
-from datahub.preprocessing.constants import NA_VALUES, PEPTIDE_MAX_RESIDUES
+from atomworks.ml.common import generate_example_id
+from atomworks.ml.preprocessing.constants import NA_VALUES, PEPTIDE_MAX_RESIDUES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -21,18 +21,18 @@ from atomworks.io.utils.io_utils import load_any
 from atomworks.io.utils.selection import ResIdxSlice
 from atomworks.io.utils.sequence import get_1_from_3_letter_code
 
-from datahub.executables.x3dna import X3DNAFiber
-from datahub.preprocessing.constants import ChainType
-from datahub.transforms._checks import (
+from atomworks.ml.executables.x3dna import X3DNAFiber
+from atomworks.ml.preprocessing.constants import ChainType
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atom_array import _renumber_res_ids_around_reference
-from datahub.transforms.base import Transform
-from datahub.utils.geometry import align_atom_arrays
-from datahub.utils.misc import _randomly_select_items_with_weights
-from datahub.utils.testing import is_clash
+from atomworks.ml.transforms.atom_array import _renumber_res_ids_around_reference
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.geometry import align_atom_arrays
+from atomworks.ml.utils.misc import _randomly_select_items_with_weights
+from atomworks.ml.utils.testing import is_clash
 
 logger = logging.getLogger("datahub")
 

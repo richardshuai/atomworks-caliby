@@ -2,18 +2,18 @@ import numpy as np
 import pytest
 from biotite.structure import AtomArray
 
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import (
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
+from atomworks.ml.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     SortLikeRF2AA,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose
-from datahub.transforms.crop import CropSpatialLikeAF3
-from datahub.transforms.encoding import EncodeAtomArray
-from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
-from datahub.transforms.openbabel_utils import AddOpenBabelMoleculesForAtomizedMolecules
-from datahub.transforms.symmetry import (
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.crop import CropSpatialLikeAF3
+from atomworks.ml.transforms.encoding import EncodeAtomArray
+from atomworks.ml.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
+from atomworks.ml.transforms.openbabel_utils import AddOpenBabelMoleculesForAtomizedMolecules
+from atomworks.ml.transforms.symmetry import (
     CreateSymmetryCopyAxisLikeRF2AA,
     _create_instance_to_entity_map,
     _n_possible_isomorphisms,
@@ -21,8 +21,8 @@ from datahub.transforms.symmetry import (
     identify_isomorphic_chains_based_on_chain_entity,
     identify_isomorphic_chains_based_on_molecule_entity,
 )
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from datahub.utils.testing import cached_parse
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.utils.testing import cached_parse
 
 
 def test_create_instance_to_entity_map():

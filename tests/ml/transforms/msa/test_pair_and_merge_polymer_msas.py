@@ -3,17 +3,17 @@ import copy
 import numpy as np
 import pytest
 
-from datahub.transforms.base import Compose
-from datahub.transforms.msa._msa_pairing_utils import (
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.msa._msa_pairing_utils import (
     _get_matched_indices,
     _remove_extraneous_taxid_copies,
     join_multiple_msas_by_tax_id,
 )
-from datahub.transforms.msa.msa import (
+from atomworks.ml.transforms.msa.msa import (
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
 )
-from datahub.utils.testing import cached_parse
+from atomworks.ml.utils.testing import cached_parse
 from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 PAIR_MSA_TEST_CASES = [

@@ -12,8 +12,8 @@ from atomworks.io.utils.io_utils import to_cif_buffer
 from atomworks.io.utils.non_rcsb import initialize_chain_info_from_atom_array
 from atomworks.io.utils.testing import assert_same_atom_array
 
-from datahub.pipelines.af3 import build_af3_transform_pipeline
-from datahub.utils.testing import cached_parse
+from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
+from atomworks.ml.utils.testing import cached_parse
 from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, TEST_DATA_DIR
 
 

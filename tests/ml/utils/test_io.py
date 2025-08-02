@@ -7,7 +7,7 @@ from assertpy import assert_that
 from biotite.structure import AtomArrayStack
 from atomworks.io.constants import ATOMIC_NUMBER_TO_ELEMENT
 
-from datahub.utils.io import convert_af3_model_output_to_atom_array_stack
+from atomworks.ml.utils.io import convert_af3_model_output_to_atom_array_stack
 
 # NOTE: Not the "true" model outputs; slightly pre-processed for storage efficiency
 TEST_PICKLED_AF3_MODEL_OUTPUTS = ["af3_model_outs_protein_dna.pkl", "af3_model_outs_protein_ligand.pkl"]

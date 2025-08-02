@@ -13,14 +13,14 @@ from biotite.structure import AtomArray, get_residue_count, spread_residue_wise
 from atomworks.io.enums import ChainType
 from atomworks.io.utils.testing import has_annotation
 
-from datahub.transforms._checks import (
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.base import Transform
-from datahub.utils import nested_dict
-from datahub.utils.token import (
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils import nested_dict
+from atomworks.ml.utils.token import (
     get_token_count,
     get_token_starts,
     spread_token_wise,

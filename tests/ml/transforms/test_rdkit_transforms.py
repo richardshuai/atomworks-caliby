@@ -2,18 +2,18 @@ import numpy as np
 import pytest
 from rdkit import Chem
 
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from datahub.transforms.filters import HandleUndesiredResTokens, RemoveHydrogens
-from datahub.transforms.rdkit_utils import (
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
+from atomworks.ml.transforms.atom_array import AddGlobalAtomIdAnnotation
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from atomworks.ml.transforms.filters import HandleUndesiredResTokens, RemoveHydrogens
+from atomworks.ml.transforms.rdkit_utils import (
     AddRDKitMoleculesForAtomizedMolecules,
     GenerateRDKitConformers,
     atom_array_from_rdkit,
 )
-from datahub.utils.testing import cached_parse
+from atomworks.ml.utils.testing import cached_parse
 
 try:
     # Settings for debugging & interactive tests

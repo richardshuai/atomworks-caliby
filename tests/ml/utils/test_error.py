@@ -3,7 +3,7 @@ import re
 
 import pytest
 
-from datahub.utils.error import context, format_traceback
+from atomworks.ml.utils.error import context, format_traceback
 
 
 def test_format_traceback():

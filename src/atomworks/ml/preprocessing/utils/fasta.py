@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from datahub.utils.misc import hash_sequence
+from atomworks.ml.utils.misc import hash_sequence
 
 
 def wrap_sequence(sequence: str, line_length: int = 80) -> str:

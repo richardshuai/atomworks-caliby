@@ -3,13 +3,13 @@ import pytest
 import torch
 from openbabel import openbabel
 
-from datahub.transforms.openbabel_utils import (
+from atomworks.ml.transforms.openbabel_utils import (
     atom_array_to_openbabel,
     find_automorphisms,
     smiles_to_openbabel,
 )
-from datahub.transforms.symmetry import apply_automorphs
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.transforms.symmetry import apply_automorphs
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
 
 TEST_CASES = [
     {

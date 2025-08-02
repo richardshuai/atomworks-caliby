@@ -56,7 +56,7 @@ As an example, to keep all `pn_units` from a specified list of PDB IDs:
 
 ```python
 import pandas as pd
-from datahub.common import generate_example_id
+from atomworks.ml.common import generate_example_id
 
 # MY_PDB_IDS = <list of pdb_ids to include>
 pdb_pn_units = pd.read_parquet('/path/to/full_pn_units_df.parquet')

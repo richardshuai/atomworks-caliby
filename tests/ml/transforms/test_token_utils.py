@@ -5,16 +5,16 @@ from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from atomworks.io.utils.sequence import STANDARD_PURINE_RESIDUES, STANDARD_PYRIMIDINE_RESIDUES
 from atomworks.io.utils.testing import assert_same_atom_array
 
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import (
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
+from atomworks.ml.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     AddGlobalResIdAnnotation,
     AddGlobalTokenIdAnnotation,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose
-from datahub.utils.testing import cached_parse
-from datahub.utils.token import (
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.utils.testing import cached_parse
+from atomworks.ml.utils.token import (
     apply_segment_wise_2d,
     get_af3_token_center_masks,
     get_af3_token_representative_masks,

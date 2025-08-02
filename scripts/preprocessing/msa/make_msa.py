@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from datahub.preprocessing.constants import NA_VALUES
-from datahub.utils.misc import hash_sequence
+from atomworks.ml.preprocessing.constants import NA_VALUES
+from atomworks.ml.utils.misc import hash_sequence
 
 bfd_db_path = "/local/databases/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt"
 uniref30_db_path = "/local/databases/uniclust/UniRef30_2022_02"

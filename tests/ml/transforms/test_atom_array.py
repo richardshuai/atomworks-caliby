@@ -6,8 +6,8 @@ from atomworks.io import parse
 from atomworks.io.tools.inference import components_to_atom_array
 from atomworks.io.utils.io_utils import to_cif_file
 
-from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
-from datahub.transforms.atom_array import (
+from atomworks.ml.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
+from atomworks.ml.transforms.atom_array import (
     AddGlobalTokenIdAnnotation,
     AddMoleculeSymmetricIdAnnotation,
     AddProteinTerminiAnnotation,
@@ -17,12 +17,12 @@ from datahub.transforms.atom_array import (
     chain_instance_iter,
     sort_poly_then_non_poly,
 )
-from datahub.transforms.base import (
+from atomworks.ml.transforms.base import (
     Compose,
 )
-from datahub.transforms.msa._msa_constants import THREE_LETTER_TO_MSA_INTEGER
-from datahub.transforms.msa.msa import LoadPolymerMSAs
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.msa._msa_constants import THREE_LETTER_TO_MSA_INTEGER
+from atomworks.ml.transforms.msa.msa import LoadPolymerMSAs
+from atomworks.ml.utils.testing import cached_parse
 from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 from tests.transforms.msa.test_pair_and_merge_polymer_msas import MSA_PAIRING_PIPELINE_TEST_CASES
 

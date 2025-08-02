@@ -5,7 +5,7 @@ import pandas as pd
 import tqdm
 from atomworks.io.enums import ChainType
 
-from datahub.utils import hash_sequence
+from atomworks.ml.utils import hash_sequence
 
 # extract sequence and hash from all csv file
 

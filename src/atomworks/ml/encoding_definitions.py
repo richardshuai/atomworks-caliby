@@ -21,7 +21,7 @@ from atomworks.io.constants import (
 )
 from atomworks.io.utils.ccd import get_chem_comp_type
 
-from datahub.common import exists
+from atomworks.ml.common import exists
 
 logger = getLogger(__name__)
 

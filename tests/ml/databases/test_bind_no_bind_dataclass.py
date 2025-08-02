@@ -7,7 +7,7 @@ tries creating a BindNoBindMeasurement with all fields, missing optional fields,
 
 import pytest
 
-from datahub.databases.dataclasses import BindNoBindMeasurement
+from atomworks.ml.databases.dataclasses import BindNoBindMeasurement
 
 
 def test_bind_no_bind_measurement_dataclass(

@@ -12,15 +12,15 @@ from atomworks.io.utils.ccd import get_available_ccd_codes
 from atomworks.io.utils.selection import get_residue_starts
 from rdkit import Chem
 
-from datahub.common import exists
-from datahub.enums import GroundTruthConformerPolicy
-from datahub.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
-from datahub.transforms.base import Transform
-from datahub.transforms.rdkit_utils import (
+from atomworks.ml.common import exists
+from atomworks.ml.enums import GroundTruthConformerPolicy
+from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.transforms.rdkit_utils import (
     ccd_code_to_rdkit_with_conformers,
     sample_rdkit_conformer_for_atom_array,
 )
-from datahub.utils.geometry import masked_center, random_rigid_augmentation
+from atomworks.ml.utils.geometry import masked_center, random_rigid_augmentation
 
 logger = logging.getLogger("datahub")
 

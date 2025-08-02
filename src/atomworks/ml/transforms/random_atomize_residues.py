@@ -6,9 +6,9 @@ from biotite.structure import AtomArray
 from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from atomworks.io.utils.selection import get_annotation, get_residue_starts
 
-from datahub.transforms._checks import check_atom_array_annotation
-from datahub.transforms.base import Transform
-from datahub.utils.token import apply_and_spread_token_wise
+from atomworks.ml.transforms._checks import check_atom_array_annotation
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.token import apply_and_spread_token_wise
 
 
 def random_atomize_residues(

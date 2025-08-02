@@ -9,15 +9,15 @@ import pytest
 import torch
 from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA, UNKNOWN_AA, UNKNOWN_DNA, UNKNOWN_RNA
 
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
-from datahub.transforms.atom_array import (
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING, TokenEncoding
+from atomworks.ml.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose, ConvertToTorch
-from datahub.transforms.encoding import EncodeAtomArray
-from datahub.transforms.filters import RemoveHydrogens
-from datahub.transforms.msa._msa_featurizing_utils import (
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose, ConvertToTorch
+from atomworks.ml.transforms.encoding import EncodeAtomArray
+from atomworks.ml.transforms.filters import RemoveHydrogens
+from atomworks.ml.transforms.msa._msa_featurizing_utils import (
     assign_extra_rows_to_cluster_representatives,
     build_indices_should_be_counted_masks,
     build_msa_index_can_be_masked,
@@ -25,7 +25,7 @@ from datahub.transforms.msa._msa_featurizing_utils import (
     summarize_clusters,
     uniformly_select_rows,
 )
-from datahub.transforms.msa.msa import (
+from atomworks.ml.transforms.msa.msa import (
     EncodeMSA,
     FeaturizeMSALikeAF3,
     FeaturizeMSALikeRF2AA,
@@ -34,9 +34,9 @@ from datahub.transforms.msa.msa import (
     PairAndMergePolymerMSAs,
     get_full_msa_profile_and_insertion_mean,
 )
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from datahub.utils.testing import cached_parse
-from datahub.utils.token import token_iter
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.utils.testing import cached_parse
+from atomworks.ml.utils.token import token_iter
 from tests.conftest import (
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,

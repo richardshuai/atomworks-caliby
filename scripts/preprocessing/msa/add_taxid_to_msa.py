@@ -18,7 +18,7 @@ from pathlib import Path
 import fire
 from tqdm import tqdm
 
-from datahub.transforms.msa._msa_loading_utils import extract_tax_id
+from atomworks.ml.transforms.msa._msa_loading_utils import extract_tax_id
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

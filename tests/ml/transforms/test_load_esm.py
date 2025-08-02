@@ -5,10 +5,10 @@ import numpy as np
 import pytest
 import torch
 
-from datahub.transforms.base import Compose
-from datahub.transforms.esm.esm import LoadPolymerESMs
-from datahub.transforms.filters import RemoveHydrogens, RemoveUnsupportedChainTypes
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.esm.esm import LoadPolymerESMs
+from atomworks.ml.transforms.filters import RemoveHydrogens, RemoveUnsupportedChainTypes
+from atomworks.ml.utils.testing import cached_parse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

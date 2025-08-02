@@ -3,15 +3,15 @@ import numpy as np
 import pytest
 from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
 
-from datahub.encoding_definitions import AF3_TOKENS
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.symmetry import (
+from atomworks.ml.encoding_definitions import AF3_TOKENS
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.symmetry import (
     FindAutomorphismsWithNetworkX,
     find_automorphisms_with_networkx,
     generate_automorphisms_from_atom_array_with_networkx,
 )
-from datahub.utils.numpy import get_indices_of_non_constant_columns
-from datahub.utils.testing import cached_parse
+from atomworks.ml.utils.numpy import get_indices_of_non_constant_columns
+from atomworks.ml.utils.testing import cached_parse
 
 TEST_CASES = [
     {

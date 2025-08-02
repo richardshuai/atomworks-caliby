@@ -6,8 +6,8 @@ from atomworks.io import parse
 from atomworks.io.common import immutable_lru_cache
 from atomworks.io.constants import PDB_MIRROR_PATH
 
-from datahub.preprocessing.constants import CELL_SIZE
-from datahub.preprocessing.utils.structure_utils import get_atom_mask_from_cell_list
+from atomworks.ml.preprocessing.constants import CELL_SIZE
+from atomworks.ml.preprocessing.utils.structure_utils import get_atom_mask_from_cell_list
 
 
 def get_pdb_mirror_path(pdbid: str, base_dir: str = PDB_MIRROR_PATH) -> str:

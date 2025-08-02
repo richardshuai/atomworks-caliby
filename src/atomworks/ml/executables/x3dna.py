@@ -2,7 +2,7 @@ import logging
 import os
 from os import PathLike
 
-from datahub.executables import Executable, ExecutableError
+from atomworks.ml.executables import Executable, ExecutableError
 
 logger = logging.getLogger(__name__)
 

@@ -42,11 +42,11 @@ import fire
 import pandas as pd
 from atomworks.io.enums import ChainType
 
-from datahub.utils.misc import hash_sequence
+from atomworks.ml.utils.misc import hash_sequence
 
 logger = logging.getLogger(__name__)
 
-# Convention from datahub-output pn_units dataframes
+# Convention from atomworks.ml-output pn_units dataframes
 SEQUENCE_COLUMN_NAME = "q_pn_unit_processed_entity_non_canonical_sequence"
 SEQUENCE_TYPE_COLUMN_NAME = "q_pn_unit_type"
 

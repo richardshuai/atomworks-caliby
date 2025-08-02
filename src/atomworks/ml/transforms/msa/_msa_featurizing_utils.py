@@ -1,9 +1,9 @@
 import torch
 
-from datahub.encoding_definitions import (
+from atomworks.ml.encoding_definitions import (
     TokenEncoding,
 )
-from datahub.utils.misc import grouped_count, grouped_sum
+from atomworks.ml.utils.misc import grouped_count, grouped_sum
 
 
 def transform_ins_counts(ins: torch.Tensor) -> torch.Tensor:

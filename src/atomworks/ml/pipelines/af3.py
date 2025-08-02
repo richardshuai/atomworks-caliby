@@ -12,10 +12,10 @@ from atomworks.io.constants import (
 )
 from atomworks.io.enums import ChainType
 
-from datahub.common import exists
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding
-from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
-from datahub.transforms.atom_array import (
+from atomworks.ml.common import exists
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding
+from atomworks.ml.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
+from atomworks.ml.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
     AddGlobalTokenIdAnnotation,
     AddWithinChainInstanceResIdx,
@@ -23,13 +23,13 @@ from datahub.transforms.atom_array import (
     ComputeAtomToTokenMap,
     CopyAnnotation,
 )
-from datahub.transforms.atom_frames import (
+from atomworks.ml.transforms.atom_frames import (
     AddAtomFrames,
     AddIsRealAtom,
     AddPolymerFrameIndices,
 )
-from datahub.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
-from datahub.transforms.base import (
+from atomworks.ml.transforms.atomize import AtomizeByCCDName, FlagNonPolymersForAtomization
+from atomworks.ml.transforms.base import (
     AddData,
     Compose,
     ConditionalRoute,
@@ -38,28 +38,28 @@ from datahub.transforms.base import (
     RandomRoute,
     SubsetToKeys,
 )
-from datahub.transforms.bfactor_conditioned_transforms import SetOccToZeroOnBfactor
-from datahub.transforms.bonds import AddAF3TokenBondFeatures
-from datahub.transforms.center_random_augmentation import CenterRandomAugmentation
-from datahub.transforms.chirals import AddAF3ChiralFeatures
-from datahub.transforms.covalent_modifications import (
+from atomworks.ml.transforms.bfactor_conditioned_transforms import SetOccToZeroOnBfactor
+from atomworks.ml.transforms.bonds import AddAF3TokenBondFeatures
+from atomworks.ml.transforms.center_random_augmentation import CenterRandomAugmentation
+from atomworks.ml.transforms.chirals import AddAF3ChiralFeatures
+from atomworks.ml.transforms.covalent_modifications import (
     FlagAndReassignCovalentModifications,
 )
-from datahub.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
-from datahub.transforms.diffusion.batch_structures import (
+from atomworks.ml.transforms.crop import CropContiguousLikeAF3, CropSpatialLikeAF3
+from atomworks.ml.transforms.diffusion.batch_structures import (
     BatchStructuresForDiffusionNoising,
 )
-from datahub.transforms.diffusion.edm import SampleEDMNoise
-from datahub.transforms.dna.pad_dna import PadDNA
-from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures, EncodeAtomArray
-from datahub.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
-from datahub.transforms.feature_aggregation.confidence import PackageConfidenceFeats
-from datahub.transforms.featurize_unresolved_residues import (
+from atomworks.ml.transforms.diffusion.edm import SampleEDMNoise
+from atomworks.ml.transforms.dna.pad_dna import PadDNA
+from atomworks.ml.transforms.encoding import EncodeAF3TokenLevelFeatures, EncodeAtomArray
+from atomworks.ml.transforms.feature_aggregation.af3 import AggregateFeaturesLikeAF3
+from atomworks.ml.transforms.feature_aggregation.confidence import PackageConfidenceFeats
+from atomworks.ml.transforms.featurize_unresolved_residues import (
     MaskPolymerResiduesWithUnresolvedFrameAtoms,
     PlaceUnresolvedTokenAtomsOnRepresentativeAtom,
     PlaceUnresolvedTokenOnClosestResolvedTokenInSequence,
 )
-from datahub.transforms.filters import (
+from atomworks.ml.transforms.filters import (
     FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
     RemoveHydrogens,
@@ -68,16 +68,16 @@ from datahub.transforms.filters import (
     RemoveTerminalOxygen,
     RemoveUnresolvedPNUnits,
 )
-from datahub.transforms.msa.msa import (
+from atomworks.ml.transforms.msa.msa import (
     EncodeMSA,
     FeaturizeMSALikeAF3,
     FillFullMSAFromEncoded,
     LoadPolymerMSAs,
     PairAndMergePolymerMSAs,
 )
-from datahub.transforms.rdkit_utils import GetRDKitChiralCenters
-from datahub.transforms.symmetry import FindAutomorphismsWithNetworkX
-from datahub.transforms.template import (
+from atomworks.ml.transforms.rdkit_utils import GetRDKitChiralCenters
+from atomworks.ml.transforms.symmetry import FindAutomorphismsWithNetworkX
+from atomworks.ml.transforms.template import (
     AddInputFileTemplate,
     AddRFTemplates,
     FeaturizeTemplatesLikeAF3,

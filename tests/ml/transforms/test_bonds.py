@@ -5,11 +5,11 @@ import pytest
 import torch
 from atomworks.io.constants import STANDARD_AA
 
-from datahub.encoding_definitions import AF3SequenceEncoding
-from datahub.transforms.atom_array import AddWithinChainInstanceResIdx, AddWithinPolyResIdxAnnotation
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose, ConvertToTorch
-from datahub.transforms.bonds import (
+from atomworks.ml.encoding_definitions import AF3SequenceEncoding
+from atomworks.ml.transforms.atom_array import AddWithinChainInstanceResIdx, AddWithinPolyResIdxAnnotation
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose, ConvertToTorch
+from atomworks.ml.transforms.bonds import (
     AddAF3TokenBondFeatures,
     AddRF2AABondFeaturesMatrix,
     AddRF2AATraversalDistanceMatrix,
@@ -18,11 +18,11 @@ from datahub.transforms.bonds import (
     _create_rf2aa_bond_features_matrix,
     get_token_bond_adjacency,
 )
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from datahub.transforms.encoding import EncodeAF3TokenLevelFeatures
-from datahub.transforms.filters import RemoveHydrogens
-from datahub.utils.testing import cached_parse
-from datahub.utils.token import get_token_starts
+from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from atomworks.ml.transforms.encoding import EncodeAF3TokenLevelFeatures
+from atomworks.ml.transforms.filters import RemoveHydrogens
+from atomworks.ml.utils.testing import cached_parse
+from atomworks.ml.utils.token import get_token_starts
 
 
 # NOTE: This is a helper function to visualize the adjacency matrix and reduction

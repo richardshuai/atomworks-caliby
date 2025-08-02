@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 import torch
 
-from datahub.transforms.rf2aa_assumptions import assert_satisfies_rf2aa_assumptions
+from atomworks.ml.transforms.rf2aa_assumptions import assert_satisfies_rf2aa_assumptions
 
 logger = logging.getLogger(__name__)
 

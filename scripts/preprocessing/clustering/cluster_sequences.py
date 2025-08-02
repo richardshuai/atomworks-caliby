@@ -16,7 +16,7 @@ import fire
 import pandas as pd
 from atomworks.io.enums import ChainType, ChainTypeInfo
 
-from datahub.preprocessing.utils.clustering import MMSeqs2Config, cluster_all_sequences
+from atomworks.ml.preprocessing.utils.clustering import MMSeqs2Config, cluster_all_sequences
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

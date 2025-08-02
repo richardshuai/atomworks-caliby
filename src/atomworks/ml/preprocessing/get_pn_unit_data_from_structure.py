@@ -22,10 +22,10 @@ from atomworks.io.common import not_isin
 from atomworks.io.constants import CRYSTALLIZATION_AIDS, METAL_ELEMENTS
 from atomworks.io.enums import ChainType
 
-import datahub.preprocessing.utils.structure_utils as dp  # to avoid circular imports
-from datahub.common import exists
-from datahub.preprocessing.constants import CELL_SIZE, ClashSeverity
-from datahub.utils.misc import hash_sequence
+import atomworks.ml.preprocessing.utils.structure_utils as dp  # to avoid circular imports
+from atomworks.ml.common import exists
+from atomworks.ml.preprocessing.constants import CELL_SIZE, ClashSeverity
+from atomworks.ml.utils.misc import hash_sequence
 
 logger = logging.getLogger("preprocess")
 

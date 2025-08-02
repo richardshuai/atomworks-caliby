@@ -4,19 +4,19 @@ from typing import Any
 import numpy as np
 import pytest
 
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.atom_array import (
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
+from atomworks.ml.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from datahub.transforms.crop import (
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from atomworks.ml.transforms.crop import (
     CropSpatialLikeAF3,
 )
-from datahub.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
-from datahub.transforms.masks import AddSpatialKNNMask, compute_spatial_knn_mask
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.filters import RemoveHydrogens, RemoveTerminalOxygen
+from atomworks.ml.transforms.masks import AddSpatialKNNMask, compute_spatial_knn_mask
+from atomworks.ml.utils.testing import cached_parse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

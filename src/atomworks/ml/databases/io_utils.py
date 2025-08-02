@@ -8,10 +8,10 @@ from atomworks.io import parse
 from atomworks.io.tools.inference import components_to_atom_array
 from atomworks.io.utils.io_utils import to_cif_file
 
-from datahub.databases.data_source_utils import DATA_SOURCE_DB_PATH, get_data_source
-from datahub.databases.dataclasses import BindNoBindMeasurement
-from datahub.databases.utils import _smart_cast
-from datahub.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
+from atomworks.ml.databases.data_source_utils import DATA_SOURCE_DB_PATH, get_data_source
+from atomworks.ml.databases.dataclasses import BindNoBindMeasurement
+from atomworks.ml.databases.utils import _smart_cast
+from atomworks.ml.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
 
 DATABASE_DEFAULT_CIF_PARSER_ARGS = DEFAULT_CIF_PARSER_ARGS | {
     "fix_arginines": False,

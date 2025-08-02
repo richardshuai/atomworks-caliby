@@ -15,16 +15,16 @@ from atomworks.io.utils.query import QueryExpression
 from atomworks.io.utils.selection import get_annotation
 from atomworks.io.utils.sequence import get_1_from_3_letter_code, get_3_from_1_letter_code
 
-from datahub.common import exists
-from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES
-from datahub.transforms._checks import (
+from atomworks.ml.common import exists
+from atomworks.ml.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atom_array import ApplyFunctionToAtomArray, logger
-from datahub.transforms.base import Transform
-from datahub.utils.token import get_token_starts
+from atomworks.ml.transforms.atom_array import ApplyFunctionToAtomArray, logger
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.token import get_token_starts
 
 
 def remove_unresolved_pn_units(atom_array: AtomArray) -> AtomArray:

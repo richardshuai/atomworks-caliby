@@ -1,17 +1,17 @@
 import numpy as np
 import pytest
 
-from datahub.transforms.atom_array import AddGlobalResIdAnnotation
-from datahub.transforms.atom_level_embeddings import (
+from atomworks.ml.transforms.atom_array import AddGlobalResIdAnnotation
+from atomworks.ml.transforms.atom_level_embeddings import (
     FeaturizeAtomLevelEmbeddings,
     featurize_atom_level_embeddings,
 )
-from datahub.transforms.base import Compose
-from datahub.transforms.cached_residue_data import (
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.cached_residue_data import (
     LoadCachedResidueLevelData,
     RandomSubsampleCachedConformers,
 )
-from datahub.utils.testing import cached_parse
+from atomworks.ml.utils.testing import cached_parse
 
 
 @pytest.fixture

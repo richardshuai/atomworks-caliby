@@ -1,8 +1,8 @@
 import torch
 
-from datahub.transforms._checks import check_contains_keys
-from datahub.transforms.base import Transform
-from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
+from atomworks.ml.transforms._checks import check_contains_keys
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 
 
 def sample_t_edm(sigma_data: float, diffusion_batch_size: int) -> torch.Tensor:

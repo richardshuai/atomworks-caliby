@@ -6,12 +6,12 @@ from pathlib import Path
 import numpy as np
 from atomworks.io.enums import ChainType
 
-from datahub.transforms.msa._msa_constants import (
+from atomworks.ml.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
     RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
 )
-from datahub.utils.io import get_sharded_file_path, open_file
-from datahub.utils.misc import hash_sequence
+from atomworks.ml.utils.io import get_sharded_file_path, open_file
+from atomworks.ml.utils.misc import hash_sequence
 
 
 def extract_tax_id(line: str, unknown_tax_id: str = "") -> str:

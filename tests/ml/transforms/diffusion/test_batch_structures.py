@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from datahub.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
+from atomworks.ml.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 
 
 def test_batch_structures():

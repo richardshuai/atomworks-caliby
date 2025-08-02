@@ -5,12 +5,12 @@ import pytest
 from biotite.structure import AtomArray
 from atomworks.io.constants import STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 
-from datahub.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
-from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES, ChainType
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose
-from datahub.transforms.covalent_modifications import flag_and_reassign_covalent_modifications
-from datahub.transforms.filters import (
+from atomworks.ml.datasets.parsers import PNUnitsDFParser, load_example_from_metadata_row
+from atomworks.ml.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES, ChainType
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.covalent_modifications import flag_and_reassign_covalent_modifications
+from atomworks.ml.transforms.filters import (
     FilterToSpecifiedPNUnits,
     HandleUndesiredResTokens,
     RemoveHydrogens,
@@ -22,9 +22,9 @@ from datahub.transforms.filters import (
     RemoveUnsupportedChainTypes,
     random_remove_pn_units_by_annotation_query,
 )
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from datahub.utils.testing import cached_parse
-from datahub.utils.token import get_token_count, get_token_starts
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.utils.testing import cached_parse
+from atomworks.ml.utils.token import get_token_count, get_token_starts
 
 
 @pytest.mark.parametrize("test_case", [{"pdb_id": "1s2k"}])

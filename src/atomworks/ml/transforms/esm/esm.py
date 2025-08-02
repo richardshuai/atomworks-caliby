@@ -8,19 +8,19 @@ from biotite.structure import AtomArray
 from atomworks.io.enums import ChainType
 from esm import pretrained
 
-from datahub.transforms._checks import (
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atom_array import (
+from atomworks.ml.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,
 )
-from datahub.transforms.base import Transform
-from datahub.transforms.esm._esm_generation import ESM_2_EMBED_DIM, generate_esm_embedding
-from datahub.utils.io import get_sharded_file_path
-from datahub.utils.misc import hash_sequence
-from datahub.utils.token import apply_token_wise, get_token_count, get_token_starts
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.transforms.esm._esm_generation import ESM_2_EMBED_DIM, generate_esm_embedding
+from atomworks.ml.utils.io import get_sharded_file_path
+from atomworks.ml.utils.misc import hash_sequence
+from atomworks.ml.utils.token import apply_token_wise, get_token_count, get_token_starts
 
 logger = logging.getLogger(__name__)
 

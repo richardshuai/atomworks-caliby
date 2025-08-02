@@ -5,18 +5,18 @@ import torch
 from biotite.structure import AtomArray
 from einops import rearrange, repeat
 
-from datahub.encoding_definitions import TokenEncoding
-from datahub.transforms._checks import (
+from atomworks.ml.encoding_definitions import TokenEncoding
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
 )
-from datahub.transforms.atom_array import AddProteinTerminiAnnotation
-from datahub.transforms.base import Transform
-from datahub.transforms.bonds import AddRF2AABondFeaturesMatrix, AddRF2AATraversalDistanceMatrix
-from datahub.transforms.msa.msa import FeaturizeMSALikeRF2AA
-from datahub.transforms.template import RF2AATemplate
-from datahub.utils.token import get_token_starts
+from atomworks.ml.transforms.atom_array import AddProteinTerminiAnnotation
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.transforms.bonds import AddRF2AABondFeaturesMatrix, AddRF2AATraversalDistanceMatrix
+from atomworks.ml.transforms.msa.msa import FeaturizeMSALikeRF2AA
+from atomworks.ml.transforms.template import RF2AATemplate
+from atomworks.ml.utils.token import get_token_starts
 
 
 class AggregateFeaturesLikeRF2AA(Transform):

@@ -11,14 +11,14 @@ from atomworks.io.tools.rdkit import atom_array_from_rdkit
 from atomworks.io.utils.selection import get_residue_starts
 from rdkit.Chem import Mol
 
-from datahub.transforms._checks import (
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
     check_is_instance,
     check_nonzero_length,
 )
-from datahub.transforms.base import Transform
-from datahub.utils.token import get_af3_token_center_coords, get_token_count, spread_token_wise
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.token import get_af3_token_center_coords, get_token_count, spread_token_wise
 
 logger = logging.getLogger(__name__)
 

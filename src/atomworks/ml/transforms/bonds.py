@@ -2,16 +2,16 @@ import numpy as np
 import scipy
 from biotite.structure import AtomArray
 
-from datahub.transforms._checks import (
+from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_atom_array_has_bonds,
     check_contains_keys,
     check_is_instance,
     check_nonzero_length,
 )
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Transform
-from datahub.utils.token import apply_segment_wise_2d, get_token_starts
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Transform
+from atomworks.ml.utils.token import apply_segment_wise_2d, get_token_starts
 
 # Constants copied from `chemdata` to decouple the RF2AA repository from the datahub pipeline
 RF2AA_NO_BOND = 0

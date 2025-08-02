@@ -1,8 +1,8 @@
 import pytest
 
-import datahub.databases.data_source_utils as ds_utils
-from datahub.databases.dataclasses import DataSource
-from datahub.databases.enums import DataSourceType, ExperimentType, ProblemType
+import atomworks.ml.databases.data_source_utils as ds_utils
+from atomworks.ml.databases.dataclasses import DataSource
+from atomworks.ml.databases.enums import DataSourceType, ExperimentType, ProblemType
 
 
 def make_example_datasource():

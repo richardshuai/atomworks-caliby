@@ -6,8 +6,8 @@ from typing import Any, Sequence
 
 import pandas as pd
 
-from datahub.common import as_list
-from datahub.datasets.parsers import MetadataRowParser
+from atomworks.ml.common import as_list
+from atomworks.ml.datasets.parsers import MetadataRowParser
 
 
 def build_path_from_template(path_template: str, **kwargs) -> Path:

@@ -9,8 +9,8 @@ from typing import List
 
 import pandas as pd
 
-from datahub.preprocessing.constants import ENTRIES_TO_EXCLUDE_FOR_PRE_PROCESSING
-from datahub.preprocessing.get_pn_unit_data_from_structure import DataPreprocessor
+from atomworks.ml.preprocessing.constants import ENTRIES_TO_EXCLUDE_FOR_PRE_PROCESSING
+from atomworks.ml.preprocessing.get_pn_unit_data_from_structure import DataPreprocessor
 
 logger = logging.getLogger(__name__)
 

@@ -3,8 +3,8 @@ import numpy as np
 import pytest
 from atomworks.io.constants import STANDARD_AA
 
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.utils.testing import cached_parse
 
 
 def test_fail_on_invalid_init():

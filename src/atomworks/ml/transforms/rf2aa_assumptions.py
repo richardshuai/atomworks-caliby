@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from assertpy import assert_that
 
-from datahub.transforms.base import Transform
+from atomworks.ml.transforms.base import Transform
 
 
 # Helper functions

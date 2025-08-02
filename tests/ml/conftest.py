@@ -11,8 +11,8 @@ from atomworks.io.constants import AF3_EXCLUDED_LIGANDS_REGEX, _load_env_var
 from atomworks.io.tools.inference import SequenceComponent
 from dotenv import load_dotenv
 
-import datahub.databases.data_source_utils as ds_utils
-from datahub.databases.enums import (
+import atomworks.ml.databases.data_source_utils as ds_utils
+from atomworks.ml.databases.enums import (
     BindingLabel,
     ConfidenceLabel,
     DataSourceType,
@@ -22,19 +22,19 @@ from datahub.databases.enums import (
     StructureType,
     TagType,
 )
-from datahub.datasets.datasets import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
-from datahub.datasets.parsers import (
+from atomworks.ml.datasets.datasets import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
+from atomworks.ml.datasets.parsers import (
     GenericDFParser,
     InterfacesDFParser,
     PNUnitsDFParser,
     ValidationDFParserLikeAF3,
 )
-from datahub.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
-from datahub.pipelines.af3 import build_af3_transform_pipeline
-from datahub.pipelines.rf2aa import build_rf2aa_transform_pipeline
-from datahub.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES_INTS
-from datahub.utils.io import read_parquet_with_metadata
-from datahub.utils.testing import cached_parse
+from atomworks.ml.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
+from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
+from atomworks.ml.pipelines.rf2aa import build_rf2aa_transform_pipeline
+from atomworks.ml.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES_INTS
+from atomworks.ml.utils.io import read_parquet_with_metadata
+from atomworks.ml.utils.testing import cached_parse
 
 ##########################################################################################
 # + ----------------------------------- Environment ------------------------------------ +

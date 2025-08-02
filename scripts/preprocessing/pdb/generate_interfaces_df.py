@@ -12,7 +12,7 @@ import numpy as np  # noqa: F401 (needed for `eval` statements)
 import pandas as pd
 from tqdm import tqdm
 
-from datahub.common import generate_example_id
+from atomworks.ml.common import generate_example_id
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

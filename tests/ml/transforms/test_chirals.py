@@ -6,25 +6,25 @@ import pytest
 import torch
 from openbabel import openbabel, pybel
 
-from datahub.encoding_definitions import RF2AA_ATOM36_ENCODING
-from datahub.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
-from datahub.transforms.atom_array import AddGlobalAtomIdAnnotation
-from datahub.transforms.atomize import AtomizeByCCDName
-from datahub.transforms.base import Compose
-from datahub.transforms.chirals import AddAF3ChiralFeatures, AddRF2AAChiralFeatures, get_dih, get_rf2aa_chiral_features
-from datahub.transforms.covalent_modifications import FlagAndReassignCovalentModifications
-from datahub.transforms.crop import CropSpatialLikeAF3
-from datahub.transforms.filters import RemoveHydrogens
-from datahub.transforms.openbabel_utils import (
+from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING
+from atomworks.ml.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
+from atomworks.ml.transforms.atom_array import AddGlobalAtomIdAnnotation
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.chirals import AddAF3ChiralFeatures, AddRF2AAChiralFeatures, get_dih, get_rf2aa_chiral_features
+from atomworks.ml.transforms.covalent_modifications import FlagAndReassignCovalentModifications
+from atomworks.ml.transforms.crop import CropSpatialLikeAF3
+from atomworks.ml.transforms.filters import RemoveHydrogens
+from atomworks.ml.transforms.openbabel_utils import (
     AddOpenBabelMoleculesForAtomizedMolecules,
     GetChiralCentersFromOpenBabel,
     atom_array_to_openbabel,
     get_chiral_centers,
     smiles_to_openbabel,
 )
-from datahub.transforms.rdkit_utils import GetRDKitChiralCenters
-from datahub.utils.rng import create_rng_state_from_seeds, rng_state
-from datahub.utils.testing import cached_parse
+from atomworks.ml.transforms.rdkit_utils import GetRDKitChiralCenters
+from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from atomworks.ml.utils.testing import cached_parse
 
 
 # NOTE: The following section is copied directly from rf2aa to ensure repeatability
