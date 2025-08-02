@@ -28,6 +28,18 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python build dependencies
+        run: |
+          pip install build twine
+
+      - name: Build Python package
+        run: python -m build
+
       - name: Install Node dependencies
         run: >
           npm install --no-save
@@ -46,7 +58,7 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_TOKEN }}
         run: |
           npx semantic-release
-          VERSION=$(git describe --tags --abbrev=0 --match "v*")
+          VERSION=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "no-version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build documentation
