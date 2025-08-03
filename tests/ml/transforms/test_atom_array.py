@@ -23,8 +23,8 @@ from atomworks.ml.transforms.base import (
 from atomworks.ml.transforms.msa._msa_constants import THREE_LETTER_TO_MSA_INTEGER
 from atomworks.ml.transforms.msa.msa import LoadPolymerMSAs
 from atomworks.ml.utils.testing import cached_parse
-from tests.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
-from tests.transforms.msa.test_pair_and_merge_polymer_msas import MSA_PAIRING_PIPELINE_TEST_CASES
+from tests.ml.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
+from tests.ml.transforms.msa.test_pair_and_merge_polymer_msas import MSA_PAIRING_PIPELINE_TEST_CASES
 
 
 @pytest.mark.parametrize("pdb_id", ["5ocm", "6lyz"])

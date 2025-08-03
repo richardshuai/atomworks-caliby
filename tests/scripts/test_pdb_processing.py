@@ -5,6 +5,11 @@ from pathlib import Path
 import pytest
 
 from atomworks.ml.utils.testing import get_pdb_mirror_path
+
+file_path = Path(__file__)
+project_path = file_path.parents[-3]
+import sys
+sys.path.append(project_path)
 from scripts.preprocessing.pdb.generate_interfaces_df import generate_interfaces_df
 from scripts.preprocessing.pdb.generate_pn_units_df import generate_pn_units_df
 from scripts.preprocessing.pdb.get_csvs_from_structures import run_pipeline as process_pdb
