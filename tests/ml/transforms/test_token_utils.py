@@ -169,20 +169,16 @@ def test_add_global_token_id_annotation_when_partially_atomized(pdb_id):
 
     # cross check by iterating over the tokens
     # ... via token starts
-    counter = 0
     token_start_idxs = get_token_starts(atom_array, add_exclusive_stop=True)
-    for start, end in zip(token_start_idxs[:-1], token_start_idxs[1:], strict=False):
+    for counter, (start, end) in enumerate(zip(token_start_idxs[:-1], token_start_idxs[1:], strict=False)):
         token = atom_array[start:end]
         assert len(token) >= 1, f"token should have length at least 1 but has length {len(token)}"
         assert np.all(token.token_id == counter), f"token_id should be {counter} but is {token.token_id}"
-        counter += 1
 
     # ... via token_iter
-    counter = 0
-    for token in token_iter(atom_array):
+    for counter, token in enumerate(token_iter(atom_array)):
         assert len(token) >= 1, f"token should have length at least 1 but has length {len(token)}"
         assert np.all(token.token_id == counter), f"token_id should be {counter} but is {token.token_id}"
-        counter += 1
 
 
 @pytest.mark.parametrize("pdb_id", ["6lyz", "5ocm"])

@@ -13,6 +13,7 @@ from pathlib import Path
 import fire
 import pandas as pd
 
+from atomworks.io.constants import PDB_MIRROR_PATH
 from scripts.preprocessing.clustering.cluster_sequences import cluster_and_annotate_clusters
 from scripts.preprocessing.pdb.confscript import get_all_files_in_dir
 from scripts.preprocessing.pdb.generate_interfaces_df import generate_and_save_interfaces_df
@@ -23,7 +24,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DEFAULT_TEST_DATA_DIR = Path(os.path.dirname(__file__)).parent.parent.parent / "tests" / "data"
-DEFAULT_BASE_CIF_DIR = Path("/projects/ml/frozen_pdb_copies/2024_12_01_pdb")
 
 # fmt: off
 PDB_IDS_TO_INCLUDE_IN_TEST_DATASETS = [
@@ -51,7 +51,7 @@ If we use a PDB ID in a Transforms test case, we should add it here.
 def create_test_datasets(
     num_pdbs: int = 3000,
     test_data_dir: Path = DEFAULT_TEST_DATA_DIR,
-    base_cif_dir: Path = DEFAULT_BASE_CIF_DIR,
+    base_cif_dir: Path = PDB_MIRROR_PATH,
     pn_units_df_path: os.PathLike = None,
 ):
     """Process PDB IDs, concatenate CSV files, and generate interfaces dataframe.

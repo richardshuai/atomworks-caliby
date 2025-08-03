@@ -195,7 +195,7 @@ def build_af3_transform_pipeline(
         ),
         FlagAndReassignCovalentModifications(),
         FlagNonPolymersForAtomization(),
-        AddGlobalAtomIdAnnotation(),
+        AddGlobalAtomIdAnnotation(allow_overwrite=True),
         AtomizeByCCDName(
             atomize_by_default=True,
             res_names_to_ignore=STANDARD_AA + STANDARD_RNA + STANDARD_DNA,

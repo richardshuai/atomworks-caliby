@@ -194,6 +194,7 @@ addopts = "--import-mode=importlib"
 pythonpath = ["src/atomworks", "tests"]
 markers = [
     "requires_internet: marks tests that require an internet connection",
+    "slow: marks tests that are slow",
 ]
 
 [tool.coverage.run]

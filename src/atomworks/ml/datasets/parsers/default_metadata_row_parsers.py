@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 
+from atomworks.io.constants import PDB_MIRROR_PATH
 from atomworks.ml.common import as_list
 from atomworks.ml.datasets.parsers import MetadataRowParser
 
@@ -97,9 +98,7 @@ class PNUnitsDFParser(MetadataRowParser):
 
     def __init__(
         self,
-        base_dir: Path | str | list[Path | str] | tuple[Path | str, ...] = Path(
-            "/projects/ml/frozen_pdb_copies/2024_12_01_pdb"
-        ),
+        base_dir: Path | str | list[Path | str] | tuple[Path | str, ...] = Path(PDB_MIRROR_PATH),
         file_extension: str | list[str] | tuple[str, ...] = ".cif.gz",
         path_template: str | list[str] | tuple[str, ...] = "{base_dir}/{pdb_id[1:3]}/{pdb_id}{file_extension}",
     ):
@@ -151,9 +150,7 @@ class InterfacesDFParser(MetadataRowParser):
 
     def __init__(
         self,
-        base_dir: Path | str | list[Path | str] | tuple[Path | str, ...] = Path(
-            "/projects/ml/frozen_pdb_copies/2024_12_01_pdb"
-        ),
+        base_dir: Path | str | list[Path | str] | tuple[Path | str, ...] = Path(PDB_MIRROR_PATH),
         file_extension: str | list[str] | tuple[str, ...] = ".cif.gz",
         path_template: str | list[str] | tuple[str, ...] = "{base_dir}/{pdb_id[1:3]}/{pdb_id}{file_extension}",
     ):
