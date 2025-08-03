@@ -113,7 +113,8 @@ def _add_bonds(
             "occur if biotite was used directly. Please re-load the structure from CIF using `atomworks.io`."
         )
 
-    # Add intra-residue bonds as specified in the CIF, or fallback to CCD
+    # Compute intra-residue bonds as specified in the CIF, or fallback to CCD
+    custom_bond_dict = None
     if "chem_comp_bond" in cif_block:
         try:
             custom_bond_dict = pdbx.convert._parse_intra_residue_bonds(cif_block["chem_comp_bond"])
@@ -125,25 +126,25 @@ def _add_bonds(
                 stacklevel=2,
             )
             custom_bond_dict = None
-        bonds = connect_via_residue_names(atom_array, custom_bond_dict=custom_bond_dict, inter_residue=False)
-    else:
-        bonds = connect_via_residue_names(atom_array, inter_residue=False)
-    atom_array.bonds = bonds
+    intra_residue_bonds: struc.bonds.BondList = connect_via_residue_names(
+        atom_array, custom_bond_dict=custom_bond_dict, inter_residue=False
+    )
 
     if contains_uninformative_res_ids:
-        # Detect spurious bonds. Note that at this point all bonds should be intra-residue
-        bonds_array = atom_array.bonds.as_array()
-        auth_seq_ids = atom_array.auth_seq_id
-        bonds_between_auth_seq_ids = auth_seq_ids[bonds_array[:, 0]] != auth_seq_ids[bonds_array[:, 1]]
-        # Remove spurious bonds
-        for bond in bonds_array[bonds_between_auth_seq_ids, :2]:
-            atom_array.bonds.remove_bond(bond[0], bond[1])
+        # Detect spurious inter-residue bonds - at this point all bonds should be intra-residue
+        bonds_array = intra_residue_bonds.as_array()
+        auth_seq_ids = atom_array.auth_seq_id.astype(int)
+        is_spurious = auth_seq_ids[bonds_array[:, 0]] != auth_seq_ids[bonds_array[:, 1]]
+        # Remove spurious inter-residue bonds
+        intra_residue_bonds._bonds = intra_residue_bonds._bonds[~is_spurious]
 
         # Temporarily replace uninformative label_seq_ids with auth_seq_ids
-        replacement_mask = atom_array.res_id == -1
-        atom_array.set_annotation("replacement_mask", replacement_mask)  # To preserve info through leaving atom removal
-        replacement_idces = np.where(replacement_mask)[0]
-        atom_array.res_id[replacement_idces] = atom_array.auth_seq_id[replacement_idces]
+        to_replace = atom_array.res_id == -1
+        atom_array.set_annotation("_to_replace", to_replace)  # To preserve info through leaving atom removal
+        atom_array.res_id[to_replace] = atom_array.auth_seq_id[to_replace]
+
+    # Add intra-residue bonds
+    atom_array.bonds = intra_residue_bonds
 
     # Correctly add inter-residue bonds for each AtomArray
     if isinstance(atom_array, AtomArrayStack):
@@ -169,8 +170,8 @@ def _add_bonds(
 
     if contains_uninformative_res_ids:
         # Revert back to the original label_seq_id
-        atom_array.res_id[atom_array.replacement_mask] = -1
-        atom_array.del_annotation("replacement_mask")
+        atom_array.res_id[atom_array._to_replace] = -1
+        atom_array.del_annotation("_to_replace")
 
     return atom_array
 
@@ -725,7 +726,7 @@ def to_cif_file(
     extra_fields: list[str] | Literal["all"] = [],
     extra_categories: dict[str, dict[str, float | int | str | list | np.ndarray]] | None = None,
     _allow_ambiguous_bond_annotations: bool = False,
-    ) -> os.PathLike:
+) -> os.PathLike:
     """Convert an AtomArray structure to a CIF/BCIF formatted file.
 
     Args:
@@ -745,7 +746,7 @@ def to_cif_file(
         extra_categories (dict[str, dict[str, float | int | str | list | np.ndarray]] | None, optional):
             Additional CIF categories to include in data block. These must be a dict of form {category_name: {column_name: value}}.
             Example: {"reflns": {"pdbx_reflns_number_d_mean": 1.0}, "my_metadata": {"hi": np.arange(10)}}
-        
+
     Returns:
         str: The file path where the CIF formatted structure was saved.
 
