@@ -73,6 +73,7 @@ def test_infer_filetype():
         buffer = io.StringIO(f.read())
         assert infer_pdb_file_type(buffer) == "pdb"
 
+
 @pytest.mark.requires_internet
 @pytest.mark.parametrize(
     "extra_fields, include_bonds, model",

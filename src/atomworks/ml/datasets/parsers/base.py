@@ -7,7 +7,6 @@ import pandas as pd
 from atomworks.io import parse
 from atomworks.io.constants import CRYSTALLIZATION_AIDS
 
-"""Default arguments for CIFUtils."""
 DEFAULT_CIF_PARSER_ARGS = {
     "add_missing_atoms": True,
     "add_id_and_entity_annotations": True,
@@ -20,6 +19,9 @@ DEFAULT_CIF_PARSER_ARGS = {
     "fix_arginines": True,
     "model": None,  # all models
 }
+"""Default cif parser arguments for `atomworks.io.parse`.
+This dictionary exists to provide a convenient import for the default parameters.
+"""
 
 
 class MetadataRowParser(ABC):

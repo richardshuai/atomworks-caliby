@@ -202,7 +202,9 @@ def find_missing_msa_protein_sequences(
         ):
             missing_sequences_mask.append(does_sequence_exist)
 
-    missing_sequences = [seq for seq, does_exist in zip(all_msa_sequences, missing_sequences_mask, strict=False) if not does_exist]
+    missing_sequences = [
+        seq for seq, does_exist in zip(all_msa_sequences, missing_sequences_mask, strict=False) if not does_exist
+    ]
 
     logger.info(f"Found {len(missing_sequences)} missing sequences. Saving to {output_path}.")
 
