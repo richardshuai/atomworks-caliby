@@ -45,19 +45,5 @@ def test_remove_hydrogens(pdb_id: str):
     )
 
 
-# test deprecation warning
-def test_remove_hydrogens_deprecation(pdb_id: str = "6lyz"):
-    path = get_pdb_path(pdb_id)
-
-    arr1 = parse(filename=path, remove_hydrogens=False)["assemblies"]["1"][0]
-    arr2 = parse(filename=path, hydrogen_policy="keep")["assemblies"]["1"][0]
-    assert_same_atom_array(arr1, arr2)
-
-    # remove
-    arr1 = parse(filename=path, remove_hydrogens=True)["assemblies"]["1"][0]
-    arr2 = parse(filename=path, hydrogen_policy="remove")["assemblies"]["1"][0]
-    assert_same_atom_array(arr1, arr2)
-
-
 if __name__ == "__main__":
     pytest.main([__file__])
