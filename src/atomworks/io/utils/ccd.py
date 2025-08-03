@@ -1,8 +1,8 @@
+import functools
 import logging
 import os
 from collections import defaultdict
 from collections.abc import Iterable
-from functools import cache
 from typing import Literal
 
 import biotite.structure as struc
@@ -17,6 +17,7 @@ from atomworks.io.constants import (
     CCD_MIRROR_PATH,
     DNA_LIKE_CHEM_TYPES,
     DO_NOT_MATCH_CCD,
+    NA_LIKE_CHEM_TYPES,
     RNA_LIKE_CHEM_TYPES,
     UNKNOWN_AA,
     UNKNOWN_DNA,
@@ -28,16 +29,62 @@ from atomworks.io.enums import ChainType, ChainTypeInfo
 logger = logging.getLogger(__name__)
 
 
-@cache
+@functools.cache
+def aa_chem_comps() -> frozenset[str]:
+    """Set of amino acid chemical components. E.g. {'ALA', 'ARG', ...}"""
+    return frozenset(struc.info.groups._get_group_members(list(AA_LIKE_CHEM_TYPES)))
+
+
+@functools.cache
+def na_chem_comps() -> frozenset[str]:
+    """Set of nucleic acid chemical components. E.g. {'DA', 'DC', ...}"""
+    return frozenset(struc.info.groups._get_group_members(list(NA_LIKE_CHEM_TYPES)))
+
+
+@functools.cache
+def rna_chem_comps() -> frozenset[str]:
+    """Set of RNA chemical components. E.g. {'A', 'C', ...}"""
+    return frozenset(struc.info.groups._get_group_members(list(RNA_LIKE_CHEM_TYPES)))
+
+
+@functools.cache
+def dna_chem_comps() -> frozenset[str]:
+    """Set of DNA chemical components. E.g. {'DA', 'DC', ...}"""
+    return frozenset(struc.info.groups._get_group_members(list(DNA_LIKE_CHEM_TYPES)))
+
+
+@functools.cache
+def chem_comp_to_one_letter() -> dict[str, str]:
+    """Dictionary mapping the chemical components to their 1-letter code.
+
+    NOTE: Chemical components historically used to be 3-letter codes,
+    but nowadays longer codes exist.
+    """
+    ccd = struc.info.ccd.get_ccd()
+    three_letter_code = ccd["chem_comp"]["three_letter_code"].as_array()
+    one_letter_code = ccd["chem_comp"]["one_letter_code"].as_array()
+
+    three_to_one = {}
+    for full, one in zip(three_letter_code, one_letter_code, strict=False):
+        if (len(one) > 1) or (one == "?"):
+            continue
+        if full == "?":
+            continue
+        three_to_one[full] = one
+
+    return three_to_one
+
+
+@functools.cache
 def get_available_ccd_codes_in_mirror(ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH) -> frozenset[str]:
-    """Returns a frozenset of all CCD codes available in the local mirror."""
+    """Set of all CCD codes available in the local mirror."""
     cif = pdbx.CIFFile.read(os.path.join(ccd_mirror_path, "components.cif"))
     return frozenset(cif.keys())
 
 
-@cache
+@functools.cache
 def get_available_ccd_codes_in_biotite() -> frozenset[str]:
-    """Returns a frozenset of all CCD codes available in Biotite's built-in Chemical Component Dictionary."""
+    """Set of all CCD codes available in Biotite's built-in Chemical Component Dictionary."""
     return frozenset(struc.info.ccd.get_ccd()["chem_comp"]["id"].as_array())
 
 
@@ -391,7 +438,7 @@ def _find_connected_components_after_removal(graph: nx.Graph, node_to_remove: in
     return components
 
 
-@cache
+@functools.cache
 def get_chem_comp_leaving_atom_names(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, mode: Literal["warn", "raise"] = "warn"
 ) -> dict[str, tuple[str, ...]]:
@@ -470,9 +517,14 @@ def get_chem_comp_leaving_atom_names(
     return leaving_atom_names
 
 
-@cache
+@functools.cache
 def _chem_comp_type_dict() -> dict[str, str]:
-    """Get a dictionary of all residue names and their corresponding chemical component types."""
+    """Get a dictionary of all residue names and their corresponding chemical component types.
+
+    Example:
+        >>> _chem_comp_type_dict()["ALA"]
+        'L-PEPTIDE LINKING'
+    """
     ccd = struc.info.ccd.get_ccd()  # NOTE: biotite caches this internally
     chem_comp_ids = np.char.upper(ccd["chem_comp"]["id"].as_array())
     chem_comp_types = np.char.upper(ccd["chem_comp"]["type"].as_array())

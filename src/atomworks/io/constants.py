@@ -214,6 +214,30 @@ CARBOHYDRATE_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset(
 )
 """Set of carbohydrate-like chemical component types. All uppercase."""
 
+CARBOHYDRATE_L_CHEM_TYPES: Final[frozenset[str]] = frozenset(
+    [
+        chemtype.upper()
+        for chemtype in (
+            "L-saccharide",
+            "L-saccharide, alpha linking",
+            "L-saccharide, beta linking",
+        )
+    ]
+)
+"""Set of carbohydrate-L (left-handed saccharides) chemical component types. All uppercase."""
+
+CARBOHYDRATE_D_CHEM_TYPES: Final[frozenset[str]] = frozenset(
+    [
+        chemtype.upper()
+        for chemtype in (
+            "D-saccharide",
+            "D-saccharide, alpha linking",
+            "D-saccharide, beta linking",
+        )
+    ]
+)
+"""Set of carbohydrate-D (right-handed saccharides) chemical component types. All uppercase."""
+
 LIGAND_LIKE_CHEM_TYPES: Final[frozenset[str]] = frozenset([chemtype.upper() for chemtype in ("non-polymer", "other")])
 """Set of ligand-like chemical component types. All uppercase."""
 
@@ -499,17 +523,40 @@ Reference:
 """
 
 UNKNOWN_LIGAND: Final[str] = sys.intern("UNL")
-"""The CCD code for unknown ligands."""
+"""The CCD code for unknown ligands (`UNL`).
+
+Reference: 
+    - https://www.wwpdb.org/documentation/procedure
+"""
 
 UNKNOWN_AA: Final[str] = sys.intern("UNK")
-"""The CCD code for unknown amino acids."""
+"""The CCD code for unknown amino acids (`UNK`).
+
+Reference: 
+    - https://www.wwpdb.org/documentation/procedure
+"""
 
 # TODO: Change these to something unique.
-UNKNOWN_RNA: Final[str] = sys.intern("X")
-"""The (non-standard) CCD code for unknown RNA nucleotides."""
+UNKNOWN_RNA: Final[str] = sys.intern("N")
+"""The CCD code for unknown RNA nucleotides (`N`).
 
-UNKNOWN_DNA: Final[str] = sys.intern("DX")
-"""The (non-standard) CCD code for unknown DNA nucleotides."""
+Reference: 
+    - https://www.wwpdb.org/documentation/procedure
+"""
+
+UNKNOWN_DNA: Final[str] = sys.intern("DN")
+"""The CCD code for unknown DNA nucleotides (`DN`).
+
+Reference: 
+    - https://www.wwpdb.org/documentation/procedure
+"""
+
+UNKNOWN_ATOM: Final[str] = sys.intern("UNX")
+"""The CCD code for unknown atoms (`UNX`).
+
+Reference: 
+    - https://www.wwpdb.org/documentation/procedure
+"""
 
 GAP: Final[str] = sys.intern("<G>")
 """The (non-standard) code for a gap token."""
@@ -554,6 +601,9 @@ STANDARD_RNA: Final[tuple[str, ...]] = tuple(sorted(["A", "C", "G", "U"]))
 
 STANDARD_DNA: Final[tuple[str, ...]] = tuple(sorted(["DA", "DC", "DG", "DT"]))
 """Tuple of the CCD codes for the standard 4 DNA nucleotides."""
+
+STANDARD_NA: Final[tuple[str, ...]] = STANDARD_RNA + STANDARD_DNA
+"""Tuple of the CCD codes for the standard 8 nucleotides (4 RNA + 4 DNA)."""
 
 STANDARD_DNA_ONE_LETTER: Final[tuple[str, ...]] = tuple(sorted(["A", "C", "G", "T"]))
 """Tuple of the one-letter symbols for the standard 4 DNA nucleotides."""

@@ -15,10 +15,14 @@ from atomworks.io.constants import (
     CHEM_COMP_TYPES,
     DNA_LIKE_CHEM_TYPES,
     ELEMENT_NAME_TO_ATOMIC_NUMBER,
+    GAP,
     RNA_LIKE_CHEM_TYPES,
     STANDARD_AA,
     STANDARD_DNA,
     STANDARD_RNA,
+    UNKNOWN_AA,
+    UNKNOWN_DNA,
+    UNKNOWN_RNA,
 )
 from atomworks.io.utils.ccd import get_chem_comp_type
 from atomworks.ml.common import exists
@@ -355,12 +359,12 @@ RF2AA_TOKEN_TO_STANDARD_TOKEN = {
     ' DC': 'DC',
     ' DG': 'DG',
     ' DT': 'DT',
-    ' DX': 'DX',
+    ' DX': 'DN',
     ' RA': 'A',
     ' RC': 'C',
     ' RG': 'G',
     ' RU': 'U',
-    ' RX': 'X',
+    ' RX': 'N',
     'HIS_D': 'HIS_D',
     'Al': 13,
     'As': 33,
@@ -476,22 +480,22 @@ RF2_ATOM23_ENCODING = TokenEncoding(
         'DC': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", 'N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6', '', '', '', ''],
         'DG': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", 'N9', 'C4', 'N3', 'C2', 'N1', 'C6', 'C5', 'N7', 'C8', 'N2', 'O6', ''],
         'DT': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", 'N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C7', 'C6', '', '', ''],
-        'DX': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", '', '', '', '', '', '', '', '', '', '', '', ''],
+        'DN': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", '', '', '', '', '', '', '', '', '', '', '', ''],
         'A': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9', ''],
         'C': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6', '', '', ''],
         'G': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9'],
         'U': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6', '', '', ''],
-        'X': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", '', '', '', '', '', '', '', '', '', '', '']
+        'N': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", '', '', '', '', '', '', '', '', '', '', '']
     },
     chemcomp_type_to_unknown=(
-        {chem_type: "UNK" for chem_type in AA_LIKE_CHEM_TYPES}
-        | {chem_type: "DX" for chem_type in DNA_LIKE_CHEM_TYPES}
-        | {chem_type: "X" for chem_type in RNA_LIKE_CHEM_TYPES}
+        {chem_type: UNKNOWN_AA for chem_type in AA_LIKE_CHEM_TYPES}
+        | {chem_type: UNKNOWN_DNA for chem_type in DNA_LIKE_CHEM_TYPES}
+        | {chem_type: UNKNOWN_RNA for chem_type in RNA_LIKE_CHEM_TYPES}
     ),
 )
 """RF2 atom23 encoding for proteins and nucleic acids.
     - Encodes only the heavy atoms (max 22, for `RG`)
-    - Includes 3 unknown tokens: `UNK` for proteins, `DX` for dna, `X` for RNA
+    - Includes 3 unknown tokens: `UNK` for proteins, `DN` for dna, `N` for RNA
 Print it out to see a visual representation of the encoding.
 """
 
@@ -523,17 +527,17 @@ RF2_ATOM36_ENCODING = TokenEncoding(
         'DC': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", 'N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6', '', '', '', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", 'H42', 'H41', 'H5', 'H6', '', ''],
         'DG': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", 'N9', 'C4', 'N3', 'C2', 'N1', 'C6', 'C5', 'N7', 'C8', 'N2', 'O6', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", 'H1', 'H22', 'H21', 'H8', '', ''],
         'DT': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", 'N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C7', 'C6', '', '', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", 'H3', 'H71', 'H72', 'H73', 'H6', ''],
-        'DX': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", '', '', '', '', '', '', '', '', '', '', '', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", '', '', '', '', '', ''],
+        'DN': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", '', '', '', '', '', '', '', '', '', '', '', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", '', '', '', '', '', ''],
         'A': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", 'H2', 'H61', 'H62', 'H8', '', ''],
         'C': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6', '', '', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", 'H42', 'H41', 'H5', 'H6', '', ''],
         'G': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", 'H1', 'H22', 'H21', 'H8', '', ''],
         'U': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6', '', '', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", 'H3', 'H5', 'H6', '', '', ''],
-        'X': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", '', '', '', '', '', '', '', '', '', '', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", '', '', '', '', '', '']
+        'N': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", '', '', '', '', '', '', '', '', '', '', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", '', '', '', '', '', '']
     },
     chemcomp_type_to_unknown=(
-        {chem_type: "UNK" for chem_type in AA_LIKE_CHEM_TYPES}
-        | {chem_type: "DX" for chem_type in DNA_LIKE_CHEM_TYPES}
-        | {chem_type: "X" for chem_type in RNA_LIKE_CHEM_TYPES}
+        {chem_type: UNKNOWN_AA for chem_type in AA_LIKE_CHEM_TYPES}
+        | {chem_type: UNKNOWN_DNA for chem_type in DNA_LIKE_CHEM_TYPES}
+        | {chem_type: UNKNOWN_RNA for chem_type in RNA_LIKE_CHEM_TYPES}
     ),
 )
 
@@ -566,12 +570,12 @@ RF2AA_ATOM36_ENCODING = TokenEncoding(
         'DC': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", 'N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6', '', '', '', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", 'H42', 'H41', 'H5', 'H6', '', ''],
         'DG': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", 'N9', 'C4', 'N3', 'C2', 'N1', 'C6', 'C5', 'N7', 'C8', 'N2', 'O6', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", 'H1', 'H22', 'H21', 'H8', '', ''],
         'DT': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", 'N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C7', 'C6', '', '', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", 'H3', 'H71', 'H72', 'H73', 'H6', ''],
-        'DX': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", '', '', '', '', '', '', '', '', '', '', '', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", '', '', '', '', '', ''],
+        'DN': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'", '', '', '', '', '', '', '', '', '', '', '', '', "H5''", "H5'", "H4'", "H3'", "H2''", "H2'", "H1'", '', '', '', '', '', ''],
         'A': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'N3', 'C4', 'C5', 'C6', 'N6', 'N7', 'C8', 'N9', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", 'H2', 'H61', 'H62', 'H8', '', ''],
         'C': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'O2', 'N3', 'C4', 'N4', 'C5', 'C6', '', '', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", 'H42', 'H41', 'H5', 'H6', '', ''],
         'G': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'N2', 'N3', 'C4', 'C5', 'C6', 'O6', 'N7', 'C8', 'N9', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", 'H1', 'H22', 'H21', 'H8', '', ''],
         'U': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", 'N1', 'C2', 'O2', 'N3', 'C4', 'O4', 'C5', 'C6', '', '', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", 'H3', 'H5', 'H6', '', '', ''],
-        'X': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", '', '', '', '', '', '', '', '', '', '', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", '', '', '', '', '', ''],
+        'N': ['OP1', 'P', 'OP2', "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C1'", "C2'", "O2'", '', '', '', '', '', '', '', '', '', '', '', "H5'", "H5''", "H4'", "H3'", "H2'", "HO2'", "H1'", '', '', '', '', '', ''],
         'HIS_D': ['N', 'CA', 'C', 'O', 'CB', 'CG', 'NE2', 'CD2', 'CE1', 'ND1', '', '', '', '', '', '', '', '', '', '', '', '', '', 'H', 'HA', '1HB', '2HB', '2HD', '1HE', '1HD', '', '', '', '', '', ''],
         13: ['', '13', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
         33: ['', '33', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
@@ -622,14 +626,14 @@ RF2AA_ATOM36_ENCODING = TokenEncoding(
         0: ['', '0', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
     },
     chemcomp_type_to_unknown=(
-        {chem_type: "UNK" for chem_type in AA_LIKE_CHEM_TYPES}
-        | {chem_type: "DX" for chem_type in DNA_LIKE_CHEM_TYPES}
-        | {chem_type: "X" for chem_type in RNA_LIKE_CHEM_TYPES}
+        {chem_type: UNKNOWN_AA for chem_type in AA_LIKE_CHEM_TYPES}
+        | {chem_type: UNKNOWN_DNA for chem_type in DNA_LIKE_CHEM_TYPES}
+        | {chem_type: UNKNOWN_RNA for chem_type in RNA_LIKE_CHEM_TYPES}
     ),
 )
 """RF2AA all atom encoding for proteins, nucleic acids and various other elements
     - Encodes heavy atoms and hydrogens (max 36 in total)
-    - Includes 3 unknown tokens: `UNK` for proteins, `DX` for dna, `X` for RNA
+    - Includes 3 unknown tokens: `UNK` for proteins, `DN` for dna, `N` for RNA
     - Covers:
         - 20 amino acids (+ unknown, + mask), 
         - 4  DNA bases (+ unknown), 
@@ -670,15 +674,15 @@ LEGACY_RF2_ATOM14_ENCODING = TokenEncoding(
 # fmt: off
 AF3_TOKENS = (
     # 20 AA + 1 unknown AA
-    list(STANDARD_AA) + ["UNK"]
+    list(STANDARD_AA) + [UNKNOWN_AA]
     +
     # 4 RNA + 1 unknown RNA
-    list(STANDARD_RNA) + ["X"]
+    list(STANDARD_RNA) + [UNKNOWN_RNA]
     +
     # 4 DNA + 1 unknown DNA
-    list(STANDARD_DNA) + ["DX"]
+    list(STANDARD_DNA) + [UNKNOWN_DNA]
     # 1 gap
-    + ["<G>"]
+    + [GAP]
 )
 """Sequence tokens in AF3"""
 # fmt: on
@@ -708,13 +712,14 @@ class AF3SequenceEncoding:
         self.all_res_chemtypes = np.char.upper(ccd["chem_comp"]["type"].as_array())
 
         # Get boolean arrays for each chemtype
+
         self.is_rna_like = np.isin(self.all_res_chemtypes, list(RNA_LIKE_CHEM_TYPES))
         self.is_dna_like = np.isin(self.all_res_chemtypes, list(DNA_LIKE_CHEM_TYPES))
         self.is_aa_like = np.isin(self.all_res_chemtypes, list(AA_LIKE_CHEM_TYPES))
 
         # Build mappings for all CCD residue names to AF3 tokens
-        res_name_to_token = dict(zip(self.all_res_names[self.is_rna_like], cycle(["X"])))
-        res_name_to_token |= dict(zip(self.all_res_names[self.is_dna_like], cycle(["DX"])))
+        res_name_to_token = dict(zip(self.all_res_names[self.is_rna_like], cycle([UNKNOWN_RNA])))
+        res_name_to_token |= dict(zip(self.all_res_names[self.is_dna_like], cycle([UNKNOWN_DNA])))
         res_name_to_token |= dict(zip(AF3_TOKENS, AF3_TOKENS, strict=False))
         self.res_name_to_token = res_name_to_token
 
@@ -726,7 +731,7 @@ class AF3SequenceEncoding:
         return AF3_TOKENS
 
     def res_name_to_af3_token(self, res_name: str) -> str:
-        return np.vectorize(lambda res_name: self.res_name_to_token.get(res_name, "UNK"))(res_name)
+        return np.vectorize(lambda res_name: self.res_name_to_token.get(res_name, UNKNOWN_AA))(res_name)
 
     @property
     def token_to_idx(self) -> dict[str, int]:
@@ -742,7 +747,7 @@ class AF3SequenceEncoding:
 
     def encode(self, res_names: Sequence[str]) -> np.ndarray:
         # NOTE: Defined here rather than as attribute to allow pickling for multiprocessing
-        encode_func = np.vectorize(lambda x: self.af3_token_to_int.get(x, self.af3_token_to_int["UNK"]))
+        encode_func = np.vectorize(lambda x: self.af3_token_to_int.get(x, self.af3_token_to_int[UNKNOWN_AA]))
         return encode_func(res_names)
 
     def decode(self, token_idxs: int | Sequence[int]) -> np.ndarray:

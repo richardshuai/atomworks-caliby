@@ -27,8 +27,8 @@ def test_is_pyrimidine():
         "C",
         "G",
         "U",
-        "DX",
-        "X",
+        "DN",
+        "N",
     ]
 
     expected = [
@@ -68,8 +68,8 @@ def test_is_purine():
         "C",
         "G",
         "U",
-        "DX",
-        "X",
+        "DN",
+        "N",
     ]
 
     expected = [
@@ -109,8 +109,8 @@ def test_is_unknown_nucleotide():
         "C",
         "G",
         "U",
-        "DX",
-        "X",
+        "DN",
+        "N",
     ]
 
     expected = [
@@ -151,8 +151,8 @@ def test_is_protein():
         "C",
         "G",
         "U",
-        "DX",
-        "X",
+        "DN",
+        "N",
     ]
 
     expected = [
@@ -193,8 +193,8 @@ def test_is_glycine():
         "C",
         "G",
         "U",
-        "DX",
-        "X",
+        "DN",
+        "N",
     ]
 
     expected = [
@@ -235,8 +235,8 @@ def test_is_protein_not_glycine():
         "C",
         "G",
         "U",
-        "DX",
-        "X",
+        "DN",
+        "N",
     ]
 
     expected = [
@@ -277,8 +277,8 @@ def test_is_protein_unknown():
         "C",
         "G",
         "U",
-        "DX",
-        "X",
+        "DN",
+        "N",
     ]
 
     expected = [

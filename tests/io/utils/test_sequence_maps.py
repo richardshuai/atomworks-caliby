@@ -68,7 +68,7 @@ def test_parser_one_letter_sequence_outputs(pdb_id: str):
             # More concise regex to remove characters: B, Z, X, and also the content within parentheses
             if chain_type == "polypeptide(D)" or chain_type == "polypeptide(L)":
                 unprocessed_cleaned = re.sub(r"\(.*?\)|[BZX]", "", unprocessed_entity_non_canonical_sequence)
-                processed_cleaned = processed_entity_non_canonical_sequence.replace("X", "")
+                processed_cleaned = processed_entity_canonical_sequence.replace("X", "")
                 assert len(unprocessed_cleaned) == len(processed_cleaned)
 
             # Ensure that the length of both processed sequences matches the number of residues in the chain
@@ -145,12 +145,12 @@ UNKNOWN_TEST_CASES = [
     ("B", "polypeptide(D)", "UNK"),
     ("Z", "polypeptide(D)", "UNK"),
     ("X", "polypeptide(D)", "UNK"),
-    ("B", "polydeoxyribonucleotide", "DX"),
-    ("Z", "polydeoxyribonucleotide", "DX"),
-    ("X", "polydeoxyribonucleotide", "DX"),
-    ("B", "polyribonucleotide", "X"),
-    ("Z", "polyribonucleotide", "X"),
-    ("X", "polyribonucleotide", "X"),
+    ("B", "polydeoxyribonucleotide", "DN"),
+    ("Z", "polydeoxyribonucleotide", "DN"),
+    ("X", "polydeoxyribonucleotide", "DN"),
+    ("B", "polyribonucleotide", "N"),
+    ("Z", "polyribonucleotide", "N"),
+    ("X", "polyribonucleotide", "N"),
 ]
 
 
@@ -162,7 +162,7 @@ def test_get_3_from_1_letter_code(letter, chain_type, expected_three_letter):
     assert get_3_from_1_letter_code(letter, ChainType.as_enum(chain_type)) == expected_three_letter
 
 
-# We can't test the reverse mapping for unknown letters (all map to "X")
+# We can't test the reverse mapping for unknown letters
 @pytest.mark.parametrize(
     "expected_one_letter, chain_type, three_letter_code", PROTEIN_TEST_CASES + DNA_TEST_CASES + RNA_TEST_CASES
 )

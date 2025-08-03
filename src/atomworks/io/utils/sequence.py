@@ -5,31 +5,76 @@ __all__ = [
     "get_3_from_1_letter_code",
 ]
 
+import functools
 import logging
 
 import numpy as np
-from Bio.Data.PDBData import (
-    nucleic_letters_3to1,
-    nucleic_letters_3to1_extended,
-    protein_letters_1to3,
-    protein_letters_3to1,
-    protein_letters_3to1_extended,
-)
+import toolz
 
-# TODO: Deprecate these in favour of the direct mappings from the CCD
 from atomworks.io.constants import (
     GAP,
     GAP_ONE_LETTER,
     STANDARD_AA,
+    STANDARD_DNA,
+    STANDARD_NA,
     STANDARD_PURINE_RESIDUES,
     STANDARD_PYRIMIDINE_RESIDUES,
+    STANDARD_RNA,
     UNKNOWN_AA,
     UNKNOWN_DNA,
     UNKNOWN_RNA,
 )
 from atomworks.io.enums import ChainType
+from atomworks.io.utils.ccd import (
+    aa_chem_comps,
+    chem_comp_to_one_letter,
+    na_chem_comps,
+)
 
 logger = logging.getLogger("atomworks.io")
+
+
+@functools.cache
+def aa_chem_comp_3to1(standard_only: bool = False) -> dict[str, str]:
+    """
+    Returns a dictionary mapping 3-letter amino acid codes to 1-letter codes.
+    """
+    aa_3to1 = toolz.keyfilter(lambda x: x in aa_chem_comps(), chem_comp_to_one_letter())
+    if standard_only:
+        return toolz.keyfilter(lambda x: x in STANDARD_AA, aa_3to1)
+    return aa_3to1
+
+
+@functools.cache
+def na_chem_comp_3to1(standard_only: bool = False) -> dict[str, str]:
+    """
+    Returns a dictionary mapping 3-letter DNA codes to 1-letter codes.
+    """
+    na_3to1 = toolz.keyfilter(lambda x: x in na_chem_comps(), chem_comp_to_one_letter())
+    if standard_only:
+        return toolz.keyfilter(lambda x: x in STANDARD_NA, na_3to1)
+    return na_3to1
+
+
+@functools.cache
+def aa_chem_comp_1to3() -> dict[str, str]:
+    return {val: key for key, val in aa_chem_comp_3to1(standard_only=True).items()}
+
+
+@functools.cache
+def rna_chem_comp_1to3() -> dict[str, str]:
+    """
+    Returns a dictionary mapping 1-letter RNA codes to 3-letter codes.
+    """
+    return {val: key for key, val in na_chem_comp_3to1().items() if key in STANDARD_RNA}
+
+
+@functools.cache
+def dna_chem_comp_1to3() -> dict[str, str]:
+    """
+    Returns a dictionary mapping 1-letter DNA codes to 3-letter codes.
+    """
+    return {val: key for key, val in na_chem_comp_3to1().items() if key in STANDARD_DNA}
 
 
 def get_1_from_3_letter_code(
@@ -59,36 +104,12 @@ def get_1_from_3_letter_code(
         return gap_one_letter
 
     if chain_type.is_protein():
-        if use_closest_canonical:
-            return protein_letters_3to1_extended.get(res_name, "X")
-        else:
-            return protein_letters_3to1.get(res_name, "X")
+        return aa_chem_comp_3to1(standard_only=use_closest_canonical).get(res_name, "X")
     elif chain_type.is_nucleic_acid():
-        # ...pad the residue name to 3 characters for consistency
-        res_name = res_name.ljust(3)
-
-        if use_closest_canonical:
-            return nucleic_letters_3to1_extended.get(res_name, "X")
-        else:
-            return nucleic_letters_3to1.get(res_name, "X")
+        return na_chem_comp_3to1(standard_only=use_closest_canonical).get(res_name, "N")
     else:
         logger.info(f"Unsupported chain type: {chain_type}")
         return "X"
-
-
-# Manually encode mapping from 1 to 3 for nuclelic acids (Bio.Data.PDBData is insufficient)
-rna_letters_1to3 = {
-    "A": "A",
-    "C": "C",
-    "G": "G",
-    "U": "U",
-}
-dna_letters_1to3 = {
-    "A": "DA",
-    "C": "DC",
-    "G": "DG",
-    "T": "DT",
-}
 
 
 def get_3_from_1_letter_code(
@@ -96,9 +117,6 @@ def get_3_from_1_letter_code(
     chain_type: ChainType,
     gap_one_letter: str = GAP_ONE_LETTER,
     gap_three_letter: str = GAP,
-    unknown_aa: str = UNKNOWN_AA,
-    unknown_rna: str = UNKNOWN_RNA,
-    unknown_dna: str = UNKNOWN_DNA,
 ) -> str:
     """
     Converts a 1-letter residue name to its 3-letter code based on the chain type.
@@ -112,9 +130,6 @@ def get_3_from_1_letter_code(
         chain_type (ChainType): The type of chain, using the ChainType enum.
         gap_one_letter (str): The one-letter code for a gap. Defaults to "-" (as is standard within MSAs).
         gap_three_letter (str): The three-letter code for a gap. Defaults to "<G>".
-        unknown_aa (str): The three-letter code for an unknown protein residue. Defaults to "UNK_PROT".
-        unknown_rna (str): The three-letter code for an unknown RNA residue. Defaults to "X" (which is standard)
-        unknown_dna (str): The three-letter code for an unknown DNA residue. Defaults to "DX" (which is standard)
 
     Returns:
         str: The corresponding 3-letter code.
@@ -127,16 +142,16 @@ def get_3_from_1_letter_code(
 
     if chain_type.is_protein():
         # Proteins
-        return protein_letters_1to3.get(letter, unknown_aa)
+        return aa_chem_comp_1to3().get(letter, UNKNOWN_AA)
     elif chain_type == ChainType.DNA:
         # DNA
-        return dna_letters_1to3.get(letter, unknown_dna)
+        return dna_chem_comp_1to3().get(letter, UNKNOWN_DNA)
     elif chain_type == ChainType.RNA:
         # RNA
-        return rna_letters_1to3.get(letter, unknown_rna)
+        return rna_chem_comp_1to3().get(letter, UNKNOWN_RNA)
     else:
-        logger.error(f"Unsupported {chain_type=}, returning unknown protein residue {unknown_aa=}.")
-        return unknown_aa
+        logger.error(f"Unsupported {chain_type=}, returning unknown protein residue {UNKNOWN_AA=}.")
+        return UNKNOWN_AA
 
 
 def is_pyrimidine(ccd_code_array: np.ndarray) -> np.ndarray:

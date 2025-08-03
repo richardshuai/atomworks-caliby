@@ -38,7 +38,7 @@ logger = logging.getLogger("atomworks.ml")
 
 dna_transform_dir = os.path.abspath(os.path.dirname(__file__))
 
-_WATSON_CRICK_COMPLEMENT = {"A": "T", "T": "A", "C": "G", "G": "C", "X": "X"}
+_WATSON_CRICK_COMPLEMENT = {"A": "T", "T": "A", "C": "G", "G": "C", "N": "N"}
 """Watson-Crick complement of standard nucleotides."""
 
 _WATSON_CRICK_COMPLEMENT_TRANSLATION_TABLE = str.maketrans(_WATSON_CRICK_COMPLEMENT)
