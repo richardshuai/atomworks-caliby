@@ -63,12 +63,12 @@ def _get_versioning(repo_path: str) -> str:
     return version
 
 
+# TODO: Move this functionality to a utils biotite_patch.py file
 ## monkey patch biotite to allow override of hbond distance in 'base_pairs'
-import biotite.structure as struc  # noqa: E402
+# import biotite.structure as struc
+# from atomworks.ml.transforms.dna.pad_dna import base_pairs
+# struc.base_pairs = base_pairs
 
-from atomworks.ml.transforms.dna.pad_dna import base_pairs  # noqa: E402
-
-struc.base_pairs = base_pairs
 # Import version information
 __version__ = None
 __version_tuple__ = None

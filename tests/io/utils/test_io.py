@@ -27,6 +27,7 @@ from atomworks.io.utils.testing import assert_same_atom_array, get_pdb_path
 from tests.io.conftest import TEST_DATA_DIR
 
 
+@pytest.mark.requires_internet
 @pytest.mark.parametrize(
     "pdb_id, file_type, directory",
     [
@@ -72,7 +73,7 @@ def test_infer_filetype():
         buffer = io.StringIO(f.read())
         assert infer_pdb_file_type(buffer) == "pdb"
 
-
+@pytest.mark.requires_internet
 @pytest.mark.parametrize(
     "extra_fields, include_bonds, model",
     [
@@ -117,8 +118,8 @@ def test_get_structure_configurations(extra_fields, include_bonds, model):
         assert isinstance(structure, AtomArrayStack)
 
 
+@pytest.mark.requires_internet
 def test_parse_atom_array_with_multiple_transformations():
-    # Until my fix for handling non-polymer ambiguities with add_missing_atoms=False gets merged, we'll add them twice
     data_dict = parse(rcsb.fetch("1out", "cif"), file_type="cif", add_missing_atoms=True)
     parsed_from_file = data_dict["assemblies"]["1"]
     assert any(chain_iid.endswith("_2") for chain_iid in np.unique(parsed_from_file.chain_iid))
@@ -156,6 +157,7 @@ def test_parse_atom_array_with_multiple_transformations():
     assert tfm_1_atom_1_idx not in tfm_2_atom_1_bonds
 
 
+@pytest.mark.requires_internet
 def test_to_cif_string():
     cif_buffer = rcsb.fetch("6lyz", "cif")
     cif_structure = load_any(cif_buffer, file_type="cif", extra_fields=["b_factor", "occupancy", "charge"])
@@ -229,6 +231,7 @@ def test_to_cif_string():
     assert metadata_serialized in cif_string2, "Metadata not found in serialized CIF string."
 
 
+@pytest.mark.requires_internet
 def test_to_pdb_string():
     pdb_buffer = rcsb.fetch("6lyz", "pdb")
     pdb_structure = load_any(pdb_buffer, file_type="pdb", extra_fields=["b_factor", "occupancy", "charge"], model=1)
@@ -510,35 +513,35 @@ def test_write_read_vs_parse_atom_array(dict_inputs, custom_residues):
     input_atom_array = components_to_atom_array(components, return_components=False, custom_residues=custom_residues)
 
     # Write-read, as was formerly done in the inference code
-    temp_dir = tempfile.TemporaryDirectory()
-    cif_path = Path(temp_dir.name) / "test.cif"
-    to_cif_file(input_atom_array, cif_path, include_nan_coords=True)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        cif_path = Path(temp_dir) / "test.cif"
+        to_cif_file(input_atom_array, cif_path, include_nan_coords=True)
 
-    parse_kwargs = {
-        "convert_mse_to_met": True,
-        "hydrogen_policy": "remove",
-        "build_assembly": ["1"],
-    }
+        parse_kwargs = {
+            "convert_mse_to_met": True,
+            "hydrogen_policy": "remove",
+            "build_assembly": ["1"],
+        }
 
-    parsed_from_cif = parse(cif_path, **parse_kwargs)
+        parsed_from_cif = parse(cif_path, **parse_kwargs)
 
-    # Directly parse the input AtomArray using new code
-    parsed_from_atom_array = parse_atom_array(input_atom_array, **parse_kwargs)
+        # Directly parse the input AtomArray using new code
+        parsed_from_atom_array = parse_atom_array(input_atom_array, **parse_kwargs)
 
-    # The asym_unit does not typically have a chain_iid, but it will if parsing from an AtomArray that already had it
-    asym_unit_annotations_to_compare = [
-        annot for annot in parsed_from_atom_array["asym_unit"].get_annotation_categories() if annot != "chain_iid"
-    ]
+        # The asym_unit does not typically have a chain_iid, but it will if parsing from an AtomArray that already had it
+        asym_unit_annotations_to_compare = [
+            annot for annot in parsed_from_atom_array["asym_unit"].get_annotation_categories() if annot != "chain_iid"
+        ]
 
-    # Check for equivalence, allowing differences only in the metadata ID and the assemblies (parsing an AtomArray
-    # directly does not build assemblies)
-    assert_data_dicts_equal(
-        parsed_from_cif,
-        parsed_from_atom_array,
-        ignore_metadata_id=True,
-        compare_assemblies=False,
-        asym_unit_annotations_to_compare=asym_unit_annotations_to_compare,
-    )
+        # Check for equivalence, allowing differences only in the metadata ID and the assemblies (parsing an AtomArray
+        # directly does not build assemblies)
+        assert_data_dicts_equal(
+            parsed_from_cif,
+            parsed_from_atom_array,
+            ignore_metadata_id=True,
+            compare_assemblies=False,
+            asym_unit_annotations_to_compare=asym_unit_annotations_to_compare,
+        )
 
 
 if __name__ == "__main__":

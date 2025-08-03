@@ -66,8 +66,8 @@ def test_caching(pdb_id: str, tmp_path):
     # Check that metadata fields are present and correct
     assert "metadata" in cached_result
     assert "parse_arguments" in cached_result["metadata"]
-    assert "atomworks.io_version" in cached_result["metadata"]
-    assert isinstance(cached_result["metadata"]["atomworks.io_version"], str)
+    assert "atomworks.version" in cached_result["metadata"]
+    assert isinstance(cached_result["metadata"]["atomworks.version"], str)
 
     # Load with different parsing arguments
     def different_args_parse():

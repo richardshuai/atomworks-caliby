@@ -168,7 +168,7 @@ def parse(
 
     """
     # CCD mirror
-    if exists(ccd_mirror_path) and not os.path.exists(ccd_mirror_path):
+    if ccd_mirror_path and not os.path.exists(ccd_mirror_path):
         logger.warning(
             f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. Falling back to Biotite's built-in CCD."
         )
@@ -370,7 +370,7 @@ def parse_atom_array(
     # We must perform argument validation if the function was called directly without a top-level call to `parse`
     if _cif_file is None:
         # CCD mirror
-        if exists(ccd_mirror_path) and not os.path.exists(ccd_mirror_path):
+        if ccd_mirror_path and not os.path.exists(ccd_mirror_path):
             raise FileNotFoundError(
                 f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. "
                 "To use Biotite's built-in CCD, set `ccd_mirror_path` to None."

@@ -161,7 +161,9 @@ def _assert_tensor_or_array_equal(actual, expected, error_msg: str):
         else:
             assert torch.allclose(actual, expected, atol=1e-5, rtol=1e-5, equal_nan=True), error_msg
     elif isinstance(actual, np.ndarray):
-        if actual.dtype.kind in ["U", "S"] or actual.dtype == bool or np.issubdtype(actual.dtype, np.integer):  # String dtypes
+        if (
+            actual.dtype.kind in ["U", "S"] or actual.dtype == bool or np.issubdtype(actual.dtype, np.integer)
+        ):  # String dtypes
             assert np.array_equal(actual, expected), error_msg
         else:
             assert np.allclose(actual, expected, atol=1e-5, rtol=1e-5, equal_nan=True), error_msg

@@ -192,6 +192,9 @@ testpaths = "tests"  # Only run tests in the tests directory (speeds up collecti
 norecursedirs = "docs *.egg-info .git .tox htmlcov"
 addopts = "--import-mode=importlib"
 pythonpath = ["src/atomworks", "tests"]
+markers = [
+    "requires_internet: marks tests that require an internet connection",
+]
 
 [tool.coverage.run]
 parallel = true
