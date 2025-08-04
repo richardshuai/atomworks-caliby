@@ -1,11 +1,11 @@
 [project]
 name = "atomworks"
 version = "0.1.0"
-description = "Convert arbitrary biological inputs into an AtomArray, modify and featurize them, and then perform downstream actions like training machine learning models."
+description = "A research-oriented data toolkit for training biomolecular deep-learning foundation models."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [
-    { name = "Bakerlab" }
+    { name = "Institute for Protein Design", email = "contact@ipd.uw.edu" }
 ]
 license = { file = "LICENSE.md" }
 classifiers = [
@@ -86,7 +86,7 @@ dynamic = false  # optional – this disables dynamic metadata guessing
 [tool.ruff]
 line-length = 120
 indent-width = 4
-target-version = "py310"
+target-version = "py312"
 exclude = [
     ".bzr",
     ".direnv",
