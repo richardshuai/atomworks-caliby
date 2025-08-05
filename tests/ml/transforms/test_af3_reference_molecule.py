@@ -218,7 +218,7 @@ def test_replace_conformer_with_ground_truth():
 def test_random_apply_ground_truth_conformer_by_chain_type(seed: int = 42):
     """Test that we can randomly flag non-polymers to use the ground truth conformer"""
     pdb_id = "5ocm"
-    data = cached_parse(pdb_id, remove_hydrogens=True)
+    data = cached_parse(pdb_id, hydrogen_policy="remove")
 
     # Define probabilities for different chain types
     chain_type_probabilities = {
