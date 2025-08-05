@@ -2,7 +2,10 @@
 
 import logging
 import os
+import socket
 from pathlib import Path
+
+import pytest
 
 from atomworks.io.enums import ChainType
 from atomworks.io.utils.testing import get_pdb_path  # noqa: F401
@@ -10,6 +13,18 @@ from atomworks.io.utils.testing import get_pdb_path  # noqa: F401
 logger = logging.getLogger(__name__)
 
 TEST_DATA_DIR = Path(os.path.dirname(__file__)) / "data"
+
+
+def _has_internet_connection() -> bool:
+    try:
+        # Try to connect to a well-known DNS server (Google's)
+        socket.create_connection(("8.8.8.8", 53), timeout=2)
+        return True
+    except OSError:
+        return False
+
+
+requires_internet = pytest.mark.skipif(not _has_internet_connection(), reason="Test requires an internet connection.")
 
 CHAIN_TYPE_TEST_CASES = [
     {

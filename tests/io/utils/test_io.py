@@ -24,10 +24,11 @@ from atomworks.io.utils.io_utils import (
     to_pdb_string,
 )
 from atomworks.io.utils.testing import assert_same_atom_array, get_pdb_path
-from tests.io.conftest import TEST_DATA_DIR
+from tests.io.conftest import TEST_DATA_DIR, requires_internet
 
 
 @pytest.mark.requires_internet
+@requires_internet
 @pytest.mark.parametrize(
     "pdb_id, file_type, directory",
     [
@@ -75,6 +76,7 @@ def test_infer_filetype():
 
 
 @pytest.mark.requires_internet
+@requires_internet
 @pytest.mark.parametrize(
     "extra_fields, include_bonds, model",
     [
@@ -120,6 +122,7 @@ def test_get_structure_configurations(extra_fields, include_bonds, model):
 
 
 @pytest.mark.requires_internet
+@requires_internet
 def test_parse_atom_array_with_multiple_transformations():
     data_dict = parse(rcsb.fetch("1out", "cif"), file_type="cif", add_missing_atoms=True)
     parsed_from_file = data_dict["assemblies"]["1"]
@@ -159,6 +162,7 @@ def test_parse_atom_array_with_multiple_transformations():
 
 
 @pytest.mark.requires_internet
+@requires_internet
 def test_to_cif_string():
     cif_buffer = rcsb.fetch("6lyz", "cif")
     cif_structure = load_any(cif_buffer, file_type="cif", extra_fields=["b_factor", "occupancy", "charge"])
@@ -233,6 +237,7 @@ def test_to_cif_string():
 
 
 @pytest.mark.requires_internet
+@requires_internet
 def test_to_pdb_string():
     pdb_buffer = rcsb.fetch("6lyz", "pdb")
     pdb_structure = load_any(pdb_buffer, file_type="pdb", extra_fields=["b_factor", "occupancy", "charge"], model=1)
