@@ -18,6 +18,7 @@ from biotite.structure.basepairs import _check_dssr_criteria, _get_proximate_res
 from biotite.structure.filter import filter_nucleotides
 from biotite.structure.residues import get_residue_masks, get_residue_starts_for
 
+from atomworks.io.transforms.atom_array import remove_nan_coords
 from atomworks.io.utils.io_utils import load_any
 from atomworks.io.utils.selection import ResIdxSlice
 from atomworks.io.utils.sequence import get_1_from_3_letter_code
@@ -43,13 +44,6 @@ _WATSON_CRICK_COMPLEMENT = {"A": "T", "T": "A", "C": "G", "G": "C", "N": "N"}
 
 _WATSON_CRICK_COMPLEMENT_TRANSLATION_TABLE = str.maketrans(_WATSON_CRICK_COMPLEMENT)
 """Translation table for the Watson-Crick complement of nucleotides."""
-
-
-# TODO: move to atomworks.io
-def remove_nan_coords(atom_array: AtomArray) -> AtomArray:
-    """Returns a copy of the AtomArray with rows where any coordinate is NaN removed."""
-    is_any_coord_nan = np.isnan(atom_array.coord).any(axis=-1)
-    return atom_array[~is_any_coord_nan]
 
 
 def to_reverse_complement(seq: str) -> str:
@@ -588,7 +582,7 @@ class PadDNA(Transform):
 
         # ... compute all base-pairs based on the structure
         dna_array_no_nan = remove_nan_coords(dna_array)
-        _base_pair_idxs = struc.base_pairs(dna_array_no_nan, no_hbond_dist_cut=self.no_hbond_dist_cut)
+        _base_pair_idxs = base_pairs(dna_array_no_nan, no_hbond_dist_cut=self.no_hbond_dist_cut)
 
         if not len(_base_pair_idxs):
             # ... early stop if no base-pairs are found
