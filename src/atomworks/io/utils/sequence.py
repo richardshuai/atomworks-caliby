@@ -104,9 +104,9 @@ def get_1_from_3_letter_code(
         return gap_one_letter
 
     if chain_type.is_protein():
-        return aa_chem_comp_3to1(standard_only=use_closest_canonical).get(res_name, "X")
+        return aa_chem_comp_3to1(standard_only=not use_closest_canonical).get(res_name, "X")
     elif chain_type.is_nucleic_acid():
-        return na_chem_comp_3to1(standard_only=use_closest_canonical).get(res_name, "N")
+        return na_chem_comp_3to1(standard_only=not use_closest_canonical).get(res_name, "N")
     else:
         logger.info(f"Unsupported chain type: {chain_type}")
         return "X"

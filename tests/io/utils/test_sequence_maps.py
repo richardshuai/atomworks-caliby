@@ -68,7 +68,7 @@ def test_parser_one_letter_sequence_outputs(pdb_id: str):
             # More concise regex to remove characters: B, Z, X, and also the content within parentheses
             if chain_type == "polypeptide(D)" or chain_type == "polypeptide(L)":
                 unprocessed_cleaned = re.sub(r"\(.*?\)|[BZX]", "", unprocessed_entity_non_canonical_sequence)
-                processed_cleaned = processed_entity_canonical_sequence.replace("X", "")
+                processed_cleaned = processed_entity_non_canonical_sequence.replace("X", "")
                 assert len(unprocessed_cleaned) == len(processed_cleaned)
 
             # Ensure that the length of both processed sequences matches the number of residues in the chain

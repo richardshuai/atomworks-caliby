@@ -193,6 +193,7 @@ addopts = "--import-mode=importlib"
 pythonpath = ["src/atomworks", "tests"]
 markers = [
     "requires_internet: marks tests that require an internet connection",
+    "requires_pymol_remote: marks tests that require a PyMOL remote connection to run",
     "slow: marks tests that are slow",
 ]
 
