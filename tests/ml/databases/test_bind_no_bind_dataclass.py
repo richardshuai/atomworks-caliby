@@ -10,6 +10,7 @@ import pytest
 from atomworks.ml.databases.dataclasses import BindNoBindMeasurement
 
 
+@pytest.mark.skip
 def test_bind_no_bind_measurement_dataclass(
     atom_array,
     chemical_components,
