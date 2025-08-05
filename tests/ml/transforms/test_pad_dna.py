@@ -12,6 +12,23 @@ from atomworks.ml.utils.testing import cached_parse
 X3DNA_PATH = os.environ.get("X3DNA", "/projects/ml/prot_dna/x3dna-v2.4")
 
 
+def _has_x3dna() -> bool:
+    """Check if X3DNA is installed."""
+    if os.environ.get("X3DNA"):
+        try:
+            X3DNAFiber.get_or_initialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
+            return True
+        except FileNotFoundError:
+            return False
+    return False
+
+
+REQUIRES_X3DNA = pytest.mark.skipif(
+    not _has_x3dna(),
+    reason="X3DNA is not installed",
+)
+
+
 def test_x3dna_manager_fail1():
     """Test the X3DNA manager."""
     with pytest.raises(FileNotFoundError):
@@ -22,6 +39,7 @@ def test_x3dna_manager_fail1():
 
 
 @pytest.mark.requires_x3dna
+@REQUIRES_X3DNA
 def test_x3dna_manager():
     """Test the X3DNA manager."""
     X3DNAFiber.get_or_initialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
@@ -37,6 +55,7 @@ def test_to_reverse_complement():
 
 
 @pytest.mark.requires_x3dna
+@REQUIRES_X3DNA
 def test_generate_bform_dna():
     """Test that the bform DNA is generated correctly."""
     X3DNAFiber.get_or_initialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
@@ -60,6 +79,7 @@ def test_generate_bform_dna():
 
 
 @pytest.mark.requires_x3dna
+@REQUIRES_X3DNA
 @pytest.mark.parametrize("example_id", ["6w13"])
 def test_augment_pad_dna(example_id: str, np_seed: int = 1):
     data = cached_parse(example_id)
