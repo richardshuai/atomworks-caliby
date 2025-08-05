@@ -401,9 +401,6 @@ def test_parse_consistency_full_dict(filepath, expected_data_dict_path):
     """
     Compare the parsed structure to a reference structure (computed pre-refactor).
     """
-    with open(expected_data_dict_path, "rb") as f:
-        expected_data_dict = pickle.load(f)
-
     parse_kwargs = {
         "convert_mse_to_met": True,
         "hydrogen_policy": "remove",
@@ -411,6 +408,13 @@ def test_parse_consistency_full_dict(filepath, expected_data_dict_path):
     }
 
     obtained_data_dict = parse(filepath, **parse_kwargs)
+
+    # Uncomment to update the regression test data
+    # with open(expected_data_dict_path, "wb") as f:
+    #     pickle.dump(obtained_data_dict, f)
+
+    with open(expected_data_dict_path, "rb") as f:
+        expected_data_dict = pickle.load(f)
 
     assert_data_dicts_equal(obtained_data_dict, expected_data_dict)
 
