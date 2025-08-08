@@ -24,7 +24,7 @@ from atomworks.io.utils.io_utils import (
     to_pdb_string,
 )
 from atomworks.io.utils.testing import assert_same_atom_array, get_pdb_path
-from tests.io.conftest import TEST_DATA_DIR, requires_internet
+from tests.io.conftest import TEST_DATA_IO, requires_internet
 
 
 @pytest.mark.requires_internet
@@ -62,15 +62,15 @@ def test_infer_filetype():
     assert infer_pdb_file_type("6lyz.bcif.gz") == "bcif"
     assert infer_pdb_file_type("6lyz.bcif.gzip") == "bcif"
 
-    with open(TEST_DATA_DIR / "6lyz.bcif", "rb") as f:
+    with open(TEST_DATA_IO / "6lyz.bcif", "rb") as f:
         buffer = io.BytesIO(f.read())
         assert infer_pdb_file_type(buffer) == "bcif"
 
-    with open(TEST_DATA_DIR / "1a8o_modified.cif") as f:
+    with open(TEST_DATA_IO / "1a8o_modified.cif") as f:
         buffer = io.StringIO(f.read())
         assert infer_pdb_file_type(buffer) == "cif"
 
-    with open(TEST_DATA_DIR / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb") as f:
+    with open(TEST_DATA_IO / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb") as f:
         buffer = io.StringIO(f.read())
         assert infer_pdb_file_type(buffer) == "pdb"
 
@@ -322,7 +322,7 @@ def test_inject_msa_information_into_chain_info():
     ],
 )
 def test_load_from_af3_output(af3_cif_filename, pdb_id):
-    cif_path_af3 = TEST_DATA_DIR / af3_cif_filename
+    cif_path_af3 = TEST_DATA_IO / af3_cif_filename
     cif_path_rcsb = get_pdb_path(pdb_id)
 
     # Parse the structure without CCD mirror path
@@ -391,8 +391,8 @@ def assert_data_dicts_equal(
 
 
 CONSISTENCY_TEST_CASES_FULL_DICT = [
-    (get_pdb_path("1a1e"), TEST_DATA_DIR / "1a1e_cif_data_dict.pkl"),
-    (TEST_DATA_DIR / "1qfe.pdb", TEST_DATA_DIR / "1qfe_pdb_data_dict.pkl"),
+    (get_pdb_path("1a1e"), TEST_DATA_IO / "1a1e_cif_data_dict.pkl"),
+    (TEST_DATA_IO / "1qfe.pdb", TEST_DATA_IO / "1qfe_pdb_data_dict.pkl"),
 ]
 
 
@@ -489,7 +489,7 @@ def dict_inputs():
 
     sdf = [
         {
-            "path": f"{TEST_DATA_DIR}/HEM_ideal.sdf",
+            "path": f"{TEST_DATA_IO}/HEM_ideal.sdf",
         }
     ]
 
@@ -509,7 +509,7 @@ def dict_inputs():
 def custom_residues():
     return {
         "C:0": {
-            "path": f"{TEST_DATA_DIR}/example_ncaa.cif",
+            "path": f"{TEST_DATA_IO}/example_ncaa.cif",
             "chain_type": "polypeptide(l)",
         }
     }

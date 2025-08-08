@@ -1,11 +1,11 @@
 import pickle
-from pathlib import Path
 
 import torch
 
 from atomworks.ml.transforms.base import Compose
 from atomworks.ml.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
 from atomworks.ml.transforms.diffusion.edm import sample_noise_edm, sample_t_edm
+from tests.ml.conftest import TEST_DATA_ML
 
 
 def test_edm_t_sampling():
@@ -18,7 +18,7 @@ def test_edm_t_sampling():
 
     # regression test; does the distribution match?
 
-    SAVED_RESULT_PATH = Path(__file__).resolve().parents[2] / "data" / "edm_t_sampled.pkl"
+    SAVED_RESULT_PATH = TEST_DATA_ML / "edm_t_sampled.pkl"
     # Uncomment to save t for regression tests, as a pickle (JSON is too slow)
     # with open(SAVED_RESULT_PATH, "wb") as f:
     # pickle.dump(t, f)
@@ -45,7 +45,7 @@ def test_edm_noise_sampling():
 
     # regression test; does the distribution match?
 
-    SAVED_RESULT_PATH = Path(__file__).resolve().parents[2] / "data" / "edm_noise_sampled.pkl"
+    SAVED_RESULT_PATH = TEST_DATA_ML / "edm_noise_sampled.pkl"
     # Uncomment to save noise for regression tests, as a pickle (JSON is too slow)
     # with open(SAVED_RESULT_PATH, "wb") as f:
     # pickle.dump(noise, f)

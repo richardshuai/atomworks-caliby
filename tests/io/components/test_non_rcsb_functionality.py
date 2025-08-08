@@ -1,15 +1,12 @@
-from pathlib import Path
-
 import numpy as np
 import pytest
 
 from atomworks.io.enums import ChainType
 from atomworks.io.parser import parse
 from atomworks.io.utils.non_rcsb import initialize_chain_info_from_atom_array
-from tests.io.conftest import CHAIN_TYPE_TEST_CASES, get_pdb_path
+from tests.io.conftest import CHAIN_TYPE_TEST_CASES, TEST_DATA_IO, get_pdb_path
 
-DIR = Path(__file__).parent.parent / "data"
-CIF_PATHS = [DIR / "example_distillation_output.cif"]
+CIF_PATHS = [TEST_DATA_IO / "example_distillation_output.cif"]
 
 
 @pytest.mark.parametrize("path", CIF_PATHS)
@@ -29,7 +26,7 @@ def test_load_with_all_resolved(path: str):
 
 def test_af2_predicted_pdb_example():
     result = parse(
-        filename=DIR / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb",
+        filename=TEST_DATA_IO / "UniRef50_A0A0S8JQ92_AF2_predicted.pdb",
         remove_waters=True,
         remove_ccds=[],
     )
@@ -39,7 +36,7 @@ def test_af2_predicted_pdb_example():
 
 def test_af3_cond_design_cif_example():
     result = parse(
-        filename=DIR / "example_conditional_generation_output.cif",
+        filename=TEST_DATA_IO / "example_conditional_generation_output.cif",
         add_missing_atoms=False,
         extra_fields="all",
     )
@@ -51,7 +48,7 @@ def test_af3_cond_design_cif_example():
     assert atom_array.condition_coords_gt_x is not None
 
     result = parse(
-        filename=DIR / "example_conditional_generation_output.cif",
+        filename=TEST_DATA_IO / "example_conditional_generation_output.cif",
         add_missing_atoms=False,
         extra_fields=["condition_coords_gt_x"],
     )
@@ -62,7 +59,7 @@ def test_af3_cond_design_cif_example():
 
 def test_bcif_example():
     result = parse(
-        filename=DIR / "6lyz.bcif",
+        filename=TEST_DATA_IO / "6lyz.bcif",
     )
     # Check if processing runs through
     assert result is not None
@@ -70,7 +67,7 @@ def test_bcif_example():
 
 def test_pdb_with_same_chain_poly_non_poly():
     result = parse(
-        filename=DIR / "1qfe.pdb",
+        filename=TEST_DATA_IO / "1qfe.pdb",
         hydrogen_policy="remove",
     )
     # Check if processing runs through

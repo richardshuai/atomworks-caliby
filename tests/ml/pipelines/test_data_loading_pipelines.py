@@ -68,9 +68,9 @@ def test_data_loading_pipelines_with_random_examples(datasets_to_test, dataset_t
     dataset_type = dataset_to_test["type"]
 
     # Select deterministic examples
-    deterministic_indices = np.random.choice(len(dataset), dataset_to_test["num_examples"], replace=False)
-
     seed = 42
+    with rng_state(create_rng_state_from_seeds(np_seed=seed, torch_seed=seed, py_seed=seed)):
+        deterministic_indices = np.random.choice(len(dataset), dataset_to_test["num_examples"], replace=False)
 
     for index in deterministic_indices:
         sample = dataset[index]

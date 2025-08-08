@@ -1,11 +1,11 @@
 from atomworks.io import parse
-from tests.io.conftest import TEST_DATA_DIR
+from tests.io.conftest import TEST_DATA_IO
 
 
 def test_structure_with_non_ccd_ligand():
     """Test parsing a structure containing a non-CCD ligand."""
     # Fetch the test structure
-    cif_path = TEST_DATA_DIR / "9cox_with_unknown_ccd.cif"
+    cif_path = TEST_DATA_IO / "9cox_with_unknown_ccd.cif"
 
     # Parse the structure without CCD mirror path
     structure = parse(cif_path, ccd_mirror_path=None)

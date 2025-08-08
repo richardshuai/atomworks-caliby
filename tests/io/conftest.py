@@ -1,18 +1,14 @@
 """IO-specific test fixtures and utilities for atomworks.io tests."""
 
-import logging
-import os
 import socket
-from pathlib import Path
 
 import pytest
 
 from atomworks.io.enums import ChainType
 from atomworks.io.utils.testing import get_pdb_path  # noqa: F401
+from tests.conftest import TEST_DATA_DIR
 
-logger = logging.getLogger(__name__)
-
-TEST_DATA_DIR = Path(os.path.dirname(__file__)) / "data"
+TEST_DATA_IO = TEST_DATA_DIR / "io"
 
 
 def _has_internet_connection() -> bool:

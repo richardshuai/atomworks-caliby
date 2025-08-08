@@ -27,7 +27,7 @@ from atomworks.ml.transforms.chirals import AddAF3ChiralFeatures
 from atomworks.ml.transforms.rdkit_utils import GetRDKitChiralCenters
 from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
 from atomworks.ml.utils.testing import cached_parse
-from tests.ml.conftest import TEST_DATA_DIR
+from tests.ml.conftest import TEST_DATA_ML
 
 
 def test_contrived_tyr():
@@ -276,7 +276,7 @@ def test_random_apply_ground_truth_conformer_by_chain_type(seed: int = 42):
 
 def test_fallback_to_ground_truth_conformer_on_error():
     """Test that we fallback to the ground truth conformer when an error occurs during RDKit conformer generation and the residue is not in the CCD"""
-    atom_array = components_to_atom_array([{"path": f"{TEST_DATA_DIR}/example_sdf.sdf"}])
+    atom_array = components_to_atom_array([{"path": f"{TEST_DATA_ML}/example_sdf.sdf"}])
     atom_array.set_annotation(
         "ground_truth_conformer_policy", np.full(len(atom_array), GroundTruthConformerPolicy.FALLBACK)
     )

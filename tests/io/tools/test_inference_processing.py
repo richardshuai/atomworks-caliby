@@ -22,7 +22,7 @@ from atomworks.io.tools.inference import (
     read_chai_fasta,
 )
 from atomworks.io.utils.testing import assert_same_atom_array
-from tests.io.conftest import TEST_DATA_DIR, get_pdb_path
+from tests.io.conftest import TEST_DATA_IO, get_pdb_path
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def dict_inputs():
     """Fixture providing example chemical components for testing."""
     cif_path = [
         {
-            "path": f"{TEST_DATA_DIR}/test_cif_loading_4q8n.cif.gz",  # Contains two symmetry transformations
+            "path": f"{TEST_DATA_IO}/test_cif_loading_4q8n.cif.gz",  # Contains two symmetry transformations
             "msa_paths": {
                 "A": "/example/msa/path.a3m.gz",
             },
@@ -104,7 +104,7 @@ def dict_inputs():
 
     sdf = [
         {
-            "path": f"{TEST_DATA_DIR}/HEM_ideal.sdf",
+            "path": f"{TEST_DATA_IO}/HEM_ideal.sdf",
         }
     ]
 
@@ -132,7 +132,7 @@ def bonds_glycan_glycan():
 def custom_residues():
     return {
         "C:0": {
-            "path": f"{TEST_DATA_DIR}/example_ncaa.cif",
+            "path": f"{TEST_DATA_IO}/example_ncaa.cif",
             "chain_type": "polypeptide(l)",
         }
     }
@@ -422,7 +422,7 @@ def test_custom_residues(dict_inputs, custom_residues):
 
 def test_recover_bonds_from_cif(dict_inputs):
     data = parse(
-        filename=TEST_DATA_DIR / "test_unl_ligand_with_bonds.cif",
+        filename=TEST_DATA_IO / "test_unl_ligand_with_bonds.cif",
         fix_ligands_at_symmetry_centers=False,
     )
     atom_array = data["asym_unit"][0]

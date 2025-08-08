@@ -35,6 +35,7 @@ from atomworks.ml.pipelines.rf2aa import build_rf2aa_transform_pipeline
 from atomworks.ml.preprocessing.constants import TRAINING_SUPPORTED_CHAIN_TYPES_INTS
 from atomworks.ml.utils.io import read_parquet_with_metadata
 from atomworks.ml.utils.testing import cached_parse
+from tests.conftest import TEST_DATA_DIR
 
 ##########################################################################################
 # + ----------------------------------- Environment ------------------------------------ +
@@ -82,8 +83,7 @@ def cache_dir():
 # + ------------------------------------ Constants ------------------------------------- +
 ##########################################################################################
 
-TEST_DATA_DIR = Path(__file__).resolve().parent / "data"
-VALIDATION_DATA_PATH = "/projects/ml/RF2_allatom/datasets/af3_splits/2024_10_18/entry_level_val_df.parquet"
+TEST_DATA_ML = TEST_DATA_DIR / "ml"
 
 PROTEIN_MSA_DIRS = [
     {
@@ -115,29 +115,38 @@ RNA_MSA_DIRS = [
 # Interfaces/PN Units
 @pytest.fixture(scope="session")
 def pn_units_df():
-    return read_parquet_with_metadata(f"{TEST_DATA_DIR}/pn_units_df.parquet")
+    path = TEST_DATA_ML / "pdb_pn_units" / "metadata.parquet"
+    df = read_parquet_with_metadata(path)
+    # df.attrs["base_path"] = str(TEST_DATA_ML / "pdb_pn_units" / "cif")
+    return df
 
 
 @pytest.fixture(scope="session")
 def interfaces_df():
-    return read_parquet_with_metadata(f"{TEST_DATA_DIR}/interfaces_df.parquet")
+    path = TEST_DATA_ML / "pdb_interfaces" / "metadata.parquet"
+    df = read_parquet_with_metadata(path)
+    # df.attrs["base_path"] = str(TEST_DATA_ML / "pdb_interfaces" / "cif")
+    return df
 
 
 # AF2 Distillation Facebook, with and without table-wide metadata (to test metadata handling)
 @pytest.fixture(scope="session")
 def af2_distillation_facebook_df_no_metadata():
-    return pd.read_parquet(f"{TEST_DATA_DIR}/test_af2_distillation_facebook.parquet")
+    path = TEST_DATA_ML / "af2_distillation" / "metadata.parquet"
+    return pd.read_parquet(path)
 
 
 @pytest.fixture(scope="session")
 def af2_distillation_facebook_df_with_metadata():
-    return read_parquet_with_metadata(f"{TEST_DATA_DIR}/test_af2_distillation_facebook.parquet")
+    df = read_parquet_with_metadata(TEST_DATA_ML / "af2_distillation" / "metadata.parquet")
+    df.attrs["base_path"] = str(TEST_DATA_ML / "af2_distillation" / "cif")
+    return df
 
 
 # Validation
 @pytest.fixture(scope="session")
 def af3_validation_df():
-    return read_parquet_with_metadata(VALIDATION_DATA_PATH)
+    return read_parquet_with_metadata(TEST_DATA_ML / "af3_splits_test_metadata.parquet")
 
 
 ##########################################################################################
@@ -365,13 +374,13 @@ def af3_af2fb_distillation_dataset_no_metadata(distillation_pandas_dataset_no_me
     return StructuralDatasetWrapper(
         dataset=distillation_pandas_dataset_no_metadata,
         dataset_parser=GenericDFParser(
-            base_path="/squash/af2_distillation_facebook/cif",
+            base_path=str(TEST_DATA_ML / "af2_distillation" / "cif"),
             extension=".cif",
         ),
         cif_parser_args={},
         transform=build_af3_transform_pipeline(
             protein_msa_dirs=[
-                {"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}
+                {"dir": str(TEST_DATA_ML / "af2_distillation" / "msa"), "extension": ".a3m", "directory_depth": 2}
             ],
             rna_msa_dirs=[],
             diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,
@@ -389,7 +398,7 @@ def af3_af2fb_distillation_dataset_with_metadata(distillation_pandas_dataset_wit
         cif_parser_args={},
         transform=build_af3_transform_pipeline(
             protein_msa_dirs=[
-                {"dir": "/squash/af2_distillation_facebook/msa", "extension": ".a3m", "directory_depth": 2}
+                {"dir": str(TEST_DATA_ML / "af2_distillation" / "msa"), "extension": ".a3m", "directory_depth": 2}
             ],
             rna_msa_dirs=[],
             diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,

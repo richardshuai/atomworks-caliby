@@ -3,13 +3,13 @@ import pytest
 
 from atomworks.io.utils.io_utils import load_any
 from atomworks.io.utils.testing import assert_same_atom_array, is_same_in_group, is_same_in_segment
-from tests.io.conftest import TEST_DATA_DIR
+from tests.io.conftest import TEST_DATA_IO
 
 
 @pytest.fixture
 def atom_array():
     return load_any(
-        TEST_DATA_DIR / "6lyz.bcif", model=1, extra_fields=["charge", "b_factor", "occupancy"], include_bonds=True
+        TEST_DATA_IO / "6lyz.bcif", model=1, extra_fields=["charge", "b_factor", "occupancy"], include_bonds=True
     )
 
 

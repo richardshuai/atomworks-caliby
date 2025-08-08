@@ -14,7 +14,7 @@ from atomworks.io.utils.non_rcsb import initialize_chain_info_from_atom_array
 from atomworks.io.utils.testing import assert_same_atom_array
 from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
 from atomworks.ml.utils.testing import cached_parse
-from tests.ml.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, TEST_DATA_DIR
+from tests.ml.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, TEST_DATA_ML
 
 
 def test_af3_confidence_pipeline_from_chai_fasta():
@@ -23,7 +23,7 @@ def test_af3_confidence_pipeline_from_chai_fasta():
     Tests proper composition of confidence features from input fastas.
     """
     # Load chai fasta
-    fasta_path = TEST_DATA_DIR / "inference_like_chai_fasta.fasta"
+    fasta_path = TEST_DATA_ML / "inference_like_chai_fasta.fasta"
     inference_input_components = read_chai_fasta(fasta_path)
     atom_array = components_to_atom_array(inference_input_components)
     chain_info = initialize_chain_info_from_atom_array(atom_array)
@@ -62,7 +62,7 @@ def test_af3_pipeline_from_chai_fasta():
     to ensure proper transformation of protein structures.
     """
     # Load chai fasta
-    fasta_path = TEST_DATA_DIR / "inference_like_chai_fasta.fasta"
+    fasta_path = TEST_DATA_ML / "inference_like_chai_fasta.fasta"
     inference_input_components = read_chai_fasta(fasta_path)
     atom_array = components_to_atom_array(inference_input_components)
     chain_info = initialize_chain_info_from_atom_array(atom_array)
@@ -98,7 +98,7 @@ AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES = [
         {
             "seq": "IIGGHEAKPHSRPYMAYLQIMDEYSGSKKCGGFLIREDFVLTAAHCSGSKIQVTLGAHNIKEQEKMQQIIPVVKIIPHPAYNSKTISNDIMLLKLKSKAKRSSAVKPLNLPRRNVKVKPGDVCYVAGWGKLGPMGKYSDTLQEVELTVQEDQKCESYLKNYFDKANEICAGDPKIKRASFRGDSGGPLVCKKVAAGIVSYGQNDGSTPRAFTKVSTFLSWIKKTMKKSIEPD",
             "chain_type": "polypeptide(l)",
-            "msa_path": f"{TEST_DATA_DIR}/msa_for_inference.a3m",
+            "msa_path": f"{TEST_DATA_ML}/msa_for_inference.a3m",
             "chain_id": "A",
         },
         {

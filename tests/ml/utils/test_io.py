@@ -14,7 +14,6 @@ TEST_PICKLED_AF3_MODEL_OUTPUTS = ["af3_model_outs_protein_dna.pkl", "af3_model_o
 TEST_DATA_PATH = Path(__file__).resolve().parents[1] / "data"
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize("file_path", TEST_PICKLED_AF3_MODEL_OUTPUTS)
 def test_convert_af3_model_output_to_atom_array_stack(file_path: str):
     full_path = TEST_DATA_PATH / file_path

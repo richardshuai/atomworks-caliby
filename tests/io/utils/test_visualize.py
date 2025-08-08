@@ -7,6 +7,22 @@ from atomworks.io.transforms.atom_array import is_any_coord_nan
 from atomworks.io.utils.visualize import view
 
 
+def _has_pymol_remote() -> bool:
+    try:
+        from atomworks.io.utils.visualize import get_pymol_session
+
+        get_pymol_session()
+        return True
+    except Exception:
+        return False
+
+
+requires_pymol_remote = pytest.mark.skipif(
+    not _has_pymol_remote(),
+    reason="Could not find a running `pymol-remote` session.",
+)
+
+
 @pytest.fixture
 def sample_atom_array():
     """Create a sample AtomArray for testing."""
@@ -92,8 +108,8 @@ def test_view_invalid_input():
         view("not an AtomArray")
 
 
-@pytest.mark.skip(reason="Requires PyMOL remote connection. Run manually instead.")
 @pytest.mark.requires_pymol_remote
+@requires_pymol_remote
 def test_view_pymol_remote(sample_atom_array):
     """Test view function with PyMOL remote."""
     from io import StringIO

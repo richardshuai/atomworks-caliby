@@ -11,7 +11,7 @@ from atomworks.io.parser import parse
 from atomworks.io.transforms import atom_array as ta
 from atomworks.io.utils.io_utils import to_cif_file
 from atomworks.io.utils.testing import assert_same_atom_array
-from tests.io.conftest import get_pdb_path
+from tests.io.conftest import TEST_DATA_IO, get_pdb_path
 
 TEST_CASES = [
     "6mub",  # Symmetry center clash
@@ -39,7 +39,7 @@ def test_regression_against_stored_result(pdb_id: str):
     )
     assert result is not None  # Check if processing runs through
 
-    regression_dir = Path(__file__).parent / "../data/regression_tests/"
+    regression_dir = TEST_DATA_IO / "regression_tests"
     regression_dir.mkdir(parents=True, exist_ok=True)
     pickle_path = regression_dir / f"{pdb_id}.pkl"
 

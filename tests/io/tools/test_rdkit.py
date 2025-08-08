@@ -14,6 +14,7 @@ from atomworks.io.tools.rdkit import (
     smiles_to_rdkit,
 )
 from atomworks.io.utils.io_utils import load_any
+from tests.io.conftest import TEST_DATA_IO
 
 try:
     # Settings for debugging & interactive tests
@@ -127,7 +128,7 @@ def molecules():
         "NAG": ccd_code_to_rdkit("NAG", hydrogen_policy="remove"),
         "BMA": ccd_code_to_rdkit("BMA", hydrogen_policy="remove"),
         "CustomUNL": atom_array_to_rdkit(
-            load_any("tests/io/data/test_unl_ligand_with_bonds.cif", model=1), set_coord=False, hydrogen_policy="keep"
+            load_any(TEST_DATA_IO / "test_unl_ligand_with_bonds.cif", model=1), set_coord=False, hydrogen_policy="keep"
         ),
     }
     return mols
