@@ -495,16 +495,16 @@ def atom_array_from_rdkit(
     bond information.
 
     Args:
-        - mol (rdkit.Chem.Mol): The RDKit molecule to convert.
-        - set_coord_if_available (bool): Whether to set the coordinates from the RDKit molecule if
+        - mol: The RDKit molecule to convert.
+        - set_coord_if_available: Whether to set the coordinates from the RDKit molecule if
             a conformer is available.
-        - conformer_id (int | None): The conformer ID to use for coordinates. If None, the first
+        - conformer_id: The conformer ID to use for coordinates. If None, the first
           conformer is used.
-        - remove_hydrogens (bool): Whether to remove any explicit hydrogen atoms.
-        - remove_inferred_atoms (bool): Whether to remove any atoms that do not carry the `rdkit_atom_id` annotation.
+        - remove_hydrogens: Whether to remove any explicit hydrogen atoms.
+        - remove_inferred_atoms: Whether to remove any atoms that do not carry the `rdkit_atom_id` annotation.
 
     Returns:
-        - biotite.structure.AtomArray: A Biotite AtomArray object containing the atoms and bonds from the input Mol object.
+        - An AtomArray containing the atoms and bonds from the input Mol object.
 
     Example:
         >>> mol = Chem.MolFromSmiles("CCO")

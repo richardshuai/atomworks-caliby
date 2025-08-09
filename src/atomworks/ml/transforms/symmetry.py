@@ -246,16 +246,12 @@ def instance_to_token_lvl_isomorphisms(
             token-level isomorphisms.
 
     Example:
-    >>> instance_isomorphisms = np.array(
-    ...     [[0, 1], [1, 0]]
-    ... )  # Example instance-level isomorphisms
+    >>> instance_isomorphisms = np.array([[0, 1], [1, 0]])  # Example instance-level isomorphisms
     >>> instance_token_idxs = [
     ...     np.array([0, 1]),
     ...     np.array([2, 3]),
     ... ]  # Example token indices for each instance
-    >>> token_lvl_isomorphisms = instance_to_token_lvl_isomorphisms(
-    ...     instance_isomorphisms, instance_token_idxs
-    ... )
+    >>> token_lvl_isomorphisms = instance_to_token_lvl_isomorphisms(instance_isomorphisms, instance_token_idxs)
     >>>  [[0 1 2 3]
     >>>   [2 3 0 1]]
     """
@@ -298,9 +294,7 @@ def identify_isomorphic_chains_based_on_molecule_entity(atom_array: AtomArray):
             are lists of molecule IDs belonging to that entity.
 
     Example:
-        >>> atom_array = AtomArray(
-        ...     ...
-        ... )  # AtomArray with molecule_entity and molecule_iid annotations
+        >>> atom_array = AtomArray(...)  # AtomArray with molecule_entity and molecule_iid annotations
         >>> isomorphic_molecules = identify_isomorphic_chains_based_on_molecule_entity(atom_array)
         >>> print(isomorphic_molecules)
         {"A,B": [1, 2, 3], "C": [4, 5]}

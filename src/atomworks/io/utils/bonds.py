@@ -86,9 +86,7 @@ def get_inferred_polymer_bonds(atom_array: AtomArray) -> tuple[list[tuple[int, i
         >>> bonds, leaving = get_inferred_polymer_bonds(atom_array)
         >>> print(bonds)  # Shows C-N peptide bond between residues
         [(2, 5, <BondType.SINGLE>)]  # C of ALA to N of GLY
-        >>> print(
-        ...     leaving
-        ... )  # Shows leaving OXT from C and H2 from N (other hydrogen atom names not shown for simplicity)
+        >>> print(leaving)  # Shows leaving OXT from C and H2 from N (other hydrogen atom names not shown for simplicity)
         [array([3]), array([9])]
     """
     # ... initialize return values

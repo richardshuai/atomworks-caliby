@@ -1,6 +1,6 @@
-"""Enums for atomworks.ml."""
+"""Enums for atomworks.ml"""
 
-from enum import IntEnum
+from enum import IntEnum, StrEnum, auto
 
 
 class GroundTruthConformerPolicy(IntEnum):
@@ -18,3 +18,17 @@ class GroundTruthConformerPolicy(IntEnum):
     ADD = 2
     FALLBACK = 3
     IGNORE = 4
+
+
+class HydrogenPolicy(StrEnum):
+    """Enum for hydrogen policy.
+
+    Possible values are:
+        -  KEEP: Keep the hydrogens as they are
+        -  REMOVE: Remove the hydrogens
+        -  INFER: Infer the hydrogens from the atom array
+    """
+
+    KEEP = auto()
+    REMOVE = auto()
+    INFER = auto()

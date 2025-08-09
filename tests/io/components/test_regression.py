@@ -1,7 +1,7 @@
 """Regression tests for complex cases to ensure consistent behavior."""
 
 import pickle
-from pathlib import Path
+from pathlib import Path  # noqa: F401
 
 import numpy as np
 import pytest
@@ -9,7 +9,7 @@ import pytest
 from atomworks.io.constants import CRYSTALLIZATION_AIDS
 from atomworks.io.parser import parse
 from atomworks.io.transforms import atom_array as ta
-from atomworks.io.utils.io_utils import to_cif_file
+from atomworks.io.utils.io_utils import to_cif_file  # noqa: F401
 from atomworks.io.utils.testing import assert_same_atom_array
 from tests.io.conftest import TEST_DATA_IO, get_pdb_path
 

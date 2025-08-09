@@ -20,9 +20,7 @@ def build_path_from_template(path_template: str, **kwargs) -> Path:
         **kwargs: Variables to substitute
 
     Examples:
-        >>> build_path_from_template(
-        ...     "{base_dir}/{pdb_id[1:3]}/{pdb_id}", base_dir="/data", pdb_id="3usg"
-        ... )
+        >>> build_path_from_template("{base_dir}/{pdb_id[1:3]}/{pdb_id}", base_dir="/data", pdb_id="3usg")
         Path("/data/us/3usg")
     """
     # Find all template variables: {var} or {var[start:end]}

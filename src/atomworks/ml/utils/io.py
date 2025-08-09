@@ -195,9 +195,7 @@ def get_sharded_file_path(
         Path("/path/to/cache/ab/cd/abcdef123456.pkl")
         >>> get_sharded_file_path("/path/to/cache", "abcdef123456", ".pkl", 3, chars_per_dir=1)
         Path("/path/to/cache/a/b/c/abcdef123456.pkl")
-        >>> get_sharded_file_path(
-        ...     "/path/to/cache", "abcdef123456", ".pkl", 2, include_subdirectory=True
-        ... )
+        >>> get_sharded_file_path("/path/to/cache", "abcdef123456", ".pkl", 2, include_subdirectory=True)
         Path("/path/to/cache/ab/cd/abcdef123456/abcdef123456.pkl")
     """
     nested_path = Path(base_dir)

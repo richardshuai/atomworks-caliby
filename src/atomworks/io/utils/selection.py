@@ -31,9 +31,7 @@ def annot_start_stop_idxs(
 
     Example:
         >>> atom_array = AtomArray(...)
-        >>> start_stop_idxs = annot_start_stop_idxs(
-        ...     atom_array, annots="chain_id", add_exclusive_stop=True
-        ... )
+        >>> start_stop_idxs = annot_start_stop_idxs(atom_array, annots="chain_id", add_exclusive_stop=True)
         >>> print(start_stop_idxs)
         [0, 5, 10, 15]
     """
@@ -186,9 +184,7 @@ class ResIdxSlice(SegmentSlice):
     Example:
         >>> atom_array = AtomArray(...)
         >>> res_slice = ResIdxSlice(0, 2)
-        >>> sliced_atom_array = atom_array[
-        ...     res_slice
-        ... ]  # <-- returns a new AtomArray with the first two residues
+        >>> sliced_atom_array = atom_array[res_slice]  # <-- returns a new AtomArray with the first two residues
     """
 
     def _get_segment_bounds(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
@@ -205,9 +201,7 @@ class ChainIdxSlice(SegmentSlice):
     Example:
         >>> atom_array = AtomArray(...)
         >>> chain_slice = ChainIdxSlice(0, 1)
-        >>> sliced_atom_array = atom_array[
-        ...     chain_slice
-        ... ]  # <-- returns a new AtomArray with the first chain
+        >>> sliced_atom_array = atom_array[chain_slice]  # <-- returns a new AtomArray with the first chain
     """
 
     def _get_segment_bounds(self, atom_array: AtomArray | AtomArrayStack) -> np.ndarray:
