@@ -4,7 +4,6 @@ from collections.abc import Callable
 from types import MappingProxyType
 from typing import Any
 
-import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
 
@@ -393,43 +392,3 @@ def idxs(atom_array: AtomArray | AtomArrayStack, expr: str) -> np.ndarray:
     """
     querier = QueryExpression(expr)
     return querier.idxs(atom_array)
-
-
-def monkey_patch_atomarray() -> None:
-    """Monkey-patch query method to AtomArray class."""
-
-    def query_method(self: AtomArray | AtomArrayStack, expr: str) -> AtomArray | AtomArrayStack:
-        """
-        Query the AtomArray using pandas-like syntax.
-
-        Examples
-        --------
-        >>> # Using function calls
-        >>> array.query("~has_nan_coord() & has_bonds()")
-
-        >>> # Combining with regular attributes
-        >>> array.query("has_bonds() & (chain_id == 'A') & (atom_name == 'CA')")
-        """
-        return query(self, expr)  # type: ignore
-
-    def mask_method(self: AtomArray | AtomArrayStack, expr: str) -> np.ndarray:
-        """
-        Query the AtomArray using pandas-like syntax and return a boolean mask.
-        """
-        return mask(self, expr)  # type: ignore
-
-    def idxs_method(self: AtomArray | AtomArrayStack, expr: str) -> np.ndarray:
-        """
-        Query the AtomArray using pandas-like syntax and return the indices of the matching atoms.
-        """
-        return idxs(self, expr)  # type: ignore
-
-    struc.AtomArray.query = query_method
-    struc.AtomArrayStack.query = query_method
-    struc.AtomArray.mask = mask_method
-    struc.AtomArrayStack.mask = mask_method
-    struc.AtomArray.idxs = idxs_method
-    struc.AtomArrayStack.idxs = idxs_method
-
-
-monkey_patch_atomarray()

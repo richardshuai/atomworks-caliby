@@ -5,6 +5,15 @@ This package combines functionality from atomworks.io (I/O operations) and atomw
 into a unified interface for biological data processing and machine learning.
 """
 
+__all__ = [
+    "__version__",
+    "__version_tuple__",
+    "io",
+    "ml",
+    "parse",
+]
+
+
 import logging
 import os
 import warnings
@@ -17,6 +26,12 @@ logger.setLevel(_log_level)
 # Ensure that deprecation warnings are not repeated
 warnings.filterwarnings("once", category=DeprecationWarning)
 
+# Apply monkey patching to extend AtomArray functionality
+from atomworks.biotite_patch import monkey_patch_biotite
+
+monkey_patch_biotite()
+
+
 # Import version information
 # Import subpackages
 from . import io, ml
@@ -25,7 +40,6 @@ from . import io, ml
 # This maintains backward compatibility and provides a clean top-level API
 # Key I/O functionality
 from .io.parser import parse
-from .io.utils.query import monkey_patch_atomarray
 
 
 def _get_versioning(repo_path: str) -> str:
@@ -63,12 +77,6 @@ def _get_versioning(repo_path: str) -> str:
     return version
 
 
-# TODO: Move this functionality to a utils biotite_patch.py file
-## monkey patch biotite to allow override of hbond distance in 'base_pairs'
-# import biotite.structure as struc
-# from atomworks.ml.transforms.dna.pad_dna import base_pairs
-# struc.base_pairs = base_pairs
-
 # Import version information
 __version__ = None
 __version_tuple__ = None
@@ -84,16 +92,3 @@ except Exception as e:
         __version__ = "?"
         __version_tuple__ = (0, 0, 0)
         logger.warning(f"Failed to get versioning. Setting version to '?'. Error: {e}")
-
-
-# Apply monkey patching to extend AtomArray functionality
-monkey_patch_atomarray()
-
-__all__ = [
-    "__version__",
-    "__version_tuple__",
-    "io",
-    "ml",
-    "monkey_patch_atomarray",
-    "parse",
-]
