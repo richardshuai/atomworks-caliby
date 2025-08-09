@@ -2,7 +2,6 @@ import gzip
 import json
 import pickle
 from itertools import combinations
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -40,6 +39,7 @@ from atomworks.ml.utils.token import token_iter
 from tests.ml.conftest import (
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,
+    TEST_DATA_ML,
 )
 
 
@@ -521,7 +521,7 @@ def test_mask_msa_like_bert():
         assert abs(actual_num_mask_tokens - expected_num_mask_tokens) <= 2 * std_dev
 
         # ...execute regression tests, loading from a saved JSON
-        SAVED_RESULT_PATH = Path(__file__).resolve().parents[2] / "data" / "mask_msa_regression_test.json"
+        SAVED_RESULT_PATH = TEST_DATA_ML / "mask_msa_regression_test.json"
 
         # Uncomment to save new_encoded_msa for regression tests, as a JSON
         # with open(SAVED_RESULT_PATH, "w") as f:
@@ -613,9 +613,7 @@ def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
         ############## Regression test ##############
 
         # Save in the test directory
-        SAVED_RESULT_PATH = (
-            Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_rf2aa_regression_test.pkl.gz"
-        )
+        SAVED_RESULT_PATH = TEST_DATA_ML / f"{pdb_id}_featurize_msa_like_rf2aa_regression_test.pkl.gz"
 
         # Uncomment to save output['features_per_recycle_dict'] for regression tests, as a compressed pickle
         # with gzip.open(SAVED_RESULT_PATH, "wb") as f:
@@ -705,9 +703,7 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
         ############## Regression test ##############
 
         # Save in the test directory
-        SAVED_RESULT_PATH = (
-            Path(__file__).resolve().parents[2] / "data" / f"{pdb_id}_featurize_msa_like_af3_regression_test.pkl.gz"
-        )
+        SAVED_RESULT_PATH = TEST_DATA_ML / f"{pdb_id}_featurize_msa_like_af3_regression_test.pkl.gz"
 
         # Uncomment to save output['msa_features'] for regression tests, as a compressed pickle
         # with gzip.open(SAVED_RESULT_PATH, "wb") as f:

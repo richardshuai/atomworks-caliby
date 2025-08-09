@@ -25,6 +25,7 @@ from atomworks.ml.transforms.template import (
 )
 from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
 from atomworks.ml.utils.testing import cached_parse
+from tests.ml.conftest import TEMPLATE_DIR, TEMPLATE_LOOKUP
 
 TEST_CASES = [
     {
@@ -43,7 +44,13 @@ def test_add_rf_templates(test_case: dict):
     pdb_id = test_case["pdb_id"]
     data = cached_parse(pdb_id)
     data = AddRFTemplates(
-        max_n_template=1000, pick_top=False, min_seq_similarity=10, max_seq_similarity=100, min_template_length=10
+        max_n_template=1000,
+        pick_top=False,
+        min_seq_similarity=10,
+        max_seq_similarity=100,
+        min_template_length=10,
+        template_lookup_path=TEMPLATE_LOOKUP,
+        template_base_dir=TEMPLATE_DIR,
     )(data)
 
     for chain, n_templates in test_case["n_templates"].items():
@@ -61,7 +68,13 @@ def test_subsample_template(test_case: dict):
     template_counts = []
 
     out_before_subsampling = AddRFTemplates(
-        max_n_template=20, pick_top=False, min_seq_similarity=10, max_seq_similarity=100, min_template_length=10
+        max_n_template=20,
+        pick_top=False,
+        min_seq_similarity=10,
+        max_seq_similarity=100,
+        min_template_length=10,
+        template_lookup_path=TEMPLATE_LOOKUP,
+        template_base_dir=TEMPLATE_DIR,
     )(data)
 
     with rng_state(create_rng_state_from_seeds(12345)):
@@ -96,6 +109,8 @@ def test_add_rf_templates_filters(
         min_seq_similarity=min_seq_similarity,
         max_seq_similarity=max_seq_similarity,
         min_template_length=min_template_length,
+        template_lookup_path=TEMPLATE_LOOKUP,
+        template_base_dir=TEMPLATE_DIR,
     )
     data = transform(data)
 
@@ -124,7 +139,13 @@ def test_featurize_rf_templates(test_case: dict, encoding: TokenEncoding, n_temp
             FilterToProteins(),
             AddGlobalTokenIdAnnotation(),
             AddRFTemplates(
-                max_n_template=2, pick_top=False, min_seq_similarity=20, max_seq_similarity=60, min_template_length=10
+                max_n_template=2,
+                pick_top=False,
+                min_seq_similarity=20,
+                max_seq_similarity=60,
+                min_template_length=10,
+                template_lookup_path=TEMPLATE_LOOKUP,
+                template_base_dir=TEMPLATE_DIR,
             ),
             FeaturizeTemplatesLikeRF2AA(
                 n_template=n_template,
@@ -187,7 +208,13 @@ def test_add_input_file_template(test_case: dict):
     pdb_id = test_case["pdb_id"]
     data = cached_parse(pdb_id)
     data = AddRFTemplates(
-        max_n_template=1000, pick_top=False, min_seq_similarity=10, max_seq_similarity=100, min_template_length=10
+        max_n_template=1000,
+        pick_top=False,
+        min_seq_similarity=10,
+        max_seq_similarity=100,
+        min_template_length=10,
+        template_lookup_path=TEMPLATE_LOOKUP,
+        template_base_dir=TEMPLATE_DIR,
     )(data)
 
     # first modify the atom_array to have the is_input_file_template annotation

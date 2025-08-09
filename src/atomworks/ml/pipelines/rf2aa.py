@@ -186,6 +186,8 @@ def build_rf2aa_transform_pipeline(
     template_max_seq_similarity: float = 60.0,
     template_min_seq_similarity: float = 10.0,
     template_min_length: int = 10,
+    template_lookup_path: PathLike | None = None,
+    template_base_dir: PathLike | None = None,
     # Symmetry resolution parameters
     max_automorphs: int = 1_000,
     max_isomorphs: int = 1_000,
@@ -389,6 +391,8 @@ def build_rf2aa_transform_pipeline(
             max_seq_similarity=template_max_seq_similarity,
             min_seq_similarity=template_min_seq_similarity,
             min_template_length=template_min_length,
+            template_lookup_path=template_lookup_path,
+            template_base_dir=template_base_dir,
         ),
         # ============================================
         # 6. Add misc. features (chirals, bond features, etc.)

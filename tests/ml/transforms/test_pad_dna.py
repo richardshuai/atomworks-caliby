@@ -23,7 +23,7 @@ def _has_x3dna() -> bool:
     return False
 
 
-REQUIRES_X3DNA = pytest.mark.skipif(
+skip_if_no_x3dna = pytest.mark.skipif(
     not _has_x3dna(),
     reason="X3DNA is not installed",
 )
@@ -39,7 +39,7 @@ def test_x3dna_manager_fail1():
 
 
 @pytest.mark.requires_x3dna
-@REQUIRES_X3DNA
+@skip_if_no_x3dna
 def test_x3dna_manager():
     """Test the X3DNA manager."""
     X3DNAFiber.get_or_initialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
@@ -55,7 +55,7 @@ def test_to_reverse_complement():
 
 
 @pytest.mark.requires_x3dna
-@REQUIRES_X3DNA
+@skip_if_no_x3dna
 def test_generate_bform_dna():
     """Test that the bform DNA is generated correctly."""
     X3DNAFiber.get_or_initialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
@@ -79,7 +79,7 @@ def test_generate_bform_dna():
 
 
 @pytest.mark.requires_x3dna
-@REQUIRES_X3DNA
+@skip_if_no_x3dna
 @pytest.mark.parametrize("example_id", ["6w13"])
 def test_augment_pad_dna(example_id: str, np_seed: int = 1):
     data = cached_parse(example_id)

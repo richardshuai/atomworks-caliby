@@ -8,6 +8,8 @@ from atomworks.ml.utils.testing import cached_parse
 from tests.ml.conftest import (
     PROTEIN_MSA_DIRS,
     RNA_MSA_DIRS,
+    TEMPLATE_DIR,
+    TEMPLATE_LOOKUP,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +37,8 @@ def test_prior_pipeline_bugs_af3(pdb_id: str):
             protein_msa_dirs=PROTEIN_MSA_DIRS,
             rna_msa_dirs=RNA_MSA_DIRS,
             is_inference=False,
+            template_lookup_path=TEMPLATE_LOOKUP,
+            template_base_dir=TEMPLATE_DIR,
         )
         output = pipe(input)
 

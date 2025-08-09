@@ -16,6 +16,7 @@ from biotite.structure import AtomArray
 from torch.nn.functional import normalize
 
 from atomworks.io.enums import ChainType
+from atomworks.ml.common import exists
 from atomworks.ml.encoding_definitions import (
     LEGACY_RF2_ATOM14_ENCODING,
     RF2AA_ATOM36_ENCODING,
@@ -255,18 +256,16 @@ def blank_rf2aa_template_features(
 
 
 @cache
-def _lazy_load_template_lookup_dict(template_msa_lookup_df_path: PathLike) -> dict[str, int]:
-    template_msa_lookup_df = pd.read_csv(template_msa_lookup_df_path, keep_default_na=False, na_values=NA_VALUES)
-    template_msa_lookup_df["HASH"] = template_msa_lookup_df["HASH"].apply(lambda x: f"{x:06d}")
+def _lazy_load_template_lookup_dict(template_lookup_path: PathLike) -> dict[str, int]:
+    template_lookup_df = pd.read_csv(template_lookup_path, keep_default_na=False, na_values=NA_VALUES)
+    template_lookup_df["HASH"] = template_lookup_df["HASH"].apply(lambda x: f"{x:06d}")
     pdb_chain_id_to_hash_dict = dict(
-        zip(template_msa_lookup_df["CHAINID"].tolist(), template_msa_lookup_df["HASH"].tolist(), strict=False)
+        zip(template_lookup_df["CHAINID"].tolist(), template_lookup_df["HASH"].tolist(), strict=False)
     )
     return pdb_chain_id_to_hash_dict
 
 
-def _get_rf_template_id(
-    pdb_id: str, chain_id: str, chain_type: ChainType, template_msa_lookup_df_path: PathLike
-) -> str:
+def _get_rf_template_id(pdb_id: str, chain_id: str, chain_type: ChainType, template_lookup_path: PathLike) -> str:
     """
     Retrieves the template lookup ID for a given PDB and chain ID combination.
     (NOTE: This is the `chid_to_hash` ID used for MSAs & Templates used in the original RF2AA)
@@ -275,7 +274,7 @@ def _get_rf_template_id(
     - pdb_id (str): The PDB ID of the protein structure. E.g., "1A2K".
     - chain_id (str): The chain ID within the PDB structure. E.g., "A". Notably, no transformation ID.
     - chain_type (ChainType): The type of the chain, as defined in the ChainType enum.
-    - template_msa_lookup_df_path (PathLike): Path to the template MSA lookup file, typically on the DIGS.
+    - template_lookup_path (PathLike): Path to the template MSA lookup file, typically on the DIGS.
 
     Returns:
     - str: The template lookup ID corresponding to the combined PDB and chain ID.
@@ -284,7 +283,7 @@ def _get_rf_template_id(
     if chain_type == ChainType.POLYPEPTIDE_L:
         # For polypeptide(L) chains, we lookup the identified based on the mapping stored on disk
         # If we don't find a match, we append "_single_sequence" to the combined ID to ensure we won't find any MSAs
-        return _lazy_load_template_lookup_dict(template_msa_lookup_df_path=template_msa_lookup_df_path).get(combined_id)
+        return _lazy_load_template_lookup_dict(template_lookup_path=template_lookup_path).get(combined_id)
     elif chain_type == ChainType.RNA or chain_type == ChainType.DNA:
         # For nucleic acids, we use `{pdb_id}_{chain_id}` as the identifier
         return combined_id
@@ -331,7 +330,7 @@ class AddRFTemplates(Transform):
         max_seq_similarity: float = 100.0,
         min_template_length: int = 0,
         filter_by_query_length: bool = False,
-        template_msa_lookup_df_path: PathLike = os.environ.get(
+        template_lookup_path: PathLike = os.environ.get(
             "TEMPLATE_MSA_LOOKUP_DF_PATH", "/projects/ml/TrRosetta/PDB-2021AUG02/list_v02.csv"
         ),
         template_base_dir: PathLike = os.environ.get(
@@ -350,7 +349,7 @@ class AddRFTemplates(Transform):
             max_seq_similarity (float): Maximum sequence similarity for templates to be included. Default is 100.0.
             min_template_length (int): Minimum length of the template to be included. Default is 0.
             filter_by_query_length (bool): Whether to filter templates by query length. Default is False.
-            template_msa_lookup_df_path (PathLike): Path to the template MSA lookup dataframe. We attempt to load from the environment variable, and
+            template_lookup_path (PathLike): Path to the template lookup table. We attempt to load from the environment variable, and
                 fall back to the default path on the DIGS if unset
             template_base_dir (PathLike): Base directory for the template files. We attempt to load from the environment variable, and fall back to the
                 default path on the DIGS if unset
@@ -379,7 +378,7 @@ class AddRFTemplates(Transform):
         self.max_seq_similarity = max_seq_similarity
         self.min_template_length = min_template_length
         self.filter_by_query_length = filter_by_query_length
-        self.template_msa_lookup_df_path = template_msa_lookup_df_path
+        self.template_lookup_path = template_lookup_path
         self.template_base_dir = template_base_dir
 
     def check_input(self, data: dict[str, Any]) -> None:
@@ -402,8 +401,11 @@ class AddRFTemplates(Transform):
             # get chain_type and convert to Enum
             chain_type = chain_info[chain_id]["chain_type"]
             chain_type = ChainType.as_enum(chain_type)
-            rf_template_id = _get_rf_template_id(pdb_id, chain_id, chain_type, self.template_msa_lookup_df_path)
-            rf_template = _load_rf_template(rf_template_id, self.template_base_dir)
+
+            rf_template = None
+            if exists(self.template_lookup_path) and exists(self.template_base_dir):
+                rf_template_id = _get_rf_template_id(pdb_id, chain_id, chain_type, self.template_lookup_path)
+                rf_template = _load_rf_template(rf_template_id, self.template_base_dir)
 
             if rf_template is None:
                 logger.debug(f"No RF template found for {pdb_id}_{chain_id}.")

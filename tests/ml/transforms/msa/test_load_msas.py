@@ -15,6 +15,7 @@ from atomworks.ml.transforms.msa._msa_constants import (
 from atomworks.ml.transforms.msa._msa_loading_utils import get_msa_path
 from atomworks.ml.transforms.msa.msa import LoadPolymerMSAs
 from atomworks.ml.utils.testing import cached_parse
+from tests.conftest import skip_if_not_on_digs
 from tests.ml.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS
 
 logging.basicConfig(level=logging.INFO)
@@ -203,6 +204,8 @@ def test_msas_with_mse():
 
 
 @pytest.mark.slow
+@pytest.mark.requires_digs
+@skip_if_not_on_digs
 def test_msa_coverage(pn_units_df):
     """Ensure the  MSA coverage for the test data set surpasses a certain threshold."""
 

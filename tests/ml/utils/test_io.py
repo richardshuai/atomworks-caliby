@@ -1,5 +1,4 @@
 import pickle
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -7,16 +6,15 @@ from biotite.structure import AtomArrayStack
 
 from atomworks.io.constants import ATOMIC_NUMBER_TO_ELEMENT
 from atomworks.ml.utils.io import convert_af3_model_output_to_atom_array_stack
+from tests.ml.conftest import TEST_DATA_ML
 
 # NOTE: Not the "true" model outputs; slightly pre-processed for storage efficiency
 TEST_PICKLED_AF3_MODEL_OUTPUTS = ["af3_model_outs_protein_dna.pkl", "af3_model_outs_protein_ligand.pkl"]
 
-TEST_DATA_PATH = Path(__file__).resolve().parents[1] / "data"
-
 
 @pytest.mark.parametrize("file_path", TEST_PICKLED_AF3_MODEL_OUTPUTS)
 def test_convert_af3_model_output_to_atom_array_stack(file_path: str):
-    full_path = TEST_DATA_PATH / file_path
+    full_path = TEST_DATA_ML / file_path
 
     # Load the model outputs
     with open(full_path, "rb") as f:

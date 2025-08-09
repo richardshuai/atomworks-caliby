@@ -57,20 +57,20 @@ def test_regression_against_stored_result(pdb_id: str):
     result["asym_unit"] = ta.remove_hydrogens(result["asym_unit"])
 
     # Save output into test_output
-    to_cif_file(
-        result["asym_unit"][0],
-        f"{Path(__file__).parents[1]}/test_outputs/{pdb_id}_new.cif",
-        id=f"{pdb_id}_new",
-        date=True,
-        time=True,
-    )
-    to_cif_file(
-        expected_result["asym_unit"][0],
-        f"{Path(__file__).parents[1]}/test_outputs/{pdb_id}_old.cif",
-        id=f"{pdb_id}_old",
-        date=True,
-        time=True,
-    )
+    # to_cif_file(
+    #     result["asym_unit"][0],
+    #     f"{Path(__file__).parents[1]}/test_outputs/{pdb_id}_new.cif",
+    #     id=f"{pdb_id}_new",
+    #     date=True,
+    #     time=True,
+    # )
+    # to_cif_file(
+    #     expected_result["asym_unit"][0],
+    #     f"{Path(__file__).parents[1]}/test_outputs/{pdb_id}_old.cif",
+    #     id=f"{pdb_id}_old",
+    #     date=True,
+    #     time=True,
+    # )
 
     # ## FOR DEBUGGING REGRESSION TESTS UNCOMMENT:
     from atomworks.io.common import sum_string_arrays

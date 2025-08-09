@@ -17,7 +17,7 @@ def _has_pymol_remote() -> bool:
         return False
 
 
-requires_pymol_remote = pytest.mark.skipif(
+skip_if_no_pymol_remote = pytest.mark.skipif(
     not _has_pymol_remote(),
     reason="Could not find a running `pymol-remote` session.",
 )
@@ -109,7 +109,7 @@ def test_view_invalid_input():
 
 
 @pytest.mark.requires_pymol_remote
-@requires_pymol_remote
+@skip_if_no_pymol_remote
 def test_view_pymol_remote(sample_atom_array):
     """Test view function with PyMOL remote."""
     from io import StringIO

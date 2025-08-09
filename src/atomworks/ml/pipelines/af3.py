@@ -112,6 +112,8 @@ def build_af3_transform_pipeline(
     ],
     template_distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),
     template_default_token: str = GAP,
+    template_lookup_path: PathLike | None = None,
+    template_base_dir: PathLike | None = None,
     # MSA parameters
     max_msa_sequences: int = 10_000,  # Paper: 16,000, but we only have 10K stored on disk
     n_msa: int = 10_000,  # Paper: ?? I think ~12K?
@@ -248,6 +250,8 @@ def build_af3_transform_pipeline(
                 max_seq_similarity=template_max_seq_similarity,
                 min_seq_similarity=template_min_seq_similarity,
                 min_template_length=template_min_length,
+                template_lookup_path=template_lookup_path,
+                template_base_dir=template_base_dir,
             ),
             # Subsample templates to n_template (from 20)
             RandomSubsampleTemplates(n_template=n_template),
@@ -260,6 +264,8 @@ def build_af3_transform_pipeline(
         max_seq_similarity=template_max_seq_similarity,
         min_seq_similarity=template_min_seq_similarity,
         min_template_length=template_min_length,
+        template_lookup_path=template_lookup_path,
+        template_base_dir=template_base_dir,
     )
     inference_template_load_from_structure = AddInputFileTemplate()
     inference_template_loading_transforms = ConditionalRoute(

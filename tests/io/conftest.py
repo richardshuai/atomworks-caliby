@@ -1,26 +1,10 @@
 """IO-specific test fixtures and utilities for atomworks.io tests."""
 
-import socket
-
-import pytest
-
 from atomworks.io.enums import ChainType
 from atomworks.io.utils.testing import get_pdb_path  # noqa: F401
 from tests.conftest import TEST_DATA_DIR
 
 TEST_DATA_IO = TEST_DATA_DIR / "io"
-
-
-def _has_internet_connection() -> bool:
-    try:
-        # Try to connect to a well-known DNS server (Google's)
-        socket.create_connection(("8.8.8.8", 53), timeout=2)
-        return True
-    except OSError:
-        return False
-
-
-requires_internet = pytest.mark.skipif(not _has_internet_connection(), reason="Test requires an internet connection.")
 
 CHAIN_TYPE_TEST_CASES = [
     {

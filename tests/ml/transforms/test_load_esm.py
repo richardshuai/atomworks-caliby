@@ -9,6 +9,7 @@ from atomworks.ml.transforms.base import Compose
 from atomworks.ml.transforms.esm.esm import LoadPolymerESMs
 from atomworks.ml.transforms.filters import RemoveHydrogens, RemoveUnsupportedChainTypes
 from atomworks.ml.utils.testing import cached_parse
+from tests.conftest import skip_if_not_on_digs
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -53,6 +54,8 @@ ESM_EMBEDDING_DIRS = [
 ]
 
 
+@pytest.mark.requires_digs
+@skip_if_not_on_digs
 @pytest.mark.parametrize("test_case", ESM_TEST_CASES)
 def test_load_esms(test_case: dict[str, Any]):
     """
@@ -99,6 +102,8 @@ def test_load_esms(test_case: dict[str, Any]):
         assert False, f"Unexpected esm_is_padded_mask for chain {chain_id}"
 
 
+@pytest.mark.requires_digs
+@skip_if_not_on_digs
 @pytest.mark.parametrize("test_cases_homo", ESM_HOMO_TEST_CASES)
 def test_esm_homology(test_cases_homo: list):
     # We test whether ESM embeddings capture the correct info

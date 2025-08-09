@@ -87,25 +87,22 @@ TEST_DATA_ML = TEST_DATA_DIR / "ml"
 
 PROTEIN_MSA_DIRS = [
     {
-        "dir": "/projects/msa/rf2aa_af3/rf2aa_paper_model_protein_msas",
+        "dir": str(TEST_DATA_DIR / "shared" / "msa"),
         "extension": ".a3m.gz",
         "directory_depth": 2,
-    },
-    {
-        "dir": "/projects/msa/rf2aa_af3/missing_msas_through_2024_08_12",
-        "extension": ".msa0.a3m.gz",
-        "directory_depth": 2,
-    },
-    {
-        "dir": "/projects/msa/nvidia_renamed_with_seq_hash/maxseq_10k",
-        "extension": ".a3m.gz",
-        "directory_depth": 2,
-    },
+    }
 ]
 
 RNA_MSA_DIRS = [
-    {"dir": "/projects/msa/rf2aa_af3/rf2aa_paper_model_rna_msas", "extension": ".afa", "directory_depth": 0}
+    {
+        "dir": str(TEST_DATA_DIR / "shared" / "msa"),
+        "extension": ".afa",
+        "directory_depth": 0,
+    }
 ]
+
+TEMPLATE_DIR = TEST_DATA_DIR / "shared" / "template"
+TEMPLATE_LOOKUP = TEST_DATA_DIR / "shared" / "template_lookup.csv"
 
 ##########################################################################################
 # + ----------------------------------- Dataframes ------------------------------------- +
@@ -250,6 +247,8 @@ def rf2aa_pn_units_dataset(pn_units_pandas_dataset):
             crop_spatial_probability=2 / 3,
             convert_feats_to_rf2aa_input_tuple=False,
             assert_rf2aa_assumptions=False,
+            template_lookup_path=TEMPLATE_LOOKUP,
+            template_base_dir=TEMPLATE_DIR,
         ),
         dataset=pn_units_pandas_dataset,
         cif_parser_args={"cache_dir": None},
@@ -270,6 +269,8 @@ def rf2aa_interfaces_dataset(interfaces_pandas_dataset):
             crop_contiguous_probability=0.0,
             assert_rf2aa_assumptions=False,
             convert_feats_to_rf2aa_input_tuple=False,
+            template_lookup_path=TEMPLATE_LOOKUP,
+            template_base_dir=TEMPLATE_DIR,
         ),
         dataset=interfaces_pandas_dataset,
         cif_parser_args={"cache_dir": None},
@@ -296,6 +297,8 @@ def rf2aa_validation_dataset(validation_pandas_dataset):
             crop_contiguous_probability=0.0,  # NOTE: Zero probability for cropping ; we don't crop during validation
             assert_rf2aa_assumptions=False,
             convert_feats_to_rf2aa_input_tuple=False,
+            template_lookup_path=TEMPLATE_LOOKUP,
+            template_base_dir=TEMPLATE_DIR,
         ),
         dataset=validation_pandas_dataset,
         save_failed_examples_to_dir=None,
@@ -320,6 +323,8 @@ def af3_pn_units_dataset(pn_units_pandas_dataset):
             crop_contiguous_probability=1 / 3,
             crop_spatial_probability=2 / 3,
             diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,
+            template_lookup_path=TEMPLATE_LOOKUP,
+            template_base_dir=TEMPLATE_DIR,
         ),
         dataset=pn_units_pandas_dataset,
         save_failed_examples_to_dir=None,
@@ -339,6 +344,8 @@ def af3_interfaces_dataset(interfaces_pandas_dataset):
             crop_spatial_probability=1.0,
             crop_contiguous_probability=0.0,
             diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,
+            template_lookup_path=TEMPLATE_LOOKUP,
+            template_base_dir=TEMPLATE_DIR,
         ),
         dataset=interfaces_pandas_dataset,
         cif_parser_args={"cache_dir": None},
@@ -363,6 +370,8 @@ def af3_validation_dataset(validation_pandas_dataset):
             crop_size=256,
             crop_spatial_probability=0.0,  # NOTE: Zero probability for cropping; we don't crop during validation
             crop_contiguous_probability=0.0,  # NOTE: Zero probability for cropping; we don't crop during validation
+            template_lookup_path=TEMPLATE_LOOKUP,
+            template_base_dir=TEMPLATE_DIR,
         ),
         dataset=validation_pandas_dataset,
         save_failed_examples_to_dir=None,
@@ -379,12 +388,12 @@ def af3_af2fb_distillation_dataset_no_metadata(distillation_pandas_dataset_no_me
         ),
         cif_parser_args={},
         transform=build_af3_transform_pipeline(
-            protein_msa_dirs=[
-                {"dir": str(TEST_DATA_ML / "af2_distillation" / "msa"), "extension": ".a3m", "directory_depth": 2}
-            ],
+            protein_msa_dirs=PROTEIN_MSA_DIRS,
             rna_msa_dirs=[],
             diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,
             is_inference=False,
+            template_lookup_path=TEMPLATE_LOOKUP,
+            template_base_dir=TEMPLATE_DIR,
         ),
         save_failed_examples_to_dir=None,
     )
@@ -397,12 +406,12 @@ def af3_af2fb_distillation_dataset_with_metadata(distillation_pandas_dataset_wit
         dataset_parser=GenericDFParser(),
         cif_parser_args={},
         transform=build_af3_transform_pipeline(
-            protein_msa_dirs=[
-                {"dir": str(TEST_DATA_ML / "af2_distillation" / "msa"), "extension": ".a3m", "directory_depth": 2}
-            ],
+            protein_msa_dirs=PROTEIN_MSA_DIRS,
             rna_msa_dirs=[],
             diffusion_batch_size=TEST_DIFFUSION_BATCH_SIZE,
             is_inference=False,
+            template_lookup_path=TEMPLATE_LOOKUP,
+            template_base_dir=TEMPLATE_DIR,
         ),
         save_failed_examples_to_dir=None,
     )
