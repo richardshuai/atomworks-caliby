@@ -24,19 +24,20 @@ def _remove_special_characters(s: str) -> str:
 
 def save_failed_example_to_disk(
     example_id: str,
+    fail_dir: str,
+    *,
     data: dict = {},
     rng_state_dict: dict = {},
     error_msg: str = "",
-    fail_dir: str = f"/net/scratch/{_USER}/failures",
 ):
     """
     Attempts to save a failed example to disk as a pickle file.
 
     Args:
         - example_id (str): The ID of the example.
+        - fail_dir (str): The directory where the failed example should be saved. Defaults to a specific path.
         - rng_state_dict (dict): The random number generator state dictionary.
         - error_msg (str): The error message associated with the failure.
-        - fail_dir (str): The directory where the failed example should be saved. Defaults to a specific path.
 
     Returns:
         None

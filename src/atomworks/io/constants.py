@@ -514,7 +514,7 @@ DICT_THREE_TO_ONE: Final[dict[str, str]] = {
     "ASX": "B",
     "GLX": "Z",
     "UNK": "X",
-    "*": " * ",
+    " * ": "*",
 }
 """A dictionary that maps three-letter amino acid codes to one-letter codes.
 

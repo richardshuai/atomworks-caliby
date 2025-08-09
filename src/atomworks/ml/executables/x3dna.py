@@ -17,7 +17,7 @@ class X3DNAFiber(Executable):
 
     Example:
         ```python
-        fiber = X3DNAFiber.get_or_initialize("/projects/ml/prot_dna/x3dna-v2.4/bin/fiber")
+        fiber = X3DNAFiber.get_or_initialize("/path/to/x3dna-v2.4/bin/fiber")
         version = fiber.get_version()
         bin_path = fiber.get_bin_path()
         ```

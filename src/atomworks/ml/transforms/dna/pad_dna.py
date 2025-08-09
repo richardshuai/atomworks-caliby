@@ -275,7 +275,7 @@ class PadDNA(Transform):
         """
         Args:
             x3dna_path (str) : Path to the x3dna directory. For example,
-                 "/projects/ml/prot_dna/x3dna-v2.4/"
+                 "path/to/prot_dna/x3dna-v2.4/"
             p_skip (float, from 0 to 1): probability that this transform is skipped and does nothing.
             max_overhang (int, positive): maximum number of overhanging bases on either end of the DNA duplex
                 allowed. If the input's DNA has a larger overhang, this transform will do nothing.

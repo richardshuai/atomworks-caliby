@@ -215,7 +215,7 @@ class StructuralDatasetWrapper(BaseDataset):
         cif_parser_args: dict | None = None,
         transform: Transform | Compose | None = None,
         return_key: str | None = None,
-        save_failed_examples_to_dir: PathLike | str | None = f"/net/scratch/{_USER}/failures" if _USER else None,
+        save_failed_examples_to_dir: PathLike | str | None = None,
     ):
         """
         Decorator (wrapper) for an arbitrary Dataset (e.g., PandasDataset, PolarsDataset, etc.) to handle loading of structural data from PDB or CIF files,
@@ -231,7 +231,7 @@ class StructuralDatasetWrapper(BaseDataset):
             cif_parser_args (dict, optional): Arguments to pass to `atomworks.io.parse` (will override the defaults). Defaults to None.
             transform (Transform | Compose, optional): Transformation pipeline to apply to the data. See `atomworks.ml.transforms.base`.
             return_key (str, optional): Key to return from the data dictionary instead of the entire dictionary.
-            save_failed_examples_to_dir (PathLike | str | None, optional): Directory to save failed examples. Defaults to f"/net/scratch/{_USER}/failures".
+            save_failed_examples_to_dir (PathLike | str | None, optional): Directory to save failed examples.
 
         Example usage:
             ```python

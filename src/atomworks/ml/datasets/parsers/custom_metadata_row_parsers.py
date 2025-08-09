@@ -40,7 +40,7 @@ class AF2FB_DistillationParser(MetadataRowParser):
         - seq (!WARNING: this is a relatively data-heavy column)
     """
 
-    def __init__(self, base_dir: str = "/squash/af2_distillation_facebook", file_extension: str = ".cif"):
+    def __init__(self, base_dir: str, file_extension: str = ".cif"):
         """
         Initialize the AF2FB_DistillationParser.
 
