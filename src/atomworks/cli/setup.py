@@ -4,11 +4,11 @@ import os
 import tarfile
 import tempfile
 import urllib.request
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
-from tqdm import tqdm
 import typer
+from tqdm import tqdm
 
 from .pdb import _collect_pdb_ids, _pdb_id_to_relpath, _rsync_fetch_specific, _run_rsync_list
 
@@ -40,7 +40,7 @@ def _download_file(url: str, dest_path: Path) -> None:
                 if not chunk:
                     break
                 out_file.write(chunk)
-                pbar.update(len(chunk)) 
+                pbar.update(len(chunk))
 
 
 def _extract_tar_gz(archive_path: Path, dest_dir: Path) -> None:

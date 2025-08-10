@@ -3,11 +3,10 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import typer
-
 
 PDB_ID_REGEX = re.compile(r"^[0-9a-zA-Z]{4}$")
 
@@ -95,7 +94,7 @@ def _collect_pdb_ids(pdb_ids: list[str] | None, pdb_ids_file: Path | None) -> li
     if pdb_ids:
         collected.extend(pdb_ids)
     if pdb_ids_file:
-        with open(pdb_ids_file, "r", encoding="utf-8") as fh:
+        with open(pdb_ids_file, encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line or line.startswith("#"):
@@ -180,7 +179,9 @@ def sync_pdb(
         typer.echo(f"Syncing {len(ids)} selected PDB ids...")
         _rsync_fetch_specific(remote, destination_path, ids, port)
     else:
-        typer.echo("Syncing full RCSB PDB mmCIF tree (this may take a while and requires about 100 GB of disk space)...")
+        typer.echo(
+            "Syncing full RCSB PDB mmCIF tree (this may take a while and requires about 100 GB of disk space)..."
+        )
         _rsync_sync_full(remote, destination_path, port)
     typer.secho("Sync completed successfully!", fg=typer.colors.GREEN)
 
@@ -203,5 +204,3 @@ def sync_pdb(
         typer.echo(f"  ... or run 'export PDB_MIRROR_PATH={destination_path}' in your shell")
         typer.echo(f"  ... or add 'export PDB_MIRROR_PATH={destination_path}' to your shell profile.")
         typer.echo("")
-
-

@@ -147,6 +147,3 @@ def sync_ccd(
         typer.echo(f"  ... or run 'export CCD_MIRROR_PATH={destination_path}' in your shell")
         typer.echo(f"  ... or add 'export CCD_MIRROR_PATH={destination_path}' to your shell profile.")
         typer.echo("")
-
-
-

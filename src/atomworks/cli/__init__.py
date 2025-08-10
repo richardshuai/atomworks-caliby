@@ -5,9 +5,9 @@ import typer
 app = typer.Typer(help="AtomWorks command-line interface")
 
 # Import commands to register them with the root app and expose sub-apps
-from . import ccd as _ccd  # noqa: E402,F401
-from . import pdb as _pdb  # noqa: E402,F401
-from . import setup as _setup  # noqa: E402,F401
+from . import ccd as _ccd  # noqa: E402
+from . import pdb as _pdb  # noqa: E402
+from . import setup as _setup  # noqa: E402
 
 # Expose namespaced groups: `atomworks ccd ...`, ...
 app.add_typer(_ccd.app, name="ccd")
