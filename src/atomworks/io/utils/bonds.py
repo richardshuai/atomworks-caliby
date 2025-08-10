@@ -28,6 +28,7 @@ from biotite.structure.io.pdbx.convert import (
     _get_struct_conn_col_name,
 )
 
+from atomworks.enums import ChainType, ChainTypeInfo
 from atomworks.io.common import sum_string_arrays, to_hashable
 from atomworks.io.constants import (
     AA_LIKE_CHEM_TYPES,
@@ -38,7 +39,6 @@ from atomworks.io.constants import (
     STRUCT_CONN_BOND_ORDER_TO_INT,
     STRUCT_CONN_BOND_TYPES,
 )
-from atomworks.io.enums import ChainType, ChainTypeInfo
 from atomworks.io.utils.ccd import get_chem_comp_leaving_atom_names, get_chem_comp_type
 from atomworks.io.utils.selection import get_annotation, get_residue_starts
 from atomworks.io.utils.testing import has_ambiguous_annotation_set

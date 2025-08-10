@@ -19,7 +19,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from atomworks.io import parse
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.ml.utils.misc import hash_sequence
 
 logging.basicConfig(level=logging.INFO)

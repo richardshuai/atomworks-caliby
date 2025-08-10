@@ -60,7 +60,7 @@ def get_chirals_legacy(obmol, xyz):
 
         # ... enumerate all sets of 3 atom neighbors in all orders
         i, j, k = list(config.refs)
-        for a, b, c in permutations((config.from_or_towards, i, j, k), 3):  # noqa:
+        for a, b, c in permutations((config.from_or_towards, i, j, k), 3):
             chiral_idx_set.add(standardize_dihedral_retain_first(o, a, b, c))
 
     chiral_idx = list(chiral_idx_set)

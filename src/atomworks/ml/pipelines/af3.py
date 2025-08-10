@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from atomworks.enums import ChainType
 from atomworks.io.constants import AF3_EXCLUDED_LIGANDS, GAP, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
-from atomworks.io.enums import ChainType
 from atomworks.ml.common import exists
 from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding
 from atomworks.ml.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures

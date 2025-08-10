@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from biotite.structure import AtomArray, get_residue_count, spread_residue_wise
 
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.io.utils.testing import has_annotation
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,

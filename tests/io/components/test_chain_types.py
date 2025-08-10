@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.io.parser import parse
 from tests.io.conftest import CHAIN_TYPE_TEST_CASES, get_pdb_path
 

@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 import tqdm
 
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.ml.utils import hash_sequence
 
 # extract sequence and hash from all csv file

@@ -22,8 +22,8 @@ class ExecutableError(Exception):
 
     pass
 
-class Executable:
-    ...
+
+class Executable: ...
 
 
 def get_executable(name: str) -> Executable:

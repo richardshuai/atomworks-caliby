@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 from biotite.structure import AtomArray
 
+from atomworks.enums import ChainType
 from atomworks.io import parse
-from atomworks.io.enums import ChainType
 from atomworks.io.tools.fasta import split_generalized_fasta_sequence
 from atomworks.io.tools.inference import (
     ChemicalComponent,

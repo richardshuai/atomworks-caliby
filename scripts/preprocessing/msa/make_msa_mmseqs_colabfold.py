@@ -40,7 +40,7 @@ from pathlib import Path
 import fire
 import pandas as pd
 
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.ml.utils.misc import hash_sequence
 
 logger = logging.getLogger(__name__)

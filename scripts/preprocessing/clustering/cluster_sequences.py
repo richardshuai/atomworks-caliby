@@ -15,7 +15,7 @@ from pathlib import Path
 import fire
 import pandas as pd
 
-from atomworks.io.enums import ChainType, ChainTypeInfo
+from atomworks.enums import ChainType, ChainTypeInfo
 from atomworks.ml.preprocessing.utils.clustering import MMSeqs2Config, cluster_all_sequences
 
 # Configure logging

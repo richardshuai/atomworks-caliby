@@ -1,6 +1,6 @@
 """IO-specific test fixtures and utilities for atomworks.io tests."""
 
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.io.utils.testing import get_pdb_path  # noqa: F401
 from tests.conftest import TEST_DATA_DIR
 

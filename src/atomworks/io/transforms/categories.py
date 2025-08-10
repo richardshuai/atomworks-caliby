@@ -17,9 +17,9 @@ import toolz
 from biotite.structure import AtomArray
 from biotite.structure.io.pdbx import CIFBlock
 
+from atomworks.enums import ChainType
 from atomworks.io.common import deduplicate_iterator, exists
 from atomworks.io.constants import CCD_MIRROR_PATH
-from atomworks.io.enums import ChainType
 from atomworks.io.utils.selection import get_residue_starts
 from atomworks.io.utils.sequence import get_1_from_3_letter_code
 

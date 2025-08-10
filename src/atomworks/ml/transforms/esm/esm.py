@@ -8,7 +8,7 @@ import torch
 from biotite.structure import AtomArray
 from esm import pretrained
 
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,

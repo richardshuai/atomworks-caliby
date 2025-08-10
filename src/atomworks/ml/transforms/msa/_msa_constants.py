@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.io.utils.sequence import get_3_from_1_letter_code
 
 # Special codes for MSA sequences

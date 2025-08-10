@@ -13,7 +13,7 @@ import torch
 import torch.nn.functional as F  # noqa: N812
 from biotite.structure import AtomArray
 
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding, TokenEncoding
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,

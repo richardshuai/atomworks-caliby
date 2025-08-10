@@ -14,6 +14,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 
 import atomworks.io.transforms.atom_array as ta
+from atomworks.enums import ChainType, ChainTypeInfo
 from atomworks.io import parse
 from atomworks.io.common import KeyToIntMapper, exists
 from atomworks.io.constants import (
@@ -23,7 +24,6 @@ from atomworks.io.constants import (
     STANDARD_RNA,
     UNKNOWN_LIGAND,
 )
-from atomworks.io.enums import ChainType, ChainTypeInfo
 from atomworks.io.parser import DEFAULT_PARSE_KWARGS
 from atomworks.io.template import build_template_atom_array
 from atomworks.io.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence

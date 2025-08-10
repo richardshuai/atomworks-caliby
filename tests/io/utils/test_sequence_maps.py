@@ -3,7 +3,7 @@ import re
 import numpy as np
 import pytest
 
-from atomworks.io.enums import ChainType
+from atomworks.enums import ChainType
 from atomworks.io.parser import parse
 from atomworks.io.utils.sequence import (
     get_1_from_3_letter_code,
