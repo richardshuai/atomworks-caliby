@@ -6,22 +6,35 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.abspath("../src"))
 
-from atomworks import __version__
+import atomworks
 
 project = "atomworks"
 copyright = "2025, bakerlab"
 author = "bakerlab"
 
-# Clean the version for documentation display (remove +dev and -dirty)
-raw_version = str(__version__)
-# Extract just the base version (e.g., "2.29.0" from "2.29.0+dev26.ad450d1-dirty")
-clean_version = raw_version.split("+")[0].split("-")[0]
-version = clean_version.replace("v", "")
+# Get the raw version from atomworks
+raw_version = atomworks.__version__
+print(f"Raw version from atomworks: {raw_version}")
 
+# Extract clean version for documentation
+# Handle formats like: v2.29.0, v2.29.0+dev26.ad450d1, v2.29.0-dirty, v2.29.0+dev26.ad450d1-dirty
+version_match = re.match(r"^v?(\d+\.\d+\.\d+)", str(raw_version))
+if version_match:
+    version = version_match.group(1)
+else:
+    # Fallback if regex doesn't match
+    version = str(raw_version).lstrip("v").split("+")[0].split("-")[0]
+
+print(f"Clean version for docs: {version}")
+
+# For version switcher, we want to match against the exact version format in switcher.json
+# This should match what your GitHub workflow generates
+switcher_version = version  # Use clean version for matching
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -30,7 +43,6 @@ extensions = [
     "sphinx.ext.autodoc",  # Auto-generate docs from docstrings
     "sphinx.ext.viewcode",  # Add source code links
     "sphinx.ext.napoleon",  # Google/NumPy style docstrings
-    # "nbsphinx",  # Jupyter notebook support
     "sphinx_gallery.gen_gallery",  # Generates auto_examples/ from examples/
 ]
 
@@ -59,16 +71,21 @@ html_theme_options = {
     },
     "navbar_start": ["navbar-logo", "version-switcher"],
     "switcher": {
-        "json_url": "https://baker-laboratory.github.io/atomworks/latest/_static/switcher.json",
-        "version_match": version,
+        "json_url": "https://baker-laboratory.github.io/atomworks-dev/latest/_static/switcher.json",
+        "version_match": switcher_version,
     },
-    # "favicons": [
-    #     {
-    #         "rel": "icon",
-    #         "sizes": "16x16",
-    #         "href": "favicon-16x16.png",
-    #     },
-    # ]
+    "favicons": [
+        {
+            "rel": "icon",
+            "sizes": "16x16",
+            "href": "favicon-16x16.png",
+        },
+        {
+            "rel": "icon",
+            "sizes": "32x32",
+            "href": "favicon-32x32.png",
+        },
+    ],
 }
 
 sphinx_gallery_conf = {
@@ -76,5 +93,5 @@ sphinx_gallery_conf = {
     "gallery_dirs": "auto_examples",  # where to put the generated gallery
     "image_scrapers": ("matplotlib",),
     "thumbnail_size": (350, 350),
-    "default_thumb_file": "_static/atomworks_logo.png",
+    "default_thumb_file": "./_static/atomworks_logo.png",
 }

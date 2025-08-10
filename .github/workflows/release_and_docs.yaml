@@ -1,5 +1,3 @@
-# .github/workflows/release_and_docs.yaml
-
 name: Release and Deploy Versioned Docs
 
 on:
@@ -54,13 +52,13 @@ jobs:
         id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+          PYPI_REPO_URL: https://test.pypi.org/legacy/
         run: |
           npx semantic-release
           VERSION=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "no-version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Released version: $VERSION"
 
       - name: Build documentation
         run: |
@@ -78,45 +76,84 @@ jobs:
 
       - name: Deploy versioned docs
         run: |
-          mkdir -p gh-pages/${{ steps.release.outputs.version }}
-          rsync -av --delete docs/_build/html/ gh-pages/${{ steps.release.outputs.version }}/
+          VERSION="${{ steps.release.outputs.version }}"
           
-          # Rebuild switcher.json
-          cd gh-pages
-          versions=()
-          for d in v* latest; do
-            if [ -d "$d" ]; then
-              versions+=("$d")
-            fi
-          done
-
-          echo "[" > latest/_static/switcher.json
-          first=1
-          for v in "${versions[@]}"; do
-            if [[ "$v" == "latest" ]]; then
-              entry="{\"version\": \"latest\", \"url\": \"https://baker-laboratory.github.io/atomworks-dev/latest/\", \"name\": \"dev\"}"
-            else
-              disp="${v#v}"
-              preferred="false"
-              entry="{\"version\": \"$disp\", \"url\": \"https://baker-laboratory.github.io/atomworks-dev/$v/\", \"name\": \"v$disp\", \"preferred\": $preferred}"
-            fi
-
-            if [ $first -eq 1 ]; then
-              first=0
-              echo "  $entry" >> latest/_static/switcher.json
-            else
-              echo "  ,$entry" >> latest/_static/switcher.json
-            fi
-          done
-          echo "]" >> latest/_static/switcher.json
+          # Only deploy if we have a valid version
+          if [[ "$VERSION" != "no-version" ]]; then
+            echo "Deploying documentation for version: $VERSION"
+            
+            # Create version directory and copy docs
+            mkdir -p "gh-pages/$VERSION"
+            rsync -av --delete docs/_build/html/ "gh-pages/$VERSION/"
+            
+            # Also create/update 'latest' to point to this version
+            mkdir -p gh-pages/latest
+            rsync -av --delete docs/_build/html/ gh-pages/latest/
+            
+            # Build switcher.json for all versions
+            cd gh-pages
+            versions=()
+            
+            # Collect all version directories
+            for d in */; do
+              d=${d%/}  # Remove trailing slash
+              if [[ "$d" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ "$d" == "latest" ]]; then
+                versions+=("$d")
+              fi
+            done
+            
+            # Sort versions (latest first, then reverse semver order)
+            IFS=$'\n' sorted_versions=($(printf '%s\n' "${versions[@]}" | sort -V -r))
+            
+            # Create switcher.json content
+            switcher_content="["
+            first=true
+            
+            for v in "${sorted_versions[@]}"; do
+              if [[ "$first" == "true" ]]; then
+                first=false
+              else
+                switcher_content="$switcher_content,"
+              fi
+              
+              if [[ "$v" == "latest" ]]; then
+                entry="{\"version\": \"latest\", \"url\": \"https://baker-laboratory.github.io/atomworks-dev/latest/\", \"name\": \"dev (latest)\"}"
+              else
+                disp="${v#v}"
+                # Mark the newest stable version as preferred
+                if [[ "$v" == "$VERSION" ]]; then
+                  preferred="true"
+                else
+                  preferred="false"
+                fi
+                entry="{\"version\": \"$disp\", \"url\": \"https://baker-laboratory.github.io/atomworks-dev/$v/\", \"name\": \"v$disp\", \"preferred\": $preferred}"
+              fi
+              
+              switcher_content="$switcher_content$entry"
+            done
+            
+            switcher_content="$switcher_content]"
+            
+            # Write switcher.json to all version directories
+            for v in "${sorted_versions[@]}"; do
+              mkdir -p "$v/_static"
+              echo "$switcher_content" > "$v/_static/switcher.json"
+              echo "Created switcher.json for $v"
+            done
+            
+            echo "Switcher content: $switcher_content"
+          else
+            echo "No version tag found, skipping documentation deployment"
+          fi
 
       - name: Deploy to GitHub Pages
+        if: steps.release.outputs.version != 'no-version'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: gh-pages
-          keep_files: false
-          force_orphan: true
+          keep_files: true  # Keep existing versions
+          force_orphan: false  # Don't force orphan, preserve history
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'

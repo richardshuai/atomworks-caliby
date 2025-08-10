@@ -1,11 +1,12 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![PyPI version](https://img.shields.io/pypi/v/atomworks.svg)](https://pypi.org/project/atomworks/)
 [![Python versions](https://img.shields.io/pypi/pyversions/atomworks.svg)](https://pypi.org/project/atomworks/)
-[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://baker-laboratory.github.io/atomworks-dev/)
+[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://baker-laboratory.github.io/atomworks-dev/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
 
 <img src="docs/_static/atomworks_logo.png" width="350" alt="atomworks logo">
+
 # atomworks
 
 **atomworks** is an open-source platform for next-generation biomolecular data processing, conversion, and machine-learning-ready featurization.  
@@ -28,6 +29,20 @@ The atomworks ecosystem is designed to eliminate the pain of file conversion and
 - Model missing atoms, handle ligands/solvents, resolve naming/assembly heterogeneity—all from Python.
 
 Instead of juggling dozens of tools or manual curation, simply load your data with atomworks.io and focus on your research.
+
+---
+
+## atomworks.ml
+
+*Advanced dataset featurization and sampling for deep learning workflows*
+
+**atomworks.ml** provides:
+- Ready-made featurization pipelines for entire datasets
+- Efficient sampling and batching utilities for training machine learning models
+- Seamless integration with atomworks.io for ML-ready feature engineering
+- Optimized data structures and workflows designed specifically for deep learning applications
+
+Built on atomworks.io's structural backbone, atomworks.ml bridges the gap between biological data processing and machine learning pipelines.
 
 ---
 
