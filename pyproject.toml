@@ -27,7 +27,8 @@ dependencies = [
     "cytoolz>=0.12.3,<1", # Cython-optimized tools for itertools and functional programming
     "tqdm>=4.65.0,<5", # Fast, extensible progress bar for loops and more
     # ... CLI & config management
-    "fire>=0.6.0,<1", # Argument parsing
+    "fire>=0.6.0,<1", # Argument parsing (legacy)
+    "typer>=0.12.5,<1", # Modern CLI framework
     # ... linear algebra, maths & ml
     "numpy>=1.25.0,<2",  # TODO: Enable numpy 2.x
     "scipy>=1.13.1,<2",
@@ -80,6 +81,9 @@ dev = [
 homepage = "https://baker-laboratory.github.io/atomworks/"
 repository = "https://github.com/baker-laboratory/atomworks"
 documentation = "https://baker-laboratory.github.io/atomworks/"
+
+[project.scripts]
+atomworks = "atomworks.cli.__main__:main"
 
 # Build settings ----------------------------------------------------------------------
 [build-system]
