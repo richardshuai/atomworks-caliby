@@ -243,7 +243,7 @@ def test_compute_atom_to_token_map(pdb_id):
     assert n_atoms == result["feats"]["atom_to_token_map"].shape[0]
 
 
-def test_make_reference_conformer_for_UNL(tmp_path):
+def test_make_reference_conformer_for_UNL(tmp_path):  # noqa: N802
     # Spoof the input data using the inference pipeline
     smiles = "C[C@]12CC[C@@H](C[C@H]1CC[C@@H]3[C@@H]2C[C@H]([C@]4([C@@]3(CC[C@@H]4C5=CC(=O)OC5)O)C)O)O"
     inputs = [
@@ -294,7 +294,7 @@ def test_make_reference_conformer_for_UNL(tmp_path):
     assert np.all(~np.isnan(ref_pos)), "There are NaN elements in ref_pos"
 
 
-def test_make_reference_conformer_for_UNL_failure_case(tmp_path):
+def test_make_reference_conformer_for_UNL_failure_case(tmp_path):  # noqa: N802
     # Spoof the input data using the inference pipeline
     smiles = "C1=CC=C(C=C1)C(=O)O"
     inputs = [

@@ -482,7 +482,7 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
         if self.use_element_for_atom_names_of_atomized_tokens:
             logger.warning("Using element type for atom names of atomized tokens.")
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["res_name", "element", "charge", "atom_name"])
@@ -526,7 +526,7 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
 
 def random_apply_ground_truth_conformer_by_chain_type(
     atom_array: AtomArray,
-    chain_type_probabilities: dict = None,
+    chain_type_probabilities: dict | None = None,
     default_probability: float = 0.0,
     policy: GroundTruthConformerPolicy = GroundTruthConformerPolicy.REPLACE,
     is_unconditional: bool = False,
@@ -597,7 +597,7 @@ class RandomApplyGroundTruthConformerByChainType(Transform):
 
     def __init__(
         self,
-        chain_type_probabilities: dict = None,
+        chain_type_probabilities: dict | None = None,
         default_probability: float = 0.0,
         policy: GroundTruthConformerPolicy = GroundTruthConformerPolicy.REPLACE,
     ):

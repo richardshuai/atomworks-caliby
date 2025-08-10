@@ -33,7 +33,7 @@ def flatten(d: dict[str, Any], *, fuse_keys: str | None = None) -> dict[tuple[st
     def _flatten(d: dict[str, Any], parent_key: tuple[str, ...] = ()) -> dict[tuple[str, ...], Any]:
         items: list[tuple[tuple[str, ...], Any]] = []
         for k, v in d.items():
-            new_key = parent_key + (str(k),)
+            new_key = (*parent_key, str(k))
             if isinstance(v, dict):
                 items.extend(_flatten(v, new_key).items())
             else:
@@ -73,7 +73,7 @@ def unflatten(d: dict[tuple[str, ...] | str, Any], *, split_keys: str | None = N
         keys = k.split(split_keys) if isinstance(k, str) and split_keys else k
 
         # Handle both string and tuple keys
-        if not isinstance(keys, (tuple, list)):
+        if not isinstance(keys, tuple | list):
             keys = (keys,)
 
         current = result

@@ -59,7 +59,7 @@ def mask_residues_with_specific_unresolved_atoms(
         # Process each chain type group and its required atoms
         for chain_types, atom_names in chain_type_to_atom_names.items():
             # Handle both single chain types and tuples/lists of chain types
-            if not isinstance(chain_types, (tuple, list)):
+            if not isinstance(chain_types, tuple | list):
                 chain_types = [chain_types]
 
             chain_type_mask = np.isin(atom_array.chain_type, chain_types)

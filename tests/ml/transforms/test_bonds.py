@@ -229,12 +229,12 @@ def compute_expected_output_with_networkx(rf2aa_bond_features_matrix):
     atom_bonds = (rf2aa_bond_features_matrix > 0) & (rf2aa_bond_features_matrix < 5)
 
     # Create a graph from the atom bonds matrix
-    G = nx.Graph()
+    graph = nx.Graph()
 
     # Add edges to the graph
     rows, cols = np.where(atom_bonds)
     edges = list(zip(rows, cols, strict=False))
-    G.add_edges_from(edges)
+    graph.add_edges_from(edges)
 
     # Initialize the distance matrix with zeros
     num_atoms = rf2aa_bond_features_matrix.shape[0]
@@ -243,7 +243,7 @@ def compute_expected_output_with_networkx(rf2aa_bond_features_matrix):
     # Compute the shortest path distance for each atom
     for i in range(num_atoms):
         # Get the shortest path lengths from atom i to all other atoms
-        lengths = nx.single_source_shortest_path_length(G, i)
+        lengths = nx.single_source_shortest_path_length(graph, i)
         for j in range(num_atoms):
             # Set the distance to infinity if there is no path
             dist_matrix[i, j] = lengths.get(j, np.inf)

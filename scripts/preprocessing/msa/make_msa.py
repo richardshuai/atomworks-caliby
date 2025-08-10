@@ -98,7 +98,7 @@ def run_hhfilter(input_file: PathLike, output_file: PathLike, maxseq: int, id: f
     subprocess.run(hhfilter_cmd, shell=True, check=True)
 
 
-def process_multiple_fasta_strings(sequence_strings: list, out_dir: str, cpu: int = 4, mem: int = 64):
+def process_multiple_fasta_strings(sequence_strings: list, out_dir: str, cpu: int = 4, mem: int = 64) -> None:
     """
     Process multiple FASTA sequences to generate multiple sequence alignments (MSAs).
 
@@ -158,7 +158,7 @@ def process_multiple_fasta_strings(sequence_strings: list, out_dir: str, cpu: in
 
 def process_single_fasta_string(
     *, sequence_string: str, seq_hash: str, final_seq_dir: Path, tmp_seq_dir: Path, cpu: int, mem: int
-):
+) -> None:
     """
     Generate a multiple sequence alignment (MSA) for a given sequence string.
 
@@ -309,12 +309,11 @@ def process_single_fasta_string(
                     logger.info(f"(BFD) copying msa file with 75% coverage to output directory: {out_seq_msa_file}")
                     Path(final_seq_dir).mkdir(parents=True, exist_ok=True)
                     shutil.copy(bfd_id_90_cov_75, out_seq_msa_file)
-            elif num_seq_with_50_percent_cov > 4000:
-                if not Path(out_seq_msa_file).exists():
-                    # Copy the msa file with 50% coverage to the output directory
-                    logger.info(f"(BFD) copying msa file with 50% coverage to output directory: {out_seq_msa_file}")
-                    Path(final_seq_dir).mkdir(parents=True, exist_ok=True)
-                    shutil.copy(bfd_id_90_cov_50, out_seq_msa_file)
+            elif num_seq_with_50_percent_cov > 4000 and not Path(out_seq_msa_file).exists():
+                # Copy the msa file with 50% coverage to the output directory
+                logger.info(f"(BFD) copying msa file with 50% coverage to output directory: {out_seq_msa_file}")
+                Path(final_seq_dir).mkdir(parents=True, exist_ok=True)
+                shutil.copy(bfd_id_90_cov_50, out_seq_msa_file)
 
         # If we never had enough sequences from uniref30 or bfd, we just copy the last processed a3m file
         if not Path(out_seq_msa_file).exists() and Path(prev_a3m).exists() and prev_a3m != fasta_file:
@@ -335,7 +334,7 @@ def run_msa_pipeline(
     mem: int = 64,
     task_id: int = 0,
     num_tasks: int = 1,
-):
+) -> None:
     logger.info(f"Launching task {task_id + 1} of {num_tasks}.")
 
     # Load the CSV file into a list
@@ -350,13 +349,9 @@ def run_msa_pipeline(
     logger.info("Checking for processed sequences...")
     processed_out_dir = Path(out_dir) / "processed"
     if processed_out_dir.exists():
-        processed_hashes = set(
-            [
-                file.stem.split(".")[0]
-                for file in processed_out_dir.rglob("*")
-                if file.is_file() and file.suffix == ".a3m"
-            ]
-        )
+        processed_hashes = {
+            file.stem.split(".")[0] for file in processed_out_dir.rglob("*") if file.is_file() and file.suffix == ".a3m"
+        }
     else:
         processed_hashes = set()
 

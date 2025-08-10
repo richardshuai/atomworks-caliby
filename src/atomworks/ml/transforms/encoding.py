@@ -342,7 +342,7 @@ class EncodeAtomArray(Transform):
         self.occupancy_threshold = occupancy_threshold
         self.extra_annotations = extra_annotations
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_atom_array_annotation(data, ["occupancy"])
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -370,7 +370,7 @@ class AddTokenAnnotation(Transform):
     def __init__(self, encoding: TokenEncoding):
         self.encoding = encoding
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_nonzero_length(data, "atom_array")
@@ -382,7 +382,7 @@ class AddTokenAnnotation(Transform):
         # ... record whether the atom array has the `atomize` annotation
         has_atomize = "atomize" in atom_array.get_annotation_categories()
         tokens = []
-        for i, token in enumerate(token_iter(atom_array)):
+        for _i, token in enumerate(token_iter(atom_array)):
             # ... extract token name
             if (has_atomize and token.atomize[0]) or len(token) == 1:
                 assert len(token.atomic_number) == 1, "Atomize annotation is only allowed for single atoms."

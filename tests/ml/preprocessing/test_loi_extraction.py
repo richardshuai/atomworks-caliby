@@ -9,13 +9,14 @@ import pandas as pd
 import pytest
 
 from atomworks.ml.utils.testing import get_pdb_mirror_path
+from tests.conftest import skip_if_no_internet
 from tests.ml.preprocessing.conftest import DATA_PREPROCESSOR
 
 LOI_EXTRACTION_TEST_CASES = [
     {
         # TEST CASE 0
         "pdb_id": "7lad",
-        "loi": set(["HEM", "XRD"]),
+        "loi": {"HEM", "XRD"},
     },
     {
         # TEST CASE 1
@@ -25,17 +26,17 @@ LOI_EXTRACTION_TEST_CASES = [
     {
         # TEST CASE 2
         "pdb_id": "6wjc",
-        "loi": set(["Y01", "OIN"]),
+        "loi": {"Y01", "OIN"},
     },
     {
         # TEST CASE 3
         "pdb_id": "7mub",
-        "loi": set(["K"]),
+        "loi": {"K"},
     },
     {
         # TEST CASE 4
         "pdb_id": "1qk0",
-        "loi": set(["IOB", "GLC", "XYS"]),
+        "loi": {"IOB", "GLC", "XYS"},
         # NOTE: GLC & XYS are only specified in the cif file, not on
         #  the PDB summary page
         "has_covalently_bonded_loi": True,
@@ -43,6 +44,7 @@ LOI_EXTRACTION_TEST_CASES = [
 ]
 
 
+@skip_if_no_internet
 @pytest.mark.parametrize("test_case", LOI_EXTRACTION_TEST_CASES)
 def test_loi_extraction(test_case: dict[str, Any]):
     pdb_id = test_case["pdb_id"]

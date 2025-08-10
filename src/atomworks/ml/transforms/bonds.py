@@ -172,7 +172,7 @@ class AddRF2AABondFeaturesMatrix(Transform):
 
     requires_previous_transforms = [AtomizeByCCDName, AddTokenBondAdjacency]
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["token_bond_adjacency", "atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_nonzero_length(data, "atom_array")
@@ -212,7 +212,7 @@ class AddRF2AATraversalDistanceMatrix(Transform):
     ------------------------------------------------------------------------------------------------
     """
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["rf2aa_bond_features_matrix"])
 
     def forward(self, data: dict) -> dict:
@@ -313,7 +313,7 @@ class AddAF3TokenBondFeatures(Transform):
     def __init__(self, distance_cutoff: float = 2.4):
         self.distance_cutoff = distance_cutoff
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_nonzero_length(data, "atom_array")
@@ -342,7 +342,7 @@ class AddAtomLevelBondAdjacencyMatrix(Transform):
     The matrix is added to the data dictionary under data["feats"]["atom_level_bond_adjacency"].
     """
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_has_bonds(data)
 
     def forward(self, data: dict) -> dict:

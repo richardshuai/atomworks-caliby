@@ -234,8 +234,8 @@ def get_af3_token_representative_masks(atom_array: AtomArray) -> np.ndarray:
     """Returns a boolean mask indicating the representative atoms of the tokens in the atom array.
 
     From the AF-3 supplement, section 4.4. (Distogram prediction):
-        > ...where the pairwise token distances use the representative atom for each token: Cβ
-        for protein residues (Cα for glycine), C4 for purines and C2 for pyrimidines.
+        > ...where the pairwise token distances use the representative atom for each token: CB
+        for protein residues (CA for glycine), C4 for purines and C2 for pyrimidines.
         All ligands already have a single atom per token.
 
     NOTE: "Representative" atoms are distinct from "center" atoms, which are used during cropping.

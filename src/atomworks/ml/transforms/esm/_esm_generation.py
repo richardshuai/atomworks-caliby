@@ -21,16 +21,16 @@ def generate_esm_embedding(
     toks_per_batch: int = 4096,
 ) -> dict:
     """Generate ESM embeddings for a set of sequences.
-    
+
     Args:
         sequences: dict
             {sequence_hash: sequence} sequences to be embedded.
-        model: dict 
+        model: dict
             The model dictionary containing the model(ProteinBertModel) \
             and alphabet(for converting input to dataloader).
         toks_per_batch: int
             The number of tokens per batch.
-    
+
     Returns:
         dict: {sequence_hash: embedding} dictionary of embeddings.
     """

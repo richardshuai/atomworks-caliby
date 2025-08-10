@@ -5,6 +5,7 @@ import traceback
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
+from typing import Never
 
 import pandas as pd
 
@@ -18,7 +19,7 @@ class TimeoutException(Exception):
     pass
 
 
-def timeout_handler(signum, frame):
+def timeout_handler(signum, frame) -> Never:
     raise TimeoutException
 
 
@@ -28,7 +29,7 @@ def generate_csv_files_from_paths(
     csv_dir: str,
     print_progress: bool = True,
     log_errors: bool = False,
-    error_log_file: str = None,
+    error_log_file: str | None = None,
     timeout_seconds: int = 30 * 60,  # Timeout parameter in seconds (default 30 minutes)
 ) -> None:
     """

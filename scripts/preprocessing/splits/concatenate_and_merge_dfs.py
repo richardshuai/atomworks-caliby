@@ -36,7 +36,7 @@ def concatenate_parquet_files(input_dir: PathLike, output_file: PathLike) -> pd.
 
 
 def merge_dfs(
-    primary_file: PathLike, secondary_file: PathLike, merge_columns: list, output_file: PathLike = None
+    primary_file: PathLike, secondary_file: PathLike, merge_columns: list, output_file: PathLike | None = None
 ) -> None:
     """
     Merges two Parquet files on the specified columns and saves the resulting DataFrame.
@@ -63,7 +63,7 @@ def merge_dfs(
     logger.info(f"Merged DataFrame saved to {output_file}")
 
 
-def main():
+def main() -> None:
     fire.Fire({"concatenate": concatenate_parquet_files, "merge": merge_dfs})
 
 

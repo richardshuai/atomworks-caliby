@@ -166,7 +166,7 @@ def build_rf2aa_transform_pipeline(
     unresolved_ligand_atom_limit: int | float | None = 0.1,
     undesired_res_names: list[str] = AF3_EXCLUDED_LIGANDS,
     # Atomization parameters
-    res_names_to_atomize: list[str] = None,
+    res_names_to_atomize: list[str] | None = None,
     # MSA parameters
     max_msa_sequences: int = 10_000,  # Paper: 10_000
     dense_msa: bool = True,

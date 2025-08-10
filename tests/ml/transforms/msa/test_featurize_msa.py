@@ -129,10 +129,7 @@ def all_different(tensor_list: list[torch.Tensor]) -> bool:
     Returns:
         bool: True if all tensors are different, False if any are equal.
     """
-    for t1, t2 in combinations(tensor_list, 2):
-        if torch.equal(t1, t2):
-            return False
-    return True
+    return all(not torch.equal(t1, t2) for t1, t2 in combinations(tensor_list, 2))
 
 
 def similar_stats(
@@ -183,7 +180,7 @@ def test_fill_full_msa_from_encoded(pdb_id):
     res_names_to_ignore = encoding.tokens[
         encoding.tokens != "ASP"
     ]  # Atomize aspartate so we can test atomization and MSA indexing
-    PAD_TOKEN = RF2AA_ATOM36_ENCODING.token_to_idx["UNK"]
+    pad_token = RF2AA_ATOM36_ENCODING.token_to_idx["UNK"]
 
     # Apply initial transforms
     # fmt: off
@@ -196,8 +193,8 @@ def test_fill_full_msa_from_encoded(pdb_id):
         ),
         EncodeAtomArray(encoding),
         # MSA featurize workflow
-        EncodeMSA(encoding=encoding, token_to_use_for_gap=PAD_TOKEN),
-        FillFullMSAFromEncoded(pad_token=PAD_TOKEN),
+        EncodeMSA(encoding=encoding, token_to_use_for_gap=pad_token),
+        FillFullMSAFromEncoded(pad_token=pad_token),
     ], track_rng_state=False)
     # fmt: on
 
@@ -210,7 +207,7 @@ def test_fill_full_msa_from_encoded(pdb_id):
         if token_atom_array.atomize[0]:
             # If this residue is atomized, ensure that the entire MSA column (other than the query sequence) is padding...
             assert np.all(
-                output["encoded"]["msa"][1:, index] == PAD_TOKEN
+                output["encoded"]["msa"][1:, index] == pad_token
             ), f"MSA column for atomized residue {index} is not padding"
 
             # ...and the padding is represented in the full MSA details
@@ -521,14 +518,15 @@ def test_mask_msa_like_bert():
         assert abs(actual_num_mask_tokens - expected_num_mask_tokens) <= 2 * std_dev
 
         # ...execute regression tests, loading from a saved JSON
-        SAVED_RESULT_PATH = TEST_DATA_ML / "mask_msa_regression_test.json"
+        saved_result_path = TEST_DATA_ML / "mask_msa_regression_test.json"
 
         # Uncomment to save new_encoded_msa for regression tests, as a JSON
-        # with open(SAVED_RESULT_PATH, "w") as f:
+        # with open(saved_result_path, "w") as f:
         #     json.dump(new_encoded_msa.tolist(), f)
 
         # ...check that the new_encoded_msa matches the saved results
-        old_results = json.load(open(SAVED_RESULT_PATH))
+        with open(saved_result_path) as f:
+            old_results = json.load(f)
         assert torch.allclose(new_encoded_msa, torch.tensor(old_results), atol=1e-4, rtol=1e-4)
 
 
@@ -552,7 +550,7 @@ def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
         "do_not_replace": 0.1,
     }
     mask_probability = 0.15
-    PAD_TOKEN = encoding.token_to_idx["UNK"]
+    pad_token = encoding.token_to_idx["UNK"]
 
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
         data = cached_parse(pdb_id, hydrogen_policy="remove")
@@ -567,8 +565,8 @@ def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
                 ),
                 EncodeAtomArray(encoding),
                 # MSA featurize workflow
-                EncodeMSA(encoding=encoding, token_to_use_for_gap=PAD_TOKEN),
-                FillFullMSAFromEncoded(pad_token=PAD_TOKEN),
+                EncodeMSA(encoding=encoding, token_to_use_for_gap=pad_token),
+                FillFullMSAFromEncoded(pad_token=pad_token),
                 ConvertToTorch(keys=["polymer_msas_by_chain_id", "encoded", "full_msa_details"]),
                 FeaturizeMSALikeRF2AA(
                     n_recycles=n_recycles,
@@ -613,14 +611,14 @@ def test_msa_featurize_like_rf2aa_full_pipeline(pdb_id):
         ############## Regression test ##############
 
         # Save in the test directory
-        SAVED_RESULT_PATH = TEST_DATA_ML / f"{pdb_id}_featurize_msa_like_rf2aa_regression_test.pkl.gz"
+        saved_result_path = TEST_DATA_ML / f"{pdb_id}_featurize_msa_like_rf2aa_regression_test.pkl.gz"
 
         # Uncomment to save output['features_per_recycle_dict'] for regression tests, as a compressed pickle
-        # with gzip.open(SAVED_RESULT_PATH, "wb") as f:
+        # with gzip.open(saved_result_path, "wb") as f:
         #     pickle.dump(output["features_per_recycle_dict"], f, protocol=pickle.HIGHEST_PROTOCOL)
 
         # Check that the new_encoded_msa matches the saved results
-        with gzip.open(SAVED_RESULT_PATH, "rb") as f:
+        with gzip.open(saved_result_path, "rb") as f:
             old_results = pickle.load(f)
 
         # For each key in the dictionary, check that the values match
@@ -640,7 +638,7 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
     # Hyperparameters (to be defined in Hydra)
     encoding = RF2AA_ATOM36_ENCODING
     n_recycles = 5  # We choose 5 recycles to ensure we would find any drift across recycles
-    PAD_TOKEN = encoding.token_to_idx["UNK"]
+    pad_token = encoding.token_to_idx["UNK"]
 
     with rng_state(create_rng_state_from_seeds(np_seed=42, torch_seed=42, py_seed=42)):
         data = cached_parse(pdb_id, hydrogen_policy="remove")
@@ -654,8 +652,8 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
                 ),
                 EncodeAtomArray(encoding),
                 # MSA featurize workflow
-                EncodeMSA(encoding=encoding, token_to_use_for_gap=PAD_TOKEN),
-                FillFullMSAFromEncoded(pad_token=PAD_TOKEN),
+                EncodeMSA(encoding=encoding, token_to_use_for_gap=pad_token),
+                FillFullMSAFromEncoded(pad_token=pad_token),
                 ConvertToTorch(keys=["polymer_msas_by_chain_id", "encoded", "full_msa_details"]),
                 FeaturizeMSALikeAF3(
                     encoding=encoding,
@@ -703,14 +701,14 @@ def test_msa_featurize_like_af3_full_pipeline(pdb_id):
         ############## Regression test ##############
 
         # Save in the test directory
-        SAVED_RESULT_PATH = TEST_DATA_ML / f"{pdb_id}_featurize_msa_like_af3_regression_test.pkl.gz"
+        saved_result_path = TEST_DATA_ML / f"{pdb_id}_featurize_msa_like_af3_regression_test.pkl.gz"
 
         # Uncomment to save output['msa_features'] for regression tests, as a compressed pickle
-        # with gzip.open(SAVED_RESULT_PATH, "wb") as f:
+        # with gzip.open(saved_result_path, "wb") as f:
         #     pickle.dump(output["msa_features"], f, protocol=pickle.HIGHEST_PROTOCOL)
 
         # Check that the new_encoded_msa matches the saved results
-        with gzip.open(SAVED_RESULT_PATH, "rb") as f:
+        with gzip.open(saved_result_path, "rb") as f:
             old_results = pickle.load(f)
 
         # For each key in the features that change across recycles, check that the values match...

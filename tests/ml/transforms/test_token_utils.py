@@ -81,26 +81,20 @@ def test_add_global_token_id_annotation_when_fully_atomized(pdb_id):
 
     # cross check by iterating over the tokens
     # ... via token starts
-    counter = 0
     token_start_idxs = get_token_starts(atom_array, add_exclusive_stop=True)
-    for start, end in zip(token_start_idxs[:-1], token_start_idxs[1:], strict=False):
+    for counter, (start, end) in enumerate(zip(token_start_idxs[:-1], token_start_idxs[1:], strict=False)):
         token = atom_array[start:end]
         assert len(token) == 1, f"token should have length 1 but has length {len(token)}"
         assert np.all(token.token_id == counter), f"token_id should be {counter} but is {token.token_id}"
-        counter += 1
 
     # ... via token_iter
-    counter = 0
-    for token in token_iter(atom_array):
+    for counter, token in enumerate(token_iter(atom_array)):
         assert len(token) == 1, f"token should have length 1 but has length {len(token)}"
         assert np.all(token.token_id == counter), f"token_id should be {counter} but is {token.token_id}"
-        counter += 1
 
     # ... via atom iter (since when fully atomized, tokens are atoms)
-    counter = 0
-    for token in atom_array:
+    for counter, token in enumerate(atom_array):
         assert token.token_id == counter, f"token_id should be {counter} but is {token.token_id}"
-        counter += 1
 
 
 @pytest.mark.parametrize("pdb_id", ["6lyz", "5ocm"])
@@ -124,20 +118,16 @@ def test_add_global_token_id_annotation_when_not_atomized(pdb_id):
 
     # cross check by iterating over the tokens
     # ... via token starts
-    counter = 0
     token_start_idxs = get_token_starts(atom_array, add_exclusive_stop=True)
-    for start, end in zip(token_start_idxs[:-1], token_start_idxs[1:], strict=False):
+    for counter, (start, end) in enumerate(zip(token_start_idxs[:-1], token_start_idxs[1:], strict=False)):
         token = atom_array[start:end]
         assert len(token) >= 1, f"token should have length at least 1 but has length {len(token)}"
         assert np.all(token.token_id == counter), f"token_id should be {counter} but is {token.token_id}"
-        counter += 1
 
     # ... via token_iter
-    counter = 0
-    for token in token_iter(atom_array):
+    for counter, token in enumerate(token_iter(atom_array)):
         assert len(token) >= 1, f"token should have length at least 1 but has length {len(token)}"
         assert np.all(token.token_id == counter), f"token_id should be {counter} but is {token.token_id}"
-        counter += 1
 
     # ... via residue iter (since when not atomizing, tokens are residues)
     counter = 0
@@ -270,13 +260,11 @@ def test_add_global_res_id_annotation():
     ), "Global residue IDs should be 0-indexed and continuous"
 
     # Check that residues have consistent res_id_global values
-    counter = 0
-    for residue in struc.residue_iter(atom_array):
+    for counter, residue in enumerate(struc.residue_iter(atom_array)):
         assert len(residue) >= 1, f"Residue should have length at least 1 but has length {len(residue)}"
         assert np.all(
             residue.res_id_global == counter
         ), f"All atoms in residue should have res_id_global {counter} but got {residue.res_id_global}"
-        counter += 1
 
 
 if __name__ == "__main__":

@@ -52,8 +52,8 @@ def create_test_datasets(
     num_pdbs: int = 3000,
     test_data_dir: Path = DEFAULT_TEST_DATA_DIR,
     base_cif_dir: Path = PDB_MIRROR_PATH,
-    pn_units_df_path: os.PathLike = None,
-):
+    pn_units_df_path: os.PathLike | None = None,
+) -> None:
     """Process PDB IDs, concatenate CSV files, and generate interfaces dataframe.
     May be slow if no pre-existing PN units dataframe is provided (highly recommended).
 

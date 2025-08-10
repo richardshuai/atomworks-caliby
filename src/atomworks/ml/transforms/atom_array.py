@@ -138,7 +138,7 @@ class AddMoleculeSymmetricIdAnnotation(Transform):
     - If molecule_entity 0 has 3 molecules, they will have symmetric_ids 0, 1, 2.
     """
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["molecule_entity", "molecule_iid"])
 
     def forward(self, data: dict) -> dict:
@@ -186,7 +186,7 @@ class RenumberNonPolymerResidueIdx(Transform):
             non-polymer residue indices.
     """
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["chain_iid", "res_id", "is_polymer"])
 
     def forward(self, data: dict) -> dict:
@@ -333,7 +333,7 @@ class AddWithinPolyResIdxAnnotation(Transform):
         "CropSpatialLikeAF3",
     ]  # cropping changes the residue indices
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["chain_iid"])
 
     def forward(self, data: dict) -> dict:
@@ -385,7 +385,7 @@ class CopyAnnotation(Transform):
         self.annotation_to_copy = annotation_to_copy
         self.new_annotation = new_annotation
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         assert has_annotation(
             data["atom_array"], self.annotation_to_copy
         ), f"Annotation {self.annotation_to_copy} does not exist in the AtomArray."
@@ -491,7 +491,7 @@ class AddGlobalAtomIdAnnotation(Transform):
         """
         self.allow_overwrite = allow_overwrite
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         if "atom_id" in data["atom_array"].get_annotation_categories() and not self.allow_overwrite:
             raise ValueError("AtomArray already contains 'atom_id' annotation! It would be overwritten.")
 
@@ -528,7 +528,7 @@ class AddGlobalTokenIdAnnotation(Transform):
 
     incompatible_previous_transforms = ["AddGlobalTokenIdAnnotation"]
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, required=[], forbidden=["token_id"])
 
     def forward(self, data: dict) -> dict:
@@ -553,7 +553,7 @@ class AddGlobalResIdAnnotation(Transform):
 
     incompatible_previous_transforms = ["AddGlobalResIdAnnotation"]
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["res_id"])
 
     def forward(self, data: dict) -> dict:
@@ -564,7 +564,7 @@ class AddGlobalResIdAnnotation(Transform):
 class AddWithinChainInstanceResIdx(Transform):
     """Add the within-chain instance residue index to the atom array (0-indexed)."""
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_atom_array_annotation(data, ["chain_iid", "res_id", "res_name"])
 
     def forward(self, data: dict[str, Any]):
@@ -668,7 +668,7 @@ class SortLikeRF2AA(Transform):
     requires_previous_transforms = ["AtomizeByCCDName"]
     incompatible_previous_transforms = ["EncodeAtomArray", "CropSpatialLikeAF3", "CropContiguousLikeAF3"]
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(
             data,
             ["is_polymer", "pn_unit_iid", "molecule_iid", "molecule_entity", "chain_entity", "chain_iid", "atomize"],
@@ -701,7 +701,7 @@ class SortPolyThenNonPoly(Transform):
     def __init__(self, treat_atomized_as_non_poly: bool = True):
         self.treat_atomized_as_non_poly = treat_atomized_as_non_poly
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["is_polymer"])
 
     def forward(self, data: dict) -> dict:

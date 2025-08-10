@@ -193,7 +193,7 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
     i_unpaired_a = np.setdiff1d(np.arange(msa_a_num_sequences), i_paired_a)
     i_unpaired_b = np.setdiff1d(np.arange(msa_b_num_sequences), i_paired_b)
 
-    N_paired, N_unpaired_a, N_unpaired_b = (
+    n_paired, n_unpaired_a, n_unpaired_b = (
         len(i_paired_a),  # Same as len(i_paired_b)
         len(i_unpaired_a),
         len(i_unpaired_b),
@@ -214,7 +214,7 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
     msa_a_unpaired = np.concatenate(
         [
             msa_a["msa"][i_unpaired_a],
-            np.full((N_unpaired_a, msa_b_num_residues), unpaired_padding, dtype=msa_dtype),
+            np.full((n_unpaired_a, msa_b_num_residues), unpaired_padding, dtype=msa_dtype),
         ],
         axis=1,
     )
@@ -222,14 +222,14 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
     ins_a_unpaired = np.concatenate(
         [
             msa_a["ins"][i_unpaired_a],
-            np.full((N_unpaired_a, msa_b_num_residues), 0, dtype=msa_a["ins"].dtype),
+            np.full((n_unpaired_a, msa_b_num_residues), 0, dtype=msa_a["ins"].dtype),
         ],
         axis=1,
     )
 
     msa_b_unpaired = np.concatenate(
         [
-            np.full((N_unpaired_b, msa_a_num_residues), unpaired_padding, dtype=msa_dtype),
+            np.full((n_unpaired_b, msa_a_num_residues), unpaired_padding, dtype=msa_dtype),
             msa_b["msa"][i_unpaired_b],
         ],
         axis=1,
@@ -237,7 +237,7 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
 
     ins_b_unpaired = np.concatenate(
         [
-            np.full((N_unpaired_b, msa_a_num_residues), 0, dtype=msa_b["ins"].dtype),
+            np.full((n_unpaired_b, msa_a_num_residues), 0, dtype=msa_b["ins"].dtype),
             msa_b["ins"][i_unpaired_b],
         ],
         axis=1,
@@ -248,14 +248,14 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
     msa_a_unpaired_is_padded_mask = np.concatenate(
         [
             msa_a["msa_is_padded_mask"][i_unpaired_a],
-            np.ones((N_unpaired_a, msa_b_num_residues), dtype=bool),
+            np.ones((n_unpaired_a, msa_b_num_residues), dtype=bool),
         ],
         axis=1,
     )
 
     msa_b_unpaired_is_padded_mask = np.concatenate(
         [
-            np.ones((N_unpaired_b, msa_a_num_residues), dtype=bool),
+            np.ones((n_unpaired_b, msa_a_num_residues), dtype=bool),
             msa_b["msa_is_padded_mask"][i_unpaired_b],
         ],
         axis=1,
@@ -279,16 +279,16 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
     # ...label sequences that were paired
     any_paired = np.concatenate(
         [
-            np.ones(N_paired, dtype=bool),
-            msa_a["any_paired"][i_unpaired_a] if "any_paired" in msa_a else np.zeros(N_unpaired_a, dtype=bool),
-            np.zeros(N_unpaired_b, dtype=bool),
+            np.ones(n_paired, dtype=bool),
+            msa_a["any_paired"][i_unpaired_a] if "any_paired" in msa_a else np.zeros(n_unpaired_a, dtype=bool),
+            np.zeros(n_unpaired_b, dtype=bool),
         ],
     )
     all_paired = np.concatenate(
         [
-            msa_a["all_paired"][i_paired_a] if "all_paired" in msa_a else np.ones(N_paired, dtype=bool),
-            np.zeros(N_unpaired_a, dtype=bool),
-            np.zeros(N_unpaired_b, dtype=bool),
+            msa_a["all_paired"][i_paired_a] if "all_paired" in msa_a else np.ones(n_paired, dtype=bool),
+            np.zeros(n_unpaired_a, dtype=bool),
+            np.zeros(n_unpaired_b, dtype=bool),
         ],
     )
 
@@ -297,14 +297,14 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
         msa[0] == np.concatenate([msa_a["msa"][0], msa_b["msa"][0]])
     ), "Query sequence must be the first row of the MSA"
 
-    result = dict(
-        msa=msa,
-        ins=ins,
-        tax_ids=tax_ids,
-        any_paired=any_paired,
-        all_paired=all_paired,
-        msa_is_padded_mask=msa_is_padded_mask,
-    )
+    result = {
+        "msa": msa,
+        "ins": ins,
+        "tax_ids": tax_ids,
+        "any_paired": any_paired,
+        "all_paired": all_paired,
+        "msa_is_padded_mask": msa_is_padded_mask,
+    }
     return result
 
 

@@ -70,8 +70,8 @@ _BIOTITE_DEFAULT_ANNOTATIONS = ["chain_id", "res_id", "res_name", "atom_name"]
 
 _OBABEL_IMPLICIT_HYDROGEN_REF = 4294967294
 """
-Openbabel's special atom ID that is used for implicit hydrogens 
-or lone pairs. 
+Openbabel's special atom ID that is used for implicit hydrogens
+or lone pairs.
 
 Reference:
     - https://open-babel.readthedocs.io/en/latest/Stereochemistry/stereo.html#accessing-stereochemistry-information
@@ -505,7 +505,7 @@ class AddOpenBabelMoleculesForAtomizedMolecules(Transform):
     requires_previous_transforms = ["AtomizeByCCDName"]
     incompatible_previous_transforms = ["AddRF2AAChiralFeatures", "CropContiguousLikeAF3", "CropSpatialLikeAF3"]
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_does_not_contain_keys(data, ["openbabel"])
         check_is_instance(data, "atom_array", AtomArray)
@@ -589,7 +589,7 @@ class GetChiralCentersFromOpenBabel(Transform):
     requires_previous_transforms = ["AddOpenBabelMoleculesForAtomizedMolecules", "AtomizeByCCDName"]
     incompatible_previous_transforms = ["AddRF2AAChiralFeatures"]
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array", "openbabel"])
         check_does_not_contain_keys(data, ["chiral_centers"])
         check_is_instance(data, "atom_array", AtomArray)

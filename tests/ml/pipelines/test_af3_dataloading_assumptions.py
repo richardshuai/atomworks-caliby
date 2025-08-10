@@ -26,7 +26,7 @@ def test_satisfies_af3_dataloading_assumptions(dataset_config):
     """
     Tests that the data loading pipeline outputs examples that satisfy the assumptions of the AF3 model.
     """
-    NUM_RANDOM_EXAMPLES = 3
+    num_random_examples = 3
 
     dataset = dataset_config["dataset"]
     dataset_name = dataset_config["name"]
@@ -39,7 +39,7 @@ def test_satisfies_af3_dataloading_assumptions(dataset_config):
     random.seed(seed)
 
     # Select deterministic examples to profile
-    deterministic_indices = np.random.choice(len(dataset), NUM_RANDOM_EXAMPLES, replace=False)
+    deterministic_indices = np.random.choice(len(dataset), num_random_examples, replace=False)
 
     for index in deterministic_indices:
         sample = dataset[index]

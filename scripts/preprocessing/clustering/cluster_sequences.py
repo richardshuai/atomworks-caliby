@@ -131,7 +131,7 @@ def add_pn_unit_cluster_column(
     Returns:
         DataFrame | None: The updated PN units dataframe with the cluster column added, or None if replace_df is True.
     """
-    if isinstance(pn_units_df, (str, PathLike)):
+    if isinstance(pn_units_df, str | PathLike):
         df = pd.read_parquet(pn_units_df)
     else:
         df = pn_units_df
@@ -155,7 +155,7 @@ def add_pn_unit_cluster_column(
 
     # Save the updated DataFrame if replace_df is True and the input was a file
     if replace_df:
-        if isinstance(pn_units_df, (str, PathLike)):
+        if isinstance(pn_units_df, str | PathLike):
             logger.info(f"Saving updated PN units dataframe to {pn_units_df}...")
             df.to_parquet(pn_units_df)
         else:

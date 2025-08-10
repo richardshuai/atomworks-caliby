@@ -100,7 +100,7 @@ class FlagAndReassignCovalentModifications(Transform):
 
     incompatible_previous_transforms = [AtomizeByCCDName, "AddGlobalTokenIdAnnotation"]
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["pn_unit_id", "pn_unit_iid"])

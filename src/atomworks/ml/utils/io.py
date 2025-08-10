@@ -282,6 +282,7 @@ def convert_af3_model_output_to_atom_array_stack(
             # UNL is "Unknown Ligand" in the CCD
             element = elements[atom_indices_in_token].item()
 
+            # ruff: noqa: B023
             def atom_name_exists(atom_name: str) -> bool:
                 return (
                     atom_array[

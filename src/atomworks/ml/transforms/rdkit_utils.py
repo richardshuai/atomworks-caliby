@@ -560,7 +560,7 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
     def __init__(self, hydrogen_policy: Literal["infer", "remove", "keep"] = "keep"):
         self.hydrogen_policy = hydrogen_policy
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_does_not_contain_keys(data, ["rdkit"])
         check_atom_array_annotation(data, ["atomize", "pn_unit_iid"])
 
@@ -653,7 +653,7 @@ class GenerateRDKitConformers(Transform):
         self.optimize_conformers = optimize_conformers
         self.optimize_kwargs = default(optimize_kwargs, {})
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["rdkit"])
         check_is_instance(data, "rdkit", dict)
         check_nonzero_length(data, "rdkit")
@@ -726,7 +726,7 @@ class GetRDKitChiralCenters(Transform):
 
     requires_previous_transforms = ["GetAF3ReferenceMoleculeFeatures"]
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["rdkit"])
         check_is_instance(data, "rdkit", dict)
         check_nonzero_length(data, "rdkit")

@@ -78,7 +78,7 @@ def instantiate_example(example_name: str):
         build_assembly=("1",),
         **DEFAULT_CIF_PARSER_ARGS,
     )
-    for chain_id in result_dict["chain_info"].keys():
+    for chain_id in result_dict["chain_info"]:
         result_dict["chain_info"][chain_id]["msa_path"] = test_data_dir / example_name / f"{example_name}.a3m"
 
     input = {
@@ -109,7 +109,7 @@ def _assert_pipeline_results_equal(result: dict, expected: dict, example_name: s
     # Check that both have the same keys
     # missing_keys = set(expected.keys()) - set(result.keys())
     mode = f"{'inference' if is_inference else 'training'}"
-    missing_keys = set(expected.keys()) - set(result.keys()) - set(["extra_info", "atom_array"])
+    missing_keys = set(expected.keys()) - set(result.keys()) - {"extra_info", "atom_array"}
     assert not missing_keys, f"Missing feature keys {missing_keys} for {example_name} in {mode} mode"
 
     # Check atom array if present

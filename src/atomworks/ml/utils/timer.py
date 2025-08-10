@@ -13,7 +13,7 @@ from collections.abc import Callable
 from enum import Enum
 from functools import wraps
 from multiprocessing import Queue
-from typing import Any, Literal
+from typing import Any, Literal, Never
 
 
 def timeout(timeout: float | int | None = None, strategy: Literal["signal", "subprocess"] = "subprocess"):
@@ -93,7 +93,7 @@ def timeout_using_signal(timeout: float | int | None) -> Callable:
         def wrapped_func(*args, **kwargs):
             _start_time = time.time()
 
-            def _timeout_handler(*_):
+            def _timeout_handler(*_) -> Never:
                 # ... raise TimeoutError if called
                 _elapsed_time = time.time() - _start_time
                 raise TimeoutError(f"Function timed out after {_elapsed_time:.3f} seconds")
@@ -175,7 +175,7 @@ def timeout_using_subprocess(timeout: float | int | None) -> Callable:
                 #       and the main process is waiting for the result in the queue.
                 # See Issue(https://bugs.python.org/issue43805)
             except _queue.Empty:
-                raise ChildProcessException("Child process died unexpectedly")
+                raise ChildProcessError("Child process died unexpectedly")
 
             match status:
                 case _TimeoutHandlerStatus.SUCCESS:
@@ -223,7 +223,7 @@ class _TimeoutHandlerStatus(Enum):
     EXCEPTION = 1
 
 
-class ChildProcessException(Exception):
+class ChildProcessError(Exception):
     """Exception raised when a child process dies unexpectedly."""
 
     pass

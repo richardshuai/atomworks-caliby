@@ -169,7 +169,7 @@ select = [
     "NPY", # fix deprecated numpy functions / types
     "RUF", # Ruff-specific rules
     "T10", # catch accidental debugger breakpoints in code
-    "ANN"
+    "ANN", # type annotations
 ]
 
 # Ignore specific rules that might conflict with our style or are too strict
@@ -197,6 +197,16 @@ convention = "google"
 "docs/**/*.py" = ["E402"]               # Ignore forcing imports to be at the top of the file
 "docs/**/*.ipynb" = ["E402"]            # Ignore forcing imports to be at the top of the file
 
+# Allow one-letter variable names commonly used in scientific code.
+[tool.ruff.lint.pep8-naming]
+ignore-names = [
+    "L",
+    "B",
+    "N",
+    "M",
+    "C",
+    "S"
+]
 
 # Test settings --------------------------------------------------------------------------------
 [tool.pytest.ini_options]

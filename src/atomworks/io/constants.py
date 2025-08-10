@@ -525,14 +525,14 @@ Reference:
 UNKNOWN_LIGAND: Final[str] = sys.intern("UNL")
 """The CCD code for unknown ligands (`UNL`).
 
-Reference: 
+Reference:
     - https://www.wwpdb.org/documentation/procedure
 """
 
 UNKNOWN_AA: Final[str] = sys.intern("UNK")
 """The CCD code for unknown amino acids (`UNK`).
 
-Reference: 
+Reference:
     - https://www.wwpdb.org/documentation/procedure
 """
 
@@ -540,21 +540,21 @@ Reference:
 UNKNOWN_RNA: Final[str] = sys.intern("N")
 """The CCD code for unknown RNA nucleotides (`N`).
 
-Reference: 
+Reference:
     - https://www.wwpdb.org/documentation/procedure
 """
 
 UNKNOWN_DNA: Final[str] = sys.intern("DN")
 """The CCD code for unknown DNA nucleotides (`DN`).
 
-Reference: 
+Reference:
     - https://www.wwpdb.org/documentation/procedure
 """
 
 UNKNOWN_ATOM: Final[str] = sys.intern("UNX")
 """The CCD code for unknown atoms (`UNX`).
 
-Reference: 
+Reference:
     - https://www.wwpdb.org/documentation/procedure
 """
 

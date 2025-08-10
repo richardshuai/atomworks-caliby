@@ -111,7 +111,7 @@ class TokenEncoding:
         @lru_cache(maxsize=10000)
         def resolve_unknown_token_name(token_name: str | int, token_is_atom: bool) -> str:
             assert isinstance(
-                token_name, (str, int, np.integer)
+                token_name, str | int | np.integer
             ), f"Expected `token_name` to be a string or int, but got {type(token_name)}: token_name={token_name}, token_is_atom={token_is_atom}."
 
             # Case 1: Token is known & valid
@@ -190,7 +190,7 @@ class TokenEncoding:
             atomic_number_to_pdb_element_name[atomic_number] = elt.upper()
 
         elements = np.full((self.n_tokens, self.n_atoms_per_token), "", dtype="<U3")
-        for idx, (token, atom_names) in enumerate(self.token_atoms.items()):
+        for idx, (_token, atom_names) in enumerate(self.token_atoms.items()):
             # ... case 1: atom names - try to infer elements from atom names
             inferred_elements = struc.infer_elements(atom_names)
             if np.all(inferred_elements == ""):
@@ -281,7 +281,7 @@ AF2_ATOM14_ENCODING = TokenEncoding(
 
 """AF2's atom14 encoding.
 
-Reference: 
+Reference:
     - https://github.com/google-deepmind/alphafold/blob/f251de6613cb478207c732bf9627b1e853c99c2f/alphafold/common/residue_constants.py#L505
 """
 
@@ -635,9 +635,9 @@ RF2AA_ATOM36_ENCODING = TokenEncoding(
     - Encodes heavy atoms and hydrogens (max 36 in total)
     - Includes 3 unknown tokens: `UNK` for proteins, `DN` for dna, `N` for RNA
     - Covers:
-        - 20 amino acids (+ unknown, + mask), 
-        - 4  DNA bases (+ unknown), 
-        - 4  RNA bases (+ unknown), 
+        - 20 amino acids (+ unknown, + mask),
+        - 4  DNA bases (+ unknown),
+        - 4  RNA bases (+ unknown),
         - 1  outdated histindine token `HIS_D`
         - 45 atom tokens (+ unknown)
 """

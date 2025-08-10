@@ -29,7 +29,7 @@ def save_failed_example_to_disk(
     data: dict = {},
     rng_state_dict: dict = {},
     error_msg: str = "",
-):
+) -> None:
     """
     Attempts to save a failed example to disk as a pickle file.
 

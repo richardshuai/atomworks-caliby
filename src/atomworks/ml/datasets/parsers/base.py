@@ -72,7 +72,7 @@ class MetadataRowParser(ABC):
 
     def validate_output(self, output: dict[str, Any]) -> None:
         """Validate the output dictionary for required keys and their types."""
-        for key in self.required_schema.keys():
+        for key in self.required_schema:
             if key not in output:
                 if key == "extra_info":
                     output[key] = {}  # Default to an empty dictionary

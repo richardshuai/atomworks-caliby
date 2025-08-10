@@ -92,9 +92,8 @@ def rename_and_move_single_file(args: tuple) -> None:
     if not sharded_file_path.exists():
         # If the file was an a3m and not a3m.gz, we need to compress it
         if ".a3m.gz" not in file_extension and ".a3m.gz" in new_file_extension:
-            with open(file, "rb") as f_in:
-                with gzip.open(sharded_file_path, "wb") as f_out:
-                    shutil.copyfileobj(f_in, f_out)
+            with open(file, "rb") as f_in, gzip.open(sharded_file_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
             if not copy:
                 file.unlink()  # remove the original file
         else:

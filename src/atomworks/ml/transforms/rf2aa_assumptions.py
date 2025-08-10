@@ -64,11 +64,11 @@ def _is_symmetric(array: torch.Tensor | np.ndarray) -> bool:
     return np.array_equal(array, array.T, equal_nan=True)
 
 
-def _assert_shape(t: torch.Tensor | np.ndarray, s: tuple[int, ...]):
+def _assert_shape(t: torch.Tensor | np.ndarray, s: tuple[int, ...]) -> None:
     assert tuple(t.shape) == s
 
 
-def assert_satisfies_rf2aa_assumptions(sample: dict[str, Any]):
+def assert_satisfies_rf2aa_assumptions(sample: dict[str, Any]) -> None:
     """
     Asserts that the given sample satisfies the assumptions required for a
     successful forward and backward pass through RF2AA.

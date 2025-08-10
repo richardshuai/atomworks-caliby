@@ -101,7 +101,7 @@ def get_version(bin_path: PathLike, version_cmd: str = "--version") -> str:
 
 def assert_is_valid_executable_path(
     bin_path: PathLike, required_verification_text: Iterable[str] | None = None, verification_cmd: str = "--help"
-):
+) -> None:
     """
     Assert that the given path is a valid executable and that it satisfies the given verification requirements.
 

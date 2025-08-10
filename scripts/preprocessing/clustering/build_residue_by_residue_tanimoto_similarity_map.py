@@ -70,7 +70,7 @@ def build_residue_by_residue_tanimoto_similarity_map_from_paths(
     pn_units_df_1_path: PathLike,
     pn_units_df_2_path: PathLike,
     residue_name_to_info_path: PathLike,
-    output_path: PathLike = None,
+    output_path: PathLike | None = None,
     num_workers: int = 1,
 ) -> None:
     """
@@ -95,7 +95,7 @@ def build_residue_by_residue_tanimoto_similarity_map_from_paths(
         """Extracts the unique residue names from a DataFrame."""
         residues = df["q_pn_unit_non_polymer_res_names"].unique()
         residues_split = [x.split(",") for x in residues if x is not None]
-        return list(set(item for sublist in residues_split for item in sublist))
+        return list({item for sublist in residues_split for item in sublist})
 
     residue_list_1 = extract_unique_residues(pn_units_df_1)
     residue_list_2 = extract_unique_residues(pn_units_df_2)

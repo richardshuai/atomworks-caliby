@@ -111,7 +111,7 @@ def _get_database_path(gpu: bool = False) -> Path:
             return Path(NET_DB_PATH)
 
 
-def _make_fasta_file_from_sequence_strings(sequence_strings: list[str], output_fasta_file: PathLike):
+def _make_fasta_file_from_sequence_strings(sequence_strings: list[str], output_fasta_file: PathLike) -> None:
     """
     Create a FASTA file from a list of sequence strings. Header is the hash of the sequence string.
 
@@ -206,7 +206,7 @@ def _start_gpu_server(
     return gpu_server_process
 
 
-def _run_mmseqs(mmseqs: Path, params: list[str | Path]):
+def _run_mmseqs(mmseqs: Path, params: list[str | Path]) -> None:
     """
     Run an MMseqs2 command.
 
@@ -228,7 +228,7 @@ def _run_mmseqs(mmseqs: Path, params: list[str | Path]):
     logger.info(f"Running {mmseqs} {params_log}")
     # hide MMseqs2 verbose paramters list that clogs up the log
     os.environ["MMSEQS_CALL_DEPTH"] = "1"
-    subprocess.check_call([mmseqs] + params)
+    subprocess.check_call([mmseqs, *params])
 
 
 def _run_mmseqs_search_and_filter(
@@ -254,7 +254,7 @@ def _run_mmseqs_search_and_filter(
     filter_min_enable: int = 1000,
     profile_input: str = "qdb",
     tmp_dir: str = "tmp",
-):
+) -> None:
     """
     Helper function to run MMseqs2 search, expand alignment and filter results. This is the basic pipeline used in ColabFold to generate
     high quality MSAs using MMseqs2.
@@ -308,8 +308,8 @@ def _run_mmseqs_search_and_filter(
             base.joinpath(tmp_dir),
             "--threads",
             str(threads),
-        ]
-        + search_param,
+            *search_param,
+        ],
     )
 
     if "--gpu-server" in search_param:
@@ -340,8 +340,8 @@ def _run_mmseqs_search_and_filter(
             str(db_load_mode),
             "--threads",
             str(threads),
-        ]
-        + expand_param,
+            *expand_param,
+        ],
     )
 
     # Realign using the expanded alignment to improve alignment quality
@@ -408,8 +408,8 @@ def _run_mmseqs_search_and_filter(
             str(db_load_mode),
             "--threads",
             str(threads),
-        ]
-        + filter_param,
+            *filter_param,
+        ],
     )
 
     # Cleanup intermediate files
@@ -451,7 +451,7 @@ def _mmseqs_search_monomer(
     unpack: bool = True,
     template_sensitivity: float = 7.5,
     template_eval: float = 0.1,
-):
+) -> None:
     """
     Run mmseqs with a local colabfold database set. Adapted from ColabFold mmseqs search script:
     https://github.com/sokrypton/ColabFold/blob/main/colabfold/mmseqs/search.py
@@ -741,7 +741,7 @@ def run_mmseqs_pipeline(
     num_iterations: int = 3,
     max_seqs: int = 10000,
     use_local_temp_dir: bool = False,
-):
+) -> None:
     """
     Run the MMseqs2 pipeline as done in ColabFold. See helper functions for more details.
     Takes input from a DataHub parquet or csv file and creates MSAs in the .a3m format in the output directory.
@@ -813,7 +813,7 @@ def generate_msas_from_sequences(
     num_iterations: int = 3,
     max_seqs: int = 10000,
     use_local_temp_dir: bool = True,
-):
+) -> None:
     """
     Simple entrypoint to generate MSAs directly from protein sequences.
 

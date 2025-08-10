@@ -50,9 +50,9 @@ def build_residue_to_rdkit_molecule_and_morgan_fingerprint_map(
 
     # Split each residue name by commas and make unique again
     q_pn_unit_non_polymer_res_names_split = [x.split(",") for x in q_pn_unit_non_polymer_res_names if x is not None]
-    q_pn_unit_non_polymer_res_names_split_unique = set(
-        [item for sublist in q_pn_unit_non_polymer_res_names_split for item in sublist]
-    )
+    q_pn_unit_non_polymer_res_names_split_unique = {
+        item for sublist in q_pn_unit_non_polymer_res_names_split for item in sublist
+    }
     logger.info(f"Number of unique residues (split by comma): {len(q_pn_unit_non_polymer_res_names_split_unique)}")
 
     # Build a map from the residue name to the RD Kit molecule object

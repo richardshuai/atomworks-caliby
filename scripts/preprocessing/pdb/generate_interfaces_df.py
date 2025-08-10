@@ -213,7 +213,7 @@ def generate_interfaces_df(df: pd.DataFrame, num_workers: int = float("inf")) ->
         return pd.DataFrame(interfaces_list)
 
 
-def generate_and_save_interfaces_df(input_path: str, output_path: str, num_workers: int = 1):
+def generate_and_save_interfaces_df(input_path: str, output_path: str, num_workers: int = 1) -> None:
     # ... load the query PN unit DataFrame
     logger.info("Loading query PN unit dataframe...")
     query_pn_units_df = pd.read_parquet(input_path)

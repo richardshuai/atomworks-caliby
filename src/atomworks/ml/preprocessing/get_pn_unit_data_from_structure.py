@@ -160,7 +160,7 @@ class DataPreprocessor:
 
         # Process each assembly
         records = []
-        for assembly_id in result_dict["assemblies"].keys():
+        for assembly_id in result_dict["assemblies"]:
             result = self._generate_pn_unit_metadata_for_assembly(result_dict, assembly_id, ligand_validity_scores)
             if result is not None:
                 # The path info should be saved as well
@@ -320,23 +320,16 @@ class DataPreprocessor:
 
                 # ... check is SOI
                 residue_names = np.unique(query_pn_unit_atom_array.res_name)
-                is_loi = True if len(loi_ligand_set.intersection(residue_names)) > 0 else False
+                is_loi = len(loi_ligand_set.intersection(residue_names)) > 0
 
                 # ... check if metal
-                is_metal = (
-                    True
-                    if len(query_pn_unit_atom_array) == 1
-                    and (query_pn_unit_atom_array[0].element.upper() in METAL_ELEMENTS)
-                    else False
+                is_metal = bool(
+                    len(query_pn_unit_atom_array) == 1 and query_pn_unit_atom_array[0].element.upper() in METAL_ELEMENTS
                 )
 
                 if exists(ligand_validity_scores):
                     _query_pn_unit_ligand_ids = sorted(
-                        set(
-                            list(
-                                zip(query_pn_unit_atom_array.chain_id, query_pn_unit_atom_array.res_name, strict=False)
-                            )
-                        )
+                        set(zip(query_pn_unit_atom_array.chain_id, query_pn_unit_atom_array.res_name, strict=False))
                     )
 
                     # ... subset to the ids that have validity scores
@@ -368,11 +361,7 @@ class DataPreprocessor:
                 }
             elif query_pn_unit_type.is_polymer():
                 chain_id = query_pn_unit_atom_array.chain_id[0]  # (Polymers have only one chain)
-                ec_numbers = (
-                    chain_info_dict[chain_id]["ec_numbers"]
-                    if "ec_numbers" in chain_info_dict[chain_id].keys()
-                    else None
-                )
+                ec_numbers = chain_info_dict[chain_id].get("ec_numbers", None)
                 type_specific_criteria = {
                     "ec_numbers": json.dumps(ec_numbers),
                     "sequence_length": len(

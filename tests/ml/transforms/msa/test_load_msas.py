@@ -183,9 +183,8 @@ def _check_coverage_for_pdb_id(
         if data["chain_info"][chain_id]["chain_type"].is_protein():
             if msa["msa"].shape[0] > 1 and msa["msa"].shape[1] > 10:
                 example_n_proteins_with_msas += 1
-        elif data["chain_info"][chain_id]["chain_type"] == ChainType.RNA:
-            if msa["msa"].shape[0] > 1:
-                example_n_rna_with_msa += 1
+        elif data["chain_info"][chain_id]["chain_type"] == ChainType.RNA and msa["msa"].shape[0] > 1:
+            example_n_rna_with_msa += 1
 
     return {
         "n_proteins": example_n_proteins,
@@ -209,17 +208,17 @@ def test_msas_with_mse():
 def test_msa_coverage(pn_units_df):
     """Ensure the  MSA coverage for the test data set surpasses a certain threshold."""
 
-    PROTEIN_COVERAGE_THRESHOLD = 0.95
-    RNA_COVERAGE_THRESHOLD = 0.40
+    protein_coverage_threshold = 0.95
+    rna_coverage_threshold = 0.40
 
     result = _evaluate_coverage_for_df(pn_units_df, PROTEIN_MSA_DIRS, RNA_MSA_DIRS)
 
     assert (
-        result["protein_coverage"] >= PROTEIN_COVERAGE_THRESHOLD
-    ), f"Protein MSA coverage of {result['protein_coverage']} is below the threshold of {PROTEIN_COVERAGE_THRESHOLD}"
+        result["protein_coverage"] >= protein_coverage_threshold
+    ), f"Protein MSA coverage of {result['protein_coverage']} is below the threshold of {protein_coverage_threshold}"
     assert (
-        result["rna_coverage"] >= RNA_COVERAGE_THRESHOLD
-    ), f"RNA MSA coverage of {result['rna_coverage']} is below the threshold of {RNA_COVERAGE_THRESHOLD}"
+        result["rna_coverage"] >= rna_coverage_threshold
+    ), f"RNA MSA coverage of {result['rna_coverage']} is below the threshold of {rna_coverage_threshold}"
 
 
 def _evaluate_coverage_for_df(df: pd.DataFrame, protein_msa_dirs: list[str], rna_msa_dirs: list[str]):

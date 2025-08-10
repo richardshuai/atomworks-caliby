@@ -33,7 +33,7 @@ def test_remove_polymers_with_too_few_resolved_residues(test_case):
     data = cached_parse(test_case["pdb_id"])
     atom_array = data["atom_array"]
 
-    MIN_RESIDUES = 4
+    min_residues = 4
 
     def get_min_num_residues(atom_array: AtomArray) -> int:
         """
@@ -47,11 +47,11 @@ def test_remove_polymers_with_too_few_resolved_residues(test_case):
 
     # ...assert that we have a polymer with too few resolved residues
     min_num_residues = get_min_num_residues(atom_array)
-    assert min_num_residues < MIN_RESIDUES
+    assert min_num_residues < min_residues
 
     pipeline = Compose(
         [
-            RemovePolymersWithTooFewResolvedResidues(min_residues=MIN_RESIDUES),
+            RemovePolymersWithTooFewResolvedResidues(min_residues=min_residues),
         ],
         track_rng_state=False,
     )
@@ -60,7 +60,7 @@ def test_remove_polymers_with_too_few_resolved_residues(test_case):
 
     # ...assert that the polymer with too few resolved residues has been removed
     min_num_residues = get_min_num_residues(output_atom_array)
-    assert min_num_residues >= MIN_RESIDUES
+    assert min_num_residues >= min_residues
 
 
 def test_remove_terminal_oxygen():
@@ -434,7 +434,7 @@ def test_randomly_remove_ligands():
         ), f"Polymer pn_units should always be preserved (seed {seed})"
 
     # Verify that we get different results across different seeds (randomness check)
-    unique_results = set(frozenset(result) for result in results_50_percent)
+    unique_results = {frozenset(result) for result in results_50_percent}
     assert len(unique_results) > 1, "With 50% probability and different seeds, we should get varying results"
 
 

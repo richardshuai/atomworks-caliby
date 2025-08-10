@@ -31,7 +31,7 @@ def test_load_with_key_filtering(cache_dir, sample_data_with_global_res_id):
 
     cached_data = result["residues"]
     for res_name, res_data in cached_data.items():
-        for key in res_data.keys():
+        for key in res_data:
             assert key in keys_to_load, f"Unexpected key '{key}' found in {res_name} data"
 
 

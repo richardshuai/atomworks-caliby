@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+import operator
 import os
 import re
 import subprocess
@@ -196,7 +198,7 @@ def sync_pdb(
         fh.write(f"Last sync: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         cmd_repr = ["atomworks", "sync_pdb", str(destination_path)]
         if ids:
-            cmd_repr.extend(sum((["--pdb-id", i] for i in ids), []))
+            cmd_repr.extend(functools.reduce(operator.iadd, (["--pdb-id", i] for i in ids), []))
         fh.write(f"Sync command: {' '.join(cmd_repr)}\n")
         fh.write(f"Sync user: {os.getenv('USER') or os.getenv('USERNAME') or 'unknown'}\n")
 

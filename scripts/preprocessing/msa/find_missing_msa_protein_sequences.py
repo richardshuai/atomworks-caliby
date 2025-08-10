@@ -1,5 +1,5 @@
 """
-Script that, given a list of directories containing MSA files named by sequence hashes and a dataframe with full sequence information (e.g, "pn_units_df"), finds the missing protein sequences in the MSA files. 
+Script that, given a list of directories containing MSA files named by sequence hashes and a dataframe with full sequence information (e.g, "pn_units_df"), finds the missing protein sequences in the MSA files.
 
 Example:
     python find_missing_msa_protein_sequences.py \
@@ -79,7 +79,7 @@ def process_cif_file(cif_file_path: str) -> list[str]:
 def deep_collect_sequences(
     df: pd.DataFrame,
     cif_file_path_column: str,
-    num_workers: int = None,
+    num_workers: int | None = None,
 ) -> list[str]:
     """
     Collects all sequences from all chains in the structure. We actually have to load the CIF
@@ -141,10 +141,7 @@ def check_for_seq_in_dirs(
                 possible_file_path = "".join([f"{hashed_sequence[(i*2):(i+1)*2]}/" for i in range(shard_depth)])
                 possible_file_paths.append(msa_dir / possible_file_path / f"{hashed_sequence}{extension}")
 
-    for possible_file_path in possible_file_paths:
-        if possible_file_path.exists():
-            return True
-    return False
+    return any(possible_file_path.exists() for possible_file_path in possible_file_paths)
 
 
 def find_missing_msa_protein_sequences(
@@ -154,7 +151,7 @@ def find_missing_msa_protein_sequences(
     sequence_column: str = "q_pn_unit_processed_entity_non_canonical_sequence",
     deep_search: bool = False,
     cif_file_path_column: str = "path",
-    num_workers: int = None,
+    num_workers: int | None = None,
 ) -> pd.DataFrame:
     """
     Find the missing sequences in the MSA files.

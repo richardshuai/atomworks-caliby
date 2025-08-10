@@ -118,7 +118,7 @@ class AggregateFeaturesLikeRF2AA(Transform):
         self.black_hole_init_coords = black_hole_init_coords
         self.black_hole_init_noise_scale = black_hole_init_noise_scale
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["features_per_recycle_dict", "template_feat", "encoded"])  # TODO: Add other keys
         check_is_instance(data, "atom_array", AtomArray)  # TODO: Add other checks
         check_atom_array_annotation(data, ["molecule_entity", "molecule_iid", "is_N_terminus", "is_C_terminus"])
@@ -360,11 +360,11 @@ class AggregateFeaturesLikeRF2AA(Transform):
         ###
 
         # Periodically (self.unclamp_loss_probability of the time, e.g., 10%), we unclamp the loss to assess FAPE against the unclamped loss
-        unclamp = True if torch.rand(1) < self.unclamp_loss_probability else False
+        unclamp = torch.rand(1) < self.unclamp_loss_probability
         data_outputs["unclamp"] = torch.tensor(unclamp)
 
         # Whether we are performing negative sampling of interfaces; currently, only set to True during fine-tuning
-        negative = True if self.use_negative_interface_examples else False
+        negative = bool(self.use_negative_interface_examples)
         data_outputs["negative"] = torch.tensor(negative)
         data_outputs["example_id"] = data["example_id"]
         data_outputs["task"] = "sm_compl" if np.any(token_wise_atom_array.atomize) else "poly_only"

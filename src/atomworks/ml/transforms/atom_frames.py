@@ -177,7 +177,7 @@ def find_all_paths_of_length_n(G: nx.Graph, n: int, order_independent_atom_frame
         """Find all paths of length n starting from node u in graph G."""
         if n == 0:
             return [[u]]
-        paths = [[u] + path for neighbor in G.neighbors(u) for path in findPaths(G, neighbor, n - 1) if u not in path]
+        paths = [[u, *path] for neighbor in G.neighbors(u) for path in findPaths(G, neighbor, n - 1) if u not in path]
         return paths
 
     # All paths of length n
@@ -268,7 +268,7 @@ class AddAtomFrames(Transform):
     def __init__(self, order_independent_atom_frame_prioritization: bool = True):
         self.order_independent_atom_frame_prioritization = order_independent_atom_frame_prioritization
 
-    def check_input(self, data):
+    def check_input(self, data) -> None:
         check_contains_keys(data, ["encoded", "atom_array"])
         check_is_instance(data, "atom_array", AtomArray)  # TODO: Add other checks
         check_atom_array_annotation(data, ["pn_unit_iid"])
@@ -326,7 +326,7 @@ class AddIsRealAtom(Transform):
     def __init__(self, token_encoding):
         self.max_n_atoms = token_encoding.n_atoms_per_token
 
-    def check_input(self, data):
+    def check_input(self, data) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
 
@@ -357,7 +357,7 @@ class AddPolymerFrameIndices(Transform):
     def __init__(self):
         pass
 
-    def check_input(self, data):
+    def check_input(self, data) -> None:
         check_contains_keys(data, ["feats", "atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
 

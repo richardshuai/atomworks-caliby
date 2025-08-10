@@ -63,8 +63,8 @@ def test_timeout_on_rdkit():
     from rdkit import Chem
     from rdkit.Chem import AllChem
 
-    HEM_SMILES = "Cc1c2n3c(c1CCC(=O)O)C=C4C(=C(C5=[N]4[Fe]36[N]7=C(C=C8N6C(=C5)C(=C8C)C=C)C(=C(C7=C2)C)C=C)C)CCC(=O)O"
-    mol = Chem.MolFromSmiles(HEM_SMILES)
+    hem_smiles = "Cc1c2n3c(c1CCC(=O)O)C=C4C(=C(C5=[N]4[Fe]36[N]7=C(C=C8N6C(=C5)C(=C8C)C=C)C(=C(C7=C2)C)C=C)C)CCC(=O)O"
+    mol = Chem.MolFromSmiles(hem_smiles)
 
     @timeout(timeout=0.5, strategy="subprocess")
     def generate_conformers(mol):

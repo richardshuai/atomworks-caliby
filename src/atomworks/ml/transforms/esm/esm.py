@@ -108,7 +108,7 @@ class LoadPolymerESMs(Transform):
 
         self.embedding_dim = ESM_2_EMBED_DIM[esm_model_name]
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array", "chain_info"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_type", "chain_id"])
@@ -288,7 +288,7 @@ class FillFullESMFromEncoded(Transform):
         self.EMBEDDING_DIM = embedding_dim
         self.PAD_FLOAT = pad_float
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["polymer_esms_by_chain_id"])
 
     def forward(self, data: dict) -> dict:

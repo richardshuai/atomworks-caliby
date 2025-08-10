@@ -421,7 +421,7 @@ def test_msa_pairing_pipline(pdb_id: str):
         assert any_paired_rows == 0
     else:
         # Impossible - there should be no negative difference
-        assert False
+        raise AssertionError()
 
     for chain_id in chain_id_list:
         # Check that the first rows of the MSAs have not been changed

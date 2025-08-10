@@ -29,7 +29,9 @@ def compute_spatial_knn_mask(coords: np.ndarray, k: int) -> np.ndarray:
     is_finite = np.isfinite(coords).all(axis=1)
     idx_finite = np.where(is_finite)[0]
     if len(idx_finite) < num_atoms:
-        warnings.warn("Some atoms have no coordinates, they will not receive any neighbors in the spatial KNN mask")
+        warnings.warn(
+            "Some atoms have no coordinates, they will not receive any neighbors in the spatial KNN mask", stacklevel=2
+        )
     assert len(idx_finite) > k + 1, (
         f"Not enough atoms to calculate KNN mask with {k} neighbors, "
         f"but only {len(idx_finite)} atoms with coordinates found."

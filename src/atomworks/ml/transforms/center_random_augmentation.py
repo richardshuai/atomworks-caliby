@@ -19,7 +19,7 @@ class CenterRandomAugmentation(Transform):
         self.batch_size = batch_size
         self.scale = scale
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["coord_atom_lvl_to_be_noised"])
         check_contains_keys(data["ground_truth"], ["coord_atom_lvl", "mask_atom_lvl"])
 

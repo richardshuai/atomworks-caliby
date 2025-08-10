@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 _IDEAL_DIHEDRAL_ANGLE = np.arcsin(1 / 3**0.5)
 """
-The ideal dihedral angle (in radians) between a side of the tetrahedron and 
-a plane that contains two atoms of the tetrahedral side and the 
+The ideal dihedral angle (in radians) between a side of the tetrahedron and
+a plane that contains two atoms of the tetrahedral side and the
 center of mass of the tetrahedron (= the chiral center).
 This is ~35.26 degrees.
 """
@@ -139,7 +139,7 @@ def _get_plane_pair_keys_for_planes_between_chiral_center_and_tetrahedral_side(
             #  pairs for each tetrahedral side (ijk): (ij), (ik), (jk)
             for atom_pair_in_plane_with_chiral_center in combinations(tetrahedral_side, 2):
                 # ... get the remaining atom of the tetrahedral side that is not in the plane with the chiral center
-                atom_remaining = [i for i in tetrahedral_side if i not in atom_pair_in_plane_with_chiral_center][0]
+                atom_remaining = next(i for i in tetrahedral_side if i not in atom_pair_in_plane_with_chiral_center)
 
                 # The `plane_pair` key (c, i, j, k) encodes the pair of planes (cij) and (ijk)
                 #  where c is the chiral center and (ijk) are the points defining a side of the tetrahedron.
@@ -277,7 +277,7 @@ class AddRF2AAChiralFeatures(Transform):
 
     requires_previous_transforms = ["AtomizeByCCDName"]
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array", "chiral_centers"])
         check_is_instance(data, "atom_array", AtomArray)
         check_nonzero_length(data, "atom_array")
@@ -417,7 +417,7 @@ class AddAF3ChiralFeatures(Transform):
         super().__init__()
         self.take_first_chiral_subordering = take_first_chiral_subordering
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array", "chiral_centers", "rdkit"])
         check_is_instance(data, "atom_array", AtomArray)
         check_nonzero_length(data, "atom_array")

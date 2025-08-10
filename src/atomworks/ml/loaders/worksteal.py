@@ -133,11 +133,8 @@ class WorkStealDataLoader(DataLoader):
                 "You should use a normal DataLoader instead, or use num_workers=0 or >1."
             )
 
-        if batch_sampler is not None:
-            if batch_size != 1 or shuffle or sampler is not None or drop_last:
-                raise ValueError(
-                    "batch_sampler is mutually exclusive with " "batch_size, shuffle, sampler, and drop_last"
-                )
+        if batch_sampler is not None and (batch_size != 1 or shuffle or sampler is not None or drop_last):
+            raise ValueError("batch_sampler is mutually exclusive with " "batch_size, shuffle, sampler, and drop_last")
 
         if sampler is not None and shuffle:
             raise ValueError("sampler is mutually exclusive with shuffle")
@@ -219,7 +216,7 @@ class WorkStealDataLoader(DataLoader):
             f"prefetch_factor={prefetch_factor}, max_result_queue_size={self.max_result_queue_size}"
         )
 
-    def _ensure_workers_initialized(self):
+    def _ensure_workers_initialized(self) -> None:
         """Create workers, queues, and manager if they don't exist."""
         if not self._workers:
             ctx = mp.get_context(self.mp_context)
@@ -231,13 +228,13 @@ class WorkStealDataLoader(DataLoader):
             self._init_workers(ctx)
 
     @staticmethod
-    def _cleanup_workers_atexit(dataloader_ref):
+    def _cleanup_workers_atexit(dataloader_ref) -> None:
         """Cleanup function called at exit."""
         dataloader = dataloader_ref()
         if dataloader is not None:
             dataloader._shutdown_workers()
 
-    def _init_workers(self, ctx):
+    def _init_workers(self, ctx) -> None:
         """Initialize worker processes and queues."""
         # Get the manager's process for liveness checks
         # This is an internal detail, but necessary for robust shutdown
@@ -299,7 +296,7 @@ class WorkStealDataLoader(DataLoader):
 
         logger.info(f"Started {self.num_workers} worker processes")
 
-    def _shutdown_workers(self):
+    def _shutdown_workers(self) -> None:
         """Shutdown all worker processes gracefully."""
         if not self._workers:
             return
@@ -363,7 +360,7 @@ class WorkStealDataLoader(DataLoader):
         pickled_init_fn: bytes | None,
         worker_stats: dict,
         timeout: float,
-    ):
+    ) -> None:
         """Main loop for worker processes.
 
         This is the main loop that runs in each of the worker processes
@@ -575,7 +572,7 @@ class WorkStealDataLoader(DataLoader):
             batch = pin_memory(batch)
         return batch
 
-    def _check_worker_health(self):
+    def _check_worker_health(self) -> None:
         """Check if workers are healthy and log statistics."""
         if not self._worker_stats:
             return

@@ -34,7 +34,7 @@ def context(
     raise_error: bool = True,
     log_level: int = logging.ERROR,
     exc_types: tuple = (Exception,),
-    logger: logging.Logger = logging.getLogger(),
+    logger: logging.Logger = logger,
 ) -> Any:
     """
     Context manager for handling exceptions with configurable error handling and logging.

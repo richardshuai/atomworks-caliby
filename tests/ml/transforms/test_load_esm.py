@@ -99,7 +99,7 @@ def test_load_esms(test_case: dict[str, Any]):
         assert np.all(esm_embedding == 0), f"Embedding for chain {chain_id} should be zero-filled"
     else:
         # Mixed padding mask is unexpected
-        assert False, f"Unexpected esm_is_padded_mask for chain {chain_id}"
+        raise AssertionError(f"Unexpected esm_is_padded_mask for chain {chain_id}")
 
 
 @pytest.mark.requires_digs

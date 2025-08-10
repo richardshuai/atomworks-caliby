@@ -6,7 +6,7 @@ import logging
 from copy import deepcopy
 from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -82,7 +82,7 @@ class PairAndMergePolymerMSAs(Transform):
         self.unpaired_padding = unpaired_padding
         self.dense = dense
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["polymer_msas_by_chain_id"])
 
     def forward(self, data: dict) -> dict:
@@ -103,7 +103,7 @@ class PairAndMergePolymerMSAs(Transform):
             chain_ids = np.unique(atom_array.chain_id[atom_array.chain_entity == chain_entity])
 
             # If we have an MSA for any of the chains in the entity:
-            if any([chain_id in data["polymer_msas_by_chain_id"] for chain_id in chain_ids]):
+            if any(chain_id in data["polymer_msas_by_chain_id"] for chain_id in chain_ids):
                 # ...store the chain IDs for the entity
                 chain_with_msa_entity_to_ids[chain_entity] = chain_ids
 
@@ -164,7 +164,7 @@ class PairAndMergePolymerMSAs(Transform):
                 "all_paired": merged_polymer_msas["all_paired"],  # Common across entities (sequence dimension)
             }
 
-        for chain_id in data["polymer_msas_by_chain_id"].keys():
+        for chain_id in data["polymer_msas_by_chain_id"]:
             chain_entity = chain_with_msa_id_to_entity[chain_id]
             # NOTE: We deep copy as a precaution, since if multiple chains point to the same dictionary object, we may modify the dictionary in place
             data["polymer_msas_by_chain_id"][chain_id] = deepcopy(polymer_msas_by_chain_entity[chain_entity])
@@ -346,7 +346,7 @@ class LoadPolymerMSAs(Transform):
         self.raise_if_missing_msa_for_protein_of_length_n = raise_if_missing_msa_for_protein_of_length_n
         self.unk_symbol = unk_symbol
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array", "chain_info"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_type", "chain_id"])
@@ -388,7 +388,7 @@ class EncodeMSA(Transform):
           TokenEncoding indices.
     """
 
-    requires_previous_transforms = ["LoadPolymerMSAs"]
+    requires_previous_transforms: ClassVar[list[str]] = ["LoadPolymerMSAs"]
 
     def __init__(self, encoding: TokenEncoding | AF3SequenceEncoding, token_to_use_for_gap: int | None = None):
         # ... create a lookup table to map from MSA integers to token indices
@@ -404,7 +404,7 @@ class EncodeMSA(Transform):
         self.lookup_for_encoding = lookup_for_encoding
         self.token_to_use_for_gap = token_to_use_for_gap
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["polymer_msas_by_chain_id"])
 
     def forward(self, data: dict) -> dict:
@@ -478,12 +478,12 @@ class FillFullMSAFromEncoded(Transform):
         ```
     """
 
-    requires_previous_transforms = ["EncodeMSA", AtomizeByCCDName, AddWithinPolyResIdxAnnotation]
+    requires_previous_transforms: ClassVar[list[str]] = ["EncodeMSA", AtomizeByCCDName, AddWithinPolyResIdxAnnotation]
 
     def __init__(self, pad_token: str):
         self.PAD_TOKEN = pad_token
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["polymer_msas_by_chain_id", "encoded"])
 
     def forward(self, data: dict) -> dict:
@@ -663,7 +663,7 @@ class FeaturizeMSALikeRF2AA(Transform):
         self.polymer_token_indices = polymer_token_indices
         self.eps = eps
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["encoded", "full_msa_details"])
 
     def forward(self, data: dict) -> dict:
@@ -782,7 +782,7 @@ class FeaturizeMSALikeRF2AA(Transform):
             # (4) SUMMARIZE THE CLUSTERS INTO PROFILES AND MEAN INSERTIONS AND SUBSELECT THE EXTA MSA
             # ============================================================
             msa_cluster_profiles = torch.zeros(
-                encoded_and_masked_msa[selected_indices].shape + (self.encoding.n_tokens,), dtype=torch.float
+                (*encoded_and_masked_msa[selected_indices].shape, self.encoding.n_tokens), dtype=torch.float
             )  # [n_msa_cluster_representatives, n_tokens_across_chains, n_tokens] (float)
             msa_cluster_mean_ins = torch.zeros_like(
                 encoded_and_masked_msa[selected_indices], dtype=torch.float
@@ -826,7 +826,7 @@ class FeaturizeMSALikeRF2AA(Transform):
             # ...if we used a subset of the tokens, we need to map the profiles (but not insertions, since those don't have a token dimension) back to the full token set, padding with zeros
             if polymer_token_indices.shape[0] < self.encoding.n_tokens:
                 msa_cluster_profiles_with_msas = torch.zeros(
-                    (tuple(msa_cluster_profiles_with_msas_poly_tokens.shape[:-1]) + (self.encoding.n_tokens,)),
+                    ((*tuple(msa_cluster_profiles_with_msas_poly_tokens.shape[:-1]), self.encoding.n_tokens)),
                     dtype=torch.float,
                 )  # [n_msa_cluster_representatives, n_tokens_with_msas, n_tokens] (float)
                 msa_cluster_profiles_with_msas[:, :, polymer_token_indices] = msa_cluster_profiles_with_msas_poly_tokens
@@ -847,7 +847,7 @@ class FeaturizeMSALikeRF2AA(Transform):
                 .float()
             )  # [1, n_tokens_without_msas, n_tokens] (float)
             non_query_no_msa_profile = torch.zeros(
-                ((n_msa_cluster_representatives - 1,) + tuple(query_sequence_no_msa_profile.shape[1:])),
+                ((n_msa_cluster_representatives - 1, *tuple(query_sequence_no_msa_profile.shape[1:]))),
                 dtype=torch.float,
             )  # [n_msa_cluster_representatives - 1, n_tokens_with_msas, n_tokens] (float)
             msa_cluster_profiles_without_msas = torch.cat(
@@ -1002,7 +1002,7 @@ class FeaturizeMSALikeAF3(Transform):
         self.n_msa = n_msa
         self.eps = eps
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["encoded", "full_msa_details"])
 
     def forward(self, data: dict) -> dict:

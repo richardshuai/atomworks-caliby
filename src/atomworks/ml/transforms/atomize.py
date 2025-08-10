@@ -23,7 +23,7 @@ class FlagNonPolymersForAtomization(Transform):
 
     incompatible_previous_transforms = ["AtomizeByCCDName"]
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_nonzero_length(data, "atom_array")
@@ -149,7 +149,7 @@ class AtomizeByCCDName(Transform):
     def __init__(
         self,
         atomize_by_default: bool,
-        res_names_to_atomize: list[str] = None,
+        res_names_to_atomize: list[str] | None = None,
         res_names_to_ignore: list[str] | None = None,
         move_atomized_part_to_end: bool = False,
         validate_atomize: bool = False,
@@ -190,7 +190,7 @@ class AtomizeByCCDName(Transform):
         self.atomize_by_default = atomize_by_default
         self.move_atomized_part_to_end = move_atomized_part_to_end
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_nonzero_length(data, "atom_array")

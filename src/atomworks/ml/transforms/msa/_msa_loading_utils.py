@@ -222,7 +222,7 @@ def parse_a3m(
     return msa_array, ins_array, tax_ids_array
 
 
-def get_msa_path(seq: str, msa_dirs: list[dict[str, str]]):
+def get_msa_path(seq: str, msa_dirs: list[dict[str, str]]) -> Path | None:
     """Retrieve the path to the MSA file for a given sequence.
 
     Args:

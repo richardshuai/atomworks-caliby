@@ -237,8 +237,7 @@ class PadDNA(Transform):
     """
 
     # fmt: off
-    PDB_DNA_LENGTHS = {
-        length: count for length, count in enumerate([
+    PDB_DNA_LENGTHS = dict(enumerate([
         #1    #2    #3    #4    #5    #6    #7    #8    #9    #10
         0,    5,    53,   60,   342,  616,  764,  817,  797,  675, # 10
         1258, 971,  1713, 985,  795,  669,  1224, 464,  697,  363, # 20
@@ -255,7 +254,7 @@ class PadDNA(Transform):
         8,    2,    4,    5,    2,    4,    0,    3,    1,    0,   # 130
         0,    0,    0,    4,    0,    0,    4,    2,    2,    12,  # 140
         0,    2,    0,    4,    9,    203,  154,  317,  3,    670  # 150
-    ])}
+    ]))
     """Distribution of DNA lengths in PDB as tuples of (length, count)."""
     # fmt: on
 
@@ -320,7 +319,7 @@ class PadDNA(Transform):
         self.align_len_weights = align_len_weights
         self.no_hbond_dist_cut = no_hbond_dist_cut
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array", "chain_info"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_type", "chain_iid"])
@@ -518,7 +517,7 @@ class PadDNA(Transform):
         res_names = set()
         for array in (tgt_array_left, tgt_array_right, mbl_array_left, mbl_array_right):
             res_names.update(array.res_name)
-        noncanonical_res_names = res_names - set(("DA", "DC", "DG", "DT"))
+        noncanonical_res_names = res_names - {"DA", "DC", "DG", "DT"}
         if noncanonical_res_names:
             logger.warning("PadDNA failed. PadDNA found a noncanonical nucleotide at the padding junction.")
             return None

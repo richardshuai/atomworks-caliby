@@ -37,7 +37,7 @@ def _process_idmapping(idmapping_file: Path) -> dict:
     return uniref_id_to_tax_id
 
 
-def process_and_dump_idmapping(idmapping_file: Path, output_file: Path):
+def process_and_dump_idmapping(idmapping_file: Path, output_file: Path) -> None:
     """
     Process the idmapping_selected.tab file and dump the resulting dictionary to a pickle file.
 

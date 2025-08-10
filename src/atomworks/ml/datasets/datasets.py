@@ -72,7 +72,7 @@ class FileDataset(BaseDataset):
             filter_fn: Optional function that takes a file path and returns True if the file should be included
             max_depth: Maximum directory depth to scan (only used when source is a directory path)
         """
-        if isinstance(source, (str, Path)):
+        if isinstance(source, str | Path):
             # Directory scanning mode
             self.dir_path = Path(source)
             assert self.dir_path.is_dir(), f"Directory {source} does not exist."
@@ -295,13 +295,13 @@ class StructuralDatasetWrapper(BaseDataset):
         # Manually add timing for cif-parsing
         data = TransformedDict(data)
         data.__transform_history__.append(
-            dict(
-                name="load_example_from_metadata_row",
-                instance=hex(id(load_example_from_metadata_row)),
-                start_time=_start_parse_time,
-                end_time=_stop_parse_time,
-                processing_time=_stop_parse_time - _start_parse_time,
-            )
+            {
+                "name": "load_example_from_metadata_row",
+                "instance": hex(id(load_example_from_metadata_row)),
+                "start_time": _start_parse_time,
+                "end_time": _stop_parse_time,
+                "processing_time": _stop_parse_time - _start_parse_time,
+            }
         )
 
         # Apply the transformation pipeline to the data
@@ -397,7 +397,7 @@ class PandasDataset(BaseDataset):
             self.name = repr(self)
 
         # Load the data from the path, if provided (and load only the specified columns)
-        if isinstance(data, (PathLike, str)):
+        if isinstance(data, PathLike | str):
             data = self._load_from_path(data, columns_to_load, **load_kwargs)
         self._data = data
 
@@ -450,7 +450,7 @@ class PandasDataset(BaseDataset):
         """Convert an example ID to the corresponding local index."""
         if np.isscalar(example_id):
             return self._id_to_index_single(example_id)
-        elif isinstance(example_id, (list, np.ndarray, tuple)):
+        elif isinstance(example_id, list | np.ndarray | tuple):
             return self._id_to_index_multiple(example_id)
         else:
             raise ValueError(f"Invalid type for example_id: {type(example_id)}")
@@ -493,7 +493,7 @@ class PandasDataset(BaseDataset):
         for query in filters:
             self._apply_query(query)
 
-    def _apply_query(self, query: str):
+    def _apply_query(self, query: str) -> None:
         """
         Apply a single query to the data.
 
@@ -506,7 +506,7 @@ class PandasDataset(BaseDataset):
         filtered_num_rows = len(self._data)
         self._validate_filter_impact(query, original_num_rows, filtered_num_rows)
 
-    def _validate_filter_impact(self, query: str, original_num_rows: int, filtered_num_rows: int):
+    def _validate_filter_impact(self, query: str, original_num_rows: int, filtered_num_rows: int) -> None:
         """
         Validate the impact of the filter.
 
@@ -560,25 +560,22 @@ class ConcatDatasetWithID(ConcatDataset):
     def _can_check_contains(self) -> bool:
         return all(hasattr(sub_dataset, "__contains__") for sub_dataset in self.datasets)
 
-    def _raise_if_cannot_check_contains(self):
+    def _raise_if_cannot_check_contains(self) -> None:
         if not self._can_check_contains:
             raise ValueError("This dataset cannot check if it contains an example ID.")
 
-    def _raise_if_cannot_convert_ids_and_idx(self):
+    def _raise_if_cannot_convert_ids_and_idx(self) -> None:
         if not self._can_convert_ids_and_idx:
             raise ValueError("This dataset cannot convert example IDs to indices.")
 
-    def _raise_if_idx_out_of_bounds(self, idx: int):
+    def _raise_if_idx_out_of_bounds(self, idx: int) -> None:
         if idx < 0 or idx >= len(self):
             raise ValueError(f"Index {idx} out of bounds for dataset of length {len(self)}.")
 
     def __contains__(self, example_id: str) -> bool:
         """Check if the dataset contains the example ID."""
         self._raise_if_cannot_check_contains()
-        for sub_dataset in self.datasets:
-            if example_id in sub_dataset:
-                return True
-        return False
+        return any(example_id in sub_dataset for sub_dataset in self.datasets)
 
     def id_to_idx(self, example_id: str) -> int:
         """Retrieves the index corresponding to the example ID.

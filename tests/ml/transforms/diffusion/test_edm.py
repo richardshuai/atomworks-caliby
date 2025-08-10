@@ -18,12 +18,12 @@ def test_edm_t_sampling():
 
     # regression test; does the distribution match?
 
-    SAVED_RESULT_PATH = TEST_DATA_ML / "edm_t_sampled.pkl"
+    saved_result_path = TEST_DATA_ML / "edm_t_sampled.pkl"
     # Uncomment to save t for regression tests, as a pickle (JSON is too slow)
-    # with open(SAVED_RESULT_PATH, "wb") as f:
+    # with open(saved_result_path, "wb") as f:
     # pickle.dump(t, f)
 
-    with open(SAVED_RESULT_PATH, "rb") as f:
+    with open(saved_result_path, "rb") as f:
         expected_t = pickle.load(f)
     assert torch.allclose(
         t,
@@ -45,12 +45,12 @@ def test_edm_noise_sampling():
 
     # regression test; does the distribution match?
 
-    SAVED_RESULT_PATH = TEST_DATA_ML / "edm_noise_sampled.pkl"
+    saved_result_path = TEST_DATA_ML / "edm_noise_sampled.pkl"
     # Uncomment to save noise for regression tests, as a pickle (JSON is too slow)
-    # with open(SAVED_RESULT_PATH, "wb") as f:
+    # with open(saved_result_path, "wb") as f:
     # pickle.dump(noise, f)
 
-    with open(SAVED_RESULT_PATH, "rb") as f:
+    with open(saved_result_path, "rb") as f:
         expected_noise = pickle.load(f)
     assert torch.allclose(
         noise,

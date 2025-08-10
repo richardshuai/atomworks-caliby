@@ -25,7 +25,7 @@ class BatchStructuresForDiffusionNoising(Transform):
         super().__init__(**kwargs)
         self.batch_size = batch_size
 
-    def check_input(self, data):
+    def check_input(self, data) -> None:
         check_contains_keys(data, ["ground_truth", "atom_array"])
         check_contains_keys(data["ground_truth"], ["coord_atom_lvl", "mask_atom_lvl"])
 

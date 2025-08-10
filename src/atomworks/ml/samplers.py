@@ -81,8 +81,8 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
         )
 
     # If we're missing any of the alphas, or any of the counts, log a warning
-    missing_alphas = set(alphas.keys()) - set(["a_prot", "a_peptide", "a_nuc", "a_ligand", "a_loi"])
-    missing_counts = set(["n_prot", "n_peptide", "n_nuc", "n_ligand"]) - set(df.columns)
+    missing_alphas = set(alphas.keys()) - {"a_prot", "a_peptide", "a_nuc", "a_ligand", "a_loi"}
+    missing_counts = {"n_prot", "n_peptide", "n_nuc", "n_ligand"} - set(df.columns)
 
     if missing_alphas:
         logger.warning(f"Missing alphas from configuration file: {missing_alphas}; defaulting to 0")
@@ -200,7 +200,7 @@ class DistributedMixedSampler(Sampler):
     Child samplers can be any type of non-distributed sampler, including a MixedSampler.
     After gathering all indices, shards the samples across nodes, ensuring each node receives a unique slice of the dataset.
 
-    Example: 
+    Example:
         Imagine we have the following sampling tree:
 
                 DistributedMixedSampler
@@ -212,13 +212,13 @@ class DistributedMixedSampler(Sampler):
                                     /       \
                                    0.9       0.1
                                 Sampler2   Sampler3
-        
-        If we initialized DistributedMixedSampler with `n_examples_per_epoch=100` and `num_replicas=2`, it would collect 80 samples 
+
+        If we initialized DistributedMixedSampler with `n_examples_per_epoch=100` and `num_replicas=2`, it would collect 80 samples
         from Sampler1 and 20 samples from the MixedSampler. The MixedSampler would in turn collect 18 samples from Sampler2 and 2 samples from Sampler3.
         After collecting those 100 samples, the DistributedMixedSampler would shard the samples across the two nodes, ensuring each node receives a unique slice
         of 50 examples.
 
-        If any of the child samplers were distributed samples, then the DistributedMixedSampler would not receive n_examples_per_epoch indices, 
+        If any of the child samplers were distributed samples, then the DistributedMixedSampler would not receive n_examples_per_epoch indices,
         and we would raise an error.
 
     NOTE: The order of the datasets in datasets_info MUST match the order of the datasets in the ConcatDataset associated with this MixedSampler.
@@ -234,10 +234,10 @@ class DistributedMixedSampler(Sampler):
             May be None, in which case the number of examples per epoch must be set dynamically by a parent sampler.
         shuffle: Whether to shuffle the indices. If False, the iterator will return all sampled indices from the first dataset, then the second, etc.
         drop_last: Whether to drop the last incomplete batch if the dataset size is not divisible by the batch size
-    
+
     Returns:
         iter: An iterator over indices of the dataset for the current process (of length n_samples, not n_examples_per_epoch)
-    
+
     References:
         - PyTorch DistributedSampler (https://github.com/pytorch/pytorch/blob/main/torch/utils/data/distributed.py#L68)
     """
@@ -420,7 +420,7 @@ class FallbackSamplerWrapper(Sampler):
     def __iter__(self):
         # Create a list of iterators, each of which will yield the next n_fallback_retries indices from the fallback sampler
         fallback_iterators = [itertools.cycle(iter(self.fallback_sampler)) for _ in range(self.n_fallback_retries)]
-        iterators = [iter(self.sampler)] + fallback_iterators
+        iterators = [iter(self.sampler), *fallback_iterators]
         return zip(*iterators, strict=False)
 
     def __len__(self):

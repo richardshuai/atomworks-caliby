@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def process_file(file_args: dict):
+def process_file(file_args: dict) -> int:
     """
     Process a single file by copying it to the target directory and optionally compressing it.
 
@@ -55,7 +55,7 @@ def process_file(file_args: dict):
     return 1  # Return 1 to count the processed file
 
 
-def flatten_directory(source_dir: str, target_dir: str, extension: str = ".a3m", compress: bool = False):
+def flatten_directory(source_dir: str, target_dir: str, extension: str = ".a3m", compress: bool = False) -> None:
     """
     Flatten the directory structure, moving all files with the specified extension to the target directory.
     Optionally compress files if they're not already compressed based on the extension.

@@ -37,7 +37,7 @@ def extract_sequence_from_csv(Dataroot_path):
     return protein_sequence_dict, hash_dict
 
 
-def store_fasta_files(protein_sequence_dict, hash_dict, fasta_store_path):
+def store_fasta_files(protein_sequence_dict, hash_dict, fasta_store_path) -> None:
     # for each subgroup, generate a fasta file
     for key in tqdm.tqdm(hash_dict.keys()):
         with open(f"{fasta_store_path}/{key}.fasta", "w") as f:
@@ -47,7 +47,7 @@ def store_fasta_files(protein_sequence_dict, hash_dict, fasta_store_path):
                 f.write(f"> {hash_}\n{protein_sequence_dict[hash_]}\n")
 
 
-def main():
+def main() -> None:
     Dataroot_path = sys.argv[1]
     fasta_store_path = sys.argv[2]
     protein_sequence_dict, hash_dict = extract_sequence_from_csv(Dataroot_path)

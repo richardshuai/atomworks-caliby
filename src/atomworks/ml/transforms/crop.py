@@ -34,7 +34,7 @@ class CropTransformBase(Transform):
         self.annotate_crop_boundary = annotate_crop_boundary
         self.crop_boundary_radius = crop_boundary_radius
 
-    def _validate(self):
+    def _validate(self) -> None:
         assert self.crop_size > 0, "Crop size must be greater than 0"
 
     def __call__(self, data: dict) -> dict:
@@ -371,7 +371,7 @@ class CropContiguousLikeAF3(CropTransformBase):
         self.max_atoms_in_crop = max_atoms_in_crop
         self._validate()
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["chain_iid", "atomize"])
@@ -649,7 +649,7 @@ class CropSpatialLikeAF3(CropTransformBase):
         self.raise_if_missing_query = raise_if_missing_query
         self._validate()
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["pn_unit_iid", "atomize", "atom_id"])

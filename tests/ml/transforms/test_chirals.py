@@ -56,12 +56,11 @@ def get_chirals_legacy(obmol, xyz):
         config = si.GetConfig()
 
         o = config.center
-        c = config.from_or_towards
         # i.e.: Looking from atom `config.from_or_towards` the atom IDs `config.refs` are arranged clockwise (the default config)
 
         # ... enumerate all sets of 3 atom neighbors in all orders
         i, j, k = list(config.refs)
-        for a, b, c in permutations((c, i, j, k), 3):  # why does it make sense to include the `from_or_towards`?
+        for a, b, c in permutations((config.from_or_towards, i, j, k), 3):  # noqa:
             chiral_idx_set.add(standardize_dihedral_retain_first(o, a, b, c))
 
     chiral_idx = list(chiral_idx_set)

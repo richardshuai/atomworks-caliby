@@ -26,7 +26,7 @@ def run_pipeline(
     from_rcsb: bool = True,
     file_extension: str = ".cif.gz",
     **kwargs,
-):
+) -> None:
     logger.info(f"Launching task {task_id + 1} of {num_tasks}.")
 
     # We first get a list of all file paths in the directory.

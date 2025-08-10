@@ -29,20 +29,20 @@ def test_rigid_from_3_points_random(device):
     x2 = torch.randn(batch_size, 3, device=device)
     x3 = torch.randn(batch_size, 3, device=device)
 
-    R, t = rigid_from_3_points(x1, x2, x3)
+    rot, t = rigid_from_3_points(x1, x2, x3)
 
     # Check if R is a valid rotation matrix
-    assert torch.allclose(torch.det(R), torch.ones(batch_size, device=device), atol=1e-6)
+    assert torch.allclose(torch.det(rot), torch.ones(batch_size, device=device), atol=1e-6)
     assert torch.allclose(
-        torch.matmul(R, R.transpose(-1, -2)),
+        torch.matmul(rot, rot.transpose(-1, -2)),
         torch.eye(3, device=device).unsqueeze(0).expand(batch_size, -1, -1),
         atol=1e-4,
     )
 
     # Check if the transformation preserves the relative positions of the points
-    transformed_x1 = apply_inverse_rigid((R, t), x1)
-    transformed_x2 = apply_inverse_rigid((R, t), x2)
-    transformed_x3 = apply_inverse_rigid((R, t), x3)
+    transformed_x1 = apply_inverse_rigid((rot, t), x1)
+    transformed_x2 = apply_inverse_rigid((rot, t), x2)
+    transformed_x3 = apply_inverse_rigid((rot, t), x3)
 
     # Check that x2 is at the origin of the local frames
     assert torch.allclose(transformed_x2, torch.zeros_like(transformed_x2), atol=1e-5)
@@ -62,39 +62,39 @@ def test_rigid_from_3_points_random(device):
 
 def test_apply_rigid_and_inverse(device):
     num_points = 5
-    R, t = get_random_rigid(1, device=device)
+    rot, t = get_random_rigid(1, device=device)
     points = torch.randn(num_points, 3, device=device)
 
     # Test: apply_inverse_rigid(apply_rigid(points)) = points
-    transformed = apply_rigid((R, t), points)
-    inv_transformed = apply_inverse_rigid((R, t), transformed)
+    transformed = apply_rigid((rot, t), points)
+    inv_transformed = apply_inverse_rigid((rot, t), transformed)
 
     assert torch.allclose(inv_transformed, points, atol=1e-6)
 
 
 def test_compose_and_invert_rigids(device):
     batch_size = 10
-    R1, t1 = get_random_rigid(batch_size, device=device)
-    R2, t2 = get_random_rigid(batch_size, device=device)
+    rot1, t1 = get_random_rigid(batch_size, device=device)
+    rot2, t2 = get_random_rigid(batch_size, device=device)
 
-    # Test: inverse(compose(R1,R2)) = compose(inverse(R2), inverse(R1))
-    composed = compose_rigids((R1, t1), (R2, t2))
+    # Test: inverse(compose(rot1,rot2)) = compose(inverse(rot2), inverse(rot1))
+    composed = compose_rigids((rot1, t1), (rot2, t2))
     inv_composed = invert_rigid(composed)
 
-    inv_R2, inv_t2 = invert_rigid((R2, t2))
-    inv_R1, inv_t1 = invert_rigid((R1, t1))
-    composed_inv = compose_rigids((inv_R2, inv_t2), (inv_R1, inv_t1))
+    inv_rot2, inv_t2 = invert_rigid((rot2, t2))
+    inv_rot1, inv_t1 = invert_rigid((rot1, t1))
+    composed_inv = compose_rigids((inv_rot2, inv_t2), (inv_rot1, inv_t1))
 
     assert torch.allclose(inv_composed[0], composed_inv[0], atol=1e-6)
     assert torch.allclose(inv_composed[1], composed_inv[1], atol=1e-6)
 
-    # Test: compose(R, inverse(R)) = identity
-    identity_composed_R, identity_composed_t = compose_rigids((R1, t1), invert_rigid((R1, t1)))
+    # Test: compose(rot, inverse(rot)) = identity
+    identity_composed_rot, identity_composed_t = compose_rigids((rot1, t1), invert_rigid((rot1, t1)))
 
-    identity_R = torch.eye(3, device=device).unsqueeze(0).expand(batch_size, -1, -1)
+    identity_rot = torch.eye(3, device=device).unsqueeze(0).expand(batch_size, -1, -1)
     identity_t = torch.zeros(batch_size, 3, device=device)
 
-    assert torch.allclose(identity_composed_R, identity_R, atol=1e-6)
+    assert torch.allclose(identity_composed_rot, identity_rot, atol=1e-6)
     assert torch.allclose(identity_composed_t, identity_t, atol=1e-6)
 
 
@@ -103,26 +103,26 @@ def test_get_random_rots_and_rigids(device):
     scale = 2.0
 
     # Test random rotations
-    R = get_random_rots(batch_size, device=device)
+    rot = get_random_rots(batch_size, device=device)
 
-    assert R.shape == (batch_size, 3, 3)
-    assert torch.allclose(torch.det(R), torch.ones(batch_size, device=device), atol=1e-6)
+    assert rot.shape == (batch_size, 3, 3)
+    assert torch.allclose(torch.det(rot), torch.ones(batch_size, device=device), atol=1e-6)
     assert torch.allclose(
-        torch.matmul(R, R.transpose(-1, -2)),
+        torch.matmul(rot, rot.transpose(-1, -2)),
         torch.eye(3, device=device).unsqueeze(0).expand(batch_size, -1, -1),
         atol=1e-6,
     )
 
     # Test random rigid transformations
-    R, t = get_random_rigid(batch_size, scale=scale, device=device)
+    rot, t = get_random_rigid(batch_size, scale=scale, device=device)
 
-    assert R.shape == (batch_size, 3, 3)
+    assert rot.shape == (batch_size, 3, 3)
     assert t.shape == (batch_size, 3)
-    assert torch.allclose(torch.det(R), torch.ones(batch_size, device=device), atol=1e-6)
+    assert torch.allclose(torch.det(rot), torch.ones(batch_size, device=device), atol=1e-6)
 
     # Test single random rigid transformation
-    R_single, t_single = get_random_rigid(1, device=device)
+    r_single, t_single = get_random_rigid(1, device=device)
 
-    assert R_single.shape == (3, 3)
+    assert r_single.shape == (3, 3)
     assert t_single.shape == (3,)
-    assert torch.allclose(torch.det(R_single), torch.tensor(1.0, device=device), atol=1e-6)
+    assert torch.allclose(torch.det(r_single), torch.tensor(1.0, device=device), atol=1e-6)

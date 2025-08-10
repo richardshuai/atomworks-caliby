@@ -52,7 +52,7 @@ def read_csv_file(csv_path: PathLike):
     return df
 
 
-def concatenate_csv_files(input_dir: PathLike, output_path: PathLike = None, num_workers: int = 4):
+def concatenate_csv_files(input_dir: PathLike, output_path: PathLike | None = None, num_workers: int = 4):
     """
     Concatenate a directory of CSV files into a single DataFrame.
     Each CSV file should be created by the `process_pdbs` pipeline.

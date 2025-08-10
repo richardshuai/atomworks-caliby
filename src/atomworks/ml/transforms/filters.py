@@ -77,7 +77,7 @@ class RemoveUnresolvedPNUnits(Transform):
     At training time, these unresolved PN units provide minimal value and can lead to errors in the model.
     """
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["pn_unit_iid", "occupancy"])
@@ -90,7 +90,7 @@ class RemoveUnresolvedPNUnits(Transform):
 class RemoveUnresolvedTokens(Transform):
     """Filters tokens that have all unresolved atoms (i.e., atoms with occupancy 0) from the AtomArray."""
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["occupancy"])
 
     def forward(self, data: dict) -> dict:
@@ -147,7 +147,7 @@ class RemoveUnsupportedChainTypes(Transform):
         """
         self.supported_chain_types = supported_chain_types
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["chain_type", "pn_unit_iid"])
 
     def forward(self, data: dict) -> dict:
@@ -179,7 +179,7 @@ class RemoveHydrogens(Transform):
     def __init__(self, hydrogen_names: tuple | list = ("1", "H", "D", "T")):
         self.hydrogen_names = hydrogen_names
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
 
@@ -216,7 +216,7 @@ class FilterToSpecifiedPNUnits(Transform):
     def __init__(self, extra_info_key_with_pn_unit_iids_to_keep: str = "all_pn_unit_iids_after_processing"):
         self.pn_unit_iid_key = extra_info_key_with_pn_unit_iids_to_keep
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["pn_unit_iid"])
@@ -292,7 +292,7 @@ class RandomlyRemovePNUnitsByAnnotationQuery(Transform):
         self.delete_probability = delete_probability
         self.rng_seed = rng_seed
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["pn_unit_iid"])
 
     def forward(self, data: dict) -> dict:
@@ -307,7 +307,7 @@ class RandomlyRemovePNUnitsByAnnotationQuery(Transform):
 class RandomlyRemoveLigands(RandomlyRemovePNUnitsByAnnotationQuery):
     """Randomly remove free-floating ligands (non-polymer ligands that are not covalent modifications)"""
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["is_polymer", "is_covalent_modification"])
 
     def __init__(self, delete_probability: float = 1.0, rng_seed: int = 42):
@@ -330,7 +330,7 @@ class RemoveUnresolvedLigandAtomsIfTooMany(Transform):
     def __init__(self, unresolved_ligand_atom_limit: int):
         self.unresolved_ligand_atom_limit = unresolved_ligand_atom_limit
 
-    def check_input(self, data):
+    def check_input(self, data) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["occupancy"])
@@ -435,7 +435,7 @@ class HandleUndesiredResTokens(Transform):
         """
         self.undesired_res_tokens = undesired_res_tokens
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["res_name", "is_polymer", "pn_unit_iid", "chain_type"])
@@ -547,7 +547,7 @@ class RemoveTerminalOxygen(Transform):
 
     # TODO: Rename to RemoveProteinTerminalOxygen
 
-    def check_input(self, data):
+    def check_input(self, data) -> None:
         check_atom_array_annotation(data, ["atom_name", "chain_type"])
 
     def forward(self, data):
@@ -577,7 +577,7 @@ class RemoveNucleicAcidTerminalOxygen(Transform):
     Remove terminal oxygen atoms (`OP3`) in nucleic acids from the atom array.
     """
 
-    def check_input(self, data):
+    def check_input(self, data) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["atom_name", "chain_type"])

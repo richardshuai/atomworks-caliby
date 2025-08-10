@@ -45,7 +45,7 @@ class SampleEDMNoise(Transform):
         self.sigma_data = sigma_data
         self.diffusion_batch_size = diffusion_batch_size
 
-    def check_input(self, data):
+    def check_input(self, data) -> None:
         check_contains_keys(data, ["coord_atom_lvl_to_be_noised"])
         assert (
             data["coord_atom_lvl_to_be_noised"].shape[0] == self.diffusion_batch_size

@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import cache
 from os import PathLike
-from typing import Any
+from typing import Any, ClassVar
 
 import biotite.structure as struc
 import numpy as np
@@ -331,7 +331,7 @@ class AddRFTemplates(Transform):
         min_template_length: int = 0,
         filter_by_query_length: bool = False,
         template_lookup_path: PathLike = os.environ.get(
-            "TEMPLATE_MSA_LOOKUP_DF_PATH", "/projects/ml/TrRosetta/PDB-2021AUG02/list_v02.csv"
+            "TEMPLATE_LOOKUP_PATH", "/projects/ml/TrRosetta/PDB-2021AUG02/list_v02.csv"
         ),
         template_base_dir: PathLike = os.environ.get(
             "TEMPLATE_BASE_DIR", "/projects/ml/TrRosetta/PDB-2021AUG02/torch/hhr/"
@@ -928,7 +928,7 @@ class FeaturizeTemplatesLikeAF3(Transform):
         sequence_encoding: AF3SequenceEncoding,
         gap_token: str = "<G>",
         allowed_chain_type: list[ChainType] = [ChainType.POLYPEPTIDE_L, ChainType.RNA],
-        distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),
+        distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),  # noqa: B008
     ):
         self.gap_token = gap_token
         self.allowed_chain_type = allowed_chain_type
@@ -971,10 +971,10 @@ def random_subsample_templates(
     From the AF-3 supplement:
         > "Templates are sorted by e-value. At most 20 templates can be returned by our search, and the model uses up to 4
             (Ntempl ≤ 4). At inference time we take the first 4. At training time we choose k random templates out of the available
-            n, where k ∼ min(Uniform[0, n], 4). This reduces the efficacy of simply copying the template.
+            n, where k ~ min(Uniform[0, n], 4). This reduces the efficacy of simply copying the template.
     """
     for chain_id, templates in template_dictionary.items():
-        # ...at training time we choose k random templates out of the available n, where k ∼ min(Uniform[0, n], 4)
+        # ...at training time we choose k random templates out of the available n, where k ~ min(Uniform[0, n], 4)
         n_available_templates = len(templates)
         n_templates_to_sample = min(np.random.randint(0, n_available_templates + 1), n_template)
 
@@ -993,7 +993,11 @@ class RandomSubsampleTemplates(Transform):
         n_template (int): The maximum possible number of templates to use. Default is 4.
     """
 
-    incompatible_previous_transforms = [FeaturizeTemplatesLikeAF3, FeaturizeTemplatesLikeRF2AA, "OneHotTemplateRestype"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
+        FeaturizeTemplatesLikeAF3,
+        FeaturizeTemplatesLikeRF2AA,
+        "OneHotTemplateRestype",
+    ]
 
     def __init__(self, n_template: int = 4):
         self.n_template = n_template

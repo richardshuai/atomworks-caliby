@@ -310,7 +310,7 @@ def grouped_sum(data: torch.Tensor, assignment: torch.Tensor, num_groups: int, a
         assignment = assignment.to(torch.int64)
 
     # Define the shape of the output tensor
-    shape = [num_groups] + list(data.shape[1:])
+    shape = [num_groups, *list(data.shape[1:])]
 
     # Create a zero tensor to accumulate the sums, and scatter-add the data
     csum = torch.zeros(*shape, dtype=data.dtype, device=data.device).scatter_add_(0, assignment, data)
@@ -377,7 +377,7 @@ def grouped_count(
     # Check input validity
     assert len(groups) == data.dim(), "Number of groups must match the number of dimensions in the data tensor."
     assert all(
-        [len(group) == shape for group, shape in zip(groups, data.shape, strict=True)]
+        len(group) == shape for group, shape in zip(groups, data.shape, strict=True)
     ), "The i-th assignments `groups` must have the same length as the i-th dimension of the data tensor."
 
     # Infer the group sizes (= number of unique groups in each dimension)
@@ -409,9 +409,9 @@ def grouped_count(
     data = data[mask]  # [n_masked]
 
     # ... temporary tensor of ones to scatter (to count the number of times each token appears in each cluster)
-    _ONE = torch.ones((1,), dtype=dtype, device=data.device)
+    _one = torch.ones((1,), dtype=dtype, device=data.device)
     # ... scatter ONE's into the (flat) cluster statistics tensor to count the number of times each token appears in group
-    flat_counts.scatter_add_(dim=0, index=data.view(-1), src=_ONE.expand_as(data))
+    flat_counts.scatter_add_(dim=0, index=data.view(-1), src=_one.expand_as(data))
     # ... reshape the flat counts tensor to the final desired shape
     return flat_counts.view(*group_sizes, n_tokens)  # [n_group1, n_group2, ..., n_tokens]
 

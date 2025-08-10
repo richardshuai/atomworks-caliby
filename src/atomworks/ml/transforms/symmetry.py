@@ -1017,7 +1017,7 @@ class FindAutomorphismsWithNetworkX(Transform):
 
     requires_previous_transforms = [AtomizeByCCDName]
 
-    def check_input(self, data: dict[str, Any]):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(

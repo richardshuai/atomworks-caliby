@@ -173,7 +173,7 @@ class Transform(ABC):
                 "processing_time": None,
             }
             # record the current transform in the transform history
-            data.__transform_history__ = data.__transform_history__ + [this_transform_record]
+            data.__transform_history__ = [*data.__transform_history__, this_transform_record]
 
         return data
 
@@ -311,7 +311,7 @@ class Transform(ABC):
 
         # Case 3: self is a `Transform` instance and other is a `Compose` instance
         if isinstance(self, Transform) and isinstance(other, Compose):
-            return Compose([self] + other.transforms, track_rng_state=other.track_rng_state)
+            return Compose([self, *other.transforms], track_rng_state=other.track_rng_state)
         # Case 4: self & other are simple `Transform` instances
         elif isinstance(self, Transform) and isinstance(other, Transform):
             return Compose([self, other])
@@ -354,7 +354,7 @@ class Compose(Transform):
             ValueError: If `transforms` is not a list or tuple, if it is empty, or if it contains elements that
                 are not instances of `Transform`.
         """
-        if not isinstance(transforms, (list, tuple)):
+        if not isinstance(transforms, list | tuple):
             raise ValueError(f"Expected a list or tuple of Transforms, but got a {type(transforms)}")
 
         if not len(transforms) > 0:
@@ -375,13 +375,13 @@ class Compose(Transform):
                 self.transforms + other.transforms, track_rng_state=self.track_rng_state or other.track_rng_state
             )
         elif isinstance(other, Transform):
-            return Compose(self.transforms + [other], track_rng_state=self.track_rng_state)
+            return Compose([*self.transforms, other], track_rng_state=self.track_rng_state)
         elif isinstance(other, list):
             return Compose(self.transforms + other, track_rng_state=self.track_rng_state)
         else:
             raise ValueError(f"Expected a Transform or list of Transforms or Compose, but got a {type(other)}")
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         # Compose is always valid
         pass
 
@@ -489,7 +489,7 @@ class RemoveKeys(Transform):
         self.keys = keys
         self.validate_input = require_keys_exist
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, self.keys)
 
     def forward(self, data: dict) -> dict:
@@ -508,7 +508,7 @@ class SubsetToKeys(Transform):
         self.keys = keys
         self.validate_input = require_keys_exist
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         pass
 
     def forward(self, data: dict) -> dict:
@@ -524,7 +524,7 @@ class AddData(Transform):
         self.data = data
         self.validate_input = not allow_overwrite
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_does_not_contain_keys(data, self.data.keys())
 
     def forward(self, data: dict) -> dict:
@@ -545,7 +545,7 @@ class LogData(Transform):
         self.depth = depth
         self.pprint_kwargs = pprint_kwargs
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         pass
 
     def forward(self, data: dict) -> dict:
@@ -586,7 +586,7 @@ class PickleToDisk(Transform):
         # Ensure the directory exists
         os.makedirs(self.dir_path, exist_ok=True)
 
-    def check_input(self, data: dict):
+    def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["id"])
 
     def forward(self, data: dict) -> dict:

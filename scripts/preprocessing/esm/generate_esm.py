@@ -64,7 +64,7 @@ def create_parser():
     return parser
 
 
-def run(args):
+def run(args) -> None:
     model, alphabet = pretrained.load_model_and_alphabet(args.model_location)
     model.eval()
     if isinstance(model, MSATransformer):
@@ -88,7 +88,7 @@ def run(args):
 
     representations = {}
     with torch.no_grad():
-        for batch_idx, (labels, strs, toks) in enumerate(data_loader):
+        for _batch_idx, (labels, _strs, toks) in enumerate(data_loader):
             if torch.cuda.is_available() and not args.nogpu:
                 toks = toks.to(device="cuda", non_blocking=True)
 
@@ -119,7 +119,7 @@ def run(args):
             torch.save(representation, output_dir)
 
 
-def main():
+def main() -> None:
     parser = create_parser()
     args = parser.parse_args()
     run(args)

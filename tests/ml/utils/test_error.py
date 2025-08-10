@@ -37,9 +37,8 @@ def test_context_with_handled_exception():
         nonlocal cleanup_called
         cleanup_called = True
 
-    with pytest.raises(ValueError) as exc_info:
-        with context("Test operation", cleanup=cleanup):
-            raise ValueError("test error")
+    with pytest.raises(ValueError) as exc_info, context("Test operation", cleanup=cleanup):
+        raise ValueError("test error")
 
     assert cleanup_called
     assert "Test operation" in str(exc_info.value)
@@ -55,18 +54,19 @@ def test_context_without_error_raising():
 
 def test_context_with_custom_exception_types():
     """Test that context manager only catches specified exception types."""
-    with pytest.raises(KeyError):  # Should not be caught
-        with context("Test operation", exc_types=(ValueError,)):
-            raise KeyError("test error")
+    with pytest.raises(KeyError), context("Test operation", exc_types=(ValueError,)):  # Should not be caught
+        raise KeyError("test error")
 
 
 def test_context_with_custom_logger(caplog):
     """Test that context manager uses the specified logger and log level."""
     test_logger = logging.getLogger("test_logger")
 
-    with caplog.at_level(logging.INFO):
-        with context("Test operation", raise_error=False, log_level=logging.INFO, logger=test_logger):
-            raise ValueError("test error")
+    with (
+        caplog.at_level(logging.INFO),
+        context("Test operation", raise_error=False, log_level=logging.INFO, logger=test_logger),
+    ):
+        raise ValueError("test error")
 
     assert "Test operation" in caplog.text
     assert "test error" in caplog.text
@@ -78,10 +78,8 @@ def test_context_cleanup_error(caplog):
     def failing_cleanup():
         raise RuntimeError("cleanup failed")
 
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(ValueError):
-            with context("Test operation", cleanup=failing_cleanup):
-                raise ValueError("test error")
+    with caplog.at_level(logging.ERROR), pytest.raises(ValueError), context("Test operation", cleanup=failing_cleanup):
+        raise ValueError("test error")
 
     assert "Cleanup failed" in caplog.text
     assert "cleanup failed" in caplog.text
@@ -89,18 +87,16 @@ def test_context_cleanup_error(caplog):
 
 def test_context_with_system_exit():
     """Test that context manager properly handles SystemExit."""
-    with pytest.raises(SystemExit) as exc_info:
-        with context("Test operation"):
-            raise SystemExit(1)
+    with pytest.raises(SystemExit) as exc_info, context("Test operation"):
+        raise SystemExit(1)
 
     assert "Unexpected error in context" in str(exc_info.value)
 
 
 def test_context_with_keyboard_interrupt():
     """Test that context manager properly handles KeyboardInterrupt."""
-    with pytest.raises(KeyboardInterrupt) as exc_info:
-        with context("Test operation"):
-            raise KeyboardInterrupt()
+    with pytest.raises(KeyboardInterrupt) as exc_info, context("Test operation"):
+        raise KeyboardInterrupt()
 
     assert "Test operation" in str(exc_info.value)
 
@@ -112,6 +108,5 @@ def test_context_skip_allowed_exceptions():
         raise ValueError("test error")
 
     # Should still raise
-    with pytest.raises(KeyError):
-        with context("Test operation", raise_error=False, exc_types=(ValueError,)):
-            raise KeyError("test error")
+    with pytest.raises(KeyError), context("Test operation", raise_error=False, exc_types=(ValueError,)):
+        raise KeyError("test error")

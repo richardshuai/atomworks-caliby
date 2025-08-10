@@ -138,7 +138,7 @@ def test_generate_rdkit_conformers(test_case):
         assert rdmol.GetNumConformers() > 0
 
     # Check that we can get the coordinates of the conformers as atom array coordinates
-    for pn_unit_iid, rdmol in data["rdkit"].items():
+    for _pn_unit_iid, rdmol in data["rdkit"].items():
         mol_array = atom_array_from_rdkit(
             rdmol, set_coord_if_available=True, remove_hydrogens=True, remove_inferred_atoms=False
         )

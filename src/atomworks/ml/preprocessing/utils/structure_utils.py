@@ -457,7 +457,7 @@ def get_ligand_validity_scores_from_pdb_id(pdb_id: str) -> list[dict[str, str | 
             for entity in nonpolymer_entities:
                 res_name = entity["rcsb_nonpolymer_entity_container_identifiers"]["nonpolymer_comp_id"]
                 for instance in entity.get("nonpolymer_entity_instances", []):
-                    record_template = dict(res_name=res_name)
+                    record_template = {"res_name": res_name}
                     record_template.update(instance.get("rcsb_nonpolymer_entity_instance_container_identifiers", {}))
                     validation_scores = default(instance["rcsb_nonpolymer_instance_validation_score"], [])
                     for score in validation_scores:
