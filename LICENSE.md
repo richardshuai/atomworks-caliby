@@ -1,7 +1,7 @@
 The MIT License (MIT)
 =====================
 
-Copyright © `<year>` `<copyright holders>`
+Copyright © 2025 Institute for Protein Design, University of Washington
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
