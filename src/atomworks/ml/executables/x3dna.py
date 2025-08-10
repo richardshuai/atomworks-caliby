@@ -24,7 +24,7 @@ class X3DNAFiber(Executable):
     """
 
     name = "x3dna-fiber"
-    required_verification_text = ["fiber", "3DNA", "SYNOPSIS", "DESCRIPTION"]
+    required_verification_text = ("fiber", "3DNA", "SYNOPSIS", "DESCRIPTION")
 
     @classmethod
     def initialize(cls, bin_path: PathLike | None = None, *args, **kwargs) -> "X3DNAFiber":

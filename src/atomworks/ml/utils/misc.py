@@ -416,7 +416,7 @@ def grouped_count(
     return flat_counts.view(*group_sizes, n_tokens)  # [n_group1, n_group2, ..., n_tokens]
 
 
-def _randomly_select_items_with_weights(weight_dict: dict, n: int = 1):
+def _randomly_select_items_with_weights(weight_dict: dict, n: int = 1) -> list:
     """Randomly select n items from a dictionary based on their weights."""
     choices, weights = zip(*weight_dict.items(), strict=False)
     weights = np.array(weights)

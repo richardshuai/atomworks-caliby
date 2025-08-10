@@ -31,6 +31,7 @@ from atomworks.ml.transforms.base import (
     Identity,
     RandomRoute,
     SubsetToKeys,
+    Transform,
 )
 from atomworks.ml.transforms.bfactor_conditioned_transforms import SetOccToZeroOnBfactor
 from atomworks.ml.transforms.bonds import AddAF3TokenBondFeatures
@@ -110,7 +111,7 @@ def build_af3_transform_pipeline(
         ChainType.POLYPEPTIDE_L,
         ChainType.RNA,
     ],
-    template_distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),
+    template_distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),  # noqa: B008
     template_default_token: str = GAP,
     template_lookup_path: PathLike | None = None,
     template_base_dir: PathLike | None = None,
@@ -129,7 +130,7 @@ def build_af3_transform_pipeline(
     pad_dna_p_skip: float = 0.0,
     b_factor_min: float | None = None,
     b_factor_max: float | None = None,
-):
+) -> Transform:
     """Build the AF3 pipeline with specified parameters.
 
     This function constructs a pipeline of transforms for processing protein structures

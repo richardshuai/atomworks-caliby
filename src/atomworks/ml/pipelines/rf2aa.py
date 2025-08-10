@@ -179,7 +179,7 @@ def build_rf2aa_transform_pipeline(
         "do_not_replace": 0.1,
     },
     order_independent_atom_frame_prioritization: bool = True,
-    polymer_token_indices: torch.Tensor = torch.arange(32),
+    polymer_token_indices: torch.Tensor = torch.arange(32),  # noqa: B008
     # Template parameters
     n_template: int = 5,
     pick_top_templates: bool = False,

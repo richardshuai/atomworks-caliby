@@ -1,3 +1,5 @@
+from typing import Any, ClassVar
+
 from atomworks.ml.transforms._checks import check_contains_keys
 from atomworks.ml.transforms.base import Transform
 
@@ -19,13 +21,15 @@ class BatchStructuresForDiffusionNoising(Transform):
         batch_size (int): The size of the diffusion batch.
     """
 
-    incompatible_previous_transforms = ["BatchStructuresForDiffusionNoising"]  # Can only be applied once
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
+        "BatchStructuresForDiffusionNoising"
+    ]  # Can only be applied once
 
-    def __init__(self, batch_size, **kwargs):
+    def __init__(self, batch_size: int, **kwargs):
         super().__init__(**kwargs)
         self.batch_size = batch_size
 
-    def check_input(self, data) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["ground_truth", "atom_array"])
         check_contains_keys(data["ground_truth"], ["coord_atom_lvl", "mask_atom_lvl"])
 
@@ -34,7 +38,7 @@ class BatchStructuresForDiffusionNoising(Transform):
                 data["atom_array"]
             ), "structure must not be batched yet"
 
-    def forward(self, data):
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         if "coord_atom_lvl_to_be_noised" in data:
             # Key already exists; we will batch the coordinates found in that key
             data["coord_atom_lvl_to_be_noised"] = data["coord_atom_lvl_to_be_noised"].repeat(self.batch_size, 1, 1)

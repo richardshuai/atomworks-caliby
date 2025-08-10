@@ -114,27 +114,27 @@ def assert_satisfies_rf2aa_assumptions(sample: dict[str, Any]) -> None:
     assert isinstance(item, str)
 
     # Check basic shapes
-    NTOTAL = 36  # ... number of atoms per token
+    n_total = 36  # ... number of atoms per token
 
     n_recycles, N, L = msa.shape[:3]
     num_atoms = (_is_atom(seq[0]).sum()).item()
     _assert_shape(seq, (n_recycles, L))
     _assert_shape(msa, (n_recycles, N, L))
     _assert_shape(msa_masked, (n_recycles, N, L, 164))
-    N_full = msa_full.shape[1]
-    assert N_full > 0, f"{item}: N_full is {N_full}. But at least the query sequence should be present."
-    _assert_shape(msa_full, (n_recycles, N_full, L, 83))
+    n_full = msa_full.shape[1]
+    assert n_full > 0, f"{item}: n_full is {n_full}. But at least the query sequence should be present."
+    _assert_shape(msa_full, (n_recycles, n_full, L, 83))
     _assert_shape(mask_msa, (n_recycles, N, L))
-    N_symm = true_crds.shape[0]
-    _assert_shape(true_crds, (N_symm, L, NTOTAL, 3))
-    _assert_shape(mask_crds, (N_symm, L, NTOTAL))
+    n_symm = true_crds.shape[0]
+    _assert_shape(true_crds, (n_symm, L, n_total, 3))
+    _assert_shape(mask_crds, (n_symm, L, n_total))
     _assert_shape(idx_pdb, (L,))
-    N_templ = xyz_t.shape[0]
-    _assert_shape(xyz_t, (N_templ, L, NTOTAL, 3))
-    _assert_shape(t1d, (N_templ, L, 80))
-    _assert_shape(mask_t, (N_templ, L, NTOTAL))
-    _assert_shape(xyz_prev, (L, NTOTAL, 3))
-    _assert_shape(mask_prev, (L, NTOTAL))
+    n_templ = xyz_t.shape[0]
+    _assert_shape(xyz_t, (n_templ, L, n_total, 3))
+    _assert_shape(t1d, (n_templ, L, 80))
+    _assert_shape(mask_t, (n_templ, L, n_total))
+    _assert_shape(xyz_prev, (L, n_total, 3))
+    _assert_shape(mask_prev, (L, n_total))
     _assert_shape(same_chain, (L, L))
     _assert_shape(atom_frames, (num_atoms, 3, 2))
     _assert_shape(bond_feats, (L, L))
@@ -218,14 +218,14 @@ def assert_satisfies_rf2aa_assumptions(sample: dict[str, Any]) -> None:
     ).all(), f"{item}: There are no resolved coordinates for at least one symmetry copy (neither poly nor non-poly)."
 
     # Ensure there is at least one resolved coordinate for each symmetry copy in the poly sector (excluding padding):
-    N_symm_poly = mask_crds[:, :num_res_tokens].any(dim=(1, 2)).max().item()
+    n_symm_poly = mask_crds[:, :num_res_tokens].any(dim=(1, 2)).max().item()
     assert (
-        N_symm_poly > 0
+        n_symm_poly > 0
     ), f"{item}: There are no resolved coordinates for the poly sector of at least one symmetry copy (excluding padding)."
 
     # If the given symmetry copy has a poly swap, check that the N-CA-C of at least one residue is resolved, which
     #  is needed to construct the poly frames.
-    symm_copies_has_at_least_one_resolved_N_CA_C = (mask_crds[:N_symm_poly, :num_res_tokens, :3].sum(dim=2) == 3).any(
+    symm_copies_has_at_least_one_resolved_N_CA_C = (mask_crds[:n_symm_poly, :num_res_tokens, :3].sum(dim=2) == 3).any(  # noqa: N806
         dim=1
     )
     problems = np.where(~symm_copies_has_at_least_one_resolved_N_CA_C)[0]

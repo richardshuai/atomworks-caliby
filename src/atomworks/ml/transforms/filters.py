@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from functools import lru_cache
-from typing import Any
+from typing import Any, ClassVar
 
 import biotite.structure as struc
 import numpy as np
@@ -136,7 +136,7 @@ class RemoveUnsupportedChainTypes(Transform):
     (in which case they should have been filtered out upstream, otherwise our example is not valid).
     """
 
-    requires_previous_transforms = []
+    requires_previous_transforms: ClassVar[list[str | Transform]] = []
 
     def __init__(self, supported_chain_types: Sequence[ChainType] = TRAINING_SUPPORTED_CHAIN_TYPES):
         """
@@ -330,12 +330,12 @@ class RemoveUnresolvedLigandAtomsIfTooMany(Transform):
     def __init__(self, unresolved_ligand_atom_limit: int):
         self.unresolved_ligand_atom_limit = unresolved_ligand_atom_limit
 
-    def check_input(self, data) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["occupancy"])
 
-    def forward(self, data):
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array = data["atom_array"]
 
         # Create a mask for unresolved ligand atoms
@@ -448,7 +448,7 @@ class HandleUndesiredResTokens(Transform):
         three_letter_canonical = get_3_from_1_letter_code(one_letter_canonical, chain_type=ChainType(chain_type))
         return three_letter_canonical
 
-    @lru_cache(maxsize=1000)
+    @lru_cache(maxsize=1000)  # noqa: B019
     def _map_to_closest_canonical_residue(
         self, res_name: str, chain_type: int, has_hydrogens: bool, atom_name: tuple[str]
     ) -> tuple[np.ndarray, str]:
@@ -547,10 +547,10 @@ class RemoveTerminalOxygen(Transform):
 
     # TODO: Rename to RemoveProteinTerminalOxygen
 
-    def check_input(self, data) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         check_atom_array_annotation(data, ["atom_name", "chain_type"])
 
-    def forward(self, data):
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         data["atom_array"] = remove_protein_terminal_oxygen(data["atom_array"])
         return data
 
@@ -577,12 +577,12 @@ class RemoveNucleicAcidTerminalOxygen(Transform):
     Remove terminal oxygen atoms (`OP3`) in nucleic acids from the atom array.
     """
 
-    def check_input(self, data) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
         check_atom_array_annotation(data, ["atom_name", "chain_type"])
 
-    def forward(self, data):
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array = remove_nucleic_acid_terminal_oxygen(data["atom_array"])
         data["atom_array"] = atom_array
         return data

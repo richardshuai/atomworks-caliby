@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 
@@ -44,7 +44,7 @@ class MetadataRowParser(ABC):
         - For loading templates, the "pdb_id" is required to load the correct template from disk (at least with the legacy code).
     """
 
-    required_schema = {
+    required_schema: ClassVar[dict[str, type]] = {
         "example_id": str,
         "path": Path,
         "extra_info": dict,

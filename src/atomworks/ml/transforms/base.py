@@ -11,7 +11,7 @@ import re
 import time
 from abc import ABC, ABCMeta, abstractmethod
 from collections.abc import Callable, Iterable
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -98,13 +98,13 @@ class Transform(ABC):
 
     validate_input: bool = True
     raise_if_invalid_input: bool = True
-    requires_previous_transforms: list[str] = []
-    incompatible_previous_transforms: list[str] = []
+    requires_previous_transforms: ClassVar[list[str]] = []
+    incompatible_previous_transforms: ClassVar[list[str]] = []
     previous_transforms_order_matters: bool = False
     _track_transform_history: bool = True
 
     # To be implemented by subclasses (optional)
-    def check_input(self, data: dict[str, Any]) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:  # noqa: B027
         """
         Check if the input dictionary is valid for the transform. Raises an error if the input is invalid.
         """
@@ -461,7 +461,7 @@ class Compose(Transform):
                 e.args = (msg,)
 
                 # Raise the new custom exception with the original traceback
-                raise e.with_traceback(e.__traceback__)
+                raise e.with_traceback(e.__traceback__)  # noqa: B904
 
         return data
 
@@ -764,7 +764,7 @@ def convert_to_torch(data: dict[str, Any], keys: list[str], device: str = "cpu")
         dict[str, Any]: The data dictionary with numpy arrays converted to torch tensors.
     """
     # Set of supported numpy data types
-    SUPPORTED_DTYPES = [
+    supported_dtypes = (
         np.float64,
         np.float32,
         np.float16,
@@ -779,11 +779,11 @@ def convert_to_torch(data: dict[str, Any], keys: list[str], device: str = "cpu")
         np.uint16,
         np.uint8,
         np.bool_,
-    ]
+    )
 
     def _convert_to_tensor(value: Any) -> Any:
         """Convert a value to a torch tensor if it is a numpy array or recursively handle nested dictionaries."""
-        if isinstance(value, np.ndarray) and value.dtype in SUPPORTED_DTYPES:
+        if isinstance(value, np.ndarray) and value.dtype in supported_dtypes:
             return torch.tensor(value, device=device)
         elif isinstance(value, dict):
             return valmap(_convert_to_tensor, value)

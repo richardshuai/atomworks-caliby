@@ -1,5 +1,6 @@
 import itertools
 import logging
+from typing import ClassVar
 
 import numpy as np
 from biotite.structure import AtomArray
@@ -179,7 +180,7 @@ def get_spatial_crop_center(
     query_pn_unit_iids: list[str],
     cutoff_distance: float = 15.0,
     raise_if_missing_query: bool = True,
-):
+) -> np.ndarray:
     """
     Sample a crop center from a spatial region of the atom array.
 
@@ -354,8 +355,8 @@ class CropContiguousLikeAF3(CropTransformBase):
         max_atoms_in_crop (int | None): Maximum number of atoms allowed in a crop. If None, no resizing is performed.
     """
 
-    requires_previous_transforms = ["AtomizeByCCDName"]
-    incompatible_previous_transforms = [
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AtomizeByCCDName"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
         "EncodeAtomArray",
         "CropSpatialLikeAF3",
         "CropContiguousLikeAF3",
@@ -601,8 +602,8 @@ class CropSpatialLikeAF3(CropTransformBase):
             under the key `"atom_array"`. Defaults to `False`.
     """
 
-    requires_previous_transforms = ["AddGlobalAtomIdAnnotation", "AtomizeByCCDName"]
-    incompatible_previous_transforms = [
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AddGlobalAtomIdAnnotation", "AtomizeByCCDName"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
         "EncodeAtomArray",
         "CropContiguousLikeAF3",
         "CropSpatialLikeAF3",

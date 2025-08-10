@@ -24,12 +24,12 @@ from atomworks.ml.databases.enums import (
 
 
 @dataclass
-class DataObject(ABC):
+class DataObject(ABC):  # noqa: B024
     """
     A base class for all data objects in a database.
     """
 
-    def validate(self) -> None:
+    def validate(self) -> None:  # noqa: B027
         """
         Override this method to add custom validation logic to your data object. I.e. if the field "name" is a string but cannot have any spaces
         in it, you can do something like:
@@ -136,7 +136,7 @@ class BindNoBindMeasurement(DataObject):
     affinity: float | None = None
     affinity_std: float | None = None
     label_threshold: float | None = None
-    pH: float | None = None
+    pH: float | None = None  # noqa: N815
     temperature: float | None = None
     tag_type: TagType | None = None
     structure_method: StructureMethod | None = None

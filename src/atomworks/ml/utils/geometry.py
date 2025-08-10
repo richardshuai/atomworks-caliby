@@ -262,7 +262,7 @@ def get_random_rigid(batch_size: int, scale: float = 1.0, **tensor_kwargs) -> tu
     return rots, trans
 
 
-def random_rigid_augmentation(coord_atom_lvl: torch.Tensor, batch_size: int, s: float = 1.0):
+def random_rigid_augmentation(coord_atom_lvl: torch.Tensor, batch_size: int, s: float = 1.0) -> torch.Tensor:
     """
     Apply random rigid body transformations to atomic coordinates.
 

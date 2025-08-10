@@ -41,7 +41,7 @@ class RandomlyMirrorInputs(Transform):
 
     def __init__(
         self,
-        mirror_prob=0.0,
+        mirror_prob: float = 0.0,
     ):
         self.mirror_prob = mirror_prob
 

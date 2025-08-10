@@ -1,4 +1,5 @@
 import atexit
+import contextlib
 import gc
 import io
 import os
@@ -119,11 +120,11 @@ class WorkStealDataLoader(DataLoader):
         timeout: float = 0,
         worker_init_fn: Callable | None = None,
         multiprocessing_context: str = "spawn",
-        generator=None,
+        generator: torch.Generator | None = None,
         prefetch_factor: int = 2,
         persistent_workers: bool = False,
         max_queue_size: int | None = None,
-    ):
+    ) -> None:
         # Validate arguments
         if num_workers < 0:
             raise ValueError(f"num_workers must be non-negative, got {num_workers}")
@@ -228,13 +229,13 @@ class WorkStealDataLoader(DataLoader):
             self._init_workers(ctx)
 
     @staticmethod
-    def _cleanup_workers_atexit(dataloader_ref) -> None:
+    def _cleanup_workers_atexit(dataloader_ref: weakref.ReferenceType["WorkStealDataLoader"]) -> None:
         """Cleanup function called at exit."""
         dataloader = dataloader_ref()
         if dataloader is not None:
             dataloader._shutdown_workers()
 
-    def _init_workers(self, ctx) -> None:
+    def _init_workers(self, ctx: mp.Context) -> None:
         """Initialize worker processes and queues."""
         # Get the manager's process for liveness checks
         # This is an internal detail, but necessary for robust shutdown
@@ -310,10 +311,8 @@ class WorkStealDataLoader(DataLoader):
         # Send sentinel values
         if self._work_queue:
             for _ in range(len(self._workers)):
-                try:
+                with contextlib.suppress(Exception):
                     self._work_queue.put(None, timeout=1.0)
-                except:  # noqa: E722
-                    pass
 
         # Wait for workers to finish
         for worker in self._workers:
@@ -469,10 +468,8 @@ class WorkStealDataLoader(DataLoader):
                 logger.error(f"Worker {worker_id} ({pid=}) encountered an error: {e}")
                 stats.errors += 1
                 stats.state = WorkerState.ERROR
-                try:
+                with contextlib.suppress(Exception):
                     result_queue.put((worker_id, e), timeout=1.0)
-                except:  # noqa: E722
-                    pass
 
                 # Don't crash the worker on single errors
                 if stats.errors > 10:
@@ -539,7 +536,7 @@ class WorkStealDataLoader(DataLoader):
                     worker_id, result = self._result_queue.get(timeout=timeout)
                 except queue.Empty:
                     self._check_worker_health()
-                    raise RuntimeError(f"DataLoader timed out after {timeout}s")
+                    raise RuntimeError(f"DataLoader timed out after {timeout}s")  # noqa: B904
                 except Exception as e:
                     logger.error(f"Error getting result from queue: {e}")
                     raise
@@ -556,7 +553,7 @@ class WorkStealDataLoader(DataLoader):
             # This is raised when the user presses Ctrl+C.
             logger.info("Keyboard interrupt received, shutting down workers...")
             self._shutdown_workers()
-            raise KeyboardInterrupt
+            raise KeyboardInterrupt  # noqa: B904
         except Exception as e:
             logger.error(f"Error in _multiprocess_iterator: {e}")
             raise e
@@ -601,7 +598,7 @@ class WorkStealDataLoader(DataLoader):
         self._shutdown_workers()
 
     @contextmanager
-    def worker_monitoring(self):
+    def worker_monitoring(self) -> Iterator[None]:
         """Context manager for monitoring worker performance."""
         start_time = time.time()
         initial_stats = {}

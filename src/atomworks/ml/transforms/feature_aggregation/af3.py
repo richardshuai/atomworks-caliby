@@ -1,7 +1,7 @@
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as F  # noqa: N812
 from biotite.structure import AtomArray
 from einops import rearrange
 
@@ -19,12 +19,12 @@ class AggregateFeaturesLikeAF3(Transform):
     structures, and other relevant data.
     """
 
-    requires_previous_transforms = [
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
         "AtomizeByCCDName",
         "FeaturizeMSALikeAF3",
         "EncodeAF3TokenLevelFeatures",
     ]
-    incompatible_previous_transforms = ["AggregateFeaturesLikeAF3"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["AggregateFeaturesLikeAF3"]
 
     def check_input(self, data: dict[str, Any]) -> None:
         """

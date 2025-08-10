@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -79,10 +79,9 @@ def featurize_atom_level_embeddings(
     if not _has_descriptors:
         return default_return
 
-    if p_dropout_atom_level_embeddings > 0.0:
+    if (p_dropout_atom_level_embeddings > 0.0) and (np.random.random() < p_dropout_atom_level_embeddings):
         # With probability p_dropout_atom_level_embeddings, drop out the atom-level embeddings (all 0's)
-        if np.random.random() < p_dropout_atom_level_embeddings:
-            return default_return
+        return default_return
 
     # Initialize embeddings with shape (n_conformers, L, embedding_dim)
     embeddings = np.full((n_conformers, L, embedding_dim), np.nan, dtype=np.float32)
@@ -150,7 +149,7 @@ class FeaturizeAtomLevelEmbeddings(Transform):
         threshold (float): Maximum absolute value for descriptors. If any descriptor exceeds this threshold, the entire residue is ignored.
     """
 
-    requires_previous_transforms = [
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
         "LoadCachedResidueLevelData",
         "RandomSubsampleCachedConformers",
         "AddGlobalResIdAnnotation",

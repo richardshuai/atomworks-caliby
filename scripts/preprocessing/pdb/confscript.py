@@ -5,7 +5,7 @@ import traceback
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Never
+from typing import Never, FrameType
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ class TimeoutException(Exception):
     pass
 
 
-def timeout_handler(signum, frame) -> Never:
+def timeout_handler(signum: int, frame: FrameType) -> Never:
     raise TimeoutException
 
 

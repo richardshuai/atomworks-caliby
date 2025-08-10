@@ -60,7 +60,7 @@ DEFAULT_PARSE_KWARGS = {
 """Some fairly standard parsing arguments that can be imported for convenience."""
 
 
-def _get_atomworks_version():
+def _get_atomworks_version() -> str:
     """Lazy import of atomworks version to avoid circular imports."""
     try:
         from atomworks import __version__

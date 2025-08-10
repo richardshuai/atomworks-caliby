@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from functools import reduce
-from typing import Any
 
 import numpy as np
 
@@ -310,7 +309,7 @@ def join_two_msas_by_tax_id(msa_a: dict, msa_b: dict, unpaired_padding: np.ndarr
 
 def join_multiple_msas_by_tax_id(
     msas: list,
-    unpaired_padding: Any = np.array([AMINO_ACID_ONE_LETTER_TO_INT["-"]], dtype=np.int8),
+    unpaired_padding: np.ndarray = np.array([AMINO_ACID_ONE_LETTER_TO_INT["-"]], dtype=np.int8),  # noqa: B008
     dense: bool = False,
     shuffle_unpaired_sequences: bool = False,
 ) -> dict:

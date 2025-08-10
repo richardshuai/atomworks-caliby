@@ -1,4 +1,5 @@
 from enum import Flag, StrEnum
+from typing import Self
 
 
 class FlagWithCast(Flag):
@@ -7,11 +8,11 @@ class FlagWithCast(Flag):
     """
 
     @classmethod
-    def _missing_(cls, value: str | bool | int | float):
+    def _missing_(cls, value: str | bool | int | float) -> Self:
         try:
             value = bool(value)
         except ValueError:
-            raise ValueError(f"Attempted to cast {value} of type {type(value)} to bool and failed")
+            raise ValueError(f"Attempted to cast {value} of type {type(value)} to bool and failed")  # noqa: B904
         return cls(value)
 
 

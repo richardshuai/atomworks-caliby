@@ -6,11 +6,11 @@ import logging
 from copy import deepcopy
 from os import PathLike
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import numpy as np
 import torch
-import torch.nn.functional as F
+import torch.nn.functional as F  # noqa: N812
 from biotite.structure import AtomArray
 
 from atomworks.io.enums import ChainType
@@ -70,16 +70,21 @@ class PairAndMergePolymerMSAs(Transform):
         dense (bool): Whether to densely pack unpaired sequences at the bottom of the MSA. If False, unpaired sequences are block-diagonally added to the bottom of the MSA.
     """
 
-    requires_previous_transforms = ["LoadPolymerMSAs"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["LoadPolymerMSAs"]
 
     def __init__(
         self,
-        unpaired_padding: Any = np.array(
-            [AMINO_ACID_ONE_LETTER_TO_INT["-"]], dtype=np.int8
-        ),  # Integer representation of gap token
+        unpaired_padding: int = AMINO_ACID_ONE_LETTER_TO_INT["-"],  # Integer representation of gap token
         dense: bool = False,
     ):
-        self.unpaired_padding = unpaired_padding
+        if not (
+            isinstance(unpaired_padding, int) and np.iinfo(np.int8).min <= unpaired_padding <= np.iinfo(np.int8).max
+        ):
+            raise ValueError(
+                f"unpaired_padding={unpaired_padding} is not representable as np.int8. "
+                f"Must be an integer in [{np.iinfo(np.int8).min}, {np.iinfo(np.int8).max}]."
+            )
+        self.unpaired_padding = np.array(unpaired_padding, dtype=np.int8)
         self.dense = dense
 
     def check_input(self, data: dict) -> None:
@@ -242,7 +247,7 @@ def load_polymer_msas(
 
         if msa_file_path is None:
             # If no MSA file path is found, we skip this chain
-            if raise_if_missing_msa_for_protein_of_length_n is not None:
+            if raise_if_missing_msa_for_protein_of_length_n is not None:  # noqa: SIM102
                 if chain_type.is_protein() and len(canonical_sequence) >= raise_if_missing_msa_for_protein_of_length_n:
                     raise ValueError(f"MSA file not found for protein of length {len(canonical_sequence)}")
             continue
@@ -640,7 +645,11 @@ class FeaturizeMSALikeRF2AA(Transform):
         - "extra_msa_insertion_value": The raw insertion value at each position in the extra MSA, transformed to [0,1]
     """
 
-    requires_previous_transforms = ["FillFullMSAFromEncoded", "EncodeMSA", ConvertToTorch]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
+        "FillFullMSAFromEncoded",
+        "EncodeMSA",
+        ConvertToTorch,
+    ]
 
     def __init__(
         self,
@@ -987,7 +996,11 @@ class FeaturizeMSALikeAF3(Transform):
         - AF3 Supplement, Table 5: https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
     """
 
-    requires_previous_transforms = ["FillFullMSAFromEncoded", "EncodeMSA", ConvertToTorch]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
+        "FillFullMSAFromEncoded",
+        "EncodeMSA",
+        ConvertToTorch,
+    ]
 
     def __init__(
         self,
@@ -1034,7 +1047,7 @@ def featurize_msa_like_af3(
     encoding: AF3SequenceEncoding,
     n_recycles: int,
     eps: float = 1e-6,
-):
+) -> dict[str, list[torch.Tensor]]:
     """Functional version of FeaturizeMSALikeAF3. See FeaturizeMSALikeAF3 for more details."""
     # ...select either the first `n_msa` rows or all rows, whichever is smaller
     n_rows, _ = encoded_msa.shape
@@ -1084,7 +1097,7 @@ def get_full_msa_profile_and_insertion_mean(
     msa_is_padded_mask: torch.Tensor,
     encoding: TokenEncoding | AF3SequenceEncoding,
     eps: float = 1e-6,
-):
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Computes the full MSA profile and insertion mean on the untruncated MSA"""
     # ...select either the first `n_msa` rows or all rows, whichever is smaller
     n_rows, n_seq = encoded_msa.shape

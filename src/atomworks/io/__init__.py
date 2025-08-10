@@ -18,4 +18,4 @@ warnings.filterwarnings("once", category=DeprecationWarning)
 
 
 # We need to import parse here to ensure that the version string is set
-from atomworks.io.parser import parse
+from atomworks.io.parser import parse  # noqa: E402

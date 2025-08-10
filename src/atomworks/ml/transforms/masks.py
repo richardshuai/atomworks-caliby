@@ -82,7 +82,7 @@ class AddSpatialKNNMask(Transform):
         self.num_neighbors = num_neighbors
         self.max_atoms_in_crop = max_atoms_in_crop
 
-    def check_input(self, data) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         """
         Check if the input data contains the required keys and types.
         Args:

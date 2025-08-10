@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from atomworks.ml.transforms._checks import check_contains_keys
 from atomworks.ml.transforms.base import Transform
 from atomworks.ml.transforms.diffusion.batch_structures import BatchStructuresForDiffusionNoising
@@ -12,7 +14,7 @@ class CenterRandomAugmentation(Transform):
         scale (int): Scaling factor for the random rotation and translation. Default is 1.
     """
 
-    requires_previous_transforms = [BatchStructuresForDiffusionNoising]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [BatchStructuresForDiffusionNoising]
 
     def __init__(self, batch_size: int, scale: int = 1, **kwargs):
         super().__init__(**kwargs)

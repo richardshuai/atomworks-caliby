@@ -443,8 +443,8 @@ def _write_categories_to_block(
     block: "pdbx.Block", categories: dict[str, dict[str, float | int | str | list | np.ndarray]]
 ) -> None:
     """Write a set of categories to a CIF block"""
-    Category = block.subcomponent_class()
-    Column = Category.subcomponent_class()
+    Category = block.subcomponent_class()  # noqa: N806
+    Column = Category.subcomponent_class()  # noqa: N806
     for category_name, category_data in categories.items():
         category = Category()
         for key, value in category_data.items():

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import math
 from collections import defaultdict
+from typing import Any, Final
 
 import networkx as nx
 import numpy as np
@@ -179,7 +180,7 @@ def handle_clashing_pn_units(
 
     # Sort clashing PN units by the number of atoms in the reference PN unit (high to low) and then the transformation ID (low to high)
     # The last character in the polymer/non-polymer unit instance ID is the transformation ID, even in cases where we have covalently bound chains (e.g., A_1,B_1)
-    def sort_key(x):
+    def sort_key(x: tuple[str, dict[str, Any]]) -> tuple[int, int]:
         try:
             return (x[1]["num_atoms"], -int(pn_unit_iid_map[x[0]][-1]))
         except ValueError:
@@ -294,7 +295,7 @@ def get_contacting_pn_units(
     return contacting_pn_unit_summary
 
 
-def get_intra_pn_unit_bonds(pn_unit_iid: str, full_atom_array: AtomArray):
+def get_intra_pn_unit_bonds(pn_unit_iid: str, full_atom_array: AtomArray) -> np.ndarray:
     # NOTE: Not currently used; kept for potential future use
     """
     Retrieve all bonds within the PN unit.
@@ -316,7 +317,7 @@ def get_intra_pn_unit_bonds(pn_unit_iid: str, full_atom_array: AtomArray):
     return all_bonds[mask]
 
 
-def calculate_molecule_diameter(full_molecule_atoms: AtomArray):
+def calculate_molecule_diameter(full_molecule_atoms: AtomArray) -> float:
     # NOTE: Not currently used; kept for potential future use
     """
     Calculates the molecular diameter, defined as the maximum number of bonds between any two vertices
@@ -396,10 +397,10 @@ def get_ligand_validity_scores_from_pdb_id(pdb_id: str) -> list[dict[str, str | 
     References:
     - https://www.rcsb.org/docs/general-help/ligand-structure-quality-in-pdb-structures
     """
-    PDB_GRAPHQL_URL = "https://data.rcsb.org/graphql"
+    pdb_graphql_url: Final[str] = "https://data.rcsb.org/graphql"
 
     # Query string in graphql language to get ligand validity scores from a PDB entry
-    LIGAND_VALIDITY_QUERY = """
+    ligand_validity_query: Final[str] = """
     query ($id: String!) {
         entry(entry_id:$id){
             nonpolymer_entities {
@@ -446,7 +447,7 @@ def get_ligand_validity_scores_from_pdb_id(pdb_id: str) -> list[dict[str, str | 
     """
 
     # Perform the actual query for the target PDB ID
-    response = requests.post(PDB_GRAPHQL_URL, json={"query": LIGAND_VALIDITY_QUERY, "variables": {"id": pdb_id}})
+    response = requests.post(pdb_graphql_url, json={"query": ligand_validity_query, "variables": {"id": pdb_id}})
 
     # Extract the records from the response
     records = []

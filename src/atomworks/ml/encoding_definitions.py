@@ -674,15 +674,13 @@ LEGACY_RF2_ATOM14_ENCODING = TokenEncoding(
 # fmt: off
 AF3_TOKENS = (
     # 20 AA + 1 unknown AA
-    list(STANDARD_AA) + [UNKNOWN_AA]
-    +
+    *STANDARD_AA, UNKNOWN_AA,
     # 4 RNA + 1 unknown RNA
-    list(STANDARD_RNA) + [UNKNOWN_RNA]
-    +
+    *STANDARD_RNA, UNKNOWN_RNA,
     # 4 DNA + 1 unknown DNA
-    list(STANDARD_DNA) + [UNKNOWN_DNA]
+    *STANDARD_DNA, UNKNOWN_DNA,
     # 1 gap
-    + [GAP]
+    GAP,
 )
 """Sequence tokens in AF3"""
 # fmt: on

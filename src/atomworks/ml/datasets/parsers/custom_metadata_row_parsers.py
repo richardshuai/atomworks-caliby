@@ -9,7 +9,7 @@ from atomworks.io.constants import PDB_MIRROR_PATH
 from atomworks.ml.datasets.parsers import MetadataRowParser
 
 
-class AF2FB_DistillationParser(MetadataRowParser):
+class AF2FB_DistillationParser(MetadataRowParser):  # noqa: N801
     # TODO: Deprecate in favor of GenericDFParser
 
     """

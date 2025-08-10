@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 from biotite.structure import AtomArray
 
@@ -98,7 +100,7 @@ class FlagAndReassignCovalentModifications(Transform):
     ------------------------------------------------------------------------------------------------
     """
 
-    incompatible_previous_transforms = [AtomizeByCCDName, "AddGlobalTokenIdAnnotation"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [AtomizeByCCDName, "AddGlobalTokenIdAnnotation"]
 
     def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])

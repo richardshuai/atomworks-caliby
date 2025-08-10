@@ -2,7 +2,7 @@
 
 import logging
 from itertools import combinations
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -31,7 +31,7 @@ This is ~35.26 degrees.
 """
 
 
-def get_dih(a: torch.tensor, b: torch.tensor, c: torch.tensor, d: torch.tensor, eps=1e-4):
+def get_dih(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, d: torch.Tensor, eps: float = 1e-4) -> torch.Tensor:
     """Calculate dihedral angles for all consecutive quadruples (a[i],b[i],c[i],d[i])
     given Cartesian coordinates of four sets of atoms a,b,c,d
 
@@ -275,7 +275,7 @@ class AddRF2AAChiralFeatures(Transform):
         #         [10.,  7.,  8.,  9., -0.61546...]])
     """
 
-    requires_previous_transforms = ["AtomizeByCCDName"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AtomizeByCCDName"]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array", "chiral_centers"])
@@ -411,7 +411,7 @@ class AddAF3ChiralFeatures(Transform):
     Metadata from GetRDKitChiralCenters, held in the "chiral_centers" key, is needed for this transform.
     """
 
-    requires_previous_transforms = ["GetRDKitChiralCenters"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["GetRDKitChiralCenters"]
 
     def __init__(self, take_first_chiral_subordering: bool = True):
         super().__init__()

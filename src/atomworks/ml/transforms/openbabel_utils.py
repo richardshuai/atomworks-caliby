@@ -12,7 +12,7 @@ References:
 
 import logging
 from collections import Counter
-from typing import Any
+from typing import Any, ClassVar
 
 import biotite.structure as struc
 import numpy as np
@@ -356,7 +356,7 @@ def get_chiral_centers(obmol: openbabel.OBMol) -> list[int]:
         # get the chiral center
         chiral_center_idx = stereo_data.center  # (int)
         # get the 4 bonded atoms to the chiral center
-        bonded_atom_idx = [stereo_data.from_or_towards] + list(stereo_data.refs)  # [4] (int)
+        bonded_atom_idx = [stereo_data.from_or_towards, *stereo_data.refs]  # [4] (int)
         # reduce the bonded atoms to those that are not implicit hydrogens (at most 1 implicit hydrogen is possible)
         bonded_explicit_atom_idxs = [atom for atom in bonded_atom_idx if atom != _OBABEL_IMPLICIT_HYDROGEN_REF]
 
@@ -502,8 +502,12 @@ class AddOpenBabelMoleculesForAtomizedMolecules(Transform):
         }
     """
 
-    requires_previous_transforms = ["AtomizeByCCDName"]
-    incompatible_previous_transforms = ["AddRF2AAChiralFeatures", "CropContiguousLikeAF3", "CropSpatialLikeAF3"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AtomizeByCCDName"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
+        "AddRF2AAChiralFeatures",
+        "CropContiguousLikeAF3",
+        "CropSpatialLikeAF3",
+    ]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
@@ -586,8 +590,11 @@ class GetChiralCentersFromOpenBabel(Transform):
         # ]
     """
 
-    requires_previous_transforms = ["AddOpenBabelMoleculesForAtomizedMolecules", "AtomizeByCCDName"]
-    incompatible_previous_transforms = ["AddRF2AAChiralFeatures"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
+        "AddOpenBabelMoleculesForAtomizedMolecules",
+        "AtomizeByCCDName",
+    ]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["AddRF2AAChiralFeatures"]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array", "openbabel"])

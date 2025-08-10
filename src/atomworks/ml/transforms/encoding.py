@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 import torch
 from biotite.structure import AtomArray
-from torch.nn import functional as F
+from torch.nn import functional as F  # noqa: N812
 
 from atomworks.io.common import KeyToIntMapper, exists
 from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER
@@ -196,7 +196,7 @@ def atom_array_from_encoding(
     token_is_atom: torch.Tensor | np.ndarray | None = None,
     **other_annotations: np.ndarray | None,
     # TODO: Allow passing a res_id
-):
+) -> AtomArray:
     """
     Create an AtomArray from encoded coordinates, mask, and sequence.
 

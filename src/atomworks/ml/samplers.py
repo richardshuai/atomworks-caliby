@@ -104,7 +104,7 @@ def calculate_af3_example_weights(df: pd.DataFrame, alphas: dict[str, float], be
     return weights
 
 
-def get_cluster_sizes(df: pd.DataFrame, cluster_column="cluster") -> dict:
+def get_cluster_sizes(df: pd.DataFrame, cluster_column: str = "cluster") -> dict[str, int]:
     """Generate a mapping between cluster alphanumeric IDs and the number of PN units/interfaces in each cluster.
 
     Args:
@@ -263,7 +263,7 @@ class DistributedMixedSampler(Sampler):
         self.dataset_lengths = [len(info["dataset"]) for info in datasets_info]  # ordered
 
         # Calculate cumulative lengths of datasets (so we can map local dataset indices to ConcatDataset indices)
-        self.cumulative_lengths = [0] + list(accumulate(add, self.dataset_lengths))  # ordered
+        self.cumulative_lengths = [0, *list(accumulate(add, self.dataset_lengths))]  # ordered
         # Remove the last element to match the other list shapes
         self.cumulative_lengths = self.cumulative_lengths[:-1]
 
@@ -396,7 +396,12 @@ class MixedSampler(DistributedMixedSampler):
         shuffle: Whether to shuffle the indices. If False, the iterator will return all sampled indices from the first dataset, then the second, etc.
     """
 
-    def __init__(self, datasets_info, n_examples_per_epoch=None, shuffle=True):
+    def __init__(
+        self,
+        datasets_info: list[dict[str, any]],
+        n_examples_per_epoch: int | None = None,
+        shuffle: bool = True,
+    ):
         super().__init__(
             datasets_info=datasets_info,
             num_replicas=1,
@@ -437,7 +442,7 @@ class LazyWeightedRandomSampler(WeightedRandomSampler):
         weights: Sequence[float],
         num_samples: int,
         replacement: bool = True,
-        generator=None,
+        generator: torch.Generator | None = None,
         prefetch_buffer_size: int = 1,
     ) -> None:
         assert replacement, "LazyWeightedRandomSampler only supports replacement=True".capitalize

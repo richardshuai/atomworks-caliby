@@ -69,7 +69,7 @@ def calculate_atomwise_rasa(
         atom_radii (str | np.ndarray, optional): Atom radii set to use for calculation. Defaults to "ProtOr". "ProtOr" will not get sasa's for hydrogen atoms and some other atoms, like ions or certain atoms with charges
         point_number (int, optional): Number of points in the Shrake-Rupley algorithm to sample for calculating SASA. Defaults to 100.
     """
-    DEFAULT_VDW_RADIUS = 1.8
+    default_vdw_radius = 1.8
     # 1) Calculate the SASA for each atom in the atom array
     try:
         sasa = calculate_atomwise_sasa(
@@ -93,10 +93,10 @@ def calculate_atomwise_rasa(
             vdw_radius = struc.info.radii.vdw_radius_protor(res_name, atom_name)
         except Exception:
             # if the residue name and atom name are not found, set vdw_radius to 1.8
-            vdw_radius = DEFAULT_VDW_RADIUS
+            vdw_radius = default_vdw_radius
         if vdw_radius is None:
             # if the vdw radius is None, set it to 1.8
-            vdw_radius = DEFAULT_VDW_RADIUS
+            vdw_radius = default_vdw_radius
         # calculate the extended conformation
         extended_conformation = 4 * np.pi * (vdw_radius + probe_radius) ** 2
         # set the extended conformation to the sasa

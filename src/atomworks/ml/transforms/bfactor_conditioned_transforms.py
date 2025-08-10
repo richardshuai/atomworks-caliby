@@ -21,8 +21,8 @@ class SetOccToZeroOnBfactor(Transform):
 
     def __init__(
         self,
-        bmin=None,
-        bmax=None,
+        bmin: float | None = None,
+        bmax: float | None = None,
     ):
         self.bmin = bmin
         self.bmax = bmax

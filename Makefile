@@ -22,7 +22,7 @@ clean:
 ## Format src directory using black
 format:
 	ruff format .
-	ruff check --fix .
+	ruff check --fix src tests 
 
 _check_conda:
 	@echo "... checking if conda/mamba is installed"

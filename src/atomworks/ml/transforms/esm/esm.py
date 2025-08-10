@@ -1,6 +1,7 @@
 import logging
 from os import PathLike
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
 import torch
@@ -282,7 +283,7 @@ class FillFullESMFromEncoded(Transform):
             - esm_is_padded_mask (np.array): A mask indicating whether a given position in the ESM is padded (1) or not (0).
     """
 
-    requires_previous_transforms = [AddWithinPolyResIdxAnnotation]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [AddWithinPolyResIdxAnnotation]
 
     def __init__(self, embedding_dim: int = 2560, pad_float: float = 0.0):
         self.EMBEDDING_DIM = embedding_dim

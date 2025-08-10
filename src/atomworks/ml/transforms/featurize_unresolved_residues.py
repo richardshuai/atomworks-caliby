@@ -4,7 +4,7 @@ Transforms to handle featurization of edge cases with unresolved residues.
 NOTE: Transforms that "filter" based on unresolved residues will be found in the "filters" file, not here.
 """
 
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 from biotite.structure import AtomArray
@@ -116,7 +116,7 @@ class MaskResiduesWithSpecificUnresolvedAtoms(Transform):
     This transform allows specification of which atoms to check for each chain type; for MPNN, we consider the backbone oxygen (O) as well.
     """
 
-    incompatible_previous_transforms = [
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
         "EncodeAtomArray",
         "CropContiguousLikeAF3",
         "CropSpatialLikeAF3",
@@ -149,7 +149,7 @@ class MaskPolymerResiduesWithUnresolvedFrameAtoms(Transform):
     This is a backwards-compatible wrapper around MaskResiduesWithSpecificUnresolvedAtoms.
     """
 
-    incompatible_previous_transforms = [
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
         "EncodeAtomArray",
         "CropContiguousLikeAF3",
         "CropSpatialLikeAF3",
@@ -271,13 +271,13 @@ class PlaceUnresolvedTokenOnClosestResolvedTokenInSequence(Transform):
         annotation_to_copy (str): The annotation to copy from the resolved atom to the unresolved atom.
     """
 
-    requires_previous_transforms = [
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
         "AtomizeByCCDName",
         "PlaceUnresolvedTokenAtomsOnRepresentativeAtom",
     ]
 
     def __init__(
-        self, annotation_to_update: str = "coord_to_be_noised", annotation_to_copy="coord_to_be_noised"
+        self, annotation_to_update: str = "coord_to_be_noised", annotation_to_copy: str = "coord_to_be_noised"
     ) -> None:
         self.annotation_to_update = annotation_to_update
         self.annotation_to_copy = annotation_to_copy
@@ -377,7 +377,7 @@ class PlaceUnresolvedTokenAtomsOnRepresentativeAtom(Transform):
         or "coord_to_be_noised" (if we want to modify only the coordinates that will be noised).
     """
 
-    requires_previous_transforms = ["AtomizeByCCDName"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AtomizeByCCDName"]
 
     def __init__(self, annotation_to_update: str = "coord_to_be_noised") -> None:
         self.annotation_to_update = annotation_to_update

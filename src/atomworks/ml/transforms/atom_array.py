@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import logging
 from collections.abc import Callable, Iterator
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -328,7 +328,7 @@ class AddWithinPolyResIdxAnnotation(Transform):
 
     """
 
-    incompatible_previous_transforms = [
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
         "CropContiguousLikeAF3",
         "CropSpatialLikeAF3",
     ]  # cropping changes the residue indices
@@ -446,7 +446,7 @@ def add_protein_termini_annotation(atom_array: AtomArray) -> AtomArray:
 class AddProteinTerminiAnnotation(Transform):
     """Annotate protein termini (i.e. N- and C-terminus) for protein chains in the atom array."""
 
-    incompatible_previous_transforms = ["CropContiguousLikeAF3", "CropSpatialLikeAF3"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["CropContiguousLikeAF3", "CropSpatialLikeAF3"]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
@@ -482,7 +482,7 @@ class AddGlobalAtomIdAnnotation(Transform):
     Useful for keeping track of atoms after cropping, slicing or shuffling operations.
     """
 
-    incompatible_previous_transforms = ["AddGlobalAtomIdAnnotation"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["AddGlobalAtomIdAnnotation"]
 
     def __init__(self, allow_overwrite: bool = False):
         """
@@ -526,7 +526,7 @@ class AddGlobalTokenIdAnnotation(Transform):
     Useful for keeping track of tokens after cropping, slicing or shuffling operations.
     """
 
-    incompatible_previous_transforms = ["AddGlobalTokenIdAnnotation"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["AddGlobalTokenIdAnnotation"]
 
     def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, required=[], forbidden=["token_id"])
@@ -551,7 +551,7 @@ def add_global_res_id_annotation(atom_array: AtomArray) -> AtomArray:
 class AddGlobalResIdAnnotation(Transform):
     """Adds a global residue ID annotation to the atom array."""
 
-    incompatible_previous_transforms = ["AddGlobalResIdAnnotation"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["AddGlobalResIdAnnotation"]
 
     def check_input(self, data: dict) -> None:
         check_atom_array_annotation(data, ["res_id"])
@@ -567,7 +567,7 @@ class AddWithinChainInstanceResIdx(Transform):
     def check_input(self, data: dict[str, Any]) -> None:
         check_atom_array_annotation(data, ["chain_iid", "res_id", "res_name"])
 
-    def forward(self, data: dict[str, Any]):
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array = data["atom_array"]
 
         # ... get within-chain residue index
@@ -665,8 +665,12 @@ class SortLikeRF2AA(Transform):
         - (3) non-poly atoms of a free-floating pn-unit (free-floating ligands)
     """
 
-    requires_previous_transforms = ["AtomizeByCCDName"]
-    incompatible_previous_transforms = ["EncodeAtomArray", "CropSpatialLikeAF3", "CropContiguousLikeAF3"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AtomizeByCCDName"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
+        "EncodeAtomArray",
+        "CropSpatialLikeAF3",
+        "CropContiguousLikeAF3",
+    ]
 
     def check_input(self, data: dict) -> None:
         check_atom_array_annotation(
@@ -696,7 +700,11 @@ class SortPolyThenNonPoly(Transform):
             Defaults to True.
     """
 
-    incompatible_previous_transforms = ["EncodeAtomArray", "CropSpatialLikeAF3", "CropContiguousLikeAF3"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
+        "EncodeAtomArray",
+        "CropSpatialLikeAF3",
+        "CropContiguousLikeAF3",
+    ]
 
     def __init__(self, treat_atomized_as_non_poly: bool = True):
         self.treat_atomized_as_non_poly = treat_atomized_as_non_poly
@@ -744,7 +752,7 @@ def compute_atom_to_token_map(atom_array: AtomArray) -> dict:
 class ComputeAtomToTokenMap(Transform):
     """Add length `[n_atom]` array to the `feats` dictionary that indicates the `token_id` for each atom."""
 
-    requires_previous_transforms = ["AddGlobalTokenIdAnnotation"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AddGlobalTokenIdAnnotation"]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_atom_array_annotation(data, ["token_id"])

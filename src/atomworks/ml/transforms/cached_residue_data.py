@@ -3,7 +3,7 @@ import logging
 import pickle
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -18,10 +18,20 @@ from atomworks.ml.utils.io import get_sharded_file_path
 logger = logging.getLogger("atomworks.ml")
 
 
+def _load_pkl(path: Path) -> Any:
+    with open(path, "rb") as f:
+        return pickle.load(f)
+
+
+def _load_json(path: Path) -> Any:
+    with open(path) as f:
+        return json.load(f)
+
+
 FILE_LOADERS: dict[str, Callable[[Path], Any]] = {
     ".pt": lambda path: torch.load(path, map_location="cpu", weights_only=False),
-    ".pkl": lambda path: pickle.load(open(path, "rb")),
-    ".json": lambda path: json.load(open(path)),
+    ".pkl": _load_pkl,
+    ".json": _load_json,
 }
 
 
@@ -237,7 +247,10 @@ class RandomSubsampleCachedConformers(Transform):
         sample_with_replacement (bool): Whether to sample with replacement. Defaults to True.
     """
 
-    requires_previous_transforms = ["LoadCachedResidueLevelData", "AddGlobalResIdAnnotation"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
+        "LoadCachedResidueLevelData",
+        "AddGlobalResIdAnnotation",
+    ]
 
     def __init__(
         self,

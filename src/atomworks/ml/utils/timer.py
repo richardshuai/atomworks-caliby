@@ -16,7 +16,7 @@ from multiprocessing import Queue
 from typing import Any, Literal, Never
 
 
-def timeout(timeout: float | int | None = None, strategy: Literal["signal", "subprocess"] = "subprocess"):
+def timeout(timeout: float | int | None = None, strategy: Literal["signal", "subprocess"] = "subprocess") -> Callable:
     """
     Decorator to apply a timeout to a function.
 
@@ -88,9 +88,9 @@ def timeout_using_signal(timeout: float | int | None) -> Callable:
         Callable: A decorator function that can be applied to other functions to add timeout functionality.
     """
 
-    def decorate(func):
+    def decorate(func: Callable) -> Callable:
         @wraps(func)
-        def wrapped_func(*args, **kwargs):
+        def wrapped_func(*args, **kwargs):  # noqa: ANN202
             _start_time = time.time()
 
             def _timeout_handler(*_) -> Never:
@@ -144,9 +144,9 @@ def timeout_using_subprocess(timeout: float | int | None) -> Callable:
         ChildProcessException: If the child process dies unexpectedly.
     """
 
-    def decorator(func):
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapped_func(*args, **kwargs):
+        def wrapped_func(*args, **kwargs):  # noqa: ANN202
             # NOTE: 'fork' context is useful to speed up the timeout handling,
             #  as using 'spawn' instead will re-trigger imports that are needed to run the function
             #  and understand the context in which it is used in, which can be slow.
@@ -175,7 +175,7 @@ def timeout_using_subprocess(timeout: float | int | None) -> Callable:
                 #       and the main process is waiting for the result in the queue.
                 # See Issue(https://bugs.python.org/issue43805)
             except _queue.Empty:
-                raise ChildProcessError("Child process died unexpectedly")
+                raise ChildProcessError("Child process died unexpectedly")  # noqa: B904
 
             match status:
                 case _TimeoutHandlerStatus.SUCCESS:
@@ -211,7 +211,7 @@ class _AllowSubprocessForDeamonicProcess:
         if self.daemon_status_set:
             del self.conf["daemon"]
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, *args, **kwargs):
         if self.daemon_status_set:
             self.conf["daemon"] = self.daemon_status_value
 

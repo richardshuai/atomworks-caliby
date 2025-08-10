@@ -56,7 +56,7 @@ class MMSeqs2Config:
 
 def run_mmseqs2_clustering(
     input_fasta: str | PathLike,
-    clustering_config: MMSeqs2Config = MMSeqs2Config(),
+    clustering_config: MMSeqs2Config = MMSeqs2Config(),  # noqa: B008
     temp_dir: PathLike | str | None = None,
 ) -> pd.DataFrame:
     """Runs MMseqs2 clustering on the input FASTA file.
@@ -153,8 +153,8 @@ def cluster_all_sequences(
     output_col_prefix: str = "q_pn_unit_cluster",
     set_to_cluster_col: bool = False,
     output_path: str | None = None,
-    clustering_configs: list[MMSeqs2Config] = [MMSeqs2Config(), MMSeqs2Config(cluster_identity=1.0)],
-):
+    clustering_configs: list[MMSeqs2Config] = [MMSeqs2Config(), MMSeqs2Config(cluster_identity=1.0)],  # noqa: B008
+) -> pd.DataFrame:
     """Clusters input sequences from a DataFrame and merges the cluster information back into the DataFrame.
 
     This function performs the following steps:

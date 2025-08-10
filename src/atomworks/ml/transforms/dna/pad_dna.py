@@ -10,6 +10,7 @@ import tempfile
 from collections.abc import Iterable
 from functools import partial
 from os import PathLike
+from typing import Any, ClassVar
 
 import biotite.structure as struc
 import numpy as np
@@ -18,6 +19,7 @@ from biotite.structure.basepairs import _check_dssr_criteria, _get_proximate_res
 from biotite.structure.filter import filter_nucleotides
 from biotite.structure.residues import get_residue_masks, get_residue_starts_for
 
+from atomworks.io.constants import STANDARD_DNA
 from atomworks.io.transforms.atom_array import remove_nan_coords
 from atomworks.io.utils.io_utils import load_any
 from atomworks.io.utils.selection import ResIdxSlice
@@ -123,7 +125,9 @@ def _get_overhang_lengths(is_overhang: np.ndarray) -> np.ndarray:
 
 
 # reimplementation of biotite base_pairs
-def base_pairs(atom_array, min_atoms_per_base=3, unique=True, no_hbond_dist_cut=4.0):
+def base_pairs(
+    atom_array: AtomArray, min_atoms_per_base: int = 3, unique: bool = True, no_hbond_dist_cut: float = 4.0
+) -> np.ndarray:
     # Get the nucleotides for the given atom_array
     nucleotides_boolean = filter_nucleotides(atom_array)
 
@@ -237,7 +241,7 @@ class PadDNA(Transform):
     """
 
     # fmt: off
-    PDB_DNA_LENGTHS = dict(enumerate([
+    pdb_dna_lengths: ClassVar[dict[int, int]] = dict(enumerate([
         #1    #2    #3    #4    #5    #6    #7    #8    #9    #10
         0,    5,    53,   60,   342,  616,  764,  817,  797,  675, # 10
         1258, 971,  1713, 985,  795,  669,  1224, 464,  697,  363, # 20
@@ -344,7 +348,7 @@ class PadDNA(Transform):
 
         return target_array
 
-    def _get_random_padded_dna_sequence(self, n: int, seq: str):
+    def _get_random_padded_dna_sequence(self, n: int, seq: str) -> tuple[str, int]:
         """
         Adds random sequence padding to a DNA sequence string.
         """
@@ -393,7 +397,7 @@ class PadDNA(Transform):
 
         if pad_choice == "pdb":
             # final length is sampled from distribution of DNA chains in pdb, excluding those smaller than the input
-            pad_dict = self.PDB_DNA_LENGTHS
+            pad_dict = self.pdb_dna_lengths
         elif pad_choice == "uniform":
             # final length is sampled uniformly between starting length and configurable maximum (default: 100)
             if len(completed_duplex_seq) > self.max_pad_tot:
@@ -456,22 +460,22 @@ class PadDNA(Transform):
         """
         # first, split atom_array into DNA and non-DNA parts
         is_dna_to_pad = (atom_array.chain_iid == dna_chain_ids[0]) | (atom_array.chain_iid == dna_chain_ids[1])
-        atom_array_nonDNA = atom_array[~is_dna_to_pad].copy()
+        atom_array_non_dna = atom_array[~is_dna_to_pad].copy()
         dna_array = atom_array[is_dna_to_pad].copy()
 
         # remove the overhanging DNA NTs, plus one additional NT on each terminus
-        rm_A_begin, rm_B_end, rm_A_end, rm_B_begin = [len(x) + 1 for x in overhangs]
+        rm_a_begin, rm_b_end, rm_a_end, rm_b_begin = [len(x) + 1 for x in overhangs]
 
-        array_A = dna_array[dna_array.chain_iid == dna_chain_ids[0]]
-        array_A = array_A[ResIdxSlice(rm_A_begin, -1 * rm_A_end)]
-        array_A_nanFree = remove_nan_coords(array_A)
+        array_a = dna_array[dna_array.chain_iid == dna_chain_ids[0]]
+        array_a = array_a[ResIdxSlice(rm_a_begin, -1 * rm_a_end)]
+        array_a_nan_free = remove_nan_coords(array_a)
 
-        array_B = dna_array[dna_array.chain_iid == dna_chain_ids[1]]
-        array_B = array_B[ResIdxSlice(rm_B_begin, -1 * rm_B_end)]
-        array_B_nanFree = remove_nan_coords(array_B)
+        array_b = dna_array[dna_array.chain_iid == dna_chain_ids[1]]
+        array_b = array_b[ResIdxSlice(rm_b_begin, -1 * rm_b_end)]
+        array_b_nan_free = remove_nan_coords(array_b)
 
         try:
-            assert struc.get_residue_count(array_A) == struc.get_residue_count(array_B)
+            assert struc.get_residue_count(array_a) == struc.get_residue_count(array_b)
         except AssertionError:
             logger.warning("PadDNA failed. PadDNA found mismatch between first and second DNA chains.")
             return None
@@ -484,19 +488,19 @@ class PadDNA(Transform):
             return None
 
         # correct or add in annotations like chain_id, pn_unit_id, etc. for the generated AtomArray
-        array_ideal_A = array_ideal[ResIdxSlice(None, len(new_seq))]
-        array_ideal_B = array_ideal[ResIdxSlice(-1 * len(new_seq), None)]
-        array_ideal_A = self._copy_annotations(target_array=array_ideal_A, source_array=array_A)
-        array_ideal_B = self._copy_annotations(target_array=array_ideal_B, source_array=array_B)
-        array_ideal = array_ideal_A + array_ideal_B
+        array_ideal_a = array_ideal[ResIdxSlice(None, len(new_seq))]
+        array_ideal_b = array_ideal[ResIdxSlice(-1 * len(new_seq), None)]
+        array_ideal_a = self._copy_annotations(target_array=array_ideal_a, source_array=array_a)
+        array_ideal_b = self._copy_annotations(target_array=array_ideal_b, source_array=array_b)
+        array_ideal = array_ideal_a + array_ideal_b
 
         # prepare for alignment
         # Collect short-named variables needed for indexing sections to align
-        n = struc.get_residue_count(array_A_nanFree)
+        n = struc.get_residue_count(array_a_nan_free)
         a = _randomly_select_items_with_weights(self.align_len_weights, 1)
         a = min(a, n)  # can't align more residues than there are in the structure
         o = len(new_seq)
-        r, u = rm_A_begin, rm_B_end
+        r, u = rm_a_begin, rm_b_end
         i = new_seq_idx + (r + u - 1)
         j = o - (i + n)
 
@@ -506,9 +510,9 @@ class PadDNA(Transform):
         # right-side alignment:(target) last `a` NTs of chain A and first `a` of chain B
         #                      (mobile) corresponding section of ideal, padded structure
 
-        tgt_array_left = array_A_nanFree[ResIdxSlice(None, a)] + array_B_nanFree[ResIdxSlice(-1 * a, None)]
+        tgt_array_left = array_a_nan_free[ResIdxSlice(None, a)] + array_b_nan_free[ResIdxSlice(-1 * a, None)]
 
-        tgt_array_right = array_A_nanFree[ResIdxSlice(-1 * a, None)] + array_B_nanFree[ResIdxSlice(None, a)]
+        tgt_array_right = array_a_nan_free[ResIdxSlice(-1 * a, None)] + array_b_nan_free[ResIdxSlice(None, a)]
 
         mbl_array_left = array_ideal[ResIdxSlice(i, i + a)] + array_ideal[ResIdxSlice(-1 * (i + a), -1 * i)]
 
@@ -517,7 +521,7 @@ class PadDNA(Transform):
         res_names = set()
         for array in (tgt_array_left, tgt_array_right, mbl_array_left, mbl_array_right):
             res_names.update(array.res_name)
-        noncanonical_res_names = res_names - {"DA", "DC", "DG", "DT"}
+        noncanonical_res_names = res_names - STANDARD_DNA
         if noncanonical_res_names:
             logger.warning("PadDNA failed. PadDNA found a noncanonical nucleotide at the padding junction.")
             return None
@@ -532,15 +536,15 @@ class PadDNA(Transform):
 
         # select components for the final hybrid structure
         component_first = left_aligned_ideal[ResIdxSlice(None, i)]
-        component_second = array_A
+        component_second = array_a
         component_third = right_aligned_ideal[ResIdxSlice(o - j, o)]
         component_fourth = right_aligned_ideal[ResIdxSlice(o, o + j)]
-        component_fifth = array_B
+        component_fifth = array_b
         component_sixth = left_aligned_ideal[ResIdxSlice(-1 * i, None)]
 
         # check for clash between newly generated DNA coords and the original non-DNA coords
         all_new_array = component_first + component_third + component_fourth + component_sixth
-        if is_clash(all_new_array, atom_array_nonDNA):
+        if is_clash(all_new_array, atom_array_non_dna):
             logger.warning(
                 "PadDNA failed. PadDNA found a clash between newly generated DNA coords and the original non-DNA coords."
             )
@@ -557,9 +561,9 @@ class PadDNA(Transform):
             component_first + component_second + component_third + component_fourth + component_fifth + component_sixth
         )
 
-        return atom_array_nonDNA + array_new_dna
+        return atom_array_non_dna + array_new_dna
 
-    def forward(self, data: dict):
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         if np.random.rand() < self.p_skip:
             return data
 

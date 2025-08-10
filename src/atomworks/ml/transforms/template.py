@@ -330,12 +330,8 @@ class AddRFTemplates(Transform):
         max_seq_similarity: float = 100.0,
         min_template_length: int = 0,
         filter_by_query_length: bool = False,
-        template_lookup_path: PathLike = os.environ.get(
-            "TEMPLATE_LOOKUP_PATH", "/projects/ml/TrRosetta/PDB-2021AUG02/list_v02.csv"
-        ),
-        template_base_dir: PathLike = os.environ.get(
-            "TEMPLATE_BASE_DIR", "/projects/ml/TrRosetta/PDB-2021AUG02/torch/hhr/"
-        ),
+        template_lookup_path: PathLike | None = None,
+        template_base_dir: PathLike | None = None,
     ):
         """
         Initialize the AddRFTemplates transform.
@@ -378,8 +374,8 @@ class AddRFTemplates(Transform):
         self.max_seq_similarity = max_seq_similarity
         self.min_template_length = min_template_length
         self.filter_by_query_length = filter_by_query_length
-        self.template_lookup_path = template_lookup_path
-        self.template_base_dir = template_base_dir
+        self.template_lookup_path = template_lookup_path or os.environ.get("TEMPLATE_LOOKUP_PATH")
+        self.template_base_dir = template_base_dir or os.environ.get("TEMPLATE_BASE_DIR")
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array", "chain_info"])
@@ -489,7 +485,7 @@ class FeaturizeTemplatesLikeRF2AA(Transform):
         AssertionError: If `init_coords` is a tensor and its dimensions do not match the expected shape.
     """
 
-    requires_previous_transforms = [AddRFTemplates, AddWithinPolyResIdxAnnotation]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [AddRFTemplates, AddWithinPolyResIdxAnnotation]
 
     def __init__(
         self,
@@ -707,7 +703,7 @@ def featurize_templates_like_af3(
     sequence_encoding: AF3SequenceEncoding,
     gap_token: str = "<G>",
     allowed_chain_type: list[ChainType] = [ChainType.POLYPEPTIDE_L, ChainType.RNA],
-    distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),  # in Angstrom
+    distogram_bins: torch.Tensor = torch.linspace(3.25, 50.75, 38),  # in Angstrom # noqa: B008
 ) -> dict[str, torch.Tensor]:
     """
     Generate AF3 template features for a given (cropped) atom array and the corresponding templates.
@@ -917,7 +913,7 @@ class FeaturizeTemplatesLikeAF3(Transform):
           https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-021-03819-2/MediaObjects/41586_2021_3819_MOESM1_ESM.pdf
     """
 
-    requires_previous_transforms = [
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
         "AddRFTemplates|AddInputFileTemplate",
         "AddWithinChainInstanceResIdx",
         "AddGlobalTokenIdAnnotation",
@@ -1044,7 +1040,7 @@ class OneHotTemplateRestype(Transform):
 
 def add_input_file_template(
     atom_array: AtomArray,
-):
+) -> dict[str, list[dict[str, Any]]]:
     template = defaultdict(list)
     for chain in chain_instance_iter(atom_array):
         # Check for allowable chain types
@@ -1085,7 +1081,7 @@ class AddInputFileTemplate(Transform):
     the template_selection_syntax argument in the inference script.
     """
 
-    def check_input(self, data):
+    def check_input(self, data: dict[str, Any]) -> None:
         check_atom_array_annotation(data, ["is_input_file_templated"])
         return super().check_input(data)
 

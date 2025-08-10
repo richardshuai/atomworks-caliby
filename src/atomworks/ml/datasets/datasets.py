@@ -347,7 +347,7 @@ class StructuralDatasetWrapper(BaseDataset):
         """Pass through the idx_to_id method of the wrapped dataset."""
         return self.dataset.idx_to_id(idx)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the wrapped dataset."""
         try:
             # `object.__getattribute__(self, "dataset")` bypasses the custom `__getattr__` and safely retrieves the attribute,
@@ -355,7 +355,7 @@ class StructuralDatasetWrapper(BaseDataset):
             dataset = object.__getattribute__(self, "dataset")
             return getattr(dataset, name)
         except AttributeError:
-            raise AttributeError(f"'{type(self).__name__}' object (or its wrapped dataset) has no attribute '{name}'")
+            raise AttributeError(f"'{type(self).__name__}' object (or its wrapped dataset) has no attribute '{name}'")  # noqa: B904
 
 
 class PandasDataset(BaseDataset):

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import numpy as np
 import scipy
 from biotite.structure import AtomArray
@@ -117,7 +119,7 @@ class AddTokenBondAdjacency(Transform):
         AssertionError: If the input data does not contain the required keys or types.
     """
 
-    requires_previous_transforms = [AtomizeByCCDName]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [AtomizeByCCDName]
 
     def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
@@ -170,7 +172,7 @@ class AddRF2AABondFeaturesMatrix(Transform):
     - Biotite documentation (https://www.biotite-python.org/apidoc/biotite.structure.BondType.html#biotite.structure.BondType)
     """
 
-    requires_previous_transforms = [AtomizeByCCDName, AddTokenBondAdjacency]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [AtomizeByCCDName, AddTokenBondAdjacency]
 
     def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["token_bond_adjacency", "atom_array"])
@@ -308,7 +310,7 @@ class AddAF3TokenBondFeatures(Transform):
             the computed boolean matrix.
     """
 
-    requires_previous_transforms = ["AtomizeByCCDName"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AtomizeByCCDName"]
 
     def __init__(self, distance_cutoff: float = 2.4):
         self.distance_cutoff = distance_cutoff

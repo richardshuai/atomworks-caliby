@@ -1,12 +1,13 @@
 """Transforms to handle the assignment of RF2AA's atom frames"""
 
-from typing import Any
+from typing import Any, ClassVar
 
 import networkx as nx
 import numpy as np
 import torch
 from biotite.structure import AtomArray
 
+from atomworks.ml.encoding_definitions import TokenEncoding
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
     check_contains_keys,
@@ -155,7 +156,9 @@ FRAME_PRIORITY_TO_ATOM = [
 ATOM_TO_FRAME_PRIORITY = {x: i for i, x in enumerate(FRAME_PRIORITY_TO_ATOM)}
 
 
-def find_all_paths_of_length_n(G: nx.Graph, n: int, order_independent_atom_frame_prioritization: bool = True) -> list:
+def find_all_paths_of_length_n(
+    graph: nx.Graph, n: int, order_independent_atom_frame_prioritization: bool = True
+) -> list:
     """
     Find all paths of a given length n in a NetworkX graph.
 
@@ -173,20 +176,27 @@ def find_all_paths_of_length_n(G: nx.Graph, n: int, order_independent_atom_frame
         https://stackoverflow.com/questions/28095646/finding-all-paths-walks-of-given-length-in-a-networkx-graph'''
     """
 
-    def findPaths(G: nx.Graph, u: Any, n: int):
+    def find_paths(graph: nx.Graph, u: Any, n: int) -> list[list[Any]]:
         """Find all paths of length n starting from node u in graph G."""
         if n == 0:
             return [[u]]
-        paths = [[u, *path] for neighbor in G.neighbors(u) for path in findPaths(G, neighbor, n - 1) if u not in path]
+        paths = [
+            [u, *path]
+            for neighbor in graph.neighbors(u)
+            for path in find_paths(graph, neighbor, n - 1)
+            if u not in path
+        ]
         return paths
 
     # All paths of length n
     if order_independent_atom_frame_prioritization:
         # Reverse paths if the first node is greater than the last node (which we later deduplicate with a set)
-        allpaths = [tuple(p) if p[0] < p[-1] else tuple(reversed(p)) for node in G for p in findPaths(G, node, n)]
+        allpaths = [
+            tuple(p) if p[0] < p[-1] else tuple(reversed(p)) for node in graph for p in find_paths(graph, node, n)
+        ]
     else:
         # If order_independent_frame_prioritization is False, do not reverse paths
-        allpaths = [tuple(p) for node in G for p in findPaths(G, node, n)]
+        allpaths = [tuple(p) for node in graph for p in find_paths(graph, node, n)]
 
     # Ensure paths are unique
     allpaths = list(set(allpaths))
@@ -195,8 +205,8 @@ def find_all_paths_of_length_n(G: nx.Graph, n: int, order_independent_atom_frame
 
 
 def get_rf2aa_atom_frames(
-    encoded_query_pn_unit: np.ndarray, G: nx.Graph, order_independent_atom_frame_prioritization: bool = True
-):
+    encoded_query_pn_unit: np.ndarray, graph: nx.Graph, order_independent_atom_frame_prioritization: bool = True
+) -> torch.Tensor:
     """
     Choose a frame of 3 bonded atoms for each atom in the molecule,
     using a rule-based system that prioritizes frames based on atom types.
@@ -213,7 +223,7 @@ def get_rf2aa_atom_frames(
         torch.Tensor: A tensor containing the selected frames for each atom.
     """
 
-    frames = find_all_paths_of_length_n(G, 2, order_independent_atom_frame_prioritization)
+    frames = find_all_paths_of_length_n(graph, 2, order_independent_atom_frame_prioritization)
     selected_frames = []
 
     for n in range(encoded_query_pn_unit.shape[0]):
@@ -263,17 +273,17 @@ class AddAtomFrames(Transform):
             Defaults to True.
     """
 
-    requires_previous_transforms = [AtomizeByCCDName, EncodeAtomArray]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [AtomizeByCCDName, EncodeAtomArray]
 
     def __init__(self, order_independent_atom_frame_prioritization: bool = True):
         self.order_independent_atom_frame_prioritization = order_independent_atom_frame_prioritization
 
-    def check_input(self, data) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["encoded", "atom_array"])
         check_is_instance(data, "atom_array", AtomArray)  # TODO: Add other checks
         check_atom_array_annotation(data, ["pn_unit_iid"])
 
-    def forward(self, data):
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array = data["atom_array"]
         token_starts = get_token_starts(atom_array)
         token_wise_atom_array = atom_array[token_starts]
@@ -291,11 +301,11 @@ class AddAtomFrames(Transform):
 
             # Generate the networkx graph for the pn_unit
             pn_unit_instance_bonds = token_wise_atom_array.bonds[token_level_pn_unit_mask]
-            G = pn_unit_instance_bonds.as_graph()
+            graph = pn_unit_instance_bonds.as_graph()
 
             # Get the frames
             pn_unit_instance_atom_frames = get_rf2aa_atom_frames(
-                seq[token_level_pn_unit_mask], G, self.order_independent_atom_frame_prioritization
+                seq[token_level_pn_unit_mask], graph, self.order_independent_atom_frame_prioritization
             )
 
             # Fill in the atom frames
@@ -321,16 +331,20 @@ class AddIsRealAtom(Transform):
         - 'is_real_atom': torch.Tensor of shape [I, 36] (bool)
     """
 
-    requires_previous_transforms = [ComputeAtomToTokenMap, RemoveTerminalOxygen, RemoveNucleicAcidTerminalOxygen]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
+        ComputeAtomToTokenMap,
+        RemoveTerminalOxygen,
+        RemoveNucleicAcidTerminalOxygen,
+    ]
 
-    def __init__(self, token_encoding):
+    def __init__(self, token_encoding: TokenEncoding):
         self.max_n_atoms = token_encoding.n_atoms_per_token
 
-    def check_input(self, data) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
 
-    def forward(self, data):
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         tok_idx = data["feats"]["atom_to_token_map"]
 
         is_real_atom = torch.zeros(tok_idx.max() + 1, self.max_n_atoms, dtype=torch.bool)
@@ -354,14 +368,11 @@ class AddPolymerFrameIndices(Transform):
         - 'frame_idxs': torch.Tensor of shape [I, 3] (long)
     """
 
-    def __init__(self):
-        pass
-
-    def check_input(self, data) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["feats", "atom_array"])
         check_is_instance(data, "atom_array", AtomArray)
 
-    def forward(self, data):
+    def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         # construct the masks
         atom_array = data["atom_array"]
         is_protein = data["feats"]["is_protein"]

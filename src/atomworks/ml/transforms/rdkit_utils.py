@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 import numpy as np
 from biotite.structure import AtomArray
@@ -172,7 +172,7 @@ def generate_conformers(
             params.maxIterations = attempts_with_random_coordinates
         successful_cids = rdDistGeom.EmbedMultipleConfs(mol, numConfs=int(n_conformers), params=params)
         if len(successful_cids) < n_conformers:
-            raise RuntimeError(
+            raise RuntimeError(  # noqa: B904
                 f"Requested {n_conformers} conformers, but only {mol.GetNumConformers()} were generated."
             )
 
@@ -186,10 +186,10 @@ def generate_conformers(
 @preserve_annotations
 def optimize_conformers(
     mol: Mol,
-    numThreads: int = 1,
-    maxIters: int = 200,
-    vdwThresh: float = 10.0,
-    ignoreInterfragInteractions: bool = True,
+    numThreads: int = 1,  # noqa: N803
+    maxIters: int = 200,  # noqa: N803
+    vdwThresh: float = 10.0,  # noqa: N803
+    ignoreInterfragInteractions: bool = True,  # noqa: N803
 ) -> Mol:
     """
     Optimize the conformers of an RDKit molecule.
@@ -554,8 +554,8 @@ class AddRDKitMoleculesForAtomizedMolecules(Transform):
         }
     """
 
-    requires_previous_transforms = ["AtomizeByCCDName"]
-    incompatible_previous_transforms = ["CropContiguousLikeAF3", "CropSpatialLikeAF3"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AtomizeByCCDName"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["CropContiguousLikeAF3", "CropSpatialLikeAF3"]
 
     def __init__(self, hydrogen_policy: Literal["infer", "remove", "keep"] = "keep"):
         self.hydrogen_policy = hydrogen_policy
@@ -644,7 +644,7 @@ class GenerateRDKitConformers(Transform):
         3
     """
 
-    requires_previous_transforms = ["AddRDKitMoleculesForAtomizedMolecules"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AddRDKitMoleculesForAtomizedMolecules"]
 
     def __init__(
         self, n_conformers: int = 1, optimize_conformers: bool = True, optimize_kwargs: dict[str, Any] | None = None
@@ -724,7 +724,7 @@ class GetRDKitChiralCenters(Transform):
             centers for each molecule.
     """
 
-    requires_previous_transforms = ["GetAF3ReferenceMoleculeFeatures"]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = ["GetAF3ReferenceMoleculeFeatures"]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["rdkit"])

@@ -22,8 +22,11 @@ class ExecutableError(Exception):
 
     pass
 
+class Executable:
+    ...
 
-def get_executable(name: str) -> "Executable":
+
+def get_executable(name: str) -> Executable:
     """
     Retrieves an initialized executable instance by name.
 
@@ -53,7 +56,7 @@ def list_executables() -> dict[str, str]:
     return {name: str(executable) for name, executable in _EXECUTABLES.items()}
 
 
-def _get_executable_from_cls(cls: object):
+def _get_executable_from_cls(cls: object) -> Executable | None:
     """
     Get the executable from the given class.
     """
@@ -65,7 +68,7 @@ def _get_executable_from_cls(cls: object):
     return None
 
 
-def get_name(bin_path: PathLike):
+def get_name(bin_path: PathLike) -> str:
     """
     Get the name of the executable at the given path.
     """

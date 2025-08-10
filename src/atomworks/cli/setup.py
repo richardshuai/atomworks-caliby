@@ -1,4 +1,5 @@
 """Setup utilities for AtomWorks."""
+# ruff: noqa: B008
 
 from __future__ import annotations
 
@@ -52,7 +53,7 @@ def _extract_tar_gz(archive_path: Path, dest_dir: Path) -> None:
         tar.extractall(path=dest_dir, filter="data")
 
 
-def _find_missing_mmCIFs(pdb_ids: Iterable[str], mirror_root: Path) -> list[str]:
+def _find_missing_mmCIFs(pdb_ids: Iterable[str], mirror_root: Path) -> list[str]:  # noqa: N802
     """Return pdb_ids whose corresponding mmCIF files are missing under mirror_root."""
     missing: list[str] = []
     for pid in pdb_ids:

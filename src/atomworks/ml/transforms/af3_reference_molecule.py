@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 import biotite.structure as struc
 import numpy as np
@@ -530,7 +530,7 @@ def random_apply_ground_truth_conformer_by_chain_type(
     default_probability: float = 0.0,
     policy: GroundTruthConformerPolicy = GroundTruthConformerPolicy.REPLACE,
     is_unconditional: bool = False,
-):
+) -> AtomArray:
     """Apply ground truth conformer policy with configurable probabilities per chain type.
 
     Adds the `ground_truth_conformer_policy` annotation to the AtomArray if it does not already exist.
@@ -593,7 +593,7 @@ def random_apply_ground_truth_conformer_by_chain_type(
 class RandomApplyGroundTruthConformerByChainType(Transform):
     """Apply ground truth conformer policy with configurable probabilities per chain type."""
 
-    incompatible_previous_transforms = ["GetAF3ReferenceMoleculeFeatures"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["GetAF3ReferenceMoleculeFeatures"]
 
     def __init__(
         self,

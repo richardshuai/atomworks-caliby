@@ -1,5 +1,7 @@
 """Transforms to handle final feature aggregation prior to data loading"""
 
+from typing import ClassVar
+
 import numpy as np
 import torch
 from biotite.structure import AtomArray
@@ -66,7 +68,7 @@ class AggregateFeaturesLikeRF2AA(Transform):
     """
 
     # In theory, all of them, but we only list the top-level transforms since the rest are handled by the dependency tree
-    requires_previous_transforms = [
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
         FeaturizeMSALikeRF2AA,
         AddProteinTerminiAnnotation,
         AddRF2AABondFeaturesMatrix,
@@ -338,7 +340,7 @@ class AggregateFeaturesLikeRF2AA(Transform):
         data_outputs["same_chain"] = is_same_molecule_iid
         # NOTE: This is not a feature input to the network; only used for logging inter-molecule losses
 
-        ### PATCH
+        ### PATCH
         # To avoid the `KeyError` in RF2AA symmetry resolution in loss, we ensure that everything
         #  in the same chain comes from the same entity by updating ch_label
         ch_label = data_outputs["ch_label"]

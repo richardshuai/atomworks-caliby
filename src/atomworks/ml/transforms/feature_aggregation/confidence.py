@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -17,7 +17,7 @@ class PackageConfidenceFeats(Transform):
     - confidence_feats: Dict[str, torch.Tensor]
     """
 
-    requires_previous_transforms = [
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
         "EncodeAtomArray",
         "AddAtomFrames",
         "AddIsRealAtom",
@@ -37,7 +37,7 @@ class PackageConfidenceFeats(Transform):
         check_is_instance(data, "is_real_atom", torch.Tensor)
         check_is_instance(data, "pae_frame_idx_token_lvl_from_atom_lvl", torch.Tensor)
 
-    def forward(self, data, *args, **kwargs):
+    def forward(self, data: dict[str, Any], *args, **kwargs) -> dict[str, Any]:
         atom_array = data["atom_array"]
         rf2aa_atom_frames = data["rf2aa_atom_frames"]  # [n_tokens_across_chains, 3, 2] (int)
 

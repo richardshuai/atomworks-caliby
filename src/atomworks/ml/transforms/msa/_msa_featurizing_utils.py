@@ -115,7 +115,7 @@ def mask_msa_like_bert(
     full_msa_profile: torch.Tensor,
     encoded_msa: torch.Tensor,
     index_can_be_masked: torch.Tensor,
-):
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Implements the MSA masking procedure described in the AlphaFold2 supplement, section 1.2.7, with some modifications to handle paired MSAs and small molecules.
     Only applies mask to indices where `index_can_be_masked` is True.
@@ -293,7 +293,7 @@ def summarize_clusters(
     msa_is_padded_mask: torch.Tensor,  # [n_rows, n_tokens_across_chains] (bool)
     n_tokens: int,  # Number of relevant tokens when one-hot encoding the MSA
     eps: float = 1e-6,  # Small value to avoid division by zero
-):
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Summarizes extra MSA clusters (rows from the MSA that were not selected as cluster representatives) by calculating cluster profiles and insertion statistics.
     - Cluster profile: The average one-hot encoded representation of the tokens in the cluster (including the cluster representative), weighted by the number of valid (non-masked) residues at each position.

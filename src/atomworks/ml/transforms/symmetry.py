@@ -2,7 +2,7 @@ import itertools
 import logging
 import math
 from collections.abc import Hashable, Sequence
-from typing import Any
+from typing import Any, ClassVar
 
 import biotite.structure as struc
 import einops
@@ -279,7 +279,7 @@ def instance_to_token_lvl_isomorphisms(
     return token_lvl_isomorphisms
 
 
-def identify_isomorphic_chains_based_on_molecule_entity(atom_array: AtomArray):
+def identify_isomorphic_chains_based_on_molecule_entity(atom_array: AtomArray) -> dict[int | str, list[int | str]]:
     """
     Identifies isomorphic molecules based on the molecule entity annotation.
 
@@ -449,7 +449,7 @@ class CreateSymmetryCopyAxisLikeRF2AA(Transform):
         >>> #  - [n_permutations, n_crop_tokens, n_atoms_per_token]
     """
 
-    requires_previous_transforms = [
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [
         "SortLikeRF2AA",  # this transform assumes that all polymer tokens occur before non-polymer tokens
         "AddOpenBabelMoleculesForAtomizedMolecules",  # this transform needs openbabel molecules to identify automorphs in non-polys
         "EncodeAtomArray",  # this transform needs the encoded data as a sanity check
@@ -883,17 +883,17 @@ def generate_automorphisms_from_atom_array_with_networkx(
          [0, 2, 1]]  # Example output for a simple molecule like H2O
     """
     # ...convert the AtomArray to a NetworkX graph
-    G = atom_array.bonds.as_graph()
+    graph = atom_array.bonds.as_graph()
 
     if ignore_bond_type:
         # ...set all bond types to None (but preserve the edge existence)
-        nx.set_edge_attributes(G, None, "bond_type")
+        nx.set_edge_attributes(graph, None, "bond_type")
 
     # ...check if we're missing any atoms (e.g., disconnected ions within Heme groups)
-    if len(G.nodes) != len(atom_array):
+    if len(graph.nodes) != len(atom_array):
         for idx in range(len(atom_array)):
-            if idx not in G.nodes:
-                G.add_node(idx)
+            if idx not in graph.nodes:
+                graph.add_node(idx)
 
     # node_features must be a list; convert to list if it is a string
     if isinstance(node_features, str):
@@ -903,11 +903,13 @@ def generate_automorphisms_from_atom_array_with_networkx(
     # NOTE: Features must be present in the AtomArray annotations
     for feature in node_features:
         nx.set_node_attributes(
-            G, {idx: atom_array.get_annotation(feature)[idx] for idx in range(len(atom_array))}, feature
+            graph, {idx: atom_array.get_annotation(feature)[idx] for idx in range(len(atom_array))}, feature
         )
 
     # ...build the automorphism generator
-    matcher = iso.GraphMatcher(G, G, node_match=iso.categorical_node_match(node_features, [""] * len(node_features)))
+    matcher = iso.GraphMatcher(
+        graph, graph, node_match=iso.categorical_node_match(node_features, [""] * len(node_features))
+    )
     automorphism_generator = matcher.isomorphisms_iter()
 
     # List to store permutations; the first row is the identity permutation
@@ -1015,7 +1017,7 @@ class FindAutomorphismsWithNetworkX(Transform):
     Used in AF-3/AF-Multimer-style symmetry resolution
     """
 
-    requires_previous_transforms = [AtomizeByCCDName]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [AtomizeByCCDName]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])

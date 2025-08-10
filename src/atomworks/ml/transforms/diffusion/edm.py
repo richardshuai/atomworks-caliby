@@ -1,3 +1,5 @@
+from typing import Any, ClassVar
+
 import torch
 
 from atomworks.ml.transforms._checks import check_contains_keys
@@ -38,14 +40,14 @@ def sample_noise_edm(t: torch.Tensor, num_atoms: int) -> torch.Tensor:
 
 
 class SampleEDMNoise(Transform):
-    requires_previous_transforms = [BatchStructuresForDiffusionNoising]
+    requires_previous_transforms: ClassVar[list[str | Transform]] = [BatchStructuresForDiffusionNoising]
 
-    def __init__(self, sigma_data, diffusion_batch_size, **kwargs):
+    def __init__(self, sigma_data: float, diffusion_batch_size: int, **kwargs):
         super().__init__(**kwargs)
         self.sigma_data = sigma_data
         self.diffusion_batch_size = diffusion_batch_size
 
-    def check_input(self, data) -> None:
+    def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["coord_atom_lvl_to_be_noised"])
         assert (
             data["coord_atom_lvl_to_be_noised"].shape[0] == self.diffusion_batch_size

@@ -1,5 +1,6 @@
 import re
 import string
+from collections.abc import Iterable
 from os import PathLike
 from pathlib import Path
 
@@ -36,7 +37,7 @@ def parse_msa(
         raise ValueError(f"Unsupported MSA file extension: {filename.name}")
 
 
-def remove_header_from_msa_file(fstream):
+def remove_header_from_msa_file(fstream: Iterable[str]) -> Iterable[str]:
     """Skips lines in the file stream until the first line starting with '>'. Returns the rest of the lines."""
     for line in fstream:
         if line.startswith(">"):

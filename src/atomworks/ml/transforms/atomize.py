@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, ClassVar
 
 import biotite.structure as struc
 import numpy as np
@@ -21,7 +21,7 @@ class FlagNonPolymersForAtomization(Transform):
     outside of a polymer (e.g. an individual SER bonded to a sugar in `6w12`)
     """
 
-    incompatible_previous_transforms = ["AtomizeByCCDName"]
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["AtomizeByCCDName"]
 
     def check_input(self, data: dict[str, Any]) -> None:
         check_contains_keys(data, ["atom_array"])
@@ -138,7 +138,7 @@ class AtomizeByCCDName(Transform):
         ValueError: If some atoms in a residue are atomized and some are not.
     """
 
-    incompatible_previous_transforms = [
+    incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
         "AddTokenBondAdjacency",  # atomization changes the bond adjacency as some tokens are expaded into atoms
         "AddRF2AAChiralFeatures",  # chiral features depend on the atomized components since we need to calculate chirals for those
         "AddGlobalTokenIdAnnotation",  # atomization changes the token IDs

@@ -18,19 +18,19 @@ logger.setLevel(_log_level)
 warnings.filterwarnings("once", category=DeprecationWarning)
 
 # Apply monkey patching to extend AtomArray functionality
-from atomworks.biotite_patch import monkey_patch_biotite
+from atomworks.biotite_patch import monkey_patch_biotite  # noqa: E402
 
 monkey_patch_biotite()
 
 
 # Import version information
 # Import subpackages
-from . import io, ml
+from . import io, ml  # noqa: E402
 
 # Re-export key functionality from subpackages for convenience
 # This maintains backward compatibility and provides a clean top-level API
 # Key I/O functionality
-from .io.parser import parse
+from .io.parser import parse  # noqa: E402
 
 
 def _get_versioning(repo_path: str) -> str:

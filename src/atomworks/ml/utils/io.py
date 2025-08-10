@@ -104,7 +104,9 @@ def cache_based_on_subset_of_args(cache_keys: list[str], maxsize: int | None = N
     return decorator
 
 
-def cache_to_disk_as_pickle(cache_dir: PathLike | None = None, use_gzip: bool = True, directory_depth: int = 2):
+def cache_to_disk_as_pickle(
+    cache_dir: PathLike | None = None, use_gzip: bool = True, directory_depth: int = 2
+) -> Callable:
     """
     A decorator to cache the results of a function to disk as a pickle file.
 

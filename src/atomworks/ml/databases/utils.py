@@ -31,4 +31,4 @@ def _smart_cast(value: Any, dtype: type) -> Any:
     try:
         return dtype(value)
     except Exception:
-        raise ValueError(f"Could not cast value {value} to {dtype}")
+        raise ValueError(f"Could not cast value {value} to {dtype}")  # noqa: B904
