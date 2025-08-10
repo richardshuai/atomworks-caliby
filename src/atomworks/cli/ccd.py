@@ -1,3 +1,5 @@
+"""Command line interface for managing a local CCD mirror."""
+
 from __future__ import annotations
 
 import gzip

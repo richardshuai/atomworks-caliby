@@ -1,3 +1,5 @@
+"""Setup utilities for AtomWorks."""
+
 from __future__ import annotations
 
 import os
@@ -15,7 +17,7 @@ from .pdb import _collect_pdb_ids, _pdb_id_to_relpath, _rsync_fetch_specific, _r
 TEST_PACK_URL = "https://files.ipd.uw.edu/pub/atomworks/test_pack_latest.tar.gz"
 """The URL for the latest AtomWorks test pack. Should be untared in `tests/data/shared`."""
 
-app = typer.Typer(help="Setup utilities for AtomWorks")
+app = typer.Typer(help="Setup utilities for AtomWorks.")
 
 
 def _download_file(url: str, dest_path: Path) -> None:

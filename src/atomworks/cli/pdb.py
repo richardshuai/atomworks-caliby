@@ -1,3 +1,5 @@
+"""Command line interface for managing a local PDB mmCIF mirror."""
+
 from __future__ import annotations
 
 import os
