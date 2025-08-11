@@ -119,8 +119,7 @@ jobs:
           echo "Running tests with max $N_CPU CPUs"
           # Run the tests with coverage
           if [ "$N_CPU" -eq 1 ]; then
-            PDB_MIRROR_PATH=tests/data/pdb CCD_MIRROR_PATH=tests/data/ccd pytest -m "not benchmark and not slow" tests/io
-            PDB_MIRROR_PATH=tests/data/pdb CCD_MIRROR_PATH=tests/data/ccd pytest -m "not benchmark and slow" tests/io
+            PDB_MIRROR_PATH=tests/data/pdb CCD_MIRROR_PATH=tests/data/ccd pytest -m "not benchmark" tests/io
             PDB_MIRROR_PATH=tests/data/pdb CCD_MIRROR_PATH=tests/data/ccd pytest -m "not benchmark and not slow" tests/ml
             # NOTE: The slow tests below are currently skipped on github runners due to low memory.
             # PDB_MIRROR_PATH=tests/data/pdb CCD_MIRROR_PATH=tests/data/ccd pytest -m "not benchmark and slow" tests/ml
