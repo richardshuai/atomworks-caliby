@@ -77,9 +77,34 @@ def chem_comp_to_one_letter() -> dict[str, str]:
 
 @functools.cache
 def get_available_ccd_codes_in_mirror(ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH) -> frozenset[str]:
-    """Set of all CCD codes available in the local mirror."""
-    cif = pdbx.CIFFile.read(os.path.join(ccd_mirror_path, "components.cif"))
-    return frozenset(cif.keys())
+    """Set of all CCD codes available in the local mirror.
+
+    Only counts codes when they adhere to the CCD mirror layout (e.g. .../H/HEM/HEM.cif)
+    """
+    root = os.fspath(ccd_mirror_path)
+    codes: set[str] = set()
+
+    # NOTE: The below is an optimized file-system scan since this is run at every
+    with os.scandir(root) as level1:
+        for l1 in level1:
+            if not l1.is_dir(follow_symlinks=False):
+                continue
+            first_letter = l1.name
+            if len(first_letter) != 1:
+                continue
+
+            with os.scandir(l1.path) as level2:
+                for l2 in level2:
+                    if not l2.is_dir(follow_symlinks=False):
+                        continue
+                    code = l2.name
+                    if not code or code[0] != first_letter:
+                        continue
+
+                    expected = os.path.join(l2.path, f"{code}.cif")
+                    if os.path.isfile(expected):
+                        codes.add(code)
+    return frozenset(codes)
 
 
 @functools.cache
@@ -88,15 +113,16 @@ def get_available_ccd_codes_in_biotite() -> frozenset[str]:
     return frozenset(struc.info.ccd.get_ccd()["chem_comp"]["id"].as_array())
 
 
+@functools.cache
 def get_available_ccd_codes(ccd_mirror_path: os.PathLike | None = CCD_MIRROR_PATH) -> frozenset[str]:
     """Returns a frozenset of all CCD codes available.
 
     If a mirror path is provided, it will be used to check the local mirror first.
     Otherwise, Biotite's built-in CCD will be used.
     """
-    return (
-        get_available_ccd_codes_in_mirror(ccd_mirror_path) if ccd_mirror_path else get_available_ccd_codes_in_biotite()
-    )
+    mirror_codes = get_available_ccd_codes_in_mirror(ccd_mirror_path) if ccd_mirror_path else frozenset()
+    biotite_codes = get_available_ccd_codes_in_biotite()
+    return mirror_codes | biotite_codes
 
 
 def get_ccd_component_from_biotite(ccd_code: str, **parse_ccd_cif_kwargs) -> struc.AtomArray:

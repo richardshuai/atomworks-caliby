@@ -1,27 +1,14 @@
 """ML-specific test fixtures and utilities for atomworks.ml tests."""
 
 import os
-import shutil
-import tempfile
 from pathlib import Path
 
 import pandas as pd
 import pytest
 from dotenv import load_dotenv
 
-import atomworks.ml.databases.data_source_utils as ds_utils
 from atomworks.io.constants import AF3_EXCLUDED_LIGANDS_REGEX, _load_env_var
 from atomworks.io.tools.inference import SequenceComponent
-from atomworks.ml.databases.enums import (
-    BindingLabel,
-    ConfidenceLabel,
-    DataSourceType,
-    ExperimentType,
-    ProblemType,
-    StructureMethod,
-    StructureType,
-    TagType,
-)
 from atomworks.ml.datasets.datasets import ConcatDatasetWithID, PandasDataset, StructuralDatasetWrapper
 from atomworks.ml.datasets.parsers import (
     GenericDFParser,
@@ -49,15 +36,15 @@ def pytest_configure(config):
     # Construct path to .env file in the parent directory
     dotenv_path = os.path.join(current_dir, "../..", ".env")
 
-    # Check if the .env file exists
-    if not os.path.exists(dotenv_path):
-        raise pytest.UsageError(
-            f"ERROR: Required .env file not found at {dotenv_path}. "
-            f"Please create this file with the necessary environment variables."
-        )
-
     # Load the environment variables
     load_dotenv(dotenv_path)
+
+
+if not os.environ.get("PDB_MIRROR_PATH") or not os.path.exists(os.environ.get("PDB_MIRROR_PATH")):
+    raise pytest.UsageError(
+        "ERROR: Required PDB_MIRROR_PATH environment variable not set. "
+        "Please set this in the .env file or in your shell environment."
+    )
 
 
 ##########################################################################################
@@ -452,67 +439,3 @@ def chemical_components():
     Makes a list of dummy ChemicalComponent objects. These sequences don't mean anything
     """
     return [SequenceComponent(seq="KVFGRCELAAAMKRHGLD"), SequenceComponent(seq="QATNRNTDGSTDYGIL")]
-
-
-@pytest.fixture
-def bind_no_bind_measurement_fields_no_structure():
-    # Dummy values for all fields in the dataclass that obey the typing hints
-    # NOTE: Do not include atom_array arg here
-    dummy_args = {
-        # ======== REQUIRED FIELDS ========
-        "data_source_id": "testauthor_2024_tag1",
-        "target": "VEGFR2",
-        "binding_label": BindingLabel.BIND,
-        "label_confidence": ConfidenceLabel.CONFIDENT,
-        "partners": [["H", "L"], ["T"]],
-        # ======== OPTIONAL FIELDS ========
-        "target_chains": ["T"],
-        "binder_chains": ["H", "L"],
-        "fitness": 0.35,
-        "affinity": 0.5,
-        "affinity_std": 0.1,
-        "label_threshold": 10,
-        "pH": 7.4,
-        "temperature": 25.0,
-        "tag_type": TagType.BIOTIN,
-        "structure_method": StructureMethod.X_RAY,
-        "structure_type": StructureType.EXPERIMENTAL,
-        "measurement_description": "This is a test measurement",
-    }
-
-    return dummy_args
-
-
-@pytest.fixture
-def data_source_fields():
-    dummy_data_source_fields = {
-        "author": "testauthor",
-        "year": 2024,
-        "data_source_tag": "tag1",
-        "problem": ProblemType.PPI,
-        "data_source_type": DataSourceType.EXPERIMENT_IN_HOUSE,
-        # optional fields for data source
-        "experiment_type": ExperimentType.SPR,
-        "experiment_metadata": {"foo": "bar"},
-        "data_source_description": "This is a test data source",
-    }
-
-    return dummy_data_source_fields
-
-
-@pytest.fixture
-def bind_no_bind_measurement_data_source_fields(bind_no_bind_measurement_fields_no_structure, data_source_fields):
-    return bind_no_bind_measurement_fields_no_structure | data_source_fields
-
-
-@pytest.fixture
-def temp_data_source_db(monkeypatch):
-    # Create a temporary directory and CSV file
-    temp_dir = tempfile.mkdtemp()
-    temp_csv = os.path.join(temp_dir, "test_data_sources.csv")
-    # Patch the DATA_SOURCE_DB_PATH to point to our temp file
-    monkeypatch.setattr(ds_utils, "DATA_SOURCE_DB_PATH", temp_csv)
-    # Create the file if it doesn't exist
-    ds_utils.get_data_source_db(create_if_not_exists=True)
-    yield temp_csv
-    shutil.rmtree(temp_dir)

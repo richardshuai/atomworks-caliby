@@ -7,8 +7,6 @@
 # Set the project directory
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-# Set conda/mamba binary, mamba if available, conda otherwise
-CONDA_BINARY := $(shell command -v mamba || command -v conda)
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -24,60 +22,10 @@ format:
 	ruff format .
 	ruff check --fix src tests 
 
-_check_conda:
-	@echo "... checking if conda/mamba is installed"
-	@command -v $(CONDA_BINARY) >/dev/null 2>&1 || { \
-		echo "Error: Conda/mamba is not installed or not found in PATH" >&2; \
-		exit 1; \
-	}
-	@echo "... found conda executable: $(CONDA_BINARY)"
-
-## Create a Python virtual environment and install atomworks via pip
-env:
-	@echo "Creating Python virtual environment and installing atomworks"
-	python -m venv venv
-	@echo "Activating virtual environment and installing dependencies..."
-	@echo "Run: source venv/bin/activate && pip install -e '.[dev,all]'"
-	@echo "Or on Windows: venv\\Scripts\\activate && pip install -e '.[dev,all]'"
-
-## Create a new conda environment and install atomworks
-env_conda:
-	@echo "Creating atomworks conda environment: `atomworks`"
-
-	@$(MAKE) --no-print-directory _check_conda
-
-	$(CONDA_BINARY) env create -n atomworks --file environment.yaml
-	@echo "Environment created. Activate with: conda activate atomworks"
-	@echo "Then install atomworks with: pip install -e '.[dev,all]'"
-
 ## Install atomworks locally into the current environment
 install:
 	@echo "Installing atomworks with all dependencies"
-	pip install -e ".[dev,all]"
-
-## Build the apptainer image
-apptainer:
-	$(eval DATE := $(shell date +%Y-%m-%d))
-	$(eval IMAGE := atomworks_$(DATE).sif)
-	bash ./scripts/build_apptainer.sh && \
-	bash ./scripts/test_apptainer.sh $(IMAGE)
-
-## Run pytest on the latest IPD atomworks apptainer
-test_ipd:
-	source ./.ipd/setup.sh && \
-	OPENBLAS_NUM_THREADS=1 \
-	OMP_NUM_THREADS=1 \
-	apptainer exec ./.ipd/atomworks.sif \
-	pytest --cov=atomworks \
-		--cov-config=pyproject.toml \
-		--cov-report=term-missing \
-		--cov-report=html \
-		--cov-report=xml \
-		-n=auto \
-		--dist=load \
-		--maxprocesses=24 \
-		--max-worker-restart=4 \
-		tests/
+	pip install -e ".[dev,ml,openbabel]"
 
 ## Run pytest and generate coverage report
 test:

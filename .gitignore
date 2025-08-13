@@ -160,5 +160,5 @@ cython_debug/
 tests/test_outputs
 dev.py
 dev.ipynb
-version.py
+_version.py
 tinker/

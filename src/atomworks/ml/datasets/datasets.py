@@ -458,11 +458,12 @@ class PandasDataset(BaseDataset):
     def idx_to_id(self, idx: int | list[int]) -> str | np.ndarray:
         """Convert a local index to the corresponding example ID."""
         _return_single = False
-        if isinstance(idx, int):
+        if np.isscalar(idx) or (isinstance(idx, np.ndarray) and idx.shape == ()):
             _return_single = True
+            idx = idx.item() if isinstance(idx, np.ndarray) else idx
             idx = slice(idx, idx + 1)
         ids = self._data.iloc[idx].index.values
-        return ids if not _return_single else ids[0]
+        return ids[0] if _return_single else ids
 
     def _apply_filters(self, filters: list[str]) -> pd.DataFrame:
         """

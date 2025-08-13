@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import torch
 
+from tests.conftest import skip_if_on_github_runner
 from tests.ml.conftest import TEST_DIFFUSION_BATCH_SIZE
 
 
@@ -21,6 +22,7 @@ def dataset_config(request):
 
 
 @pytest.mark.slow
+@skip_if_on_github_runner
 @pytest.mark.parametrize("dataset_config", ["af3_pdb_dataset", "af3_af2fb_distillation_concat_dataset"], indirect=True)
 def test_satisfies_af3_dataloading_assumptions(dataset_config):
     """

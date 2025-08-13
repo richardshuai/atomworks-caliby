@@ -8,12 +8,15 @@ import operator
 import os
 import re
 import subprocess
+import tempfile
 from collections.abc import Iterable
 from pathlib import Path
 
 import typer
 
 PDB_ID_REGEX = re.compile(r"^[0-9a-zA-Z]{4}$")
+PDB_REMOTE = "rsync.wwpdb.org::ftp/data/structures/divided/mmCIF/"
+PDB_PORT = 33444
 
 
 def _normalize_pdb_id(pdb_id: str) -> str:
@@ -69,28 +72,46 @@ def _rsync_sync_full(remote_path: str, dest_path: Path, port: int | None) -> Non
 
 
 def _rsync_fetch_specific(remote_base: str, dest_path: Path, pdb_ids: Iterable[str], port: int | None) -> None:
-    """Fetch only specific PDB ids by rsync-ing their individual files.
+    """Fetch only specific PDB ids by rsync-ing their individual files in a single command.
 
-    Creates subdirectories under dest_path as needed and transfers each file.
+    Uses rsync's --files-from option with --relative to preserve directory structure
+    and fetch all files in one efficient operation.
     """
-    for pdb_id in pdb_ids:
-        rel = _pdb_id_to_relpath(pdb_id)
-        src = f"{remote_base}{rel.as_posix()}"
-        dest_subdir = dest_path / rel.parent
-        dest_subdir.mkdir(parents=True, exist_ok=True)
+    pdb_list = list(pdb_ids)  # Convert to list in case it's a generator
+    if not pdb_list:
+        return
+
+    # Create a temporary file with the list of relative paths to sync
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tmp_file:
+        for pdb_id in pdb_list:
+            rel = _pdb_id_to_relpath(pdb_id)
+            tmp_file.write(f"{rel.as_posix()}\n")
+        tmp_file_path = tmp_file.name
+
+    try:
+        # Ensure destination directory exists
+        dest_path.mkdir(parents=True, exist_ok=True)
+
         cmd = [
             "rsync",
             "-rltvz",
             "--stats",
             "--no-perms",
             "--chmod=ug=rwX,o=rX",
+            "--files-from",
+            tmp_file_path,
+            "--relative",
         ]
         if port is not None:
             cmd.extend(["--port", str(port)])
-        cmd.extend([src, str(dest_subdir)])
+        cmd.extend([remote_base, str(dest_path)])
+
         completed = subprocess.run(cmd, check=False)
         if completed.returncode != 0:
-            raise RuntimeError(f"rsync for {pdb_id} failed with exit code {completed.returncode}")
+            raise RuntimeError(f"rsync failed with exit code {completed.returncode}")
+    finally:
+        # Clean up the temporary file
+        Path(tmp_file_path).unlink(missing_ok=True)
 
 
 def _collect_pdb_ids(pdb_ids: list[str] | None, pdb_ids_file: Path | None) -> list[str]:
@@ -118,7 +139,9 @@ def _collect_pdb_ids(pdb_ids: list[str] | None, pdb_ids_file: Path | None) -> li
     return normalized
 
 
-app = typer.Typer(help="RCSB PDB mmCIF mirror utilities")
+app = typer.Typer(
+    help="RCSB PDB mmCIF mirror utilities. Allows you to synchronize a local copy of the RCSB PDB mmCIF archive."
+)
 
 
 @app.command("sync")
@@ -134,11 +157,11 @@ def sync_pdb(
         help="Destination directory to mirror PDB mmCIFs into.",
     ),
     remote: str = typer.Option(
-        "rsync.wwpdb.org::ftp/data/structures/divided/mmCIF/",
+        PDB_REMOTE,
         "--remote",
         help="Rsync remote base path for divided mmCIF tree.",
     ),
-    port: int = typer.Option(33444, "--port", help="Rsync server port for RCSB."),
+    port: int = typer.Option(PDB_PORT, "--port", help="Rsync server port for RCSB."),
     pdb_id: list[str] = typer.Option(
         None,
         "--pdb-id",
@@ -153,11 +176,6 @@ def sync_pdb(
         readable=True,
         resolve_path=True,
         help="Path to a file containing one PDB id per line.",
-    ),
-    write_env_hint: bool = typer.Option(
-        True,
-        "--write-env-hint/--no-write-env-hint",
-        help="Print a hint for setting PDB_MIRROR_PATH in your environment.",
     ),
 ) -> None:
     """Mirror the RCSB PDB mmCIF archive fully or for specific PDB ids.
@@ -203,9 +221,8 @@ def sync_pdb(
         fh.write(f"Sync command: {' '.join(cmd_repr)}\n")
         fh.write(f"Sync user: {os.getenv('USER') or os.getenv('USERNAME') or 'unknown'}\n")
 
-    if write_env_hint:
-        typer.echo("")
-        typer.echo(f"Set 'PDB_MIRROR_PATH={destination_path}' in your .env file")
-        typer.echo(f"  ... or run 'export PDB_MIRROR_PATH={destination_path}' in your shell")
-        typer.echo(f"  ... or add 'export PDB_MIRROR_PATH={destination_path}' to your shell profile.")
-        typer.echo("")
+    typer.echo("")
+    typer.echo(f"Set 'PDB_MIRROR_PATH={destination_path}' in your .env file")
+    typer.echo(f"  ... or run 'export PDB_MIRROR_PATH={destination_path}' in your shell")
+    typer.echo(f"  ... or add 'export PDB_MIRROR_PATH={destination_path}' to your shell profile.")
+    typer.echo("")

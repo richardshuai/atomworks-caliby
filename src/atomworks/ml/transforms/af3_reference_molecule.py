@@ -9,7 +9,7 @@ from biotite.structure import AtomArray
 from rdkit import Chem
 
 from atomworks.enums import GroundTruthConformerPolicy
-from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
+from atomworks.io.constants import CCD_MIRROR_PATH, ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
 from atomworks.io.tools.rdkit import atom_array_from_rdkit, remove_hydrogens
 from atomworks.io.utils.ccd import get_available_ccd_codes
 from atomworks.io.utils.selection import get_residue_starts
@@ -25,7 +25,7 @@ from atomworks.ml.utils.geometry import masked_center, random_rigid_augmentation
 logger = logging.getLogger("atomworks.ml")
 
 # UNL is a special CCD code for unknown ligands; we do not consider it "known" as it has no structure
-KNOWN_CCD_CODES = get_available_ccd_codes() - {UNKNOWN_LIGAND}
+KNOWN_CCD_CODES = get_available_ccd_codes(CCD_MIRROR_PATH) - {UNKNOWN_LIGAND}
 
 
 def _extract_cached_conformers(

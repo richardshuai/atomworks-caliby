@@ -9,6 +9,11 @@ import logging
 import os
 import warnings
 
+try:
+    from ._version import __version__
+except ImportError:
+    __version__ = "unknown"
+
 # Global logging configuration
 logger = logging.getLogger("atomworks")
 _log_level = os.environ.get("ATOMWORKS_LOG_LEVEL", "WARNING").upper()
@@ -31,46 +36,6 @@ from . import io, ml  # noqa: E402
 # This maintains backward compatibility and provides a clean top-level API
 # Key I/O functionality
 from .io.parser import parse  # noqa: E402
-
-
-def _get_versioning(repo_path: str) -> str:
-    """
-    Get the version string of the current git repository.
-
-    The returned version string will be of the form:
-        - <tag>[+dev{<commit_count>}.<commit_hash>][-dirty]
-
-    [+dev{<commit_count>}.<commit_hash>] is only present if there are commits since
-        the latest tag. The commit count is the number of commits between the latest
-        tag and the current HEAD commit. The commit hash is the first 7 characters
-        of the commit hash.
-    [-dirty] is only present if there are uncommitted changes.
-    """
-    os.environ["GIT_PYTHON_REFRESH"] = "silent"
-    import git
-
-    repo = git.Repo(repo_path, search_parent_directories=True)
-
-    # (1) Get latest tag
-    latest_tag = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)[-1]
-    version = str(latest_tag)
-
-    # (2) Check for commits since latest tag
-    if latest_tag.commit != repo.head.commit:
-        # Count commits between latest tag and HEAD
-        commit_count = len(list(repo.iter_commits(f"{latest_tag.commit}..HEAD")))
-        version += f"+dev{commit_count}.{repo.head.commit.hexsha[:7]}"
-
-    # (3) Check for uncommitted changes
-    if repo.is_dirty(untracked_files=True):
-        version += "-dirty"
-
-    return version
-
-
-# Import version information
-__version__ = _get_versioning(os.path.dirname(os.path.realpath(__file__)))
-assert __version__, "Failed to determine package version"
 
 __all__ = [
     "__version__",

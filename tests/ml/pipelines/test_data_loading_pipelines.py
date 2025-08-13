@@ -7,6 +7,7 @@ import pytest
 
 from atomworks.ml.datasets.datasets import get_row_and_index_by_example_id
 from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
+from tests.conftest import skip_if_on_github_runner
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ def identity_collate_fn(batch):
 
 @pytest.mark.parametrize("dataset_to_test_index", range(6))
 @pytest.mark.slow
+@skip_if_on_github_runner
 def test_data_loading_pipelines_with_random_examples(datasets_to_test, dataset_to_test_index):
     """Test random examples using a DataLoader with basic smoke tests."""
     dataset_to_test = datasets_to_test[dataset_to_test_index]

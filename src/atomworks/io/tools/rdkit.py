@@ -5,7 +5,6 @@ Tools for using RDKit with AtomArray objects.
 import copy
 import io
 import logging
-import os
 from collections import Counter
 from collections.abc import Callable
 from functools import cache, wraps
@@ -32,6 +31,7 @@ from atomworks.io.constants import (
     PDB_ISOTOPE_SYMBOL_TO_ELEMENT_SYMBOL,
     UNKNOWN_LIGAND,
 )
+from atomworks.io.utils.ccd import atom_array_from_ccd_code
 
 logger = logging.getLogger(__name__)
 
@@ -777,7 +777,7 @@ def atom_array_to_rdkit(
 def ccd_code_to_rdkit(
     ccd_code: str,
     *,
-    ccd_path: PathLike | None = CCD_MIRROR_PATH,
+    ccd_mirror_path: PathLike | None = CCD_MIRROR_PATH,
     hydrogen_policy: Literal["infer", "remove", "keep"] = "keep",
     **atom_array_to_rdkit_kwargs,
 ) -> Mol:
@@ -791,27 +791,16 @@ def ccd_code_to_rdkit(
 
     Args:
         ccd_code (str): The CCD code to convert. I.e, 'ALA', 'GLY', '9RH', etc.
-        ccd_path (PathLike): Path to the local CCD directory. If None, Biotite's internal CCD is used.
+        ccd_mirror_path (PathLike): Path to the local CCD directory. If None, Biotite's internal CCD is used.
         hydrogen_policy (Literal["infer", "remove", "keep"]): Whether to infer hydrogens in the RDKit molecule.
         **atom_array_to_rdkit_kwargs: Additional keyword arguments passed to the `atom_array_to_rdkit` function.
 
     Returns:
         Mol: The RDKit molecule corresponding to the given residue name.
     """
-    if not ccd_path:
-        # ... use Biotite's internal CCD (WARNING: may be outdated, depending on when you/your dependency
-        #    last computed your Biotite CCD)
-        residue = struc.info.residue(ccd_code, allow_missing_coord=True)
-    elif os.path.exists(ccd_path):
-        path = os.path.join(ccd_path, ccd_code[0], ccd_code, f"{ccd_code}.cif")
-        with open(path, encoding="utf-8") as file:
-            cif_file = struc.io.pdbx.CIFFile.read(file)
-        residue = struc.io.pdbx.get_component(cif_file, allow_missing_coord=True)
-    else:
-        raise FileNotFoundError(f"CCD directory not found: {ccd_path}")
-
+    atom_array = atom_array_from_ccd_code(ccd_code, ccd_mirror_path)
     mol = atom_array_to_rdkit(
-        residue,
+        atom_array,
         set_coord=True,  # ... coordinate needed for stereochemistry assignment
         hydrogen_policy=hydrogen_policy,  # ... hydrogens needed for stereochemistry assignment
         **atom_array_to_rdkit_kwargs,

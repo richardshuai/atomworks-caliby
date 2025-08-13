@@ -68,8 +68,12 @@ def generate_bform_dna(seq: str) -> AtomArray:
     with tempfile.NamedTemporaryFile(suffix=".pdb") as tmp_file:
         tmp_pdb_path = pathlib.Path(tmp_file.name)
 
-        x3dna_cmd = f"{X3DNAFiber.get_bin_path()} -b -seq={seq} {tmp_pdb_path}"
-        subprocess.Popen(x3dna_cmd.split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).communicate()
+        x3dna_cmd = [str(X3DNAFiber.get_bin_path()), "-b", f"-seq={seq}", str(tmp_pdb_path)]
+        result = subprocess.run(x3dna_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        if result.returncode != 0 or not tmp_pdb_path.exists() or tmp_pdb_path.stat().st_size == 0:
+            raise RuntimeError(
+                "Failed to generate B-form DNA using X3DNA 'fiber'. Ensure X3DNA is installed and PATH set."
+            )
 
         # load the generated structure and remove any potential nans
         atom_array = load_any(tmp_pdb_path, file_type="pdb", model=1)

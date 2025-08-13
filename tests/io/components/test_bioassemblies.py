@@ -44,7 +44,7 @@ def test_assembly_atom_coordinates(pdb_id: str):
         file,
         assembly_id="1",
         use_author_fields=False,
-        altloc="occupancy",
+        altloc="first",
         extra_fields=[
             "atom_id",
             "occupancy",

@@ -13,7 +13,7 @@ from pathlib import Path
 import typer
 from tqdm import tqdm
 
-from .pdb import _collect_pdb_ids, _pdb_id_to_relpath, _rsync_fetch_specific, _run_rsync_list
+from .pdb import PDB_PORT, PDB_REMOTE, _collect_pdb_ids, _pdb_id_to_relpath, _rsync_fetch_specific, _run_rsync_list
 
 TEST_PACK_URL = "https://files.ipd.uw.edu/pub/atomworks/test_pack_latest.tar.gz"
 """The URL for the latest AtomWorks test pack. Should be untared in `tests/data/shared`."""
@@ -66,23 +66,12 @@ def _find_missing_mmCIFs(pdb_ids: Iterable[str], mirror_root: Path) -> list[str]
 
 @app.command("tests")
 def setup_tests(
-    tests_shared_dir: Path = typer.Option(
-        Path("tests/data/shared"), "--tests-shared-dir", help="Where to extract the test pack."
-    ),
-    pdb_mirror_path: Path | None = typer.Option(
-        None,
-        "--pdb-mirror-path",
-        help="Root of the RCSB divided mmCIF mirror. Defaults to $PDB_MIRROR_PATH if unset.",
-    ),
-    remote: str = typer.Option(
-        "rsync.wwpdb.org::ftp/data/structures/divided/mmCIF/",
-        "--remote",
-        help="Rsync remote base path for divided mmCIF tree.",
-    ),
-    port: int = typer.Option(33444, "--port", help="Rsync server port for RCSB."),
+    tests_data_dir: Path = typer.Option(Path("tests/data"), "--tests-data-dir", help="Where to extract the test pack."),
     keep_archive: bool = typer.Option(False, "--keep-archive", help="Keep downloaded test pack archive."),
 ) -> None:
     """Download the test pack and ensure required PDB mmCIFs are present in the mirror.
+
+    NOTE: It's expected that you run this command from the root of the repository.
 
     Steps:
     1) Download and extract the AtomWorks test pack into `tests/data/shared` (by default).
@@ -95,38 +84,26 @@ def setup_tests(
     typer.echo("Setting up AtomWorks test environment...")
 
     # Resolve PDB mirror path
-    if pdb_mirror_path is None:
-        env_path = os.getenv("PDB_MIRROR_PATH")
-        if env_path:
-            pdb_mirror_path = Path(env_path)
-        else:
-            typer.secho(
-                "No PDB mirror path provided and $PDB_MIRROR_PATH is not set. "
-                "Use --pdb-mirror-path or set the environment variable.",
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(code=2)
-    pdb_mirror_path.mkdir(parents=True, exist_ok=True)
-    typer.echo(f"Using PDB mirror path: {pdb_mirror_path}")
+    pdb_mirror_path = Path(os.getenv("PDB_MIRROR_PATH") or tests_data_dir / "pdb")
 
     # Download and extract test pack
-    tests_shared_dir.mkdir(parents=True, exist_ok=True)
+    tests_data_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmpdir:
         archive_path = Path(tmpdir) / "test_pack_latest.tar.gz"
         typer.echo(f"Downloading test pack from {TEST_PACK_URL} ...")
         _download_file(TEST_PACK_URL, archive_path)
         typer.secho("Download complete", fg=typer.colors.GREEN)
 
-        typer.echo(f"Extracting test pack into {tests_shared_dir} ...")
-        _extract_tar_gz(archive_path, tests_shared_dir)
+        typer.echo(f"Extracting test pack into {tests_data_dir} ...")
+        _extract_tar_gz(archive_path, tests_data_dir)
         typer.secho("Extraction complete", fg=typer.colors.GREEN)
 
         if keep_archive:
-            keep_path = tests_shared_dir / archive_path.name
+            keep_path = tests_data_dir / archive_path.name
             keep_path.write_bytes(archive_path.read_bytes())
 
     # Read PDB IDs from the test pack
-    ids_file = tests_shared_dir / "test_pdb_ids.txt"
+    ids_file = tests_data_dir / "shared" / "test_pdb_ids.txt"
     if not ids_file.is_file():
         typer.secho(f"Missing PDB id list: {ids_file}", fg=typer.colors.RED)
         raise typer.Exit(code=3)
@@ -139,7 +116,7 @@ def setup_tests(
     missing = _find_missing_mmCIFs(ids, pdb_mirror_path)
     if missing:
         typer.echo(f"{len(missing)} PDB ids are missing from the mirror; testing rsync connectivity...")
-        ok, output = _run_rsync_list(remote, port)
+        ok, output = _run_rsync_list(PDB_REMOTE, PDB_PORT)
         if not ok:
             typer.secho("Connection test failed", fg=typer.colors.RED)
             typer.echo("Error output:")
@@ -148,9 +125,10 @@ def setup_tests(
         typer.secho("Connection test successful", fg=typer.colors.GREEN)
 
         typer.echo("Fetching missing PDB mmCIFs via rsync...")
-        _rsync_fetch_specific(remote, pdb_mirror_path, missing, port)
+        _rsync_fetch_specific(PDB_REMOTE, pdb_mirror_path, missing, PDB_PORT)
         typer.secho("PDB sync complete", fg=typer.colors.GREEN)
     else:
         typer.secho("All required PDB mmCIFs are already present", fg=typer.colors.GREEN)
 
     typer.secho("Test setup completed successfully!", fg=typer.colors.GREEN)
+    typer.secho("To run tests use: PDB_MIRROR_PATH=tests/data/pdb pytest -n auto tests")

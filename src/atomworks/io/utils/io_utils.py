@@ -26,6 +26,7 @@ from atomworks.io.common import exists
 from atomworks.io.constants import ATOMIC_NUMBER_TO_ELEMENT, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from atomworks.io.template import add_inter_residue_bonds
 from atomworks.io.transforms.categories import category_to_dict
+from atomworks.io.utils.selection import get_annotation
 from atomworks.io.utils.sequence import get_1_from_3_letter_code
 from atomworks.io.utils.testing import has_ambiguous_annotation_set
 
@@ -182,7 +183,7 @@ def get_structure(
     extra_fields: list[str] | Literal["all"] = [],
     include_bonds: bool = True,
     model: int | None = None,
-    altloc: Literal["first", "occupancy", "all"] = "occupancy",
+    altloc: Literal["first", "occupancy", "all"] | str = "first",
     add_bond_types_from_struct_conn: list[str] = ["covale"],
     fix_bond_types: bool = True,
 ) -> AtomArrayStack | AtomArray:
@@ -197,6 +198,8 @@ def get_structure(
             where spurious bonds are added due to uninformative label_seq_ids.
         - model (int): The model number to use for loading the structure.
         - altloc (Literal["first", "occupancy", "all"]): The altloc ID to use for loading the structure.
+            If a string is provided, it will be used as the altloc ID to filter the structure by and it is assumed
+            that that altloc ID is present in the file. If it is not present, an error will be raised.
         - add_bond_types_from_struct_conn (list, optional): A list of bond types to add to the structure
             from the `struct_conn` category. Defaults to `["covale"]`. This means that we will only
             add covalent bonds to the structure (excluding metal coordination and disulfide bonds).
@@ -208,6 +211,7 @@ def get_structure(
     Reference:
         Biotite documentation (https://www.biotite-python.org/apidoc/biotite.structure.io.pdbx.get_structure.html#biotite.structure.io.pdbx.get_structure)
     """
+    tmp_altloc = altloc if altloc in {"first", "occupancy", "all"} else "all"
 
     match type(file_obj):
         case pdbx.CIFFile | pdbx.BinaryCIFFile | pdbx.CIFBlock:
@@ -227,13 +231,12 @@ def get_structure(
                 extra_fields = list(cif_block["atom_site"].keys())
             extra_fields = _filter_extra_fields(extra_fields, cif_block["atom_site"])
 
-            # load the structure from CIF
             atom_array_stack = pdbx.get_structure(
                 file_obj,
                 model=model,
                 extra_fields=extra_fields,
                 use_author_fields=False,
-                altloc="first" if "occupancy" not in extra_fields else altloc,
+                altloc="first" if "occupancy" not in extra_fields else tmp_altloc,
                 include_bonds=False,
             )
 
@@ -255,11 +258,24 @@ def get_structure(
                 file_obj,
                 model=model,
                 extra_fields=extra_fields,
-                altloc=altloc,
+                altloc=tmp_altloc,
                 include_bonds=include_bonds,  # PDB files contain only auth_seq_ids so the biotite issue does not arise
             )
         case _:
             raise ValueError(f"Unsupported file type: {type(file_obj)}. Must be a CIFFile, BinaryCIFFile, or PDBFile.")
+
+    # Filter down to specified altloc if requested
+    if altloc != tmp_altloc:
+        altloc_ids = get_annotation(atom_array_stack, "altloc_id", default=[])
+        existing_altloc_ids = np.unique(altloc_ids)
+        if altloc not in existing_altloc_ids:
+            raise ValueError(
+                f"Altloc ID '{altloc}' not found. "
+                f"Available altloc IDs: {existing_altloc_ids}. "
+                f"If you are using a PDB file, please ensure that the altloc ID is present in the file."
+            )
+        to_keep = np.isin(altloc_ids, [altloc, ".", "?"])  # always keep default altloc IDs
+        atom_array_stack = atom_array_stack[..., to_keep]
 
     return atom_array_stack
 

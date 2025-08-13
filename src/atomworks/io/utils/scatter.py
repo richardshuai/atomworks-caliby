@@ -3,15 +3,6 @@ from collections.abc import Callable
 import biotite.structure as struc
 import numpy as np
 
-try:
-    import numba
-
-    numba_compile = numba.njit(cache=True)
-except (ImportError, ModuleNotFoundError):
-
-    def numba_compile(x):  # noqa: ANN001, ANN201
-        return x
-
 
 # Group-wise operations (= non-contiguous or contiguous groups) ------------------------------
 def get_groups(*arrays: np.ndarray) -> np.ndarray:
@@ -79,7 +70,6 @@ def get_groups(*arrays: np.ndarray) -> np.ndarray:
     return group_indices
 
 
-@numba_compile
 def apply_group_wise(group: np.ndarray, data: np.ndarray, func: Callable) -> np.ndarray:
     """
     Apply a reduction function to data grouped by group indices.
@@ -115,7 +105,6 @@ def apply_group_wise(group: np.ndarray, data: np.ndarray, func: Callable) -> np.
     return apply_segment_wise(segments, data[sort_idx], func)
 
 
-@numba_compile
 def spread_group_wise(group: np.ndarray, data: np.ndarray) -> np.ndarray:
     """
     Spread aggregated group data back to original positions.
@@ -145,7 +134,6 @@ def spread_group_wise(group: np.ndarray, data: np.ndarray) -> np.ndarray:
     return data[inverse_indices]
 
 
-@numba_compile
 def apply_and_spread_group_wise(group: np.ndarray, data: np.ndarray, func: Callable) -> np.ndarray:
     """
     Apply a group-wise reduction and broadcast the result back to all original positions.
@@ -221,7 +209,6 @@ apply_segment_wise = struc.segments.apply_segment_wise
 spread_segment_wise = struc.segments.spread_segment_wise
 
 
-@numba_compile
 def apply_and_spread_segment_wise(segment: np.ndarray, data: np.ndarray, func: Callable) -> np.ndarray:
     """
     Apply a segment-wise reduction and broadcast the result back to all original positions.

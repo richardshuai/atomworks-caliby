@@ -1,5 +1,6 @@
 """Test fixtures and utilities for atomworks tests."""
 
+import gc
 import logging
 import os
 import pathlib
@@ -18,6 +19,16 @@ def _is_on_digs() -> bool:
 
 
 skip_if_not_on_digs = pytest.mark.skipif(not _is_on_digs(), reason="Test requires DIGS infrastructure")
+
+
+def _is_on_github_runner() -> bool:
+    return os.environ.get("GITHUB_ACTIONS", "false") == "true"
+
+
+skip_if_on_github_runner = pytest.mark.skipif(
+    _is_on_github_runner(),
+    reason="Temporarily deactivated on github runners due to memory constraints on the free plan.",
+)
 
 
 def _has_internet_connection() -> bool:
@@ -39,3 +50,10 @@ def _has_gpu() -> bool:
 
 
 skip_if_no_gpu = pytest.mark.skipif(not _has_gpu(), reason="Test requires a GPU")
+
+
+@pytest.fixture(autouse=True)
+def cleanup_memory():
+    """Force garbage collection after each test"""
+    yield
+    gc.collect()

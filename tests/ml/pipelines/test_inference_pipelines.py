@@ -14,9 +14,11 @@ from atomworks.io.utils.non_rcsb import initialize_chain_info_from_atom_array
 from atomworks.io.utils.testing import assert_same_atom_array
 from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
 from atomworks.ml.utils.testing import cached_parse
+from tests.conftest import skip_if_on_github_runner
 from tests.ml.conftest import PROTEIN_MSA_DIRS, RNA_MSA_DIRS, TEST_DATA_ML
 
 
+@skip_if_on_github_runner
 def test_af3_confidence_pipeline_from_chai_fasta():
     """Test the AF3 transformation pipeline with confidence feats.
 
@@ -55,6 +57,7 @@ def test_af3_confidence_pipeline_from_chai_fasta():
         ), f"Found NaN in feats: {feat_name=}, {feat=}"
 
 
+@skip_if_on_github_runner
 def test_af3_pipeline_from_chai_fasta():
     """Test the AF3 transformation pipeline with different configurations.
 
@@ -117,6 +120,7 @@ AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES = [
 ]
 
 
+@skip_if_on_github_runner
 @pytest.mark.parametrize("inference_components", AF3_PIPELINE_FROM_COMPONENTS_TEST_CASES)
 def test_af3_pipeline_from_sequence_and_smiles(inference_components):
     atom_array, initialized_components = components_to_atom_array(inference_components, return_components=True)
