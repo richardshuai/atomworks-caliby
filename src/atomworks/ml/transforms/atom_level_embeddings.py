@@ -182,6 +182,7 @@ class FeaturizeAtomLevelEmbeddings(Transform):
         cached_residue_level_data = data["cached_residue_level_data"]["residues"]
         residue_conformer_indices = data["residue_conformer_indices"]
 
+        mean = None
         std = None
         if data["cached_residue_level_data"].get("metadata"):
             std = data["cached_residue_level_data"]["metadata"].get("std")
