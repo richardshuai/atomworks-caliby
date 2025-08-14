@@ -33,16 +33,16 @@ skip_if_no_x3dna = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(autouse=True)
-def cleanup_x3dna_after_each_test():
+@pytest.fixture
+def cleanup_x3dna():
     """
-    Automatically reinitialize X3DNAFiber for each test to ensure test isolation.
+    Reinitialize X3DNAFiber for test isolation.
 
-    This is needed because pytest deletes the per-test environment variables, but the
-    X3DNA fiber executable signleton persists.
+    This fixture should be used only in tests that require X3DNA, to ensure the X3DNA fiber executable
+    singleton is reset and does not persist state between tests.
     """
     X3DNAFiber.reinitialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
-    X3DNAFiber._setup(os.path.join(X3DNA_PATH, "bin", "fiber"))  # Needed bc pytest deletes the per-test env variables
+    X3DNAFiber._setup(os.path.join(X3DNA_PATH, "bin", "fiber"))  # Needed because pytest deletes per-test env variables
     yield  # run test
     _EXECUTABLES.pop(X3DNAFiber.name, None)
     X3DNAFiber._is_initialized = False
@@ -59,7 +59,7 @@ def test_x3dna_manager_fail1():
 
 @pytest.mark.requires_x3dna
 @skip_if_no_x3dna
-def test_x3dna_manager():
+def test_x3dna_manager(cleanup_x3dna):
     """Test the X3DNA manager."""
     X3DNAFiber.get_or_initialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
     assert X3DNAFiber.get_bin_path()
@@ -75,7 +75,7 @@ def test_to_reverse_complement():
 
 @pytest.mark.requires_x3dna
 @skip_if_no_x3dna
-def test_generate_bform_dna():
+def test_generate_bform_dna(cleanup_x3dna):
     """Test that the bform DNA is generated correctly."""
     X3DNAFiber.get_or_initialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
     target_seq = "ATCG"
@@ -100,7 +100,7 @@ def test_generate_bform_dna():
 @pytest.mark.requires_x3dna
 @skip_if_no_x3dna
 @pytest.mark.parametrize("example_id", ["6w13"])
-def test_augment_pad_dna(example_id: str, np_seed: int = 1):
+def test_augment_pad_dna(example_id: str, cleanup_x3dna, np_seed: int = 1):
     data = cached_parse(example_id)
     pipe = PadDNA(
         x3dna_path=None,  # Use environment variable instead of directory path
