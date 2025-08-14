@@ -26,8 +26,7 @@ dependencies = [
     "cython>=3.0.0,<4", # Cython compiler for C extensions
     "cytoolz>=0.12.3,<1", # Cython-optimized tools for itertools and functional programming
     "tqdm>=4.65.0,<5", # Fast, extensible progress bar for loops and more
-    # ... CLI & config management
-    "fire>=0.6.0,<1", # Argument parsing (legacy)
+    # ... CLI
     "typer>=0.12.5,<1", # Modern CLI framework
     # ... linear algebra, maths & ml
     "numpy>=1.25.0,<2",  # TODO: Enable numpy 2.x
@@ -49,8 +48,8 @@ dependencies = [
 [project.optional-dependencies]
 ml = [
     # atomworks-ml dependencies
-    "torch==2.7.0",
-    "einops==0.7.0",
+    "torch>=2.2.0,<3",
+    "einops>=0.7.0,<1",
 ]
 
 openbabel = [
@@ -61,7 +60,6 @@ openbabel = [
 dev = [
     # Linters & formatters
     "ruff==0.8.3",
-    "pre-commit==3.7.1",
     # Debugger/interactive
     "debugpy>=1.8.5,<2",
     "ipykernel>=6.29.4,<7",
