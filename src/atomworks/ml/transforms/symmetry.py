@@ -18,9 +18,16 @@ from atomworks.ml.transforms._checks import check_atom_array_annotation, check_c
 from atomworks.ml.transforms.atomize import AtomizeByCCDName
 from atomworks.ml.transforms.base import Transform
 from atomworks.ml.transforms.encoding import atom_array_to_encoding
-from atomworks.ml.transforms.openbabel_utils import find_automorphisms
 from atomworks.ml.utils.io import cache_based_on_subset_of_args
 from atomworks.ml.utils.token import get_token_count, get_token_starts
+
+try:
+    from atomworks.ml.transforms.openbabel_utils import find_automorphisms
+except ImportError:
+
+    def find_automorphisms(atom_array: AtomArray) -> np.ndarray:
+        raise ImportError("OpenBabel is not installed. Please install it to use this function.")
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
