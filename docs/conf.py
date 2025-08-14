@@ -66,12 +66,12 @@ html_theme_options = {
     "header_links_before_dropdown": 8,
     "navbar_end": ["theme-switcher", "navbar-icon-links"],
     "logo": {
-        "image_light": "_static/atomworks_logo.png",
-        "image_dark": "_static/atomworks_logo.png",
+        "image_light": "_static/atomworks_logo_light.svg",
+        "image_dark": "_static/atomworks_logo_dark.svg",
     },
     "navbar_start": ["navbar-logo", "version-switcher"],
     "switcher": {
-        "json_url": "https://baker-laboratory.github.io/atomworks-dev/latest/_static/switcher.json",
+        "json_url": "https://baker-laboratory.github.io/atomworks/latest/_static/switcher.json",
         "version_match": switcher_version,
     },
     "favicons": [
@@ -93,5 +93,5 @@ sphinx_gallery_conf = {
     "gallery_dirs": "auto_examples",  # where to put the generated gallery
     "image_scrapers": ("matplotlib",),
     "thumbnail_size": (350, 350),
-    "default_thumb_file": "./_static/atomworks_logo.png",
+    "default_thumb_file": "./_static/atomworks_logo_dark.svg",
 }

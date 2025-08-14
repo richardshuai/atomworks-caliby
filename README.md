@@ -1,11 +1,10 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![PyPI version](https://img.shields.io/pypi/v/atomworks.svg)](https://pypi.org/project/atomworks/)
 [![Python versions](https://img.shields.io/pypi/pyversions/atomworks.svg)](https://pypi.org/project/atomworks/)
-[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://baker-laboratory.github.io/atomworks-dev/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://baker-laboratory.github.io/atomworks/latest)
+[![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-<img src="docs/_static/atomworks_logo.png" width="350" alt="atomworks logo">
+<img src="docs/_static/atomworks_logo_dark.svg" width="350" alt="atomworks logo">
 
 # atomworks
 
@@ -56,7 +55,7 @@ pip install "atomworks[ml,dev]" # with all dependencies
 
 ```
 
-For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest).
+For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://baker-laboratory.github.io/atomworks/latest).
 
 ---
 
@@ -80,7 +79,7 @@ Output includes:
 - **assemblies** — Built biological assemblies
 - **metadata** — Experimental and source information
 
-See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/auto_examples/).
+See [usage examples](https://baker-laboratory.github.io/atomworks/latest/auto_examples/).
 
 ---
 
@@ -101,7 +100,7 @@ See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/aut
 ## Contribution
 
 We welcome improvements!  
-Please see the [contributing guide](CONTRIBUTING.md) or [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest).
+Please see the [contributing guide](CONTRIBUTING.md) or [full documentation](https://baker-laboratory.github.io/atomworks/latest).
 
 ---
 
