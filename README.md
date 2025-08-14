@@ -99,11 +99,3 @@ See [usage examples](https://baker-laboratory.github.io/atomworks/latest/auto_ex
 
 We welcome improvements!  
 Please see the [contributing guide](CONTRIBUTING.md) or [full documentation](https://baker-laboratory.github.io/atomworks/latest).
-
----
-
-## License
-
-MIT License • Copyright (c) IPD, Baker Laboratory
-
----
