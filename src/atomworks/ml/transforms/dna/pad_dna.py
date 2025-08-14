@@ -525,7 +525,7 @@ class PadDNA(Transform):
         res_names = set()
         for array in (tgt_array_left, tgt_array_right, mbl_array_left, mbl_array_right):
             res_names.update(array.res_name)
-        noncanonical_res_names = res_names - STANDARD_DNA
+        noncanonical_res_names = res_names - set(STANDARD_DNA)
         if noncanonical_res_names:
             logger.warning("PadDNA failed. PadDNA found a noncanonical nucleotide at the padding junction.")
             return None

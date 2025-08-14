@@ -4,6 +4,7 @@ import biotite.structure as struc
 import numpy as np
 import pytest
 
+from atomworks.ml.executables import _EXECUTABLES
 from atomworks.ml.executables.x3dna import X3DNAFiber
 from atomworks.ml.transforms.dna.pad_dna import PadDNA, generate_bform_dna, to_reverse_complement
 from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
@@ -23,10 +24,28 @@ def _has_x3dna() -> bool:
     return False
 
 
+has_x3dna = _has_x3dna()
+
+
 skip_if_no_x3dna = pytest.mark.skipif(
-    not _has_x3dna(),
+    not has_x3dna,
     reason="X3DNA is not installed",
 )
+
+
+@pytest.fixture(autouse=True)
+def cleanup_x3dna_after_each_test():
+    """
+    Automatically reinitialize X3DNAFiber for each test to ensure test isolation.
+
+    This is needed because pytest deletes the per-test environment variables, but the
+    X3DNA fiber executable signleton persists.
+    """
+    X3DNAFiber.reinitialize(os.path.join(X3DNA_PATH, "bin", "fiber"))
+    X3DNAFiber._setup(os.path.join(X3DNA_PATH, "bin", "fiber"))  # Needed bc pytest deletes the per-test env variables
+    yield  # run test
+    _EXECUTABLES.pop(X3DNAFiber.name, None)
+    X3DNAFiber._is_initialized = False
 
 
 def test_x3dna_manager_fail1():

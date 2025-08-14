@@ -253,6 +253,7 @@ class Executable(ABC, metaclass=ExecutableMeta):
         """
         if cls._is_initialized:
             del _EXECUTABLES[cls.name]
+            cls._is_initialized = False
         return cls._do_initialize(bin_path, *args, **kwargs)
 
     @classmethod
