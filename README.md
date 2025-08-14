@@ -4,9 +4,7 @@
 [![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://baker-laboratory.github.io/atomworks/latest)
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-<img src="docs/_static/atomworks_logo_dark.svg" width="350" alt="atomworks logo">
-
-# atomworks
+<img src="docs/_static/atomworks_logo_color.svg" width="450" alt="atomworks logo">
 
 **atomworks** is an open-source platform for next-generation biomolecular data processing, conversion, and machine-learning-ready featurization.  
 It is composed of two symbiotic libraries:
