@@ -5,12 +5,14 @@ This package combines functionality from atomworks.io (I/O operations) and atomw
 into a unified interface for biological data processing and machine learning.
 """
 
+import importlib
+import importlib.metadata
 import logging
 import os
 import warnings
 
 try:
-    from ._version import __version__
+    __version__ = importlib.metadata.version("atomworks")
 except ImportError:
     __version__ = "unknown"
 

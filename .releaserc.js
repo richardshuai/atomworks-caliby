@@ -7,10 +7,10 @@ module.exports = {
         'semantic-release-pypi',
         {
           pypiPublish: true,
-          repoUrl: 'https://test.pypi.org/legacy/',
+          repoUrl: 'https://upload.pypi.org/legacy/',
           distDir: 'dist/',
           setupPy: false,
-          pypiToken: process.env.PYPI_TOKEN,
+          pypiToken: process.env.PYPI_TOKEN_PROD,
         }
       ],
       '@semantic-release/github',

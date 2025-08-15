@@ -52,8 +52,8 @@ jobs:
         id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-          PYPI_REPO_URL: https://test.pypi.org/legacy/
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN_PROD }}
+          PYPI_REPO_URL: https://upload.pypi.org/legacy/
         run: |
           npx semantic-release
           VERSION=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "no-version")

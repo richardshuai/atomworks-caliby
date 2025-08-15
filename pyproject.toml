@@ -1,7 +1,7 @@
 [project]
 name = "atomworks"
-dynamic = ["version"]
-description = "A research-oriented data toolkit for training biomolecular deep-learning foundation models."
+version = "1.0.0"
+description = "A research-oriented data toolkit for training biomolecular deep-learning foundation models"
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [
@@ -26,7 +26,8 @@ dependencies = [
     "cython>=3.0.0,<4", # Cython compiler for C extensions
     "cytoolz>=0.12.3,<1", # Cython-optimized tools for itertools and functional programming
     "tqdm>=4.65.0,<5", # Fast, extensible progress bar for loops and more
-    # ... CLI
+    # ... CLI & config management
+    "fire>=0.6.0,<1", # Argument parsing (legacy)
     "typer>=0.12.5,<1", # Modern CLI framework
     # ... linear algebra, maths & ml
     "numpy>=1.25.0,<2",  # TODO: Enable numpy 2.x
@@ -48,8 +49,8 @@ dependencies = [
 [project.optional-dependencies]
 ml = [
     # atomworks-ml dependencies
-    "torch>=2.2.0,<3",
-    "einops>=0.7.0,<1",
+    "torch==2.7.0",
+    "einops==0.7.0",
 ]
 
 openbabel = [
@@ -60,6 +61,7 @@ openbabel = [
 dev = [
     # Linters & formatters
     "ruff==0.8.3",
+    "pre-commit==3.7.1",
     # Debugger/interactive
     "debugpy>=1.8.5,<2",
     "ipykernel>=6.29.4,<7",
@@ -87,9 +89,9 @@ docs = ["atomworks[docs]"]
 openbabel = ["atomworks[openbabel]"]
 
 [project.urls]
-homepage = "https://baker-laboratory.github.io/atomworks/"
-repository = "https://github.com/baker-laboratory/atomworks"
-documentation = "https://baker-laboratory.github.io/atomworks/"
+homepage = "https://baker-laboratory.github.io/atomworks-dev/latest"
+repository = "https://github.com/RosettaCommons/atomworks"
+documentation = "https://baker-laboratory.github.io/atomworks-dev/latest"
 
 [project.scripts]
 atomworks = "atomworks.cli.__main__:main"
@@ -98,12 +100,6 @@ atomworks = "atomworks.cli.__main__:main"
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
-
-[tool.hatch.version]
-source = "vcs"
-
-[tool.hatch.build.hooks.vcs]
-version-file = "src/atomworks/_version.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true

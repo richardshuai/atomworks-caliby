@@ -1,7 +1,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![PyPI version](https://img.shields.io/pypi/v/atomworks.svg)](https://pypi.org/project/atomworks/)
 [![Python versions](https://img.shields.io/pypi/pyversions/atomworks.svg)](https://pypi.org/project/atomworks/)
-[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://baker-laboratory.github.io/atomworks/latest)
+[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://baker-laboratory.github.io/atomworks-dev/latest)
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 <img src="docs/_static/atomworks_logo_color.svg" width="450" alt="atomworks logo">
@@ -50,10 +50,15 @@ pip install atomworks # base installation version without torch (for only atomwo
 pip install "atomworks[ml]" # with torch and ML dependencies (for atomworks.io plus atomworks.ml)
 pip install "atomworks[dev]" # with development dependencies
 pip install "atomworks[ml,dev]" # with all dependencies
-
 ```
 
-For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://baker-laboratory.github.io/atomworks/latest).
+If you are using [uv](https://docs.astral.sh/uv/reference/policies/versioning/) for package management, you can install atomworks with:
+
+```
+ uv pip install "atomworks[ml,openbabel,dev]"
+```
+
+For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest).
 
 ---
 
@@ -77,7 +82,7 @@ Output includes:
 - **assemblies** — Built biological assemblies
 - **metadata** — Experimental and source information
 
-See [usage examples](https://baker-laboratory.github.io/atomworks/latest/auto_examples/).
+See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/auto_examples/).
 
 ---
 
@@ -98,4 +103,4 @@ See [usage examples](https://baker-laboratory.github.io/atomworks/latest/auto_ex
 ## Contribution
 
 We welcome improvements!  
-Please see the [contributing guide](CONTRIBUTING.md) or [full documentation](https://baker-laboratory.github.io/atomworks/latest).
+Please see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest) for contribution guidelines.
