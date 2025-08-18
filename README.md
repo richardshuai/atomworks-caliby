@@ -13,7 +13,7 @@ If you're looking for the models themselves (e.g., RF3, MPNN) that integrate wit
 AtomWorks is composed of two symbiotic libraries:
 
 - **atomworks.io:** A universal Python toolkit for parsing, cleaning, manipulating, and converting biological data (structures, sequences, small molecules). Built on the [biotite](https://www.biotite-python.org/) API, it seamlessly loads and exports between standard formats like mmCIF, PDB, FASTA, SMILES, MOL, and more.
-- **atomworks.ml:** Advanced dataset featurization and sampling for deep learning workflows that uses `atomworks.io` as its structural backbone. We provide a comprensive, pre-built and well-tested set of `Transforms` for common tasks that can be easily composed into full deep-learning pipelines; users may also create their own `Transforms` for custom operations.
+- **atomworks.ml:** Advanced dataset featurization and sampling for deep learning workflows that uses `atomworks.io` as its structural backbone. We provide a comprehensive, pre-built and well-tested set of `Transforms` for common tasks that can be easily composed into full deep-learning pipelines; users may also create their own `Transforms` for custom operations.
 
 For more detail on the motivation for and applications of AtomWorks, please see the [preprint](https://doi.org/10.1101/2025.08.14.670328). 
 
@@ -44,13 +44,13 @@ We have found `atomworks.io` to be useful to a general bioinformatics and protei
 - Scripts to pre-process the PDB or other databases into dataframes appropriate for network training
 - Efficient sampling and batching utilities for training machine learning models
 
-Within the AtomWorks paradigm, the output of each `Transofrm` is not an opaque dictionary with model-specific tensors but instead an updated version of our atom-level structural representation (Biotite's `AtomArray`). Operations within – and between – pipelines thus maintain a common vocabulary of inputs and outputs.
+Within the AtomWorks paradigm, the output of each `Transform` is not an opaque dictionary with model-specific tensors but instead an updated version of our atom-level structural representation (Biotite's `AtomArray`). Operations within – and between – pipelines thus maintain a common vocabulary of inputs and outputs.
 
 ---
 
 ## Installation
 
-```
+```shell
 pip install atomworks # base installation version without torch (for only atomworks.io)
 pip install "atomworks[ml]" # with torch and ML dependencies (for atomworks.io plus atomworks.ml)
 pip install "atomworks[dev]" # with development dependencies
@@ -59,8 +59,8 @@ pip install "atomworks[ml,dev]" # with all dependencies
 
 If you are using [uv](https://docs.astral.sh/uv/reference/policies/versioning/) for package management, you can install atomworks with:
 
-```
- uv pip install "atomworks[ml,openbabel,dev]"
+```shell
+uv pip install "atomworks[ml,openbabel,dev]"
 ```
 
 For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest).
@@ -69,7 +69,7 @@ For more advanced setup options (including how to run workflows via apptainers) 
 
 ## Quick Start
 
-```
+```python
 
 from atomworks.io.parser import parse
 
