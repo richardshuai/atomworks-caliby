@@ -11,7 +11,9 @@ def _smart_cast(value: Any, dtype: type) -> Any:
         isinstance(dtype, dict) or get_origin(dtype) == dict  # noqa: E721
     ):
         return json.loads(value)
-    elif get_origin(dtype) == Union or isinstance(dtype, UnionType):  # handle Optional and Union types (both old and new syntax)
+    elif get_origin(dtype) == Union or isinstance(
+        dtype, UnionType
+    ):  # handle Optional and Union types (both old and new syntax)
         for arg in get_args(dtype):
             try:
                 return _smart_cast(value, arg)
