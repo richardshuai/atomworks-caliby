@@ -46,6 +46,7 @@ pdb_path = pdb_dir / f"{example_pdb_id[1:3]}/{example_pdb_id}.cif.gz"
 if not pdb_path.exists():
     # If we haven't setup the test suite locally (which you can do with `atomworks setup tests`), load from RCSB directly
     from biotite.database import rcsb
+
     pdb_path = rcsb.fetch(example_pdb_id, "cif")
 
 # %% [markdown]
