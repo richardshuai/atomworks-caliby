@@ -163,6 +163,9 @@ def parse_a3m(
     fstream = remove_header_from_msa_file(open_file(filename))
 
     for index, line in enumerate(fstream):
+        line = line.replace('\x00','') # Files from the mmseq server may have stray null characters
+        if len(line) == 0:
+            continue
         # Extract taxonomy ID from the header line, but don't process like the rest of the MSA
         if line[0] == ">":
             if index == 0:
