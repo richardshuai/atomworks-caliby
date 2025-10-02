@@ -4,7 +4,7 @@ where we save data points as individual cif files with sequence, structure (opti
 and metadata desired for that data point.
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import MISSING, dataclass, field, fields
 from typing import Any
 
@@ -32,6 +32,7 @@ class DataObject(ABC):
     A base class for all data objects in a database.
     """
 
+    @abstractmethod
     def validate(self) -> None:
         """
         Override this method to add custom validation logic to your data object. I.e. if the field "name" is a string but cannot have any spaces
@@ -45,7 +46,6 @@ class DataObject(ABC):
         Returns:
             Raises a ValueError if the data object is not valid.
         """
-        pass
 
     def __post_init__(self):
         self.validate()
@@ -142,7 +142,7 @@ class BindNoBindMeasurement(DataObject):
     label_threshold: float | None = None
     expression_confidence: ExpressionConfidenceLabel | None = None
     folding_confidence: FoldingConfidenceLabel | None = None
-    pH: float | None = None
+    pH: float | None = None  # noqa: N815
     temperature: float | None = None
     tag_type: TagType | None = None
     structure_method: StructureMethod | None = None
@@ -163,12 +163,11 @@ class BindNoBindMeasurement(DataObject):
     experiment_metadata: dict[str, Any] | None = None
     data_source_description: str | None = None
 
-    def validate(self):
-        if self.affinity is not None:
-            if self.fitness is not None:
-                raise ValueError(
-                    "Please provide only one of affinity and fitness. If you have both make 2 separate experiments."
-                )
+    def validate(self) -> None:
+        if self.affinity is not None and self.fitness is not None:
+            raise ValueError(
+                "Please provide only one of affinity and fitness. If you have both make 2 separate experiments."
+            )
 
 
 @dataclass

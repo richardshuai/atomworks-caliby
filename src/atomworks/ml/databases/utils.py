@@ -32,5 +32,5 @@ def _smart_cast(value: Any, dtype: type) -> Any:
         return None  # cast to None if the value is nan
     try:
         return dtype(value)
-    except Exception:
-        raise ValueError(f"Could not cast value {value} to {dtype}")
+    except Exception as e:
+        raise ValueError(f"Could not cast value {value} to {dtype}") from e

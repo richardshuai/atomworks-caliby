@@ -93,7 +93,7 @@ def update_data_source(data_source: DataSource) -> None:
     data_source_db.to_csv(DATA_SOURCE_DB_PATH, index=False)
 
 
-def backup_db():
+def backup_db() -> None:
     """
     Create a time-stamped backup of the database
 
