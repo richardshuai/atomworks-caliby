@@ -2,6 +2,7 @@
 
 import numpy as np
 from biotite.structure import AtomArray
+from sympy.sets.sets import true
 
 from atomworks.constants import STANDARD_AA
 from atomworks.io.utils.atom_array import apply_and_spread
@@ -97,6 +98,7 @@ class NTerminus(ConditionBase):
     name = "n-terminus"
     n_body = 1
     level = Level.RESIDUE
+    is_mask = True
     dtype = bool
 
     @classmethod
@@ -117,6 +119,7 @@ class CTerminus(ConditionBase):
     name = "c-terminus"
     n_body = 1
     level = Level.RESIDUE
+    is_mask = true
     dtype = bool
 
     @classmethod

@@ -304,71 +304,37 @@ class ConditionBase(ABC, metaclass=ConditionMeta):
     def set_mask(
         cls,
         atom_array: AtomArray,
-        *args,
-        **mask_kwargs,
+        mask: np.ndarray | AnnotationList2D,
+        n_body: int | None = None,
+        level: Level | None = None,
     ) -> None:
-        """
-        Sets the mask for the condition on the AtomArray. Dynamically dispatches to the correct body order.
-
-        For 1-body conditions:
-            - Pass mask as positional argument: set_mask(atom_array, mask_array)
-            - Or as keyword argument: set_mask(atom_array, mask=mask_array)
-
-        For 2-body conditions:
-            - Pass AnnotationList2D as positional argument: set_mask(atom_array, annotation_list_2d)
-            - Or pass pairs and values as keyword arguments: set_mask(atom_array, pairs=pairs, values=values)
-        """
-        mask_name = cls.get_mask_name()
-
-        if cls.n_body == 1:
-            # ... handle correct argument logic
-            if len(args) == 0:
-                mask = mask_kwargs.pop("mask")  # biotite .set_annotation expects a single array argument
-            elif len(args) == 1:
-                mask = args[0]
-            else:
-                raise ValueError(f"Only one argument is allowed for 1-body conditions. Got {len(args)} arguments.")
-            assert len(mask_kwargs) == 0, "No keyword arguments are allowed for 1-body conditions."
-
+        """Sets the mask for the condition on the AtomArray."""
+        level, n_body = cls._resolve_level(level), cls._resolve_n_body(n_body)
+        mask_name = cls.get_mask_name(n_body, level)
+        if n_body == 1:
             if not np.issubdtype(mask.dtype, bool):
                 raise ValueError(f"Mask `{mask_name}` for `{cls.name}` must be a boolean array. Got {mask.dtype}.")
             atom_array.set_annotation(mask_name, mask)
-
-        elif cls.n_body == 2:
-            if not hasattr(atom_array, "_annot_2d"):
-                raise ValueError("AtomArray must have 2D annotations to set 2D mask.")
-
-            # ... handle correct argument logic
-            if len(args) == 1:
-                assert isinstance(args[0], AnnotationList2D), "Only AnnotationList2D is allowed for 2-body conditions."
-                pairs, values = args[0].pairs, args[0].values
-                mask_kwargs = {"pairs": pairs, "values": values}
-            elif len(args) == 0:
-                pass
-            else:
-                raise ValueError(f"Only one argument is allowed for 2-body conditions. Got {len(args)} arguments.")
-
-            # Extract pairs and values from kwargs
-            pairs = mask_kwargs.get("pairs")
-            values = mask_kwargs.get("values")
-
-            if pairs is None or values is None:
-                raise ValueError(f"Both 'pairs' and 'values' must be provided for 2-body mask `{mask_name}`.")
-
-            n_atoms = atom_array.array_length()
+        elif n_body == 2:
+            n_atoms = mask.n_atoms
+            pairs = mask.pairs
+            values = mask.values
+            if n_atoms != atom_array.array_length():
+                raise ValueError(
+                    f"Mask `{mask_name}` for `{cls.name}` must have {atom_array.array_length()} atoms. Got {n_atoms}."
+                )
             if len(pairs) and ((pairs.max() >= n_atoms) or (pairs.min() < 0)):
                 raise ValueError(
-                    f"Mask `{mask_name}` for `{cls.name}` must have pairs within the range [0, {n_atoms}). Got min={pairs.min()}, max={pairs.max()}."
+                    f"Mask `{mask_name}` for `{cls.name}` must have pairs within the range [0, {n_atoms}). Got min={min(pairs)}, max={max(pairs)}."
                 )
             if not np.issubdtype(pairs.dtype, np.integer):
                 raise ValueError(f"Mask `{mask_name}` for `{cls.name}` must have pairs as integers. Got {pairs.dtype}.")
             if not np.issubdtype(values.dtype, np.bool_):
-                raise ValueError(f"Mask `{mask_name}` for `{cls.name}` must be a boolean array. Got {values.dtype}.")
-
+                raise ValueError(f"Mask `{mask_name}` for `{cls.name}` must be a boolean array. Got {mask.dtype}.")
             atom_array.set_annotation_2d(mask_name, pairs, values)
         else:
             raise NotImplementedError(
-                f"Currently only 1-body and 2-body conditions are supported. Got {cls.n_body}-body condition."
+                f"Currently only 1-body and 2-body conditions are supported. Got {n_body}-body condition."
             )
 
     @classmethod
