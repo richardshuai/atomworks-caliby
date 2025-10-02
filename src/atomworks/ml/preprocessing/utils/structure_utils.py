@@ -13,9 +13,8 @@ import requests
 from biotite.structure import AtomArray, CellList
 from scipy.spatial.distance import cdist
 
-from atomworks.io.common import not_isin
-from atomworks.io.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, METAL_ELEMENTS
-from atomworks.ml.common import default
+from atomworks.common import default, not_isin
+from atomworks.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, METAL_ELEMENTS
 from atomworks.ml.preprocessing.constants import ClashSeverity
 
 logger = logging.getLogger("preprocess")
@@ -91,6 +90,8 @@ def get_atom_mask_from_cell_list(
     """
     Builds a mask indicating which atoms clash with the query PN unit. If the number of comparisons is too large,
     the computation is split into manageable chunks along the rows of `coord`.
+
+    TODO: Update documentation since this is not specific to PN units or clashes.
 
     Args:
         coord (ndarray): The coordinates of the query PN unit. Shape is (n, 3).
@@ -394,8 +395,8 @@ def get_ligand_validity_scores_from_pdb_id(pdb_id: str) -> list[dict[str, str | 
             residue name, chain ID, and entity ID. Can easily be converted to a pandas DataFrame for
             easier handling via `pd.DataFrame(records)`.
 
-    References:
-    - https://www.rcsb.org/docs/general-help/ligand-structure-quality-in-pdb-structures
+    Reference:
+        `RCSB Ligand Structure Quality Guide <https://www.rcsb.org/docs/general-help/ligand-structure-quality-in-pdb-structures>`_
     """
     pdb_graphql_url: Final[str] = "https://data.rcsb.org/graphql"
 

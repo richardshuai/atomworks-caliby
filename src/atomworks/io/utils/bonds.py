@@ -28,9 +28,8 @@ from biotite.structure.io.pdbx.convert import (
     _get_struct_conn_col_name,
 )
 
-from atomworks.enums import ChainType, ChainTypeInfo
-from atomworks.io.common import sum_string_arrays, to_hashable
-from atomworks.io.constants import (
+from atomworks.common import sum_string_arrays, to_hashable
+from atomworks.constants import (
     AA_LIKE_CHEM_TYPES,
     CHEM_TYPE_POLYMERIZATION_ATOMS,
     DEFAULT_VALENCE,
@@ -39,6 +38,7 @@ from atomworks.io.constants import (
     STRUCT_CONN_BOND_ORDER_TO_INT,
     STRUCT_CONN_BOND_TYPES,
 )
+from atomworks.enums import ChainType, ChainTypeInfo
 from atomworks.io.utils.ccd import get_chem_comp_leaving_atom_names, get_chem_comp_type
 from atomworks.io.utils.selection import get_annotation, get_residue_starts
 from atomworks.io.utils.testing import has_ambiguous_annotation_set
@@ -333,8 +333,8 @@ def get_struct_conn_bonds(
         bonds (np.array[[int, int, struc.BondType]]): A List of bonds to be added to the atom array.
         leaving (np.ndarray): An array of indices of atoms that are leaving groups for bookkeeping.
 
-    References:
-        - https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_struct_conn.conn_type_id.html
+    Reference:
+        `struct_conn.conn_type_id <https://mmcif.wwpdb.org/dictionaries/mmcif_pdbx_v50.dic/Items/_struct_conn.conn_type_id.html>`_
     """
     # ... validate input
     invalid_bond_types = set(add_bond_types) - STRUCT_CONN_BOND_TYPES
@@ -811,6 +811,8 @@ def spoof_struct_conn_dict_from_string(bonds: list[tuple[str, str]]) -> dict[str
     would be named "C1", the second "C2", and so on.
 
     NOTE: We only support covalent bonds.
+
+    TODO: Use AtomSelection to parse the bond strings
 
     Args:
         bonds (list[tuple[str, str]]): A list of bond strings.

@@ -1,5 +1,4 @@
-"""
-Transforms operating on Biotite's CIFBlock and CIFCategory objects.
+"""Transforms operating on Biotite's CIFBlock and CIFCategory objects.
 
 These transforms are used to extract information from the CIFBlock and return a dictionary containing processed information.
 """
@@ -17,9 +16,9 @@ import toolz
 from biotite.structure import AtomArray
 from biotite.structure.io.pdbx import CIFBlock
 
+from atomworks.common import exists
+from atomworks.constants import CCD_MIRROR_PATH
 from atomworks.enums import ChainType
-from atomworks.io.common import deduplicate_iterator, exists
-from atomworks.io.constants import CCD_MIRROR_PATH
 from atomworks.io.utils.selection import get_residue_starts
 from atomworks.io.utils.sequence import get_1_from_3_letter_code
 
@@ -27,12 +26,28 @@ logger = logging.getLogger("atomworks.io")
 
 
 def category_to_df(cif_block: CIFBlock, category: str) -> pd.DataFrame | None:
-    """Convert a CIF block to a pandas DataFrame."""
+    """Convert a CIF block to a pandas DataFrame.
+
+    Args:
+        cif_block: The CIF block to convert.
+        category: The category name to extract.
+
+    Returns:
+        DataFrame containing the category data, or None if category doesn't exist.
+    """
     return pd.DataFrame(category_to_dict(cif_block, category)) if category in cif_block else None
 
 
 def category_to_dict(cif_block: CIFBlock, category: str) -> dict[str, np.ndarray]:
-    """Convert a CIF block to a dictionary."""
+    """Convert a CIF block to a dictionary.
+
+    Args:
+        cif_block: The CIF block to convert.
+        category: The category name to extract.
+
+    Returns:
+        Dictionary containing the category data as numpy arrays.
+    """
     if exists(cif_block.get(category)):
         return toolz.valmap(lambda x: x.as_array(), dict(cif_block[category]))
     else:
@@ -253,7 +268,9 @@ def load_monomer_sequence_information_from_category(
 
     # Build up the chain_info_dict with the sequence information
     res_starts = get_residue_starts(atom_array)
-    for chain_id in deduplicate_iterator(struc.get_chains(atom_array)):
+    # ... get the unique chain IDs by order of first appearance in the AtomArray
+    chain_ids = dict.fromkeys(struc.get_chains(atom_array))
+    for chain_id in chain_ids:
         rcsb_entity = int(chain_info_dict[chain_id]["rcsb_entity"])
 
         if rcsb_entity in polymer_entity_id_to_res_names_and_ids:
@@ -301,7 +318,7 @@ def get_ligand_of_interest_info(cif_block: CIFBlock) -> dict:
     """Extract ligand of interest information from a CIF block.
 
     Reference:
-        - https://pdb101.rcsb.org/learn/guide-to-understanding-pdb-data/small-molecule-ligands
+        `PDB101 Small Molecule Ligands Guide <https://pdb101.rcsb.org/learn/guide-to-understanding-pdb-data/small-molecule-ligands>`_
     """
     # Extract binary flag for whether the ligand of interest is specified
     # NOTE: This is being used in addition to the below as it has slightly higher coverage across the PDB

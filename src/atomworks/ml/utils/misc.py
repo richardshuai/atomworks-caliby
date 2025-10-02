@@ -10,7 +10,7 @@ import pandas as pd
 import torch
 from einops import rearrange
 
-from atomworks.ml.common import default
+from atomworks.common import default
 from atomworks.ml.preprocessing.constants import NA_VALUES
 
 logger = logging.getLogger(__name__)
@@ -218,7 +218,7 @@ def masked_mean(
     tensor([3., 5.]) # float32
 
     Reference:
-    - AF2 Multimer Code (https://github.com/google-deepmind/alphafold/blob/f251de6613cb478207c732bf9627b1e853c99c2f/alphafold/model/utils.py#L79)
+        `AF2 Multimer Code <https://github.com/google-deepmind/alphafold/blob/f251de6613cb478207c732bf9627b1e853c99c2f/alphafold/model/utils.py#L79>`_
     """
 
     # Drop the last channel of the mask if specified

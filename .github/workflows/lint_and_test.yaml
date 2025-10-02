@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - dev
       - production
     paths:
       - 'src/**'
@@ -14,6 +13,7 @@ on:
     branches:
       - main
       - dev
+      - staging
       - production
     paths:
       - 'src/**'
@@ -29,12 +29,13 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
   
 jobs:
   lint:
-    name: ruff (check code style)
-    # NOTE: We use an ubuntu runner to not be dependent on possibly limited digs infra
-    #   for this tiny linting job. This means we can have many lint jobs accross repos in parallel.
+    name: ruff
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,23 +50,17 @@ jobs:
         run: pip install ruff==${{ env.RUFF_VERSION }}
       - name: ruff format (check code formatting)
         run: ruff format --diff
-      # - name: ruff check (lint code base)
-      #   run: ruff check
+      - name: ruff check (lint code base)
+        run: ruff check src tests
 
   test_digs:
-    name: pytest (run tests)
-    runs-on: [jojo]
+    name: pytest (jojo)
+    runs-on: [self-hosted]
     timeout-minutes: 30
     needs: lint
-    # ... only run on non-draft PRs to `main` to avoid unnecessary CI runs
-    # ... and only run on changed files in the `atomworks`, `tests`, or `scripts` directories
-    if: |
-      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
-      (github.event_name == 'pull_request_target' && github.event.action == 'ready_for_review')
     steps:
       - uses: actions/checkout@v4
       - name: Run tests
-        timeout-minutes: 30
         run: |
           export N_CPU=8
           srun --chdir=$PWD -p cpu -c $N_CPU -t 00:30:00 --mem=32G bash ./.github/ci/run_tests.sh
@@ -74,62 +69,3 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
-
-  test_github:
-    name: pytest (github)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: lint
-    steps:  
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      
-      - name: Install system dependencies
-        run: |
-          # Check if rsync is already installed
-          if ! command -v rsync &> /dev/null; then
-            echo "Installing rsync..."
-            sudo apt-get update
-            sudo apt-get install -y rsync
-          else
-            echo "rsync is already available"
-          fi
-      
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-      
-      - name: Install dependencies with uv
-        run: |
-          uv pip install -e ".[ml,openbabel,dev]" --system
-
-      - name: Setup test data
-        run: |
-          atomworks setup tests
-
-      - name: Run pytest with multiple cores
-        run: |
-          export OPENBLAS_NUM_THREADS=1
-          export OMP_NUM_THREADS=1
-          # Get number of CPUs available
-          N_CPU=$(nproc)
-          echo "Running tests with max $N_CPU CPUs"
-          # Run the tests with coverage
-          if [ "$N_CPU" -eq 1 ]; then
-            PDB_MIRROR_PATH=tests/data/pdb CCD_MIRROR_PATH=tests/data/ccd pytest -m "not benchmark" tests/io
-            PDB_MIRROR_PATH=tests/data/pdb CCD_MIRROR_PATH=tests/data/ccd pytest -m "not benchmark and not slow" tests/ml
-            # NOTE: The slow tests below are currently skipped on github runners due to low memory.
-            # PDB_MIRROR_PATH=tests/data/pdb CCD_MIRROR_PATH=tests/data/ccd pytest -m "not benchmark and slow" tests/ml
-          else
-            PDB_MIRROR_PATH=tests/data/pdb CCD_MIRROR_PATH=tests/data/ccd pytest -m "not benchmark" -n auto --maxprocesses=$N_CPU --dist=worksteal --cov=atomworks --cov-report=xml --cov-report=term --cov-report=term-missing tests/
-          fi
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-github
-          path: coverage.xml
-        if: always()

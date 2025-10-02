@@ -4,9 +4,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from atomworks.common import exists
+from atomworks.constants import AF3_EXCLUDED_LIGANDS, GAP, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
 from atomworks.enums import ChainType
-from atomworks.io.constants import AF3_EXCLUDED_LIGANDS, GAP, STANDARD_AA, STANDARD_DNA, STANDARD_RNA
-from atomworks.ml.common import exists
 from atomworks.ml.encoding_definitions import RF2AA_ATOM36_ENCODING, AF3SequenceEncoding
 from atomworks.ml.transforms.af3_reference_molecule import GetAF3ReferenceMoleculeFeatures
 from atomworks.ml.transforms.atom_array import (
@@ -161,9 +161,8 @@ def build_af3_transform_pipeline(
         The pipeline includes steps for processing the structure, adding annotations,
         and generating features required for AF3-like predictions.
 
-    References:
-        - AlphaFold 3 Supplementary Information.
-          https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf
+    Reference:
+        `AlphaFold 3 Supplementary Information <https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf>`_
     """
 
     if (crop_contiguous_probability > 0 or crop_spatial_probability > 0) and not is_inference:

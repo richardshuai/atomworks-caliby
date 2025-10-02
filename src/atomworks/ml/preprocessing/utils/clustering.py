@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from atomworks.ml.common import exists
+from atomworks.common import exists
 from atomworks.ml.preprocessing.constants import NA_VALUES
 from atomworks.ml.preprocessing.utils.fasta import create_fasta_file_from_df
 
@@ -77,9 +77,9 @@ def run_mmseqs2_clustering(
         afe56282ba3, 19f7ce1eed1
 
     References:
-        - PDB clustering approach: https://www.rcsb.org/docs/grouping-structures/sequence-based-clustering
-        - MMseqs2 documentation: https://github.com/soedinglab/mmseqs2/wiki
-        - CLI documentation for the `easy-cluster` command: `mmseqs easy-cluster -h`
+        `PDB clustering approach <https://www.rcsb.org/docs/grouping-structures/sequence-based-clustering>`_
+        `MMseqs2 documentation <https://github.com/soedinglab/mmseqs2/wiki>`_
+        CLI documentation for the `easy-cluster` command: `mmseqs easy-cluster -h`
     """
     # If input is a Path object, convert it to a string
     if isinstance(input_fasta, Path):

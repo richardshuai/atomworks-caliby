@@ -7,14 +7,14 @@ import numpy as np
 import pytest
 import torch
 
-from atomworks.enums import ChainType
-from atomworks.io import parse
-from atomworks.io.constants import (
+from atomworks.constants import (
     AF3_EXCLUDED_LIGANDS,
     GAP,
 )
+from atomworks.enums import ChainType
+from atomworks.io import parse
 from atomworks.io.utils.testing import assert_same_atom_array
-from atomworks.ml.datasets.parsers.base import DEFAULT_CIF_PARSER_ARGS
+from atomworks.ml.datasets.parsers.base import DEFAULT_PARSER_ARGS
 from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
 from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
 
@@ -76,7 +76,7 @@ def instantiate_example(example_name: str):
     result_dict = parse(
         filename=file,
         build_assembly=("1",),
-        **DEFAULT_CIF_PARSER_ARGS,
+        **DEFAULT_PARSER_ARGS,
     )
     for chain_id in result_dict["chain_info"]:
         result_dict["chain_info"][chain_id]["msa_path"] = test_data_dir / example_name / f"{example_name}.a3m"

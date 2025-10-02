@@ -2,15 +2,17 @@
 
 __all__ = ["assert_same_atom_array"]
 
+import io
 import os
 from collections.abc import Iterable
 
 import biotite.structure as struc
 import numpy as np
+from biotite.database import rcsb
 from biotite.structure.atoms import AtomArray, AtomArrayStack
 
 import atomworks.io.utils.bonds as cb
-from atomworks.io.constants import PDB_MIRROR_PATH
+from atomworks.constants import PDB_MIRROR_PATH
 from atomworks.io.utils.scatter import apply_group_wise, apply_segment_wise
 
 
@@ -36,6 +38,24 @@ def get_pdb_path(pdbid: str, mirror_path: str | os.PathLike = PDB_MIRROR_PATH) -
     if not os.path.exists(filename):
         raise FileNotFoundError(f"File {filename} does not exist")
     return filename
+
+
+def get_pdb_path_or_buffer(pdb_id: str) -> str | io.StringIO:
+    """Returns a local file path or an in-memory buffer for a given PDB ID.
+
+    Args:
+        pdb_id (str): The PDB identifier of the structure.
+
+    Returns:
+        str | io.StringIO: The local file path to the structure file if available,
+        otherwise an in-memory buffer containing the fetched file.
+    """
+    try:
+        # ... if file is locally available
+        return get_pdb_path(pdb_id)
+    except FileNotFoundError:
+        # ... otherwise, fetch the file from RCSB
+        return rcsb.fetch(pdb_id, format="cif")
 
 
 def is_same_in_segment(segment_start_stop: np.ndarray, data: np.ndarray, raise_if_false: bool = False) -> np.ndarray:
@@ -176,6 +196,10 @@ def assert_same_atom_array(
         arr2, AtomArray | AtomArrayStack
     ), f"arr2 is not an AtomArray or AtomArrayStack but has type {type(arr2)}"
 
+    # Copy both arrays to avoid modifying the original arrays
+    arr1 = arr1.copy()
+    arr2 = arr2.copy()
+
     # If the input is a stack, only compare the first array
     if isinstance(arr1, AtomArrayStack):
         arr1 = arr1[0]
@@ -289,6 +313,14 @@ def assert_same_atom_array(
     if compare_bonds:
         assert arr1.bonds is not None, "arr1.bonds is None"
         assert arr2.bonds is not None, "arr2.bonds is None"
+
+        # TODO: Switch to using the `convert_bond_type` method once we upgrade to Biotite v1.4.0
+        # structure.bonds.convert_bond_type(struc.bonds.BondType.COORDINATION, struc.bonds.BondType.SINGLE)
+        mask_1 = arr1.bonds._bonds[:, 2] == struc.bonds.BondType.COORDINATION
+        arr1.bonds._bonds[mask_1, 2] = struc.bonds.BondType.SINGLE
+
+        mask_2 = arr2.bonds._bonds[:, 2] == struc.bonds.BondType.COORDINATION
+        arr2.bonds._bonds[mask_2, 2] = struc.bonds.BondType.SINGLE
 
         if enforce_order:
             # Compare bond arrays directly
