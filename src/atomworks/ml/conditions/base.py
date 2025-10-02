@@ -27,9 +27,9 @@ class ConditionMeta(ABCMeta):
     registry and pre-computes derived class attributes like 'full_name'.
     """
 
-    _registry: dict[str, type["ConditionBase"]] = {}
+    _registry: ClassVar[dict[str, type["ConditionBase"]]] = {}
 
-    def __new__(meta, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs):
+    def __new__(meta, name: str, bases: tuple[type, ...], namespace: dict[str, Any], **kwargs):  # noqa: N804
         # Create the class as usual
         cls = super().__new__(meta, name, bases, namespace, **kwargs)
 
@@ -78,7 +78,7 @@ class ConditionMeta(ABCMeta):
 
         return cls
 
-    def __repr__(self) -> str:
+    def __repr__(self) -> str:  # noqa: N804
         try:
             if self.n_body > 1:
                 return f"{self.__name__}(name={self.name}, n_body={self.n_body}, level={self.level}, is_symmetric={self.is_symmetric})"

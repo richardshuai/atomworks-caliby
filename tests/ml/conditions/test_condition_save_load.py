@@ -55,7 +55,7 @@ def test_save_and_load_atom_array_with_defaults(atom_array: AtomArray):
     """
     loaded_atom_array = save_and_load_atom_array(atom_array)
 
-    possible = set([c.full_name for c in CONDITIONS]) | set([c.mask_name for c in CONDITIONS])
+    possible = {c.full_name for c in CONDITIONS} | {c.mask_name for c in CONDITIONS}
     existing = set(
         get_annotation_categories(loaded_atom_array, n_body=1) + get_annotation_categories(loaded_atom_array, n_body=2)
     )
@@ -165,7 +165,7 @@ def test_save_and_load_atom_array_with_conditions(atom_array: AtomArray):
     loaded_atom_array = save_and_load_atom_array(atom_array)
 
     # Check that all annotations are preserved after save/load
-    for annotation_name, annotation_dict in frozen_condition_values.items():
+    for annotation_name in frozen_condition_values:
         condition_cls = CONDITIONS.from_full_name(annotation_name)
         target_annotation = condition_cls.annotation(atom_array)
         target_mask = condition_cls.mask(atom_array)
@@ -185,7 +185,7 @@ def test_save_and_load_atom_array_with_conditions(atom_array: AtomArray):
         assert np.array_equal(
             target_annotation[target_mask],
             loaded_annotation[loaded_mask],
-            equal_nan=True if np.issubdtype(condition_cls.dtype, np.floating) else False,
+            equal_nan=np.issubdtype(condition_cls.dtype, np.floating),
         ), f"Mismatch for {condition_cls.full_name}: {target_annotation[target_mask]} != {loaded_annotation[loaded_mask]}"
 
 

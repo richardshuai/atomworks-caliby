@@ -40,6 +40,7 @@ Example:
 
 import functools
 from collections.abc import Callable
+from typing import Any
 
 import biotite.structure as struc
 import numpy as np
@@ -67,7 +68,7 @@ ANNOTATOR_REGISTRY: dict[str, Callable[[AtomArray], None]] = {}
 """
 Registry of annotation generators.
 
-NOTE: This is a global registry will auto-populate the annotation generator 
+NOTE: This is a global registry will auto-populate the annotation generator
 functions as long as they are decorated with `register_lazy_annotator`. These
 registration functions get called at import time.
 """
@@ -125,7 +126,7 @@ def _requires_annotations(*annot_names: str) -> Callable:
 
     def decorator(fn: Callable) -> Callable:
         @functools.wraps(fn)
-        def wrapper(atom_array: AtomArray, *args, **kwargs):
+        def wrapper(atom_array: AtomArray, *args, **kwargs) -> Any:
             # Generate missing annotations
             for annot_name in annot_names:
                 if annot_name not in atom_array.get_annotation_categories():
@@ -196,38 +197,38 @@ def clear_generated_annotations(atom_array: AtomArray) -> None:
 
 # Custom annotation generators
 @_register_lazy_annotator("is_protein")
-def is_protein(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_protein(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to protein chains."""
     return np.isin(atom_array.chain_type, ChainType.get_proteins())
 
 
 @_register_lazy_annotator("is_nucleic_acid")
-def is_nucleic_acid(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_nucleic_acid(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to nucleic acid chains."""
     return np.isin(atom_array.chain_type, ChainType.get_nucleic_acids())
 
 
 @_register_lazy_annotator("is_dna")
-def is_dna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_dna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to DNA chains."""
     return np.isin(atom_array.chain_type, ChainType.DNA)
 
 
 @_register_lazy_annotator("is_rna")
-def is_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to RNA chains."""
     return np.isin(atom_array.chain_type, ChainType.RNA)
 
 
 @_register_lazy_annotator("is_standard_aa")
-def is_standard_aa(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_standard_aa(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to standard amino acids."""
     return np.isin(atom_array.res_name, STANDARD_AA)
 
 
 @_register_lazy_annotator("is_protein_backbone")
 @_requires_annotations("is_protein")
-def is_protein_backbone(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_protein_backbone(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to protein backbone."""
     is_protein = atom_array.get_annotation("is_protein")
     is_backbone_atom = np.isin(atom_array.atom_name, ["N", "CA", "C", "O", "OXT"])
@@ -236,7 +237,7 @@ def is_protein_backbone(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
 
 @_register_lazy_annotator("is_protein_sidechain")
 @_requires_annotations("is_protein")
-def is_protein_sidechain(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_protein_sidechain(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to protein sidechain."""
     is_protein = atom_array.get_annotation("is_protein")
     is_sidechain_atom = ~np.isin(atom_array.atom_name, ["N", "CA", "C", "O", "OXT"])
@@ -244,31 +245,31 @@ def is_protein_sidechain(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
 
 
 @_register_lazy_annotator("is_standard_rna")
-def is_standard_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_standard_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to standard RNA."""
     return np.isin(atom_array.res_name, STANDARD_RNA)
 
 
 @_register_lazy_annotator("is_standard_dna")
-def is_standard_dna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_standard_dna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to standard DNA."""
     return np.isin(atom_array.res_name, STANDARD_DNA)
 
 
 @_register_lazy_annotator("is_pyrimidine")
-def is_pyrimidine(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_pyrimidine(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to pyrimidine residues."""
     return np.isin(atom_array.res_name, STANDARD_PYRIMIDINE_RESIDUES)
 
 
 @_register_lazy_annotator("is_purine")
-def is_purine(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_purine(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to purine residues."""
     return np.isin(atom_array.res_name, STANDARD_PURINE_RESIDUES)
 
 
 @_register_lazy_annotator("is_tip_atom")
-def is_tip_atom(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_tip_atom(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Identify tip atoms in standard amino acids."""
     is_tip_atom = np.zeros(atom_array.array_length(), dtype=bool)
 
@@ -280,7 +281,7 @@ def is_tip_atom(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
 
 
 @_register_lazy_annotator("is_res_start")
-def is_res_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_res_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Mark the first atom of each residue."""
     res_starts = struc.get_residue_starts(atom_array, add_exclusive_stop=False)
     is_res_start = np.zeros(atom_array.array_length(), dtype=bool)
@@ -289,7 +290,7 @@ def is_res_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
 
 
 @_register_lazy_annotator("is_token_start")
-def is_token_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_token_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Mark the first atom of each token."""
     token_starts = get_token_starts(atom_array, add_exclusive_stop=False)
     is_token_start = np.zeros(atom_array.array_length(), dtype=bool)
@@ -298,7 +299,7 @@ def is_token_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
 
 
 @_register_lazy_annotator("is_chain_start")
-def is_chain_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_chain_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to chain starts."""
     chain_starts = struc.get_chain_starts(atom_array, add_exclusive_stop=False)
     is_chain_start = np.zeros(atom_array.array_length(), dtype=bool)
@@ -307,31 +308,31 @@ def is_chain_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
 
 
 @_register_lazy_annotator("is_polymer")
-def is_polymer(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_polymer(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to polymers."""
     return np.isin(atom_array.chain_type, ChainType.get_polymers())
 
 
 @_register_lazy_annotator("is_ligand")
-def is_ligand(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_ligand(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to ligands."""
     return np.isin(atom_array.chain_type, ChainType.NON_POLYMER)
 
 
 @_register_lazy_annotator("is_metal")
-def is_metal(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_metal(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to metal ions."""
     return np.isin(atom_array.res_name, METAL_ELEMENTS)
 
 
 @_register_lazy_annotator("is_carbohydrate")
-def is_carbohydrate(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def is_carbohydrate(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to carbohydrates."""
     return struc.filter_carbohydrates(atom_array)
 
 
 @_register_lazy_annotator("within_chain_res_idx")
-def within_chain_res_idx(atom_array: AtomArray) -> Int[Array, "n_atoms"]:
+def within_chain_res_idx(atom_array: AtomArray) -> Int[Array, "n_atoms"]:  # noqa: F821
     """Get the within-chain residue index for the atom array."""
     annotations = atom_array.get_annotation_categories()
     chain_group = "chain_iid" if "chain_iid" in annotations else "chain_id"
@@ -340,7 +341,7 @@ def within_chain_res_idx(atom_array: AtomArray) -> Int[Array, "n_atoms"]:
 
 @_register_lazy_annotator("res_min_occupancy")
 @_requires_annotations("is_res_start")
-def res_min_occupancy(atom_array: AtomArray) -> Float[Array, "n_atoms"]:
+def res_min_occupancy(atom_array: AtomArray) -> Float[Array, "n_atoms"]:  # noqa: F821
     """Calculate minimum occupancy for each residue."""
     is_res_start = atom_array.get_annotation("is_res_start")
     res_start_idxs = np.where(is_res_start)[0]
@@ -350,7 +351,7 @@ def res_min_occupancy(atom_array: AtomArray) -> Float[Array, "n_atoms"]:
 
 @_register_lazy_annotator("token_min_occupancy")
 @_requires_annotations("is_token_start")
-def token_min_occupancy(atom_array: AtomArray) -> Float[Array, "n_atoms"]:
+def token_min_occupancy(atom_array: AtomArray) -> Float[Array, "n_atoms"]:  # noqa: F821
     """Calculate minimum occupancy for each token."""
     is_token_start = atom_array.get_annotation("is_token_start")
     token_start_idxs = np.where(is_token_start)[0]
@@ -360,7 +361,7 @@ def token_min_occupancy(atom_array: AtomArray) -> Float[Array, "n_atoms"]:
 
 @_register_lazy_annotator("token_id")
 @_requires_annotations("is_token_start")
-def token_id(atom_array: AtomArray) -> Int[Array, "n_atoms"]:
+def token_id(atom_array: AtomArray) -> Int[Array, "n_atoms"]:  # noqa: F821
     """Assign a unique ID to each token."""
     is_token_start = atom_array.get_annotation("is_token_start")
     token_start_idxs = np.where(is_token_start)[0]
@@ -371,7 +372,7 @@ def token_id(atom_array: AtomArray) -> Int[Array, "n_atoms"]:
 
 @_register_lazy_annotator("res_has_tip_atom")
 @_requires_annotations("is_tip_atom", "is_res_start")
-def res_has_tip_atom(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
+def res_has_tip_atom(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if each residue contains at least one tip atom."""
     is_tip_atom = atom_array.get_annotation("is_tip_atom")
     is_res_start = atom_array.get_annotation("is_res_start")

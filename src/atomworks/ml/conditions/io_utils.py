@@ -18,7 +18,7 @@ from atomworks.ml.conditions.base import CONDITIONS, ConditionBase
 from atomworks.ml.datasets.parsers.base import DEFAULT_PARSER_ARGS
 
 
-def save_atom_array_with_conditions_to_cif(atom_array: AtomArray, path: PathLike):
+def save_atom_array_with_conditions_to_cif(atom_array: AtomArray, path: PathLike) -> None:
     """
     Saves an annotated atom array to a CIF file. Uses Condition registry to get all possible
     annotations and saves them as extra_categories.
@@ -61,7 +61,7 @@ def load_atom_array_with_conditions_from_cif(
     cif_parser_args: dict | None = None,
     return_data_dict: bool = False,
     fill_missing_conditions: bool = False,
-):
+) -> AtomArray | dict:
     """
     Loads an atom array from a CIF file. Uses Condition registry to get all possible annotations.
 
@@ -117,7 +117,7 @@ def load_atom_array_with_conditions_from_cif(
         return atom_array
 
 
-def fill_missing_conditions_with_defaults(atom_array: AtomArray):
+def fill_missing_conditions_with_defaults(atom_array: AtomArray) -> AtomArray:
     """
     Checks to see if any conditions are missing from the atom array and fills them with defaults.
     """
@@ -197,7 +197,7 @@ def _add_design_annotations_from_cif_block_metadata(
     else:
         raise ValueError(f"AtomArrayPlus or AtomArrayStack expected, got {type(atom_array)}")
 
-    for key in cif_block.keys():
+    for key in cif_block:
         if key == "atomize":
             atomize = get_annotation(
                 atom_array,
