@@ -8,6 +8,7 @@ from biotite.structure.io import pdbx
 
 from atomworks.io import parse
 from atomworks.io.utils.atom_array_plus import (
+    AnnotationList2D,
     AtomArrayPlus,
     AtomArrayPlusStack,
     as_atom_array_plus,
@@ -179,7 +180,12 @@ def _add_condition_from_idxs_values(
             condition_cls.set_annotation(atom_array, annotation)
     elif condition_cls.n_body == 2:
         if mask:
-            condition_cls.set_mask(atom_array, pairs=idx, values=value)
+            mask_annot = AnnotationList2D(
+                n_atoms=atom_array.array_length(),
+                pairs=idx,
+                values=value,
+            )
+            condition_cls.set_mask(atom_array, mask_annot)
         else:
             condition_cls.set_annotation(atom_array, pairs=idx, values=value)
     else:

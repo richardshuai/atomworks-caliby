@@ -32,7 +32,8 @@ class Sequence(ConditionBase):
         seq = np.full(atom_array.array_length(), fill_value=UNKNOWN_AA)
         if cls.mask_name in atom_array.get_annotation_categories():
             # ... if mask exists, use it to get the sequence
-            seq[cls.mask(atom_array, default="raise")] = atom_array.res_name
+            seq_mask = cls.mask(atom_array, default="raise")
+            seq[seq_mask] = atom_array.res_name[seq_mask]
         return seq
 
 
