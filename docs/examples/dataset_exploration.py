@@ -95,15 +95,15 @@ print(f"Output AtomArray has {len(output['atom_array'])} atoms!")
 #
 # Next up is adding in a pipeline. Let's create a simple one with a dramatic crop.
 
-from atomworks.ml.transforms.base import Compose
-from atomworks.ml.transforms.crop import (
-    CropSpatialLikeAF3,
-)
+from atomworks.constants import STANDARD_AA
 from atomworks.ml.transforms.atom_array import (
     AddGlobalAtomIdAnnotation,
 )
 from atomworks.ml.transforms.atomize import AtomizeByCCDName
-from atomworks.constants import STANDARD_AA
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.crop import (
+    CropSpatialLikeAF3,
+)
 
 pipe = Compose(
     [
@@ -148,7 +148,7 @@ view(pipeline_output["atom_array"])
 #
 # The only "gotcha" outside of normal PyTorch sampling is that you'll need to implement a default collate function (which could simply be the identity) so long as your output dictionary contains an `AtomArray`.
 
-from torch.utils.data import RandomSampler, DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 
 sampler = RandomSampler(dataset_with_loading_fn_and_transforms)
 loader = DataLoader(
