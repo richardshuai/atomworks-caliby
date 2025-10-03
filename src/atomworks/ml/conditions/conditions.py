@@ -4,7 +4,7 @@ import numpy as np
 from biotite.structure import AtomArray
 from sympy.sets.sets import true
 
-from atomworks.constants import STANDARD_AA
+from atomworks.constants import UNKNOWN_AA
 from atomworks.io.utils.atom_array import apply_and_spread
 from atomworks.io.utils.atom_array_plus import AnnotationList2D
 from atomworks.ml.conditions.annotator import ensure_annotations
@@ -20,12 +20,20 @@ class Sequence(ConditionBase):
 
     @classmethod
     def default_mask(cls, atom_array: AtomArray) -> np.ndarray:
-        # Mark standard amino acids as sequence-conditionable
-        return np.isin(atom_array.res_name, STANDARD_AA)
+        if cls.full_name in atom_array.get_annotation_categories():
+            # ... if annotation exists, derive the mask from it
+            return cls.annotation(atom_array, default="raise") != UNKNOWN_AA
+        else:
+            # ... otherwise, default to an empty mask
+            return np.zeros(atom_array.array_length(), dtype=bool)
 
     @classmethod
     def default_annotation(cls, atom_array: AtomArray) -> np.ndarray:
-        return atom_array.res_name
+        seq = np.full(atom_array.array_length(), fill_value=UNKNOWN_AA)
+        if cls.mask_name in atom_array.get_annotation_categories():
+            # ... if mask exists, use it to get the sequence
+            seq[cls.mask(atom_array, default="raise")] = atom_array.res_name
+        return seq
 
 
 class Coordinate(ConditionBase):
