@@ -46,7 +46,6 @@ class DataObject(ABC):
         Returns:
             Raises a ValueError if the data object is not valid.
         """
-        pass
 
     def __post_init__(self):
         self.validate()
