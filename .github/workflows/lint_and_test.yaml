@@ -90,6 +90,7 @@ jobs:
 
       - name: Run pytest
         run: |
+          set -e
           export OPENBLAS_NUM_THREADS=1
           export OMP_NUM_THREADS=1
           # Get number of CPUs available
