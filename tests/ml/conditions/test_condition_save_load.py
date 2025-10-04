@@ -12,11 +12,11 @@ from atomworks.io.utils.atom_array_plus import (
 )
 from atomworks.io.utils.selection import get_annotation_categories
 from atomworks.ml.conditions import CONDITIONS
-from atomworks.ml.conditions.io_utils import (
+from atomworks.ml.datasets.parsers.base import DEFAULT_PARSER_ARGS
+from atomworks.ml.utils.condition import (
     load_atom_array_with_conditions_from_cif,
     save_atom_array_with_conditions_to_cif,
 )
-from atomworks.ml.datasets.parsers.base import DEFAULT_PARSER_ARGS
 from atomworks.ml.utils.testing import cached_parse
 
 

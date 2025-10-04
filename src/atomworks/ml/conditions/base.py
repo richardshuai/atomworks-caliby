@@ -14,7 +14,7 @@ from biotite.structure import AtomArray
 
 from atomworks.io.utils.atom_array_plus import AnnotationList2D
 from atomworks.io.utils.selection import get_annotation
-from atomworks.ml.enums import Level
+from atomworks.ml.conditions.conditions import Level
 
 __all__ = ["CONDITIONS", "ConditionBase"]
 
