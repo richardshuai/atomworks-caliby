@@ -10,7 +10,6 @@ import abc
 import copy
 import logging
 from collections.abc import Callable
-from typing import Any
 
 import biotite.structure as struc
 import networkx as nx
@@ -18,6 +17,7 @@ import numpy as np
 from biotite.structure import AtomArray
 from scipy.spatial import KDTree
 
+from atomworks.common import exists
 from atomworks.constants import STANDARD_AA_TIP_ATOM_NAMES
 from atomworks.enums import ChainType
 from atomworks.io.utils.atom_array import apply_and_spread
@@ -27,12 +27,6 @@ from atomworks.io.utils.selection import annot_start_stop_idxs
 from atomworks.ml.utils.token import get_token_starts
 
 logger = logging.getLogger(__name__)
-
-
-# ===== Convenience =====
-def exists(obj: Any) -> bool:
-    """True iff object is not None"""
-    return obj is not None
 
 
 # ==== Seed sampling functions ====

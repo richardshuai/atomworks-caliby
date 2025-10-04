@@ -35,8 +35,6 @@ Example:
     >>> print(atom_array.get_annotation("is_hydrophobic"))
     [ True  True  True ... False False False]
 """
-# TODO: Migrate this functionality into `atomworks`
-# TODO: Inherit basic annotation transforms in atomworks from these annotator functions for one source of truth
 
 import functools
 from collections.abc import Callable
@@ -68,7 +66,7 @@ ANNOTATOR_REGISTRY: dict[str, Callable[[AtomArray], None]] = {}
 """
 Registry of annotation generators.
 
-NOTE: This is a global registry will auto-populate the annotation generator
+NOTE: This is a global registry and will auto-populate the annotation generator
 functions as long as they are decorated with `register_lazy_annotator`. These
 registration functions get called at import time.
 """
@@ -78,7 +76,7 @@ registration functions get called at import time.
 def _register_lazy_annotator(annot_name: str) -> Callable:
     """
     Decorator that adds an annotation to AtomArray if it doesn't already exist.
-    Also registers the annotation in the ANNOTATION_GENERATORS registry.
+    Also registers the annotation in the ANNOTATION_GENERATORS.
 
     Args:
         annot_name: Name of the annotation to check/add

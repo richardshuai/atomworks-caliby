@@ -109,8 +109,6 @@ class ConditionBase(ABC, metaclass=ConditionMeta):
             `condition_{name}_{n_body}_{level}`.
         mask_name: The mask, systematic name of the condition of the form
             `mask_{name}_{n_body}_{level}`.
-            This is the `MOMA` (= mother of all masks) for the condition from
-            which all other masks are derived.
     """
 
     # --- Attributes to be defined by all concrete subclasses ---
@@ -161,9 +159,8 @@ class ConditionBase(ABC, metaclass=ConditionMeta):
     ) -> str:
         """Returns the mask name of the condition at a given body order and level.
 
-        By default (i.e. if `n_body` and `level` are not provided), the `MOMA`
-        (= mother of all masks), i.e. the mask from which all other masks are derived,
-        is returned.
+        By default (i.e. if `n_body` and `level` are not provided), n_body and level
+            are resolved to the default values for the condition.
 
         Args:
             n_body: The number of bodies involved in the condition.
@@ -174,10 +171,9 @@ class ConditionBase(ABC, metaclass=ConditionMeta):
 
         Example:
             For a 2-body distance condition which applies at the `ATOM` level, the
-            `MOMA` is a 2-body atom-level mask `mask_distance_2_atom`.
-            The 1-body token-level mask `mask_distance_1_token` is derived from the `MOMA`
-            by `any` pooling to indicate whether any atom in the token has a `distance`
-            condition.
+            default mask is a 2-body atom-level mask `mask_distance_2_atom`. In the future,
+            we may implement automatic derivation of lower-body masks from higher-body masks.
+            I.e. the 1-body token-level mask `mask_distance_1_token` could be derived from the default
         """
         level, n_body = cls._resolve_level(level), cls._resolve_n_body(n_body)
         return f"mask_{cls.name}_{n_body}_{level}"
@@ -209,7 +205,7 @@ class ConditionBase(ABC, metaclass=ConditionMeta):
     @classmethod
     @abstractmethod
     def default_mask(cls, atom_array: AtomArray) -> np.ndarray:
-        """Generates the `MOMA` (= mother of all masks) for the condition."""
+        """Generates the default mask for the condition."""
         raise NotImplementedError(f"Condition `{cls.name}` (class `{cls.__name__}`) does not have a default mask.")
 
     @classmethod
@@ -431,7 +427,7 @@ class ConditionAccessor:
         return frozenset(self[condition].full_name for condition in self.list())
 
     def get_valid_mask_names(self) -> set[str]:
-        """Returns the set of systematic `MOMA` (= mother of all masks) mask names of all registered conditions."""
+        """Returns the set of systematic mask names of all registered conditions."""
         return frozenset(self[condition].mask_name for condition in self.list())
 
     def get(self, name: str) -> type[ConditionBase]:
