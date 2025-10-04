@@ -1,4 +1,4 @@
-# set -e  # Exit on error
+set -e  # Exit on error
 
 echo "Running from $PWD"
 

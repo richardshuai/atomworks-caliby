@@ -172,7 +172,7 @@ Next we need to use the metadata to configure a dataset that we would like to sa
 Here's a simple example that:
 
 - Filters to D-polypeptide and L-polypeptide chains only (`POLYPEPTIDE_D` and `POLYPEPTIDE_L` -- to include additional chain types, replace the lists with the appropriate IDs (see [mapping](./src/atomworks/enums.py#L31-L45) in comments).
-- Excludes ligands in the AF3 list of excluded ligands, available at [`atomworks.io.constants.AF3_EXCLUDED_LIGANDS_REGEX`](./src/atomworks/io/constants.py#L350).
+- Excludes ligands in the AF3 list of excluded ligands, available at [`atomworks.constants.AF3_EXCLUDED_LIGANDS_REGEX`](./src/atomworks/io/constants.py#L350).
 
 ```yaml
 # NOTE: The below is a hydra config and the _target_ fields are the hydra syntax for instantiating a class.
