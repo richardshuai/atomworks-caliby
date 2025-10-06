@@ -528,8 +528,12 @@ class AddGlobalTokenIdAnnotation(Transform):
 
     incompatible_previous_transforms: ClassVar[list[str | Transform]] = ["AddGlobalTokenIdAnnotation"]
 
+    def __init__(self, allow_overwrite: bool = False):
+        self.allow_overwrite = allow_overwrite
+
     def check_input(self, data: dict) -> None:
-        check_atom_array_annotation(data, required=[], forbidden=["token_id"])
+        if "token_id" in data["atom_array"].get_annotation_categories() and not self.allow_overwrite:
+            raise ValueError("AtomArray already contains 'token_id' annotation! It would be overwritten.")
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
