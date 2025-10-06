@@ -889,3 +889,13 @@ def _filter_extra_fields(extra_fields: list[str], atom_site: pdbx.CIFCategory) -
             logger.warning(f"Field {field} not found in file, ignoring.")
 
     return filtered_extra_fields
+
+
+def find_files_by_extension(input_dir: Path, extension: str) -> list[Path]:
+    """Recursively find files with the specified extension in a directory."""
+    files = [f for f in input_dir.rglob(f"*{extension}") if str(f).endswith(extension)]
+
+    if not files:
+        raise FileNotFoundError(f"No files with extension {extension} found in {input_dir}")
+
+    return files

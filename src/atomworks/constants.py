@@ -7,10 +7,7 @@ from types import MappingProxyType
 from typing import Final
 
 from biotite.structure.bonds import BondType
-from dotenv import load_dotenv
 from toolz import keymap
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -725,3 +722,29 @@ PROTEIN_FRAME_ATOM_NAMES: Final[tuple[str, ...]] = ("N", "CA", "C")
 
 NUCLEIC_ACID_FRAME_ATOM_NAMES: Final[tuple[str, ...]] = ("C1'", "C3'", "C4'")
 """A tuple of the names of the frame atoms (backbone) for nucleic acids."""
+
+NA_VALUES = [
+    "",
+    " ",
+    "#N/A",
+    "#N/A N/A",
+    "#NA",
+    "-1.#IND",
+    "-1.#QNAN",
+    "-NaN",
+    "-nan",
+    "1.#IND",
+    "1.#QNAN",
+    "<NA>",
+    "N/A",
+    "NULL",
+    "NaN",
+    "None",
+    "n/a",
+    "nan",
+    "null",
+]
+"""A list of strings that are considered as NA/NaN ("missing" values) values in dataframes.
+
+NOTE: By default, "NA" is considered as a missing value by Pandas, which can lead to subtle bugs.
+"""

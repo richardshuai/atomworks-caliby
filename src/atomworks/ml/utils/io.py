@@ -320,38 +320,40 @@ def parse_sharding_pattern(sharding_pattern: str) -> list[tuple[int, int]]:
     return matches
 
 
-def apply_sharding_pattern(path: str, sharding_pattern: str | None = None) -> Path:
+def apply_sharding_pattern(path: PathLike, sharding_pattern: str | None = None) -> Path:
     """Apply a sharding pattern to construct a file path.
 
     Args:
         path: The base path or identifier (e.g., PDB ID)
         sharding_pattern: Pattern for organizing files in subdirectories
-            - "/1:2/": Use characters 1-2 for first directory level
-            - "/1:2/0:2/": Use chars 1-2 for first dir, then chars 0-2 for second dir
+            - "/0:2/": Use first two characters for first directory level
+            - "/0:2/2:4/": Use chars 0-2 for first dir, then chars 2-4 for second dir
             - None: No sharding (default)
 
     Returns:
         Path: The constructed file path with sharding applied
     """
-    if sharding_pattern and sharding_pattern.startswith("/"):
-        # General sharding pattern: /start:end/start:end/...
-        try:
-            shard_levels = parse_sharding_pattern(sharding_pattern)
-        except ValueError as e:
-            raise ValueError(f"Invalid sharding pattern: {e}") from e
+    path_str = str(path)
+    assert path_str and path_str != ".", "Path cannot be empty"
 
-        # Build the sharded path
-        current_path = Path()
+    if not sharding_pattern:
+        return Path(path_str)
 
-        for start, end in shard_levels:
-            if end > len(path):
-                raise ValueError(f"Sharding range {start}:{end} exceeds path length {len(path)} for path '{path}'")
-            shard_dir = path[start:end]
-            current_path = current_path / shard_dir
+    if not sharding_pattern.startswith("/"):
+        raise ValueError(f"Sharding pattern must start with '/': {sharding_pattern}")
 
-        final_path = current_path / path
-    else:
-        # Default behavior: no sharding
-        final_path = Path(path)
+    try:
+        shard_ranges = parse_sharding_pattern(sharding_pattern)
+    except ValueError as e:
+        raise ValueError(f"Invalid sharding pattern '{sharding_pattern}': {e}") from e
 
-    return final_path
+    # Validate all ranges before building path
+    for start, end in shard_ranges:
+        if end > len(path_str):
+            raise ValueError(f"Sharding range {start}:{end} exceeds path length {len(path_str)} for '{path_str}'")
+
+    # Build directory components from sharding ranges
+    directory_parts = [path_str[start:end] for start, end in shard_ranges]
+
+    # Construct final path: directories + filename
+    return Path(*directory_parts, path_str)

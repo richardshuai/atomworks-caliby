@@ -60,6 +60,8 @@ def parse_fasta(filename: PathLike, maxseq: int = 10000, query_tax_id: str = "qu
     TODO: Update this function to handle insertions. Note that in FASTA files, insertions must be handled differently than in A3M files.
     For FASTA, we would need to remove all gaps from the query sequence, and consider non-gap characters in those columns as insertions.
 
+    TODO: Deprecate and use Biotite to load FASTA files.
+
     Args:
         filename (PathLike): The path to the FASTA file (can be gzipped).
         maxseq (int): The maximum number of sequences to read from the file (for processing speed).
@@ -72,6 +74,7 @@ def parse_fasta(filename: PathLike, maxseq: int = 10000, query_tax_id: str = "qu
 
     Reference:
         `UniProt FASTA Header Documentation <https://www.uniprot.org/help/fasta-headers>`_
+
     """
     msa = []
     ins = []
