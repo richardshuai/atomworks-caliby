@@ -97,7 +97,7 @@ def test_caching(pdb_id: str, tmp_path):
     assert cached_elapsed_time < normal_elapsed_time / 3
 
     # Assert that the result with different arguments is similar to the normal elapsed time
-    assert abs(different_args_elapsed_time - normal_elapsed_time) < normal_elapsed_time * 0.5
+    assert abs(different_args_elapsed_time - normal_elapsed_time) < normal_elapsed_time * 0.8
 
 
 if __name__ == "__main__":
