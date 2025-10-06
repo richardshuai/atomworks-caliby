@@ -43,6 +43,7 @@ def atom_array_to_encoding(
         "chain_iid",
         "transformation_id",
     ],
+    coord_annotation: str = "coord",
 ) -> dict:
     """
     Encode an atom array using a specified `TokenEncoding`.
@@ -72,6 +73,8 @@ def atom_array_to_encoding(
           integers, where the first occurrence of a given ID is encoded as `0`, and subsequent occurrences
           are encoded as `1`, `2`, etc. Defaults to
           ["chain_id", "chain_entity", "molecule_iid", "chain_iid", "transformation_id"].
+        - coord_annotation (str, optional): The annotation of the AtomArray containing the coordinates to encode.
+          Defaults to "coord".
 
     Returns:
         - dict: A dictionary containing the following keys:
@@ -149,7 +152,7 @@ def atom_array_to_encoding(
             # ... case 1: atom name is in the encoding
             if (token_name, atom_name) in encoding.atom_to_idx:
                 to_idx = encoding.atom_to_idx[(token_name, atom_name)]
-                encoded_coord[i, to_idx, :] = atom.coord
+                encoded_coord[i, to_idx, :] = getattr(atom, coord_annotation)
                 encoded_mask[i, to_idx] = atom.occupancy > occupancy_threshold
 
             # ... case 2: atom name does not exist for token, but token is an `unknown` token,
@@ -163,7 +166,7 @@ def atom_array_to_encoding(
                 alt_atom_name = alt_to_std.get(atom_name, None)
                 if exists(alt_atom_name) and (token_name, alt_atom_name) in encoding.atom_to_idx:
                     to_idx = encoding.atom_to_idx[(token_name, alt_atom_name)]
-                    encoded_coord[i, to_idx, :] = atom.coord
+                    encoded_coord[i, to_idx, :] = getattr(atom, coord_annotation)
 
             # ... case 4: failed to find the relevant atom_name for this token when we should, so we raise an error
             else:
@@ -321,6 +324,7 @@ class EncodeAtomArray(Transform):
             "chain_iid",
             "transformation_id",
         ],
+        coord_annotation: str = "coord",
     ):
         """
         Convert an atom array to an encoding.
@@ -334,6 +338,8 @@ class EncodeAtomArray(Transform):
                 like `chain_id` or `molecule_iid`, as the encoding will be generated as `int`s. Each first occurrence
                 of a given `id` will be encoded as `0`, and each subsequent occurrence will be encoded as `1`, `2`, etc.
                 Defaults to ["chain_id", "chain_entity", "molecule_iid", "chain_iid", "transformation_id"].
+            - `coord_annotation` (str, optional): The annotation of the AtomArray containing the coordinates to encode.
+                Defaults to "coord," but in same cases we may want to use a different annotation (e.g., if we imputed coordinates)
         """
         if not isinstance(encoding, TokenEncoding):
             raise ValueError(f"Encoding must be a `TokenEncoding`, but got: {type(encoding)}.")
@@ -341,9 +347,11 @@ class EncodeAtomArray(Transform):
         self.default_coord = default_coord
         self.occupancy_threshold = occupancy_threshold
         self.extra_annotations = extra_annotations
+        self.coord_annotation = coord_annotation
 
     def check_input(self, data: dict[str, Any]) -> None:
-        check_atom_array_annotation(data, ["occupancy"])
+        required = ["occupancy", *([self.coord_annotation] if self.coord_annotation not in (None, "coord") else [])]
+        check_atom_array_annotation(data, required)
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         atom_array = data["atom_array"]
@@ -354,6 +362,7 @@ class EncodeAtomArray(Transform):
             default_coord=self.default_coord,
             occupancy_threshold=self.occupancy_threshold,
             extra_annotations=self.extra_annotations,
+            coord_annotation=self.coord_annotation,
         )
 
         data["encoded"] = encoded

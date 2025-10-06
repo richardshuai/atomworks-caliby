@@ -74,10 +74,12 @@ for i, example in enumerate(dataset):
 #
 # In most cases, this will involve using `parse` or `load_any` from `AtomWorks.io` to build an `AtomArray`, which is the common language of our `Transform` library.
 
+from typing import Any
+
 from atomworks.io import parse
 
 
-def simple_loading_fn(raw_data) -> dict:
+def simple_loading_fn(raw_data: Any) -> dict:
     """Simple loading function that parses structural data and returns an AtomArray."""
     parse_output = parse(raw_data)
     return {"atom_array": parse_output["assemblies"]["1"][0]}
