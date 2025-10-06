@@ -585,6 +585,25 @@ class Compose(Transform):
             return self.transforms[idx]
 
 
+class ListBuilder:
+    """A convenience class to build lists element by element with the '+=' operator"""
+
+    def __init__(self):
+        self.list = []
+
+    def __add__(self, other: Any) -> ListBuilder:
+        if isinstance(other, list):
+            self.list.extend(other)
+        elif isinstance(other, ListBuilder):
+            self.list.extend(other.list)
+        else:
+            self.list.append(other)
+        return self
+
+    def tolist(self) -> list[Any]:
+        return self.list
+
+
 class RemoveKeys(Transform):
     """
     Remove keys from the data dictionary.
