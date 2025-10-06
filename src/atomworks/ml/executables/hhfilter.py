@@ -53,16 +53,13 @@ class HHFilter(Executable):
     @staticmethod
     def _infer_bin_path_from_env_var() -> PathLike:
         """Get the path to the hhfilter executable from environment variables."""
-        print("Environment variables loaded successfully.")
-        # Print HHSUITE_PATH
-        print(f"HHFILTER_PATH: {os.getenv('HHFILTER_PATH')}")
         hhfilter_path = os.environ.get("HHFILTER_PATH")
         if hhfilter_path is not None and os.path.isfile(hhfilter_path) and os.access(hhfilter_path, os.X_OK):
             return hhfilter_path
 
         raise ExecutableError(
             "No `bin_path` provided and `HHFILTER_PATH` environment variable not set.\n"
-            "Please set the `HHFILTER_PATH` environment variable to the root directory of the HH-suite installation "
+            "Please set the `HHFILTER_PATH` environment variable to the path of the hhfilter executable "
             "or provide a `bin_path` to the `HHFilter` constructor: "
             "`HHFilter(bin_path='/path/to/hhfilter')`."
         )

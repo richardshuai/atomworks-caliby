@@ -23,7 +23,6 @@ from atomworks.io.utils.compression import (
 from atomworks.io.utils.io_utils import find_files_by_extension
 from atomworks.ml.executables.hhfilter import HHFilter
 from atomworks.ml.preprocessing.msa.organizing import validate_msa_file_extension
-from atomworks.ml.utils.io import open_file
 
 logger = logging.getLogger(__name__)
 
@@ -48,39 +47,15 @@ def count_sequences_in_msa(file_path: Path) -> int:
     if not file_path.exists():
         raise FileNotFoundError(f"MSA file not found: {file_path}")
 
-    try:
-        if is_compressed_file(file_path):
-            # For compressed files: zcat file.gz | grep -c "^>"
-            cmd = f'zcat "{file_path}" | grep -c "^>"'
-        else:
-            # For regular files: grep -c "^>" file
-            cmd = f'grep -c "^>" "{file_path}"'
+    if is_compressed_file(file_path):
+        # For compressed files: zcat file.gz | grep -c "^>"
+        cmd = f'zcat "{file_path}" | grep -c "^>"'
+    else:
+        # For regular files: grep -c "^>" file
+        cmd = f'grep -c "^>" "{file_path}"'
 
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True)
-        return int(result.stdout.strip())
-
-    except subprocess.CalledProcessError as e:
-        # If grep finds no matches, it returns exit code 1, but count should be 0
-        if e.returncode == 1 and (not hasattr(e, "stdout") or e.stdout == "" or e.stdout is None):
-            return 0
-
-        # For other errors, fall back to Python implementation
-        logger.warning(f"Bash command failed for {file_path}, falling back to Python: {e}")
-        return _count_sequences_in_msa_python(file_path)
-
-
-def _count_sequences_in_msa_python(file_path: Path) -> int:
-    """Fallback Python implementation for counting sequences."""
-
-    count = 0
-
-    # Use open_file which handles compression automatically
-    with open_file(file_path, "rt") as f:
-        for line in f:
-            if line.startswith(">"):
-                count += 1
-
-    return count
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True)
+    return int(result.stdout.strip())
 
 
 @dataclasses.dataclass

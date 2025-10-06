@@ -327,17 +327,17 @@ def apply_sharding_pattern(path: PathLike, sharding_pattern: str | None = None) 
         path: The base path or identifier (e.g., PDB ID)
         sharding_pattern: Pattern for organizing files in subdirectories
             - "/0:2/": Use first two characters for first directory level
-            - "/0:2/3:4/": Use chars 1-2 for first dir, then chars 0-2 for second dir
+            - "/0:2/2:4/": Use chars 0-2 for first dir, then chars 2-4 for second dir
             - None: No sharding (default)
 
     Returns:
         Path: The constructed file path with sharding applied
     """
-    path = str(path)
-    assert path, "Path cannot be empty"
+    path_str = str(path)
+    assert path_str and path_str != ".", "Path cannot be empty"
 
     if not sharding_pattern:
-        return Path(path)
+        return Path(path_str)
 
     if not sharding_pattern.startswith("/"):
         raise ValueError(f"Sharding pattern must start with '/': {sharding_pattern}")
@@ -349,11 +349,11 @@ def apply_sharding_pattern(path: PathLike, sharding_pattern: str | None = None) 
 
     # Validate all ranges before building path
     for start, end in shard_ranges:
-        if end > len(path):
-            raise ValueError(f"Sharding range {start}:{end} exceeds path length {len(path)} for '{path}'")
+        if end > len(path_str):
+            raise ValueError(f"Sharding range {start}:{end} exceeds path length {len(path_str)} for '{path_str}'")
 
     # Build directory components from sharding ranges
-    directory_parts = [path[start:end] for start, end in shard_ranges]
+    directory_parts = [path_str[start:end] for start, end in shard_ranges]
 
     # Construct final path: directories + filename
-    return Path(*directory_parts, path)
+    return Path(*directory_parts, path_str)
