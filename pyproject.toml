@@ -65,6 +65,8 @@ dev = [
     "pytest-dotenv>=0.5.2,<1", # load environment variables from .env file
     "pytest-cov>=4.1.0,<5", # generate coverage report
     "pytest-benchmark>=5.0.0,<6", # benchmark tests for speed
+    # Jupyter notebooks
+    "ipykernel>=6.28.0", # IPython kernel for Jupyter
 ]
 
 docs = [
