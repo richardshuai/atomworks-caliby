@@ -90,6 +90,7 @@ documentation = "https://rosettacommons.github.io/atomworks/latest/index.html"
 
 [project.scripts]
 atomworks = "atomworks_cli.__main__:main"
+aw = "atomworks_cli.__main__:main"
 
 # Build settings ----------------------------------------------------------------------
 [build-system]
@@ -208,6 +209,7 @@ convention = "google"
 "tests/*" = ["D", "E", "RUF", "ANN"]    # Ignore docstring rules in tests
 "docs/**/*.py" = ["E402"]               # Ignore forcing imports to be at the top of the file
 "docs/**/*.ipynb" = ["E402"]            # Ignore forcing imports to be at the top of the file
+"src/atomworks_cli/*" = ["B008"]        # Ignore function calls in argument defaults for Typer CLI
 
 # Allow one-letter variable names commonly used in scientific code.
 [tool.ruff.lint.pep8-naming]

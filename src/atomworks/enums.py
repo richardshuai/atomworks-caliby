@@ -368,3 +368,26 @@ class HydrogenPolicy(StrEnum):
     KEEP = auto()
     REMOVE = auto()
     INFER = auto()
+
+
+class MSAFileExtension(StrEnum):
+    """Supported MSA file extensions."""
+
+    A3M = ".a3m"
+    A3M_GZ = ".a3m.gz"
+    AFA = ".afa"
+    AFA_GZ = ".afa.gz"
+
+    def compressed(self) -> str:
+        """Get the compressed version of this extension."""
+        if self.is_compressed():
+            return str(self)
+        return f"{self}.gz"
+
+    def is_compressed(self) -> bool:
+        """Check if this extension represents a compressed file format."""
+        return str(self).endswith(".gz")
+
+
+SUPPORTED_MSA_FILE_EXTENSIONS = list(MSAFileExtension)
+"""List of supported MSA file extensions."""

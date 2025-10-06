@@ -16,6 +16,7 @@ from biotite.structure import AtomArray
 from torch.nn.functional import normalize
 
 from atomworks.common import exists
+from atomworks.constants import NA_VALUES
 from atomworks.enums import ChainType
 from atomworks.ml.encoding_definitions import (
     LEGACY_RF2_ATOM14_ENCODING,
@@ -23,7 +24,6 @@ from atomworks.ml.encoding_definitions import (
     AF3SequenceEncoding,
     TokenEncoding,
 )
-from atomworks.ml.preprocessing.constants import NA_VALUES
 from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys, check_is_instance
 from atomworks.ml.transforms.atom_array import (
     AddWithinPolyResIdxAnnotation,

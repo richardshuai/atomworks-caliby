@@ -34,7 +34,7 @@ from atomworks.ml.transforms._checks import (
 from atomworks.ml.transforms.atom_array import _renumber_res_ids_around_reference
 from atomworks.ml.transforms.base import Transform
 from atomworks.ml.utils.geometry import align_atom_arrays
-from atomworks.ml.utils.misc import _randomly_select_items_with_weights
+from atomworks.ml.utils.misc import randomly_select_items_with_weights
 from atomworks.ml.utils.testing import is_clash
 
 logger = logging.getLogger("atomworks.ml")
@@ -356,7 +356,7 @@ class PadDNA(Transform):
         """
         Adds random sequence padding to a DNA sequence string.
         """
-        new_seq = _randomly_select_items_with_weights(self.pad_nt_weights, n=n)
+        new_seq = randomly_select_items_with_weights(self.pad_nt_weights, n=n)
 
         # place original sequence at a random position in the new sequence
         seq_idx = np.random.randint(0, len(new_seq) - len(seq) + 1)
@@ -416,7 +416,7 @@ class PadDNA(Transform):
             return completed_duplex_seq, -1
 
         # sample what the final length will be
-        new_len = _randomly_select_items_with_weights(pad_dict)
+        new_len = randomly_select_items_with_weights(pad_dict)
 
         # generate random DNA sequence of chosen final length
         # can use a configurable distribution for sequence generation (default is uniform ACTG)
@@ -501,7 +501,7 @@ class PadDNA(Transform):
         # prepare for alignment
         # Collect short-named variables needed for indexing sections to align
         n = struc.get_residue_count(array_a_nan_free)
-        a = _randomly_select_items_with_weights(self.align_len_weights, 1)
+        a = randomly_select_items_with_weights(self.align_len_weights, 1)
         a = min(a, n)  # can't align more residues than there are in the structure
         o = len(new_seq)
         r, u = rm_a_begin, rm_b_end
