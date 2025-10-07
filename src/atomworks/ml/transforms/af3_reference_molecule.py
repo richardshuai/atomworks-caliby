@@ -122,6 +122,10 @@ def _encode_atom_names_like_af3(atom_names: np.ndarray) -> np.ndarray:
     Reference:
         `AF3 Supplementary Information <https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf>`_
     """
+    # Handle empty array case
+    if len(atom_names) == 0:
+        return np.empty((0, 4), dtype=np.uint8)
+
     # Ensure uppercase
     atom_names = np.char.upper(atom_names)
     # Turn into 4 character ASCII string (this truncates longer atom names)
