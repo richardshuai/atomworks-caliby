@@ -244,7 +244,8 @@ def get_af3_reference_molecule_features(
     _res_start_ends = get_residue_starts(atom_array, add_exclusive_stop=True)
     _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
     _res_names = atom_array.res_name[_res_starts]
-    res_stochiometry = dict(zip(*np.unique(_res_names, return_counts=True), strict=False))
+    unique_names, counts = np.unique(_res_names, return_counts=True)
+    res_stochiometry = {str(name): int(count) for name, count in zip(unique_names, counts, strict=True)}
 
     # Extract cached conformers and get remaining stochiometry
     if cached_residue_level_data is not None:
