@@ -342,6 +342,7 @@ def parse_ccd_cif(
     atoms.set_annotation("atom_name", atom_data.get("atom_id").as_array(str))
     atoms.set_annotation("element", atom_data.get("type_symbol").as_array(str))
     atoms.set_annotation("charge", atom_data.get("charge").as_array(np.int8))
+    atoms.set_annotation("res_id", np.full(n_atoms, 1))  # We 1-index residue IDs to be consistent with RCSB
 
     # Optional annotations (with defaults)
     atoms.set_annotation("alt_atom_id", _get_str("alt_atom_id"))
@@ -351,7 +352,6 @@ def parse_ccd_cif(
     atoms.set_annotation("is_backbone_atom", _get_bool("pdbx_backbone_atom_flag"))
     atoms.set_annotation("is_n_terminal_atom", _get_bool("pdbx_n_terminal_atom_flag"))
     atoms.set_annotation("is_c_terminal_atom", _get_bool("pdbx_c_terminal_atom_flag"))
-    atoms.set_annotation("res_id", np.full(n_atoms, 1))  # We 1-index residue IDs to be consistent with RCSB
 
     # Try setting hetero flag
     hetero = ccd_code not in struc.info.atoms.NON_HETERO_RESIDUES
@@ -417,9 +417,13 @@ def parse_ccd_cif(
         if bond_data is not None:
             bond_dict = pdbx.convert._parse_intra_residue_bonds(bond_data)
             atoms.bonds = struc.connect_via_residue_names(atoms, custom_bond_dict=bond_dict)
-    except KeyError:
-        atoms.bonds = None
-        logger.warning(f"No bond data found for `{ccd_code}`. Bonds will be `None`.")
+    except KeyError as e:
+        raise KeyError(
+            f"Failed to extract bond data for `{ccd_code}`: missing key {e}. "
+            f"Required fields are: comp_id, atom_id_1, atom_id_2, value_order, pdbx_aromatic_flag"
+        ) from e
+    except Exception as e:
+        raise RuntimeError(f"Error parsing bond data for `{ccd_code}`: {e!s}") from e
 
     # Set general annotations:
     if add_properties:
