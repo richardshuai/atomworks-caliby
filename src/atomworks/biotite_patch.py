@@ -410,6 +410,45 @@ def _update_pdbx_set_structure() -> None:
     # fmt: on
 
 
+def _update_coord() -> None:
+    """Patch the `coord` function to use isinstance (necessary for AtomArrayPlus)"""
+
+    def coord(item):
+        """
+        Get the atom coordinates of the given array.
+
+        This may be directly and :class:`Atom`, :class:`AtomArray` or
+        :class:`AtomArrayStack` or
+        alternatively an (n x 3) or (m x n x 3)  :class:`ndarray`
+        containing the coordinates.
+
+        Parameters
+        ----------
+        item : Atom or AtomArray or AtomArrayStack or ndarray
+            Returns the :attr:`coord` attribute, if `item` is an
+            :class:`Atom`, :class:`AtomArray` or :class:`AtomArrayStack`.
+            Directly returns the input, if `item` is a :class:`ndarray`.
+
+        Returns
+        -------
+        coord : ndarray
+            Atom coordinates.
+        """
+
+        if isinstance(item, (Atom, struc.atoms._AtomArrayBase)):
+            return item.coord
+        elif isinstance(item, np.ndarray):
+            return item.astype(np.float32, copy=False)
+        else:
+            return np.array(item, dtype=np.float32)
+
+    struc.atoms.coord = coord
+
+    # These pyx files also need to be updated with the new version
+    struc.celllist.to_coord = coord
+    struc.sasa.CellList = struc.celllist.CellList
+
+
 def monkey_patch_biotite() -> None:
     """Monkey-patch biotite to add query, mask, and idxs methods to AtomArray and AtomArrayStack."""
     global _HAS_BEEN_PATCHED
@@ -424,5 +463,6 @@ def monkey_patch_biotite() -> None:
     _update_get_residue_starts()
     _update_array()
     _update_pdbx_set_structure()
+    _update_coord()  # TODO: Remove once biotite 1.5.0 is released (will contain this fix)
 
     _HAS_BEEN_PATCHED = True
