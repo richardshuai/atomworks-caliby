@@ -72,7 +72,7 @@ We have found that `atomworks.ml` **dramatically** reduces the overhead of start
 ---
 
 ## Installation
-> Note: AtomWorks requires Python >= 3.11
+> Note: AtomWorks requires Python >= 3.11 and [`dotenv`](https://pypi.org/project/python-dotenv/#file-format)
 
 ```shell
 pip install atomworks # base installation version without torch (for only atomworks.io)
