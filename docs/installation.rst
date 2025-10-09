@@ -26,6 +26,8 @@ This is ideal for dataset parsing and generation in a controlled environment.
    # Use the provided apptainer image
    ./.ipd/atomworks.sif
 
+.. _local-conda_environment:
+
 2. Local Conda Environment
 --------------------------
 For development and testing:
