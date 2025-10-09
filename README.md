@@ -94,9 +94,12 @@ For more advanced setup options (including how to run workflows via apptainers) 
 
 To parse a pdb file (parse = load, clean, annotate relevant metadata such as entities, molecules, etc) you can use the `parse` function:
 
+> Note: To run the code in this section you will need to download the 3nez.cif.gz file yourself. See the [examples](https://baker-laboratory.github.io/atomworks-dev/latest/auto_examples/) for how to download files from the PDB within a Python script. 
+
 ```python
 
 from atomworks.io.parser import parse
+from biotite.structure import AtomArrayStack
 
 result = parse(filename="3nez.cif.gz")
 
@@ -104,7 +107,7 @@ asym_unit: AtomArrayStack = result["asym_unit"]
 assemblies: dict[str, AtomArrayStack] = result["assemblies"]
 
 for chain_id, info in result["chain_info"].items():
-    print(chain_id, info["sequence"])
+    print(chain_id, info["processed_entity_canonical_sequence"])
 
 ```
 
@@ -122,6 +125,7 @@ If you just want to load a file, you can use the `load_any` function:
 
 ```python
 from atomworks.io.utils.io_utils import load_any
+from biotite.structure import AtomArray
 
 atom_array: AtomArray = load_any("3nez.cif.gz", model=1)  # model=1 means that we want to load the model 1 (i.e. the first model) rather than a stack of all models in the file
 ```
@@ -172,7 +176,7 @@ Next we need to use the metadata to configure a dataset that we would like to sa
 Here's a simple example that:
 
 - Filters to D-polypeptide and L-polypeptide chains only (`POLYPEPTIDE_D` and `POLYPEPTIDE_L` -- to include additional chain types, replace the lists with the appropriate IDs (see [mapping](./src/atomworks/enums.py#L31-L45) in comments).
-- Excludes ligands in the AF3 list of excluded ligands, available at [`atomworks.io.constants.AF3_EXCLUDED_LIGANDS_REGEX`](./src/atomworks/io/constants.py#L350).
+- Excludes ligands in the AF3 list of excluded ligands, available at [`atomworks.io.constants.AF3_EXCLUDED_LIGANDS_REGEX`](./src/atomworks/constants.py#L350).
 
 ```yaml
 # NOTE: The below is a hydra config and the _target_ fields are the hydra syntax for instantiating a class.
@@ -281,8 +285,10 @@ Or alternatively not use MSAs.
 **Step 5 — Train a model**
 You now have a full fledged dataset that you can use to train models on! If you want to just try this out without having to download the whole PDB and the metdatada, you can instead run our tests which have a mini-mockup of the pipeline with real pdb files, metadata, distillation data, templates and MSAs for the example of AF3. You can download all this relevant metadata via the atomworks CLI:
 
+> Note: Make sure you are in the AtomWorks root directory when you run the following command, otherwise a new tests/data folder will be created in your current working directory.
+
 ```bash
-atomworks setup tests  # This will download the test pack to `tests/data` and unpack it there (~500 MB)
+atomworks setup tests  # This will download the test pack to `tests/data` and unpack it there (~500 MB). 
 ```
 
 You will now have a mini PDB at `tests/data/pdb` and a mini custom CCD at `tests/data/ccd`. MSA and template data is in `tests/data/shared` and the distillation and metadata are in `data/ml/af2_distillation`, `data/ml/pdb_pn_units` and `data/ml/pdb_interfaces`. A dataset that uses all of these is [for example here](./tests/ml/conftest.py#L300).
@@ -291,7 +297,7 @@ To run the tests for the various datasets, you can run the following command:
 
 ```bash
 # Make sure you have the correct environment activated, and set your paths correctly in the .env file / shell environment variables (see points above)
-pytest tests/ml/test_data_loading_pipelines.py
+pytest tests/ml/pipelines/test_data_loading_pipelines.py
 ```
 
 ---
