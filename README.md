@@ -57,7 +57,22 @@ We have found that `atomworks.ml` **dramatically** reduces the overhead of start
 
 ---
 
+## When to use `atomworks.io` vs `atomworks.ml`?
+
+- Use `atomworks.io` when you:
+  - Need to parse/clean/convert between biological file formats (mmCIF, PDB, FASTA, etc.)
+  - Want a unified structural representation to plug into any downstream analysis or modeling
+  - Need structural operations like adding missing atoms, filtering ligands/solvents, or assembly generation
+
+- Use `atomworks.ml` when you:
+  - Need to featurize entire datasets for deep learning
+  - Want ready-made sampling and batching utilities for training pipelines
+  - Already use `atomworks.io` and want a seamless bridge to ML-ready feature engineering
+
+---
+
 ## Installation
+> Note: AtomWorks requires Python >= 3.11
 
 ```shell
 pip install atomworks # base installation version without torch (for only atomworks.io)
@@ -65,6 +80,7 @@ pip install "atomworks[ml]" # with torch and ML dependencies (for atomworks.io p
 pip install "atomworks[dev]" # with development dependencies
 pip install "atomworks[ml,dev]" # with all dependencies
 ```
+*Running multiple of these installations will just add to the installed dependencies and will not install multiple installations of atomworks.*
 
 If you are using [uv](https://docs.astral.sh/uv/reference/policies/versioning/) for package management, you can install atomworks with:
 
@@ -78,19 +94,9 @@ For more advanced setup options (including how to run workflows via apptainers) 
 
 ## Getting started
 
-### 1. When to use `atomworks.io` vs `atomworks.ml`?
+This section contains information for how to get atomworks set up and a quick guide for using some of the features of atomworks.io to parse PDB files. To learn more about the features in atomworks.io and atomworks.ml, see the [external documentation](https://rosettacommons.github.io/atomworks/latest/). 
 
-- Use `atomworks.io` when you:
-  - Need to parse/clean/convert between biological file formats (mmCIF, PDB, FASTA, etc.)
-  - Want a unified structural representation to plug into any downstream analysis or modeling
-  - Need structural operations like adding missing atoms, filtering ligands/solvents, or assembly generation
-
-- Use `atomworks.ml` when you:
-  - Need to featurize entire datasets for deep learning
-  - Want ready-made sampling and batching utilities for training pipelines
-  - Already use `atomworks.io` and want a seamless bridge to ML-ready feature engineering
-
-### 2. Quick Start
+### 1. Quick Start
 
 To parse a pdb file (parse = load, clean, annotate relevant metadata such as entities, molecules, etc) you can use the `parse` function:
 
@@ -119,7 +125,8 @@ The output of `parse` includes:
 - **assemblies** — Built biological assemblies (each are their own `AtomArrayStack`)
 - **metadata** — Experimental and source information
 
-See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/auto_examples/) for more details.
+See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/auto_examples/) for more examples of the use of `parse()`. All of the provided examples make use of this method. 
+See [API reference documentation](https://rosettacommons.github.io/atomworks/latest/io/parser.html) for more information on this method.
 
 If you just want to load a file, you can use the `load_any` function:
 
@@ -130,7 +137,7 @@ from biotite.structure import AtomArray
 atom_array: AtomArray = load_any("3nez.cif.gz", model=1)  # model=1 means that we want to load the model 1 (i.e. the first model) rather than a stack of all models in the file
 ```
 
-### 3. Training on the PDB
+### 2. Training on the PDB
 
 > ⚠️ **Disclaimer:** Documentation for this section is currently under construction. Please check back soon for updates!
 
@@ -305,7 +312,7 @@ pytest tests/ml/pipelines/test_data_loading_pipelines.py
 ## Contribution
 
 We welcome improvements!  
-Please see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest/index.html) for contribution guidelines.
+Please see the [contributors guide in the full documentation](https://rosettacommons.github.io/atomworks/latest/contributor_guide.html) for contribution guidelines.
 
 ## Citation
 
