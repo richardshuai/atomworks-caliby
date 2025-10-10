@@ -164,9 +164,5 @@ _version.py
 tinker/
 .DS_Store
 
-# AI
-**/CLAUDE.md
-**/copilot-instructions.md
-
 # Local scripts
 scripts/
