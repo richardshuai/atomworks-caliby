@@ -87,6 +87,66 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - `refactor: Extract common atom selection logic`
 - `docs: Update docstrings for transform base class`
 
+### Pull Request Target Branches
+
+**CRITICAL**: PRs should target the branch they were created from unless explicitly specified otherwise.
+
+**Branch Strategy:**
+- Feature branches typically merge back to `dev`
+- If explicitly told to target `staging`, follow special staging rules below
+
+### AtomWorks-Specific: Merging to Staging
+
+**IMPORTANT**: When creating PRs to `staging` branch, certain files MUST be excluded.
+
+**NEVER include in staging PRs:**
+- `CLAUDE.md` (all CLAUDE.md files anywhere in repo)
+- `.ipd/` directory and all contents
+- `.env` file
+- `src/atomworks/ml/databases/` directory and all contents
+
+**How to exclude files when targeting staging:**
+
+1. **Check what you're about to commit:**
+   ```bash
+   git status
+   git diff --staged
+   ```
+
+2. **If forbidden files are present, unstage them:**
+   ```bash
+   # Unstage specific files
+   git restore --staged CLAUDE.md
+   git restore --staged .ipd/
+   git restore --staged .env
+   git restore --staged src/atomworks/ml/databases/
+   ```
+
+3. **Verify before pushing:**
+   ```bash
+   git diff --staged --name-only | grep -E "(CLAUDE\.md|\.ipd/|\.env|src/atomworks/ml/databases/)" && echo "⚠️  WARNING: Forbidden files staged for staging!" || echo "✓ Clean for staging"
+   ```
+
+4. **Alternative: Create staging-specific branch from clean state:**
+   ```bash
+   # Create new branch excluding forbidden files
+   git checkout -b feat/feature-name-staging dev
+   git cherry-pick <commits>  # Pick only relevant commits
+   # Manually ensure forbidden files aren't included
+   ```
+
+**Before creating PR to staging, verify:**
+```bash
+# List all changed files in the PR
+git diff origin/staging...HEAD --name-only
+
+# Should NOT contain:
+# - CLAUDE.md
+# - .ipd/*
+# - .env
+# - src/atomworks/ml/databases/*
+```
+
 ### Critical Rule
 
 **If you complete a task without proper Git commits = TASK INCOMPLETE**
@@ -653,6 +713,12 @@ class Cache:
 
 ### 7. Pull Request
 
+- [ ] **Correct target branch**: PR targets the branch it was created from (typically `dev`)
+- [ ] **Staging exclusions verified**: If targeting `staging`, confirmed no forbidden files included:
+  - No `CLAUDE.md` files
+  - No `.ipd/` directory
+  - No `.env` file
+  - No `src/atomworks/ml/databases/` directory
 - [ ] **Descriptive title**: Clear summary of changes
 - [ ] **Summary section**: 1-3 bullet points of what changed
 - [ ] **Test plan**: List of how changes were tested
@@ -700,6 +766,7 @@ Running Pre-PR Checklist:
 ✓ Formatting - Linted and formatted with ruff
 ✓ Git - Feature branch, regular commits
 ✓ Review - All diffs reviewed, no debug code
+✓ PR Target - Targeting correct branch (dev/staging), staging exclusions verified
 ✓ Cleanup - Temporary files deleted, design doc and summary kept
 
 Ready to create PR.
