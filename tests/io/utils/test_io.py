@@ -567,7 +567,7 @@ def test_write_read_vs_parse_atom_array(dict_inputs, custom_residues):
 def test_parse_preserves_atom_array_plus():
     input_atom_array = parse(rcsb.fetch("1out", "cif"), file_type="cif", add_missing_atoms=True)["assemblies"]["1"][0]
     input_atom_array = as_atom_array_plus(input_atom_array)
-    output_atom_array = parse_atom_array(input_atom_array, add_missing_atoms=True)["asym_unit"][0]
+    output_atom_array = parse_atom_array(input_atom_array, add_missing_atoms=False)["asym_unit"][0]
     assert isinstance(output_atom_array, AtomArrayPlus)
 
 
