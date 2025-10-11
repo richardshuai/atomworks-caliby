@@ -38,6 +38,7 @@ from atomworks.io.transforms.categories import (
     load_monomer_sequence_information_from_category,
 )
 from atomworks.io.utils.assembly import build_assemblies_from_asym_unit
+from atomworks.io.utils.atom_array_plus import AtomArrayPlus, AtomArrayPlusStack, stack_any
 from atomworks.io.utils.bonds import get_struct_conn_dict_from_atom_array
 from atomworks.io.utils.ccd import check_ccd_codes_are_available
 from atomworks.io.utils.chain import create_chain_id_generator
@@ -334,7 +335,7 @@ def parse(
 
 
 def parse_atom_array(
-    atom_array_or_stack: AtomArray | AtomArrayStack,
+    atom_array_or_stack: AtomArray | AtomArrayStack | AtomArrayPlus | AtomArrayPlusStack,
     data_dict: dict | None = None,
     _cif_file: pdbx.CIFFile | pdbx.BinaryCIFFile | None = None,
     ccd_mirror_path: os.PathLike | None = CCD_MIRROR_PATH,
@@ -370,6 +371,28 @@ def parse_atom_array(
     Returns chain information, residue information, atom array, and metadata.
     This method performs all aspects of `_parse_from_cif` that do not require a CIF file input.
     """
+
+    # We do not support certain argument when using AtomArrayPlus
+    # TODO: Make this more robust
+    if isinstance(atom_array_or_stack, AtomArrayPlus | AtomArrayPlusStack):
+        if exists(_cif_file):
+            raise ValueError(
+                "Providing a CIF file is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack."
+            )
+        if add_missing_atoms:
+            raise ValueError(
+                "Adding missing atoms is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack."
+            )
+        if hydrogen_policy == "infer":
+            raise ValueError("Hydrogen inference is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack.")
+        if convert_mse_to_met:
+            raise ValueError(
+                "MSE to MET conversion is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack."
+            )
+        if "build_assembly" == "_spoof":
+            raise ValueError(
+                "The '_spoof' build_assembly option is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack."
+            )
 
     # ... ensure that the input AtomArray or AtomArrayStack has a BondList
     if atom_array_or_stack.bonds is None:
@@ -533,7 +556,7 @@ def parse_atom_array(
         models.append(atom_array)
 
     # ... create an AtomArrayStack from the list of AtomArrays
-    asym_unit_stack = struc.stack(models)
+    asym_unit_stack = stack_any(models)
 
     # ... add the atomic number annotation (vs. element, which is a string)
     asym_unit_stack = ta.add_atomic_number_annotation(asym_unit_stack)

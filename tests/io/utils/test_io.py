@@ -13,6 +13,7 @@ from biotite.structure import AtomArray, AtomArrayStack
 from atomworks.io.parser import parse, parse_atom_array
 from atomworks.io.tools.inference import build_msa_paths_by_chain_id_from_component_list, components_to_atom_array
 from atomworks.io.transforms.atom_array import ensure_atom_array_stack
+from atomworks.io.utils.atom_array_plus import AtomArrayPlus, as_atom_array_plus
 from atomworks.io.utils.io_utils import (
     get_structure,
     infer_pdb_file_type,
@@ -562,6 +563,13 @@ def test_write_read_vs_parse_atom_array(dict_inputs, custom_residues):
             compare_assemblies=False,
             asym_unit_annotations_to_compare=asym_unit_annotations_to_compare,
         )
+
+
+def test_parse_preserves_atom_array_plus():
+    input_atom_array = parse(rcsb.fetch("1out", "cif"), file_type="cif", add_missing_atoms=True)["assemblies"]["1"][0]
+    input_atom_array = as_atom_array_plus(input_atom_array)
+    output_atom_array = parse_atom_array(input_atom_array, add_missing_atoms=False)["asym_unit"][0]
+    assert isinstance(output_atom_array, AtomArrayPlus)
 
 
 if __name__ == "__main__":
