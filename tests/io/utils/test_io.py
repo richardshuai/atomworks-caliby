@@ -564,6 +564,7 @@ def test_write_read_vs_parse_atom_array(dict_inputs, custom_residues):
             asym_unit_annotations_to_compare=asym_unit_annotations_to_compare,
         )
 
+
 def test_parse_preserves_atom_array_plus():
     input_atom_array = parse(rcsb.fetch("1out", "cif"), file_type="cif", add_missing_atoms=True)["assemblies"]["1"][0]
     input_atom_array = as_atom_array_plus(input_atom_array)

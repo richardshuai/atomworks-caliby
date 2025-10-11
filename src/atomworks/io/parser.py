@@ -376,15 +376,23 @@ def parse_atom_array(
     # TODO: Make this more robust
     if isinstance(atom_array_or_stack, AtomArrayPlus | AtomArrayPlusStack):
         if exists(_cif_file):
-            raise ValueError("Providing a CIF file is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack.")
+            raise ValueError(
+                "Providing a CIF file is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack."
+            )
         if add_missing_atoms:
-            raise ValueError("Adding missing atoms is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack.")
-        if hydrogen_policy =="infer":
+            raise ValueError(
+                "Adding missing atoms is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack."
+            )
+        if hydrogen_policy == "infer":
             raise ValueError("Hydrogen inference is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack.")
         if convert_mse_to_met:
-            raise ValueError("MSE to MET conversion is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack.")
+            raise ValueError(
+                "MSE to MET conversion is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack."
+            )
         if "build_assembly" == "_spoof":
-            raise ValueError("The '_spoof' build_assembly option is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack.")
+            raise ValueError(
+                "The '_spoof' build_assembly option is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack."
+            )
 
     # ... ensure that the input AtomArray or AtomArrayStack has a BondList
     if atom_array_or_stack.bonds is None:
