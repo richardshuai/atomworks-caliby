@@ -1,7 +1,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![PyPI version](https://img.shields.io/pypi/v/atomworks.svg)](https://pypi.org/project/atomworks/)
 [![Python versions](https://img.shields.io/pypi/pyversions/atomworks.svg)](https://pypi.org/project/atomworks/)
-[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://baker-laboratory.github.io/atomworks-dev/latest/index.html)
+[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://rosettacommons.github.io/atomworks/latest/)
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 <div align="center">
@@ -78,7 +78,8 @@ We have found that `atomworks.ml` **dramatically** reduces the overhead of start
 pip install atomworks # base installation version without torch (for only atomworks.io)
 pip install "atomworks[ml]" # with torch and ML dependencies (for atomworks.io plus atomworks.ml)
 pip install "atomworks[dev]" # with development dependencies
-pip install "atomworks[ml,dev]" # with all dependencies
+pip install "atomworks[openbabel]" # with [Open Babel](https://openbabel.org/) and its dependencies
+pip install "atomworks[ml,openbabel,dev]" # with all dependencies
 ```
 *Running multiple of these installations will just add to the installed dependencies and will not install multiple installations of atomworks.*
 
@@ -88,7 +89,7 @@ If you are using [uv](https://docs.astral.sh/uv/reference/policies/versioning/) 
 uv pip install "atomworks[ml,openbabel,dev]"
 ```
 
-For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest).
+For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://rosettacommons.github.io/atomworks/latest/index.html).
 
 ---
 
@@ -100,7 +101,7 @@ This section contains information for how to get atomworks set up and a quick gu
 
 To parse a pdb file (parse = load, clean, annotate relevant metadata such as entities, molecules, etc) you can use the `parse` function:
 
-> Note: To run the code in this section you will need to download the 3nez.cif.gz file yourself. See the [examples](https://baker-laboratory.github.io/atomworks-dev/latest/auto_examples/) for how to download files from the PDB within a Python script. 
+> Note: To run the code in this section you will need to download the 3nez.cif.gz file yourself. See the [examples](https://rosettacommons.github.io/atomworks/latest/auto_examples/index.html) for how to download files from the PDB within a Python script. 
 
 ```python
 
@@ -125,7 +126,7 @@ The output of `parse` includes:
 - **assemblies** — Built biological assemblies (each are their own `AtomArrayStack`)
 - **metadata** — Experimental and source information
 
-See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/auto_examples/) for more examples of the use of `parse()`. All of the provided examples make use of this method. 
+See [usage examples](https://rosettacommons.github.io/atomworks/latest/auto_examples/index.html) for more examples of the use of `parse()`. All of the provided examples make use of this method. 
 See [API reference documentation](https://rosettacommons.github.io/atomworks/latest/io/parser.html) for more information on this method.
 
 If you just want to load a file, you can use the `load_any` function:
