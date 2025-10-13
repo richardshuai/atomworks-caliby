@@ -10,10 +10,11 @@ import biotite.structure as struc
 import networkx as nx
 import numpy as np
 import pandas as pd
-from biotite.structure import AtomArray, AtomArrayStack, stack
+from biotite.structure import AtomArray, AtomArrayStack
 
 from atomworks.common import listmap, not_isin, sum_string_arrays
 from atomworks.constants import ELEMENT_NAME_TO_ATOMIC_NUMBER, HYDROGEN_LIKE_SYMBOLS, WATER_LIKE_CCDS
+from atomworks.io.utils.atom_array_plus import stack_any
 from atomworks.io.utils.bonds import (
     generate_inter_level_bond_hash,
     get_coarse_graph_as_nodes_and_edges,
@@ -98,7 +99,7 @@ def remove_waters(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArr
 def ensure_atom_array_stack(atom_array_or_stack: AtomArray | AtomArrayStack) -> AtomArrayStack:
     """Ensures that the input is an AtomArrayStack. If it is an AtomArray, it is converted to a stack."""
     if isinstance(atom_array_or_stack, AtomArray):
-        return stack([atom_array_or_stack])
+        return stack_any([atom_array_or_stack])
     elif isinstance(atom_array_or_stack, AtomArrayStack):
         return atom_array_or_stack
     else:
