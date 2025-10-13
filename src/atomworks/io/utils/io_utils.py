@@ -1,12 +1,22 @@
 """General utility functions for working with CIF files in Biotite."""
 
-__all__ = ["get_structure", "load_any", "read_any", "to_cif_buffer", "to_cif_file", "to_cif_string"]
+__all__ = [
+    "get_structure",
+    "load_any",
+    "read_any",
+    "suppress_logging_messages",
+    "to_cif_buffer",
+    "to_cif_file",
+    "to_cif_string",
+]
 
 import gzip
 import io
 import logging
 import os
 import warnings
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -31,6 +41,31 @@ from atomworks.io.utils.testing import has_ambiguous_annotation_set
 logger = logging.getLogger("atomworks.io")
 
 CIF_LIKE_EXTENSIONS = {".cif", ".pdb", ".bcif", ".cif.gz", ".pdb.gz", ".bcif.gz"}
+
+
+@contextmanager
+def suppress_logging_messages(logger_name: str, message_pattern: str) -> Generator[None, None, None]:
+    """Temporarily suppress logging messages matching a pattern.
+
+    Args:
+        logger_name: Name of the logger to filter.
+        message_pattern: String pattern to match in log messages (substring match).
+
+    Examples:
+        >>> with suppress_logging_messages("atomworks.io", "not found"):
+        ...     # Code that generates "not found" warnings
+        ...     pass
+    """
+    target_logger = logging.getLogger(logger_name)
+
+    def filter_func(record: logging.LogRecord) -> bool:
+        return message_pattern not in record.getMessage()
+
+    target_logger.addFilter(filter_func)
+    try:
+        yield
+    finally:
+        target_logger.removeFilter(filter_func)
 
 
 def _get_logged_in_user() -> str:

@@ -1,5 +1,6 @@
 """Utilities for saving and loading atom arrays with condition annotations to/from CIF files."""
 
+import logging
 from os import PathLike
 
 import numpy as np
@@ -13,7 +14,7 @@ from atomworks.io.utils.atom_array_plus import (
     AtomArrayPlusStack,
     as_atom_array_plus,
 )
-from atomworks.io.utils.io_utils import to_cif_file
+from atomworks.io.utils.io_utils import suppress_logging_messages, to_cif_file
 from atomworks.io.utils.selection import get_annotation, get_annotation_categories
 from atomworks.ml.conditions.base import CONDITIONS, ConditionBase
 from atomworks.ml.datasets.parsers.base import DEFAULT_PARSER_ARGS
@@ -63,15 +64,22 @@ def load_atom_array_with_conditions_from_cif(
     return_data_dict: bool = False,
     fill_missing_conditions: bool = False,
 ) -> AtomArray | dict:
-    """
-    Loads an atom array from a CIF file. Uses Condition registry to get all possible annotations.
+    """Loads an atom array from a CIF file with condition annotations.
+
+    Uses the Condition registry to get all possible annotations and loads them from the CIF file.
 
     Args:
         file: The path to the CIF file to load.
         assembly_id: The assembly ID to load.
         cif_parser_args: Additional CIF parser arguments.
-        return_data_dict: Whether to return the data dictionary. If false will return the atom array
+        return_data_dict: Whether to return the data dictionary. If false will return the atom array.
         fill_missing_conditions: Whether to fill missing conditions (as annotations in the atom array) with defaults.
+
+    Returns:
+        The loaded atom array with condition annotations, or the full data dictionary if ``return_data_dict`` is True.
+
+    Note:
+        Warnings about missing extra fields are suppressed unless the logging level is set to DEBUG.
     """
 
     # Default cif_parser_args to an empty dictionary if not provided
@@ -97,13 +105,30 @@ def load_atom_array_with_conditions_from_cif(
     possible_annotations = CONDITIONS.get_valid_full_names()
     possible_masks = CONDITIONS.get_valid_mask_names()
 
-    result_dict = parse(
-        filename=file,
-        keep_cif_block=True,
-        build_assembly=(assembly_id,),  # Convert list to tuple (make hashable),
-        extra_fields=possible_annotations | possible_masks,
-        **merged_cif_parser_args,
-    )
+    # Get the logger for atomworks.io to check its level
+    io_logger = logging.getLogger("atomworks.io")
+    suppress_missing_field_warnings = io_logger.getEffectiveLevel() > logging.DEBUG
+
+    # Filter logging warnings for missing extra fields unless logging level is DEBUG
+    if suppress_missing_field_warnings:
+        # Suppress only the specific "Field ... not found in file" logging warnings
+        with suppress_logging_messages("atomworks.io", "not found in file"):
+            result_dict = parse(
+                filename=file,
+                keep_cif_block=True,
+                build_assembly=(assembly_id,),  # Convert list to tuple (make hashable),
+                extra_fields=possible_annotations | possible_masks,
+                **merged_cif_parser_args,
+            )
+    else:
+        result_dict = parse(
+            filename=file,
+            keep_cif_block=True,
+            build_assembly=(assembly_id,),  # Convert list to tuple (make hashable),
+            extra_fields=possible_annotations | possible_masks,
+            **merged_cif_parser_args,
+        )
+
     _ = result_dict.pop("asym_unit")
     cif_block = result_dict.pop("cif_block")
     atom_array = result_dict["assemblies"][assembly_id][0]
