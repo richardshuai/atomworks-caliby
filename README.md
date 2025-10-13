@@ -1,7 +1,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![PyPI version](https://img.shields.io/pypi/v/atomworks.svg)](https://pypi.org/project/atomworks/)
 [![Python versions](https://img.shields.io/pypi/pyversions/atomworks.svg)](https://pypi.org/project/atomworks/)
-[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://baker-laboratory.github.io/atomworks-dev/latest/index.html)
+[![Documentation Status](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://rosettacommons.github.io/atomworks/latest/)
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 <div align="center">
@@ -57,28 +57,7 @@ We have found that `atomworks.ml` **dramatically** reduces the overhead of start
 
 ---
 
-## Installation
-
-```shell
-pip install atomworks # base installation version without torch (for only atomworks.io)
-pip install "atomworks[ml]" # with torch and ML dependencies (for atomworks.io plus atomworks.ml)
-pip install "atomworks[dev]" # with development dependencies
-pip install "atomworks[ml,dev]" # with all dependencies
-```
-
-If you are using [uv](https://docs.astral.sh/uv/reference/policies/versioning/) for package management, you can install atomworks with:
-
-```shell
-uv pip install "atomworks[ml,openbabel,dev]"
-```
-
-For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest).
-
----
-
-## Getting started
-
-### 1. When to use `atomworks.io` vs `atomworks.ml`?
+## When to use `atomworks.io` vs `atomworks.ml`?
 
 - Use `atomworks.io` when you:
   - Need to parse/clean/convert between biological file formats (mmCIF, PDB, FASTA, etc.)
@@ -90,13 +69,44 @@ For more advanced setup options (including how to run workflows via apptainers) 
   - Want ready-made sampling and batching utilities for training pipelines
   - Already use `atomworks.io` and want a seamless bridge to ML-ready feature engineering
 
-### 2. Quick Start
+---
+
+## Installation
+> Note: AtomWorks requires Python >= 3.11 and [`dotenv`](https://pypi.org/project/python-dotenv/#file-format)
+
+```shell
+pip install atomworks # base installation version without torch (for only atomworks.io)
+pip install "atomworks[ml]" # with torch and ML dependencies (for atomworks.io plus atomworks.ml)
+pip install "atomworks[dev]" # with development dependencies
+pip install "atomworks[openbabel]" # with [Open Babel](https://openbabel.org/) and its dependencies
+pip install "atomworks[ml,openbabel,dev]" # with all dependencies
+```
+*Running multiple of these installations will just add to the installed dependencies and will not install multiple installations of atomworks.*
+
+If you are using [uv](https://docs.astral.sh/uv/reference/policies/versioning/) for package management, you can install atomworks with:
+
+```shell
+uv pip install "atomworks[ml,openbabel,dev]"
+```
+
+For more advanced setup options (including how to run workflows via apptainers) see the [full documentation](https://rosettacommons.github.io/atomworks/latest/index.html).
+
+---
+
+## Getting started
+
+This section contains information for how to get atomworks set up and a quick guide for using some of the features of atomworks.io to parse PDB files. To learn more about the features in atomworks.io and atomworks.ml, see the [external documentation](https://rosettacommons.github.io/atomworks/latest/). 
+
+### 1. Quick Start
 
 To parse a pdb file (parse = load, clean, annotate relevant metadata such as entities, molecules, etc) you can use the `parse` function:
+
+> Note: To run the code in this section you will need to download the 3nez.cif.gz file yourself. See the [examples](https://rosettacommons.github.io/atomworks/latest/auto_examples/index.html) for how to download files from the PDB within a Python script. 
 
 ```python
 
 from atomworks.io.parser import parse
+from biotite.structure import AtomArrayStack
 
 result = parse(filename="3nez.cif.gz")
 
@@ -104,7 +114,7 @@ asym_unit: AtomArrayStack = result["asym_unit"]
 assemblies: dict[str, AtomArrayStack] = result["assemblies"]
 
 for chain_id, info in result["chain_info"].items():
-    print(chain_id, info["sequence"])
+    print(chain_id, info["processed_entity_canonical_sequence"])
 
 ```
 
@@ -116,17 +126,19 @@ The output of `parse` includes:
 - **assemblies** — Built biological assemblies (each are their own `AtomArrayStack`)
 - **metadata** — Experimental and source information
 
-See [usage examples](https://baker-laboratory.github.io/atomworks-dev/latest/auto_examples/) for more details.
+See [usage examples](https://rosettacommons.github.io/atomworks/latest/auto_examples/index.html) for more examples of the use of `parse()`. All of the provided examples make use of this method. 
+See [API reference documentation](https://rosettacommons.github.io/atomworks/latest/io/parser.html) for more information on this method.
 
 If you just want to load a file, you can use the `load_any` function:
 
 ```python
 from atomworks.io.utils.io_utils import load_any
+from biotite.structure import AtomArray
 
 atom_array: AtomArray = load_any("3nez.cif.gz", model=1)  # model=1 means that we want to load the model 1 (i.e. the first model) rather than a stack of all models in the file
 ```
 
-### 3. Training on the PDB
+### 2. Training on the PDB
 
 > ⚠️ **Disclaimer:** Documentation for this section is currently under construction. Please check back soon for updates!
 
@@ -172,7 +184,7 @@ Next we need to use the metadata to configure a dataset that we would like to sa
 Here's a simple example that:
 
 - Filters to D-polypeptide and L-polypeptide chains only (`POLYPEPTIDE_D` and `POLYPEPTIDE_L` -- to include additional chain types, replace the lists with the appropriate IDs (see [mapping](./src/atomworks/enums.py#L31-L45) in comments).
-- Excludes ligands in the AF3 list of excluded ligands, available at [`atomworks.io.constants.AF3_EXCLUDED_LIGANDS_REGEX`](./src/atomworks/io/constants.py#L350).
+- Excludes ligands in the AF3 list of excluded ligands, available at [`atomworks.io.constants.AF3_EXCLUDED_LIGANDS_REGEX`](./src/atomworks/constants.py#L350).
 
 ```yaml
 # NOTE: The below is a hydra config and the _target_ fields are the hydra syntax for instantiating a class.
@@ -281,8 +293,10 @@ Or alternatively not use MSAs.
 **Step 5 — Train a model**
 You now have a full fledged dataset that you can use to train models on! If you want to just try this out without having to download the whole PDB and the metdatada, you can instead run our tests which have a mini-mockup of the pipeline with real pdb files, metadata, distillation data, templates and MSAs for the example of AF3. You can download all this relevant metadata via the atomworks CLI:
 
+> Note: Make sure you are in the AtomWorks root directory when you run the following command, otherwise a new tests/data folder will be created in your current working directory.
+
 ```bash
-atomworks setup tests  # This will download the test pack to `tests/data` and unpack it there (~500 MB)
+atomworks setup tests  # This will download the test pack to `tests/data` and unpack it there (~500 MB). 
 ```
 
 You will now have a mini PDB at `tests/data/pdb` and a mini custom CCD at `tests/data/ccd`. MSA and template data is in `tests/data/shared` and the distillation and metadata are in `data/ml/af2_distillation`, `data/ml/pdb_pn_units` and `data/ml/pdb_interfaces`. A dataset that uses all of these is [for example here](./tests/ml/conftest.py#L300).
@@ -291,7 +305,7 @@ To run the tests for the various datasets, you can run the following command:
 
 ```bash
 # Make sure you have the correct environment activated, and set your paths correctly in the .env file / shell environment variables (see points above)
-pytest tests/ml/test_data_loading_pipelines.py
+pytest tests/ml/pipelines/test_data_loading_pipelines.py
 ```
 
 ---
@@ -299,7 +313,7 @@ pytest tests/ml/test_data_loading_pipelines.py
 ## Contribution
 
 We welcome improvements!  
-Please see the [full documentation](https://baker-laboratory.github.io/atomworks-dev/latest/index.html) for contribution guidelines.
+Please see the [contributors guide in the full documentation](https://rosettacommons.github.io/atomworks/latest/contributor_guide.html) for contribution guidelines.
 
 ## Citation
 
