@@ -47,14 +47,11 @@ As you review
 Contributing to the documentation
 --------------------------------
 The external AtomWorks documentation is built using `Sphinx <https://www.sphinx-doc.org/en/master/#>`_ and hosted on `GitHub Pages <https://docs.github.com/en/pages>`_.
-Aside from having AtomWorks and its dependencies installed, you will need to have the following installed to build the documentation locally:
+Aside from having AtomWorks and its dependencies installed, to build the documentation locally, you will need to install the documentation requirements:
 
-* Sphinx (``pip install sphinx``)
+.. code-block:: bash
 
-* Sphinx gallery (``pip install sphinx-gallery``)
-
-* Pydata Sphinx Theme (``pip install pydata-sphinx-theme``)
-
+   uv pip install -r docs/docs_requirements.txt
 
 To build the documentation, navigate to the ``docs`` directory and run:
    
