@@ -42,7 +42,13 @@ from atomworks.io.utils.atom_array_plus import AtomArrayPlus, AtomArrayPlusStack
 from atomworks.io.utils.bonds import get_struct_conn_dict_from_atom_array
 from atomworks.io.utils.ccd import check_ccd_codes_are_available
 from atomworks.io.utils.chain import create_chain_id_generator
-from atomworks.io.utils.io_utils import get_structure, infer_pdb_file_type, read_any
+from atomworks.io.utils.io_utils import (
+    apply_sharding_pattern,
+    build_sharding_pattern,
+    get_structure,
+    infer_pdb_file_type,
+    read_any,
+)
 from atomworks.io.utils.non_rcsb import (
     get_identity_assembly_gen_category,
     get_identity_op_expr_category,
@@ -67,6 +73,10 @@ DEFAULT_PARSE_KWARGS = {
     "build_assembly": "all",
 }
 """Some fairly standard parsing arguments that can be imported for convenience."""
+
+# Cache sharding configuration (internal, not exposed to parse() to avoid complexity)
+_CACHE_SHARDING_DEPTH = 2  # Use 2-level sharding by default (e.g., ab/cd/abcdef123456/)
+_CACHE_SHARDING_CHARS_PER_DIR = 2  # Number of characters per directory level
 
 
 def _get_atomworks_version() -> str:
@@ -239,8 +249,13 @@ def parse(
         # ... generate assembly info
         assembly_info = ",".join(build_assembly) if isinstance(build_assembly, list | tuple) else build_assembly
 
-        # ... construct the full cache file path
-        cache_file_path = cache_dir / args_hash / f"{Path(filename).stem}_assembly_{assembly_info}.pkl.gz"
+        # ... construct the full cache file path with sharding
+        # Create sharded directory structure: cache_dir/ab/cd/abcdef123456/
+        sharding_pattern = build_sharding_pattern(
+            depth=_CACHE_SHARDING_DEPTH, chars_per_dir=_CACHE_SHARDING_CHARS_PER_DIR
+        )
+        sharded_path = apply_sharding_pattern(args_hash, sharding_pattern)  # e.g., "ab/cd/abcdef12"
+        cache_file_path = cache_dir / sharded_path / f"{Path(filename).stem}_assembly_{assembly_info}.pkl.gz"
 
         # If we are loading from cache, try to load the result from the cache
         if load_from_cache:
@@ -268,8 +283,7 @@ def parse(
                     result["assemblies"] = assemblies
                     return result
             except Exception as e:
-                # Log an error, and continue to parse from CIF
-                logger.error(f"Error loading from cache: {e}")
+                raise RuntimeError(f"Error loading from cache: {e}, tried path: {cache_file_path}") from e
 
     if file_type == "pdb":
         result = _parse_from_pdb(
@@ -315,9 +329,9 @@ def parse(
 
     if not is_buffer and save_to_cache and cache_dir and (not cache_file_path.exists()):
         # We want our cache to include:
-        #   (1) All keys in `result` excep the assemblies and
-        #   (2) The information needed to rebuild the assembly(s), which is stored in `result["extra_info"]`
-        #   (3) The parse_arguments and atomworks.io version
+        #   (1) All keys in `result` except the assemblies; and,
+        #   (2) The information needed to rebuild the assembly(s), which is stored in `result["extra_info"]`; and,
+        #   (3) The parse_arguments and atomworks version
 
         # Add parse_arguments and version to metadata before saving
         result.setdefault("metadata", {}).update(

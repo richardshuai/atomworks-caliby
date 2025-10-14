@@ -12,7 +12,7 @@ import pandas as pd
 from toolz import keyfilter
 
 from atomworks.io.parser import parse
-from atomworks.ml.utils.io import apply_sharding_pattern
+from atomworks.io.utils.io_utils import apply_sharding_pattern
 
 
 def _construct_metadata_hierarchy(row: pd.Series, attrs: dict | None = None) -> dict[str, Any]:

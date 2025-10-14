@@ -7,11 +7,12 @@ from pathlib import Path
 import numpy as np
 
 from atomworks.enums import ChainType
+from atomworks.io.utils.io_utils import apply_sharding_pattern, build_sharding_pattern
 from atomworks.ml.transforms.msa._msa_constants import (
     AMINO_ACID_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
     RNA_NUCLEOTIDE_ONE_LETTER_ASCII_TO_INT_LOOKUP_TABLE,
 )
-from atomworks.ml.utils.io import get_sharded_file_path, open_file
+from atomworks.ml.utils.io import open_file
 from atomworks.ml.utils.misc import hash_sequence
 
 
@@ -240,9 +241,10 @@ def get_msa_path(seq: str, msa_dirs: list[dict[str, str]]) -> Path | None:
     """
     sequence_hash = hash_sequence(seq)
     for msa_dir in msa_dirs:
-        msa_file = get_sharded_file_path(
-            Path(msa_dir["dir"]), sequence_hash, msa_dir["extension"], msa_dir.get("directory_depth", 0)
-        )
+        depth = msa_dir.get("directory_depth", 0)
+        sharding_pattern = build_sharding_pattern(depth=depth, chars_per_dir=2)
+        sharded_path = apply_sharding_pattern(sequence_hash, sharding_pattern)
+        msa_file = Path(msa_dir["dir"]) / sharded_path.with_suffix(msa_dir["extension"])
         if msa_file.exists():
             return msa_file
     return None
