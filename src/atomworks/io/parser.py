@@ -76,9 +76,7 @@ def _get_atomworks_version() -> str:
 
 def _parse_args_to_hash(parse_arguments: dict[str, Any], truncate: int = 8) -> str:
     """Compute hash from parse arguments with sorted keys."""
-    print(parse_arguments)
     args_string = ",".join(str(parse_arguments[k]) for k in sorted(parse_arguments.keys()))
-    print("STRING:", args_string)
     return string_to_md5_hash(args_string, truncate=truncate)
 
 
@@ -235,7 +233,6 @@ def parse(
             "hydrogen_policy": hydrogen_policy,
         }
         args_hash = _parse_args_to_hash(parse_arguments)
-        print(f"Args hash: {args_hash}")
 
         # ... generate assembly info
         assembly_info = ",".join(build_assembly) if isinstance(build_assembly, list | tuple) else build_assembly
