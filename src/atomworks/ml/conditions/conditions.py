@@ -66,6 +66,7 @@ class Index(ConditionBase):
     n_body = 1
     level = Level.RESIDUE
     dtype = int
+    MASKED_INDEX = -1
 
     @classmethod
     def default_mask(cls, atom_array: AtomArray) -> np.ndarray:
@@ -74,7 +75,12 @@ class Index(ConditionBase):
     @classmethod
     def default_annotation(cls, atom_array: AtomArray) -> np.ndarray:
         ensure_annotations(atom_array, "within_chain_res_idx")
-        return atom_array.get_annotation("within_chain_res_idx")
+        indices = atom_array.get_annotation("within_chain_res_idx").copy()
+        if cls.mask_name in atom_array.get_annotation_categories():
+            # ... if mask exists, use it to get the indices
+            mask = cls.mask(atom_array, default="raise")
+            indices[~mask] = cls.MASKED_INDEX
+        return indices
 
 
 class Distance(ConditionBase):
