@@ -514,7 +514,7 @@ def test_chiral_centers_with_cached_conformers(cache_dir, data_with_subsampled_c
 @pytest.mark.parametrize(
     "res_name",
     [
-        "G",      # 1-letter CCD code (cached at G/G/G.pt)
+        "G",  # 1-letter CCD code (cached at G/G/G.pt)
         "DISEP",  # 5-letter CCD code/ligand (cached at D/DISEP/DISEP.pt)
     ],
 )
