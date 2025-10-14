@@ -250,14 +250,19 @@ def parse(
         assembly_info = ",".join(build_assembly) if isinstance(build_assembly, list | tuple) else build_assembly
 
         # ... construct the full cache file path with sharding
-        # Shard on structure ID (e.g., PDB ID), not on parsing arguments
-        # Structure: cache_dir/1r/ud/1rud/args_hash/1rud_assembly_1.pkl.gz
+        # Shard on structure ID (e.g., PDB ID) within each args_hash directory
+        # Structure: cache_dir/args_hash/1r/ud/1rud/1rud_assembly_1.pkl.gz
         structure_id = Path(filename).stem
+
+        # Pad structure ID to minimum required length for sharding
+        min_length = _CACHE_SHARDING_DEPTH * _CACHE_SHARDING_CHARS_PER_DIR
+        structure_id_padded = structure_id.ljust(min_length, "_")
+
         sharding_pattern = build_sharding_pattern(
             depth=_CACHE_SHARDING_DEPTH, chars_per_dir=_CACHE_SHARDING_CHARS_PER_DIR
         )
-        sharded_path = apply_sharding_pattern(structure_id, sharding_pattern)
-        cache_file_path = cache_dir / sharded_path / args_hash / f"{structure_id}_assembly_{assembly_info}.pkl.gz"
+        sharded_path = apply_sharding_pattern(structure_id_padded, sharding_pattern)
+        cache_file_path = cache_dir / args_hash / sharded_path / f"{structure_id}_assembly_{assembly_info}.pkl.gz"
 
         # If we are loading from cache, try to load the result from the cache
         if load_from_cache:
