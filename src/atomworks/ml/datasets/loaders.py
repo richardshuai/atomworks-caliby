@@ -32,7 +32,7 @@ STANDARD_PARSER_ARGS = {
 """Standard cif parser arguments for `atomworks.io.parse` for many practical biomolecular use cases.
 
 Similar to the defaults in `atomworks.io.parser.parse`, but additionally converts selenomethionine (MSE)
-residues to methionine (MET) residues, which desirable fo many practical applications but would not be
+residues to methionine (MET) residues, which desirable for many practical applications but would not be
 appropriate as a universal default.
 
 This dictionary exists to provide a convenient import for the standard parameters.
