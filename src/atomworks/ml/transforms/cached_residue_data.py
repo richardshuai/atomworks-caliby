@@ -11,7 +11,7 @@ from biotite.structure import AtomArray, residue_iter
 from toolz import keyfilter
 
 from atomworks.common import exists
-from atomworks.io.utils.io_utils import apply_sharding_pattern, build_sharding_pattern
+from atomworks.io.utils.io_utils import build_sharding_pattern, parse_sharding_pattern
 from atomworks.ml.transforms._checks import check_atom_array_annotation, check_contains_keys
 from atomworks.ml.transforms.base import Transform
 
@@ -114,9 +114,18 @@ def load_cached_residue_level_data(
     cached_data_by_res_name = {}
 
     for res_name in unique_res_names:
-        sharding_pattern = build_sharding_pattern(depth=sharding_depth, chars_per_dir=1)
-        sharded_path = apply_sharding_pattern(res_name, sharding_pattern)
-        file_path = Path(dir) / sharded_path / res_name / f"{res_name}{file_extension}"
+        # Build shard directories without the final identifier
+        # For "ALA" with depth=1, chars_per_dir=1: shard_path = "A"
+        # Final path: dir/A/ALA/ALA.pt (not dir/A/ALA/ALA/ALA.pt)
+        if sharding_depth > 0:
+            sharding_pattern = build_sharding_pattern(depth=sharding_depth, chars_per_dir=1)
+            shard_ranges = parse_sharding_pattern(sharding_pattern)
+            shard_dirs = [res_name[start:end] for start, end in shard_ranges]
+            shard_path = Path(*shard_dirs)
+        else:
+            shard_path = Path()
+
+        file_path = Path(dir) / shard_path / res_name / f"{res_name}{file_extension}"
 
         if not file_path.exists():
             logger.warning(f"Cached data not found for {res_name} at {file_path}")
