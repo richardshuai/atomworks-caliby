@@ -59,21 +59,6 @@ logger = logging.getLogger("atomworks.io")
 
 __all__ = ["parse"]
 
-DEFAULT_PARSE_KWARGS = {
-    "add_missing_atoms": True,
-    "add_id_and_entity_annotations": True,
-    "add_bond_types_from_struct_conn": ["covale"],
-    "remove_ccds": CRYSTALLIZATION_AIDS,
-    "remove_waters": True,
-    "fix_ligands_at_symmetry_centers": True,
-    "hydrogen_policy": "keep",
-    "fix_arginines": True,
-    "fix_formal_charges": True,
-    "convert_mse_to_met": True,
-    "build_assembly": "all",
-}
-"""Some fairly standard parsing arguments that can be imported for convenience."""
-
 # Cache sharding configuration (internal, not exposed to parse() to avoid complexity)
 _CACHE_SHARDING_DEPTH = 2  # Use 2-level sharding by default (e.g., ab/cd/abcdef123456/)
 _CACHE_SHARDING_CHARS_PER_DIR = 2  # Number of characters per directory level
@@ -244,6 +229,7 @@ def parse(
         }
         # Compose args_string from parse_arguments values (in order)
         args_string = ",".join(str(parse_arguments[k]) for k in parse_arguments)
+        print("STRING:", args_string)
         args_hash = string_to_md5_hash(args_string, truncate=8)
 
         # ... generate assembly info

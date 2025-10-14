@@ -22,6 +22,7 @@ DEFAULT_PARSER_ARGS = {
     "model": None,  # all models
 }
 """Default cif parser arguments for `atomworks.io.parse`.
+
 This dictionary exists to provide a convenient import for the default parameters.
 """
 
