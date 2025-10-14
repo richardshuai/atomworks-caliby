@@ -511,5 +511,41 @@ def test_chiral_centers_with_cached_conformers(cache_dir, data_with_subsampled_c
     _ = chiral_pipe(data_with_subsampled_conformers)
 
 
+def test_cached_data_with_short_residue_names(cache_dir):
+    """Test that short residue names (1-2 chars) work correctly with sharding.
+
+    This verifies the padding logic prevents index out of bounds errors
+    when residue names are shorter than sharding_depth requires.
+    """
+    # Create an atom array with artificially short residue names
+    # to test the padding logic explicitly
+    atom_array = struc.info.residue("ALA")
+    atom_array = atom_array[atom_array.element != "H"]
+
+    # Change residue name to single character to test padding
+    atom_array.res_name[:] = "G"  # Single character residue name
+    atom_array = add_global_token_id_annotation(atom_array)
+
+    # Test with sharding_depth=2, which requires at least 2 characters
+    # Without padding, this would cause an index out of bounds error
+    pipe = Compose(
+        [
+            AddGlobalResIdAnnotation(),
+            LoadCachedResidueLevelData(dir=cache_dir, sharding_depth=2),
+        ]
+    )
+
+    # This should not raise an error due to padding logic
+    # The residue "G" will be padded to "G_" for sharding
+    try:
+        result = pipe({"atom_array": atom_array})
+        # Even if the file doesn't exist, we shouldn't get index errors
+        # The warning about missing file is expected, but no crashes
+        assert "atom_array" in result
+        assert "cached_residue_level_data" in result
+    except IndexError as e:
+        pytest.fail(f"Padding logic failed for short residue name: {e}")
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
