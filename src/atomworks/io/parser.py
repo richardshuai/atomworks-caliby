@@ -74,6 +74,14 @@ def _get_atomworks_version() -> str:
         return "unknown"
 
 
+def _parse_args_to_hash(parse_arguments: dict[str, Any], truncate: int = 8) -> str:
+    """Compute hash from parse arguments with sorted keys."""
+    print(parse_arguments)
+    args_string = ",".join(str(parse_arguments[k]) for k in sorted(parse_arguments.keys()))
+    print("STRING:", args_string)
+    return string_to_md5_hash(args_string, truncate=truncate)
+
+
 def parse(
     filename: os.PathLike | io.StringIO | io.BytesIO,
     *,
@@ -177,15 +185,11 @@ def parse(
                 Should typically not be used directly.
 
     """
-    # CCD mirror
-    if ccd_mirror_path:
-        if os.path.exists(ccd_mirror_path):
-            ccd_mirror_path = Path(ccd_mirror_path)
-        else:
-            logger.warning(
-                f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. Falling back to Biotite's built-in CCD."
-            )
-            ccd_mirror_path = None
+    if ccd_mirror_path and not os.path.exists(ccd_mirror_path):
+        raise FileNotFoundError(
+            f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. "
+            "To use Biotite's built-in CCD, set `ccd_mirror_path` to None."
+        )
 
     # Set default value for remove_ccds if None
     if remove_ccds is None:
@@ -230,11 +234,8 @@ def parse(
             "convert_mse_to_met": convert_mse_to_met,
             "hydrogen_policy": hydrogen_policy,
         }
-        # Compose args_string from parse_arguments values (in order)
-        args_string = ",".join(str(parse_arguments[k]) for k in parse_arguments)
-        print("STRING:", args_string)
-        args_hash = string_to_md5_hash(args_string, truncate=8)
-        print("HASH:", args_hash)
+        args_hash = _parse_args_to_hash(parse_arguments)
+        print(f"Args hash: {args_hash}")
 
         # ... generate assembly info
         assembly_info = ",".join(build_assembly) if isinstance(build_assembly, list | tuple) else build_assembly

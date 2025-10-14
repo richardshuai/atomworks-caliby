@@ -44,7 +44,7 @@ from atomworks.io.utils.ccd import (
 )
 from atomworks.io.utils.chain import create_chain_id_generator
 from atomworks.io.utils.io_utils import CIF_LIKE_EXTENSIONS, read_any
-from atomworks.ml.datasets.parsers.base import DEFAULT_PARSER_ARGS
+from atomworks.ml.datasets.loaders import STANDARD_PARSER_ARGS
 
 logger = logging.getLogger("atomworks.io")
 
@@ -257,7 +257,7 @@ class CIFOrPDBFileComponent(ChemicalComponent):
             self.custom_parse_kwargs = {}
 
         # We add missing atoms later to the fully-concatenated inference AtomArray
-        parse_kwargs = {**DEFAULT_PARSER_ARGS, "add_missing_atoms": False} | self.custom_parse_kwargs
+        parse_kwargs = {**STANDARD_PARSER_ARGS, "add_missing_atoms": False} | self.custom_parse_kwargs
 
         if parse_kwargs["add_missing_atoms"]:
             logger.warning(

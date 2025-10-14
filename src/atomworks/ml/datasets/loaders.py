@@ -11,8 +11,32 @@ from typing import Any
 import pandas as pd
 from toolz import keyfilter
 
+from atomworks.constants import CRYSTALLIZATION_AIDS
 from atomworks.io.parser import parse
 from atomworks.io.utils.io_utils import apply_sharding_pattern
+
+STANDARD_PARSER_ARGS = {
+    "add_missing_atoms": True,
+    "add_id_and_entity_annotations": True,
+    "add_bond_types_from_struct_conn": ["covale"],
+    "remove_ccds": CRYSTALLIZATION_AIDS,
+    "remove_waters": True,
+    "fix_ligands_at_symmetry_centers": True,
+    "fix_arginines": True,
+    "fix_formal_charges": True,
+    "fix_bond_types": True,
+    "convert_mse_to_met": True,  # Changed from False to True vs. atomworks.io.parser.parse default
+    "hydrogen_policy": "keep",
+    "model": None,  # all models
+}
+"""Standard cif parser arguments for `atomworks.io.parse` for many practical biomolecular use cases.
+
+Similar to the defaults in `atomworks.io.parser.parse`, but additionally converts selenomethionine (MSE)
+residues to methionine (MET) residues, which desirable fo many practical applications but would not be
+appropriate as a universal default.
+
+This dictionary exists to provide a convenient import for the standard parameters.
+"""
 
 
 def _construct_metadata_hierarchy(row: pd.Series, attrs: dict | None = None) -> dict[str, Any]:
@@ -70,11 +94,13 @@ def _construct_structure_path(
 
 
 def _load_structure_from_path(path: Path, assembly_id: str, parser_args: dict | None = None) -> dict[str, Any]:
-    """Load structure from file path using the CIF parser."""
+    """Load structure from file path using the CIF parser, merging with STANDARD_PARSER_ARGS."""
+    # Merge STANDARD_PARSER_ARGS with parser_args (parser_args takes precedence)
+    merged_args = {**STANDARD_PARSER_ARGS, **(parser_args or {})}
     result_dict = parse(
         filename=path,
         build_assembly=(assembly_id,),
-        **(parser_args or {}),
+        **merged_args,
     )
     return result_dict
 
