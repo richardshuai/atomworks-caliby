@@ -1,13 +1,13 @@
 """General utility functions for working with CIF files in Biotite."""
 
 __all__ = [
-    "suppress_logging_messages",
     "apply_sharding_pattern",
     "build_sharding_pattern",
-    "parse_sharding_pattern",
     "get_structure",
     "load_any",
+    "parse_sharding_pattern",
     "read_any",
+    "suppress_logging_messages",
     "to_cif_buffer",
     "to_cif_file",
     "to_cif_string",
