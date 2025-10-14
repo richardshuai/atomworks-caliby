@@ -178,11 +178,14 @@ def parse(
 
     """
     # CCD mirror
-    if ccd_mirror_path and not os.path.exists(ccd_mirror_path):
-        logger.warning(
-            f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. Falling back to Biotite's built-in CCD."
-        )
-        ccd_mirror_path = None
+    if ccd_mirror_path:
+        if os.path.exists(ccd_mirror_path):
+            ccd_mirror_path = Path(ccd_mirror_path)
+        else:
+            logger.warning(
+                f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. Falling back to Biotite's built-in CCD."
+            )
+            ccd_mirror_path = None
 
     # Set default value for remove_ccds if None
     if remove_ccds is None:
@@ -231,6 +234,7 @@ def parse(
         args_string = ",".join(str(parse_arguments[k]) for k in parse_arguments)
         print("STRING:", args_string)
         args_hash = string_to_md5_hash(args_string, truncate=8)
+        print("HASH:", args_hash)
 
         # ... generate assembly info
         assembly_info = ",".join(build_assembly) if isinstance(build_assembly, list | tuple) else build_assembly
