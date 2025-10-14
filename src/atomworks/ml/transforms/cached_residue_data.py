@@ -118,9 +118,14 @@ def load_cached_residue_level_data(
         # For "ALA" with depth=1, chars_per_dir=1: shard_path = "A"
         # Final path: dir/A/ALA/ALA.pt (not dir/A/ALA/ALA/ALA.pt)
         if sharding_depth > 0:
+            # Pad residue name to minimum required length for sharding
+            # Example: "A" with depth=2, chars_per_dir=1 → "A_" to avoid empty string directories
+            min_length = sharding_depth * 1  # chars_per_dir is always 1 for residue names
+            res_name_padded = res_name.ljust(min_length, "_")
+
             sharding_pattern = build_sharding_pattern(depth=sharding_depth, chars_per_dir=1)
             shard_ranges = parse_sharding_pattern(sharding_pattern)
-            shard_dirs = [res_name[start:end] for start, end in shard_ranges]
+            shard_dirs = [res_name_padded[start:end] for start, end in shard_ranges]
             shard_path = Path(*shard_dirs)
         else:
             shard_path = Path()
