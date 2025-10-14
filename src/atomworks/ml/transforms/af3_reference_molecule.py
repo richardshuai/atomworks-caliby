@@ -205,9 +205,27 @@ def get_af3_reference_molecule_features(
             If None, generates conformers equal to residue count. If set, generates min(count, max_conformers_per_residue)
             and randomly samples from those conformers for each residue instance.
         cached_residue_level_data: Optional cached conformer data by residue name. If provided,
-            cached conformers will be preferred over generated ones.
+            cached conformers will be preferred over generated ones when they contain sufficient conformers.
+            Expected structure (dictionary):
+
+            .. code-block:: python
+
+                {
+                    "ALA": {"mol": rdkit.Chem.Mol},  # Mol with >=1 conformers
+                    "HEM": {"mol": rdkit.Chem.Mol},  # Mol with >=1 conformers
+                    ...
+                }
+
+            Requirements:
+                - Keys must be CCD codes (e.g., ``"ALA"``, ``"HEM"``)
+                - Each value must be a dict with a ``"mol"`` key containing an RDKit Mol object
+                - Each Mol must have at least as many conformers as ``min(count, max_conformers_per_residue)``
+                  to be used (otherwise conformers will be generated on-the-fly)
+                - Hydrogens will be automatically removed from cached Mols for consistency
+
         residue_conformer_indices: Optional mapping of global residue IDs to specific conformer indices.
             If provided, these specific conformers will be used for the corresponding residues.
+            Structure: ``{global_res_id: conformer_index}`` or ``{global_res_id: np.array([conformer_index])}``
         **generate_conformers_kwargs: Additional keyword arguments to pass to the generate_conformers function.
 
     Returns:
@@ -464,7 +482,8 @@ class GetAF3ReferenceMoleculeFeatures(Transform):
           Determined by the `ground_truth_conformer_policy` annotation.
         - is_atomized_atom_level: [N_atoms] Whether the atom is atomized (atom-level version of "is_ligand")
 
-    Note: This transform should be applied after cropping.
+    Note:
+        This transform should be applied after cropping.
 
     Reference:
         `Section 2.8 of the AF3 supplementary information <https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-024-07487-w/MediaObjects/41586_2024_7487_MOESM1_ESM.pdf>`_

@@ -16,9 +16,9 @@ from tqdm import tqdm
 
 from atomworks.enums import MSAFileExtension
 from atomworks.io.utils.compression import transfer_with_compression
-from atomworks.io.utils.io_utils import find_files_by_extension
+from atomworks.io.utils.io_utils import apply_sharding_pattern, find_files_by_extension
 from atomworks.ml.preprocessing.msa.finding import sequence_has_msa
-from atomworks.ml.utils.io import apply_sharding_pattern, open_file
+from atomworks.ml.utils.io import open_file
 from atomworks.ml.utils.misc import hash_sequence
 
 logger = logging.getLogger(__name__)

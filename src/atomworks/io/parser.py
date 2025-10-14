@@ -42,7 +42,13 @@ from atomworks.io.utils.atom_array_plus import AtomArrayPlus, AtomArrayPlusStack
 from atomworks.io.utils.bonds import get_struct_conn_dict_from_atom_array
 from atomworks.io.utils.ccd import check_ccd_codes_are_available
 from atomworks.io.utils.chain import create_chain_id_generator
-from atomworks.io.utils.io_utils import get_structure, infer_pdb_file_type, read_any
+from atomworks.io.utils.io_utils import (
+    apply_sharding_pattern,
+    build_sharding_pattern,
+    get_structure,
+    infer_pdb_file_type,
+    read_any,
+)
 from atomworks.io.utils.non_rcsb import (
     get_identity_assembly_gen_category,
     get_identity_op_expr_category,
@@ -53,20 +59,31 @@ logger = logging.getLogger("atomworks.io")
 
 __all__ = ["parse"]
 
-DEFAULT_PARSE_KWARGS = {
+STANDARD_PARSER_ARGS = {
     "add_missing_atoms": True,
     "add_id_and_entity_annotations": True,
     "add_bond_types_from_struct_conn": ["covale"],
     "remove_ccds": CRYSTALLIZATION_AIDS,
     "remove_waters": True,
     "fix_ligands_at_symmetry_centers": True,
-    "hydrogen_policy": "keep",
     "fix_arginines": True,
     "fix_formal_charges": True,
-    "convert_mse_to_met": True,
-    "build_assembly": "all",
+    "fix_bond_types": True,
+    "convert_mse_to_met": True,  # Changed from False to True vs. atomworks.io.parser.parse default
+    "hydrogen_policy": "keep",
+    "model": None,  # all models
 }
-"""Some fairly standard parsing arguments that can be imported for convenience."""
+"""Common cif parser arguments for `atomworks.io.parse` for many biomolecular use cases.
+
+Similar to the defaults below but additionally converts selenomethionine (MSE) residues to methionine (MET) residues,
+which is desirable for many practical applications but would not be appropriate as a universal default.
+
+This dictionary exists to provide a convenient import for the standard parameters.
+"""
+
+# Cache sharding configuration (internal, not exposed to parse() to avoid complexity)
+_CACHE_SHARDING_DEPTH = 2  # Use 2-level sharding by default (e.g., ab/cd/abcdef123456/)
+_CACHE_SHARDING_CHARS_PER_DIR = 2  # Number of characters per directory level
 
 
 def _get_atomworks_version() -> str:
@@ -77,6 +94,32 @@ def _get_atomworks_version() -> str:
         return __version__
     except ImportError:
         return "unknown"
+
+
+def _parse_args_to_hash(parse_arguments: dict[str, Any], truncate: int = 8) -> str:
+    """Compute hash from parse arguments with sorted keys."""
+    args_string = ",".join(str(parse_arguments[k]) for k in sorted(parse_arguments.keys()))
+    return string_to_md5_hash(args_string, truncate=truncate)
+
+
+def _build_cache_file_path(
+    cache_dir: Path,
+    args_hash: str,
+    filename: os.PathLike,
+    assembly_info: str,
+) -> Path:
+    """Build sharded cache file path for parsed structure."""
+    structure_id = Path(filename).stem
+
+    # Pad structure ID to minimum required length for sharding
+    min_length = _CACHE_SHARDING_DEPTH * _CACHE_SHARDING_CHARS_PER_DIR
+    structure_id_padded = structure_id.ljust(min_length, "_")
+
+    # Build sharded path
+    sharding_pattern = build_sharding_pattern(depth=_CACHE_SHARDING_DEPTH, chars_per_dir=_CACHE_SHARDING_CHARS_PER_DIR)
+    sharded_path = apply_sharding_pattern(structure_id_padded, sharding_pattern)
+
+    return cache_dir / args_hash / sharded_path / f"{structure_id}_assembly_{assembly_info}.pkl.gz"
 
 
 def parse(
@@ -182,12 +225,11 @@ def parse(
                 Should typically not be used directly.
 
     """
-    # CCD mirror
     if ccd_mirror_path and not os.path.exists(ccd_mirror_path):
-        logger.warning(
-            f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. Falling back to Biotite's built-in CCD."
+        raise FileNotFoundError(
+            f"Local mirror of the Chemical Component Dictionary does not exist: {ccd_mirror_path}. "
+            "To use Biotite's built-in CCD, set `ccd_mirror_path` to None."
         )
-        ccd_mirror_path = None
 
     # Set default value for remove_ccds if None
     if remove_ccds is None:
@@ -232,15 +274,13 @@ def parse(
             "convert_mse_to_met": convert_mse_to_met,
             "hydrogen_policy": hydrogen_policy,
         }
-        # Compose args_string from parse_arguments values (in order)
-        args_string = ",".join(str(parse_arguments[k]) for k in parse_arguments)
-        args_hash = string_to_md5_hash(args_string, truncate=8)
+        args_hash = _parse_args_to_hash(parse_arguments)
 
         # ... generate assembly info
         assembly_info = ",".join(build_assembly) if isinstance(build_assembly, list | tuple) else build_assembly
 
-        # ... construct the full cache file path
-        cache_file_path = cache_dir / args_hash / f"{Path(filename).stem}_assembly_{assembly_info}.pkl.gz"
+        # ... construct the full cache file path with sharding
+        cache_file_path = _build_cache_file_path(cache_dir, args_hash, filename, assembly_info)
 
         # If we are loading from cache, try to load the result from the cache
         if load_from_cache:
@@ -268,8 +308,7 @@ def parse(
                     result["assemblies"] = assemblies
                     return result
             except Exception as e:
-                # Log an error, and continue to parse from CIF
-                logger.error(f"Error loading from cache: {e}")
+                raise RuntimeError(f"Error loading from cache: {e}, tried path: {cache_file_path}") from e
 
     if file_type == "pdb":
         result = _parse_from_pdb(
@@ -315,9 +354,9 @@ def parse(
 
     if not is_buffer and save_to_cache and cache_dir and (not cache_file_path.exists()):
         # We want our cache to include:
-        #   (1) All keys in `result` excep the assemblies and
-        #   (2) The information needed to rebuild the assembly(s), which is stored in `result["extra_info"]`
-        #   (3) The parse_arguments and atomworks.io version
+        #   (1) All keys in `result` except the assemblies; and,
+        #   (2) The information needed to rebuild the assembly(s), which is stored in `result["extra_info"]`; and,
+        #   (3) The parse_arguments and atomworks version
 
         # Add parse_arguments and version to metadata before saving
         result.setdefault("metadata", {}).update(

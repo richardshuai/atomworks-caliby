@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from biotite.structure import AtomArray
 
+from atomworks.io.parser import STANDARD_PARSER_ARGS
 from atomworks.io.utils.atom_array_plus import (
     AnnotationList2D,
     AtomArrayPlus,
@@ -12,7 +13,6 @@ from atomworks.io.utils.atom_array_plus import (
 )
 from atomworks.io.utils.selection import get_annotation_categories
 from atomworks.ml.conditions import CONDITIONS
-from atomworks.ml.datasets.parsers.base import DEFAULT_PARSER_ARGS
 from atomworks.ml.utils.condition import (
     load_atom_array_with_conditions_from_cif,
     save_atom_array_with_conditions_to_cif,
@@ -23,7 +23,7 @@ from atomworks.ml.utils.testing import cached_parse
 @pytest.fixture
 def atom_array() -> AtomArrayPlus:
     cif_parser_args = {
-        **DEFAULT_PARSER_ARGS,
+        **STANDARD_PARSER_ARGS,
         **{
             "fix_arginines": False,
             "add_missing_atoms": False,  # this is crucial otherwise the annotations are deleted

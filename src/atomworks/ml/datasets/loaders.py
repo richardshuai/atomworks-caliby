@@ -11,8 +11,8 @@ from typing import Any
 import pandas as pd
 from toolz import keyfilter
 
-from atomworks.io.parser import parse
-from atomworks.ml.utils.io import apply_sharding_pattern
+from atomworks.io.parser import STANDARD_PARSER_ARGS, parse
+from atomworks.io.utils.io_utils import apply_sharding_pattern
 
 
 def _construct_metadata_hierarchy(row: pd.Series, attrs: dict | None = None) -> dict[str, Any]:
@@ -70,11 +70,13 @@ def _construct_structure_path(
 
 
 def _load_structure_from_path(path: Path, assembly_id: str, parser_args: dict | None = None) -> dict[str, Any]:
-    """Load structure from file path using the CIF parser."""
+    """Load structure from file path using the CIF parser, merging with STANDARD_PARSER_ARGS."""
+    # Merge STANDARD_PARSER_ARGS with parser_args (parser_args takes precedence)
+    merged_args = {**STANDARD_PARSER_ARGS, **(parser_args or {})}
     result_dict = parse(
         filename=path,
         build_assembly=(assembly_id,),
-        **(parser_args or {}),
+        **merged_args,
     )
     return result_dict
 

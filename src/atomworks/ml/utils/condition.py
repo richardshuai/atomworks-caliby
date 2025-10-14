@@ -8,6 +8,7 @@ from biotite.structure import AtomArray, AtomArrayStack
 from biotite.structure.io import pdbx
 
 from atomworks.io import parse
+from atomworks.io.parser import STANDARD_PARSER_ARGS
 from atomworks.io.utils.atom_array_plus import (
     AnnotationList2D,
     AtomArrayPlus,
@@ -17,7 +18,6 @@ from atomworks.io.utils.atom_array_plus import (
 from atomworks.io.utils.io_utils import suppress_logging_messages, to_cif_file
 from atomworks.io.utils.selection import get_annotation, get_annotation_categories
 from atomworks.ml.conditions.base import CONDITIONS, ConditionBase
-from atomworks.ml.datasets.parsers.base import DEFAULT_PARSER_ARGS
 
 
 def save_atom_array_with_conditions_to_cif(atom_array: AtomArray, path: PathLike) -> None:
@@ -92,7 +92,7 @@ def load_atom_array_with_conditions_from_cif(
         cif_parser_args.setdefault("save_to_cache", True)
 
     merged_cif_parser_args = {
-        **DEFAULT_PARSER_ARGS,
+        **STANDARD_PARSER_ARGS,
         **{
             "fix_arginines": False,
             "add_missing_atoms": False,  # this is crucial otherwise the annotations are deleted

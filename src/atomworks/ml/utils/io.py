@@ -7,7 +7,6 @@ import gzip
 import hashlib
 import os
 import pickle
-import re
 from collections.abc import Callable
 from functools import wraps
 from os import PathLike
@@ -18,9 +17,8 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from atomworks.ml.utils.misc import (
-    logger,
-)
+from atomworks.io.utils.io_utils import apply_sharding_pattern, build_sharding_pattern
+from atomworks.ml.utils.misc import logger
 
 
 def open_file(filename: PathLike) -> TextIO:
@@ -170,7 +168,9 @@ def cache_to_disk_as_pickle(
             args_repr = f"{args}_{kwargs}"
             hash_hex = hashlib.md5(args_repr.encode()).hexdigest()
             file_extension = ".pkl.gz" if use_gzip else ".pkl"
-            cache_file = get_sharded_file_path(cache_dir, hash_hex, file_extension, directory_depth)
+            sharding_pattern = build_sharding_pattern(depth=directory_depth, chars_per_dir=2)
+            sharded_path = apply_sharding_pattern(hash_hex, sharding_pattern)
+            cache_file = Path(cache_dir) / sharded_path.with_suffix(file_extension)
 
             # ... check if cache file exists
             open_func = gzip.open if use_gzip else open
@@ -198,47 +198,6 @@ def cache_to_disk_as_pickle(
         return wrapper
 
     return decorator
-
-
-def get_sharded_file_path(
-    base_dir: Path,
-    file_hash: str,
-    extension: str,
-    depth: int,
-    chars_per_dir: int = 2,
-    include_subdirectory: bool = False,
-) -> Path:
-    """Construct a nested file path based on the directory depth.
-
-    Args:
-        base_dir (Path): The base directory where the files are stored.
-        file_hash (str): The hash of the file content or identifier.
-        extension (str): The file extension.
-        depth (int): The directory nesting depth.
-        chars_per_dir (int): The number of characters to use for each directory level.
-        include_subdirectory (bool): If True, creates an additional directory with the full hash name.
-
-    Returns:
-        Path: The constructed path to the file.
-
-    Example:
-        >>> get_sharded_file_path("/path/to/cache", "abcdef123456", ".pkl", 2)
-        Path("/path/to/cache/ab/cd/abcdef123456.pkl")
-        >>> get_sharded_file_path("/path/to/cache", "abcdef123456", ".pkl", 3, chars_per_dir=1)
-        Path("/path/to/cache/a/b/c/abcdef123456.pkl")
-        >>> get_sharded_file_path("/path/to/cache", "abcdef123456", ".pkl", 2, include_subdirectory=True)
-        Path("/path/to/cache/ab/cd/abcdef123456/abcdef123456.pkl")
-    """
-    nested_path = Path(base_dir)
-    for i in range(depth):
-        start_idx = chars_per_dir * i
-        end_idx = chars_per_dir * (i + 1)
-        nested_path /= Path(file_hash[start_idx:end_idx])
-
-    if include_subdirectory:
-        nested_path /= file_hash
-
-    return (nested_path / file_hash).with_suffix(extension)
 
 
 def to_parquet_with_metadata(df: pd.DataFrame, filepath: PathLike, **kwargs: Any) -> None:
@@ -295,65 +254,3 @@ def read_parquet_with_metadata(filepath: PathLike, **kwargs: Any) -> pd.DataFram
     df.attrs = metadata_dict
 
     return df
-
-
-def parse_sharding_pattern(sharding_pattern: str) -> list[tuple[int, int]]:
-    """Parse a sharding pattern string into directory levels.
-
-    Args:
-        sharding_pattern: String like "/1:2/0:2/" where each /start:end/ defines a directory level
-            - start:end defines the character range to use for that directory level
-            - Example: "/1:2/0:2/" means use chars 1-2 for first dir, then chars 0-2 for second dir
-
-    Returns:
-        List of (start, end) tuples for each directory level
-    """
-    # Find all patterns like /start:end/ using a non-consuming lookahead
-    pattern = r"/(\d+):(\d+)(?=/)"
-    matches = []
-    for match in re.finditer(pattern, sharding_pattern):
-        matches.append((int(match.group(1)), int(match.group(2))))
-
-    if not matches:
-        raise ValueError(f"Invalid sharding pattern format: {sharding_pattern}. Expected format like '/1:2/0:2/'")
-
-    return matches
-
-
-def apply_sharding_pattern(path: PathLike, sharding_pattern: str | None = None) -> Path:
-    """Apply a sharding pattern to construct a file path.
-
-    Args:
-        path: The base path or identifier (e.g., PDB ID)
-        sharding_pattern: Pattern for organizing files in subdirectories
-            - "/0:2/": Use first two characters for first directory level
-            - "/0:2/2:4/": Use chars 0-2 for first dir, then chars 2-4 for second dir
-            - None: No sharding (default)
-
-    Returns:
-        Path: The constructed file path with sharding applied
-    """
-    path_str = str(path)
-    assert path_str and path_str != ".", "Path cannot be empty"
-
-    if not sharding_pattern:
-        return Path(path_str)
-
-    if not sharding_pattern.startswith("/"):
-        raise ValueError(f"Sharding pattern must start with '/': {sharding_pattern}")
-
-    try:
-        shard_ranges = parse_sharding_pattern(sharding_pattern)
-    except ValueError as e:
-        raise ValueError(f"Invalid sharding pattern '{sharding_pattern}': {e}") from e
-
-    # Validate all ranges before building path
-    for start, end in shard_ranges:
-        if end > len(path_str):
-            raise ValueError(f"Sharding range {start}:{end} exceeds path length {len(path_str)} for '{path_str}'")
-
-    # Build directory components from sharding ranges
-    directory_parts = [path_str[start:end] for start, end in shard_ranges]
-
-    # Construct final path: directories + filename
-    return Path(*directory_parts, path_str)
