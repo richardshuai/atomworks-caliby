@@ -116,7 +116,6 @@ def load_cached_residue_level_data(
     for res_name in unique_res_names:
         sharding_pattern = build_sharding_pattern(depth=sharding_depth, chars_per_dir=1)
         sharded_path = apply_sharding_pattern(res_name, sharding_pattern)
-        # include_subdirectory=True behavior: add the full res_name as a directory
         file_path = Path(dir) / sharded_path / res_name / f"{res_name}{file_extension}"
 
         if not file_path.exists():
