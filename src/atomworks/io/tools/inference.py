@@ -25,6 +25,7 @@ from atomworks.constants import (
 )
 from atomworks.enums import ChainType, ChainTypeInfo
 from atomworks.io import parse
+from atomworks.io.parser import STANDARD_PARSER_ARGS
 from atomworks.io.template import build_template_atom_array
 from atomworks.io.tools.fasta import one_letter_to_ccd_code, split_generalized_fasta_sequence
 from atomworks.io.utils.bonds import (
@@ -44,7 +45,6 @@ from atomworks.io.utils.ccd import (
 )
 from atomworks.io.utils.chain import create_chain_id_generator
 from atomworks.io.utils.io_utils import CIF_LIKE_EXTENSIONS, read_any
-from atomworks.ml.datasets.loaders import STANDARD_PARSER_ARGS
 
 logger = logging.getLogger("atomworks.io")
 

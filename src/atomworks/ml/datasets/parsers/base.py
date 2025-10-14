@@ -5,7 +5,7 @@ from typing import Any, ClassVar
 import pandas as pd
 
 from atomworks.io import parse
-from atomworks.ml.datasets.loaders import STANDARD_PARSER_ARGS
+from atomworks.io.parser import STANDARD_PARSER_ARGS
 
 
 class MetadataRowParser(ABC):

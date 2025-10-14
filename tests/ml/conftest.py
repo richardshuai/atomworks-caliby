@@ -8,10 +8,10 @@ import pytest
 from dotenv import load_dotenv
 
 from atomworks.constants import AF3_EXCLUDED_LIGANDS_REGEX, PDB_MIRROR_PATH, _load_env_var
+from atomworks.io.parser import STANDARD_PARSER_ARGS
 from atomworks.io.tools.inference import SequenceComponent
 from atomworks.ml.datasets.datasets import ConcatDatasetWithID, PandasDataset
 from atomworks.ml.datasets.loaders import (
-    STANDARD_PARSER_ARGS,
     create_base_loader,
     create_loader_with_interfaces_and_pn_units_to_score,
     create_loader_with_query_pn_units,

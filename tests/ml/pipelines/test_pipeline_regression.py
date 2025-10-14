@@ -13,8 +13,8 @@ from atomworks.constants import (
 )
 from atomworks.enums import ChainType
 from atomworks.io import parse
+from atomworks.io.parser import STANDARD_PARSER_ARGS
 from atomworks.io.utils.testing import assert_same_atom_array
-from atomworks.ml.datasets.loaders import STANDARD_PARSER_ARGS
 from atomworks.ml.pipelines.af3 import build_af3_transform_pipeline
 from atomworks.ml.utils.rng import create_rng_state_from_seeds, rng_state
 

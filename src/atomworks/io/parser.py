@@ -59,6 +59,28 @@ logger = logging.getLogger("atomworks.io")
 
 __all__ = ["parse"]
 
+STANDARD_PARSER_ARGS = {
+    "add_missing_atoms": True,
+    "add_id_and_entity_annotations": True,
+    "add_bond_types_from_struct_conn": ["covale"],
+    "remove_ccds": CRYSTALLIZATION_AIDS,
+    "remove_waters": True,
+    "fix_ligands_at_symmetry_centers": True,
+    "fix_arginines": True,
+    "fix_formal_charges": True,
+    "fix_bond_types": True,
+    "convert_mse_to_met": True,  # Changed from False to True vs. atomworks.io.parser.parse default
+    "hydrogen_policy": "keep",
+    "model": None,  # all models
+}
+"""Common cif parser arguments for `atomworks.io.parse` for many biomolecular use cases.
+
+Similar to the defaults below but additionally converts selenomethionine (MSE) residues to methionine (MET) residues,
+which is desirable for many practical applications but would not be appropriate as a universal default.
+
+This dictionary exists to provide a convenient import for the standard parameters.
+"""
+
 # Cache sharding configuration (internal, not exposed to parse() to avoid complexity)
 _CACHE_SHARDING_DEPTH = 2  # Use 2-level sharding by default (e.g., ab/cd/abcdef123456/)
 _CACHE_SHARDING_CHARS_PER_DIR = 2  # Number of characters per directory level
