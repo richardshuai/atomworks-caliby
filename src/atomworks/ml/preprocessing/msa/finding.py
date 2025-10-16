@@ -35,6 +35,63 @@ def get_msa_dirs_from_env(raise_if_not_set: bool = True) -> list[Path] | None:
     return dirs
 
 
+def get_msa_depth_and_ext_from_folder(folder: Path, max_depth: int = 10) -> tuple[int, MSAFileExtension]:
+    """Automatically detect the shard depth and file extension of an MSA folder.
+
+    Goes down subdirectories one level at a time until finding MSA files.
+
+    Args:
+        folder: Top-level MSA directory to analyze.
+        max_depth: Maximum depth to search (default: 10).
+
+    Returns:
+        Tuple of (shard_depth, extension) where:
+        - shard_depth: Number of subdirectory levels (0 = files directly in folder)
+        - extension: MSAFileExtension enum value for the file extension found
+
+    Raises:
+        ValueError: If no MSA files are found within max_depth levels.
+
+    Examples:
+        For structure like `/msa/ab/cd/abcd123.a3m.gz`:
+
+           depth, ext = get_msa_depth_and_ext_from_folder(Path("/msa"))
+           # Returns: (2, MSAFileExtension.A3M_GZ)
+    """
+    if not folder.exists():
+        raise ValueError(f"Folder does not exist: {folder}")
+
+    # All possible MSA extensions to check
+    msa_extensions = [ext.value for ext in MSAFileExtension]
+
+    current_dir = folder
+    depth = 0
+
+    while depth <= max_depth:
+        found_subdir = False
+        # Check if current directory contains any MSA files
+        for item in current_dir.iterdir():
+            if item.is_file():
+                for ext_str in msa_extensions:
+                    if item.name.endswith(ext_str):
+                        matching_ext = MSAFileExtension(ext_str)
+                        return depth, matching_ext
+            else:  # it's a directory
+                next_subdir = item
+                found_subdir = True
+
+        if not found_subdir:
+            break
+
+        current_dir = next_subdir
+        depth += 1
+
+    raise ValueError(
+        f"No MSA files found in {folder} within {max_depth} levels. "
+        f"Searched for extensions: {', '.join(msa_extensions)}"
+    )
+
+
 def _build_msa_file_paths(
     sequence_hash: str, msa_dir: Path, shard_depths: list[int], extensions: list[str]
 ) -> list[Path]:
