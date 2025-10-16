@@ -13,7 +13,7 @@ from atomworks.ml.utils.misc import hash_sequence
 logger = logging.getLogger(__name__)
 
 
-def get_msa_dirs_from_env(raise_if_not_set: bool = True) -> list[Path]:
+def get_msa_dirs_from_env(raise_if_not_set: bool = True) -> list[Path] | None:
     """Parse LOCAL_MSA_DIRS environment variable into Path objects.
 
     Returns:
