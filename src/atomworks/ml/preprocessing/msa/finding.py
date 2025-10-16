@@ -13,18 +13,22 @@ from atomworks.ml.utils.misc import hash_sequence
 logger = logging.getLogger(__name__)
 
 
-def _get_msa_dirs_from_env() -> list[Path]:
+def get_msa_dirs_from_env(raise_if_not_set: bool = True) -> list[Path]:
     """Parse LOCAL_MSA_DIRS environment variable into Path objects.
 
     Returns:
         List of Path objects for MSA directories from environment variable.
+        None if LOCAL_MSA_DIRS is not set or empty and raise_if_not_set is False.
 
     Raises:
-        ValueError: If LOCAL_MSA_DIRS is not set or empty.
+        ValueError: If LOCAL_MSA_DIRS is not set or empty and raise_if_not_set is True.
     """
     local_msa_dirs = _load_env_var("LOCAL_MSA_DIRS")
     if not local_msa_dirs:
-        raise ValueError("LOCAL_MSA_DIRS environment variable is not set or empty")
+        if raise_if_not_set:
+            raise ValueError("LOCAL_MSA_DIRS environment variable is not set or empty")
+        else:
+            return None
 
     dirs = [Path(dir_path.strip()) for dir_path in local_msa_dirs.split(",")]
 
@@ -77,7 +81,7 @@ def sequence_has_msa(
     """
     # Set defaults
     if msa_dirs is None:
-        msa_dirs = _get_msa_dirs_from_env()
+        msa_dirs = get_msa_dirs_from_env()
     else:
         msa_dirs = [Path(d) for d in msa_dirs]
 
@@ -150,7 +154,7 @@ def find_msas(
 
     # Set defaults
     if msa_dirs is None:
-        msa_dirs = _get_msa_dirs_from_env()
+        msa_dirs = get_msa_dirs_from_env()
     else:
         msa_dirs = [Path(d) for d in msa_dirs]
 
