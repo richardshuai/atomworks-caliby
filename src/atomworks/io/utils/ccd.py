@@ -444,7 +444,7 @@ def parse_ccd_cif(
     return atoms
 
 
-@immutable_lru_cache(maxsize=20000, deepcopy=True)
+@immutable_lru_cache(maxsize=20000, copy_func=lambda x: x.copy())
 def get_ccd_component_from_mirror(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, **parse_ccd_cif_kwargs
 ) -> struc.AtomArray:
@@ -471,7 +471,7 @@ def get_ccd_component_from_mirror(
     return atom_array
 
 
-@immutable_lru_cache(maxsize=200, deepcopy=True)
+@immutable_lru_cache(maxsize=200, copy_func=lambda x: x.copy())
 def atom_array_from_ccd_code(
     ccd_code: str, ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH, **parse_ccd_cif_kwargs
 ) -> struc.AtomArray:
