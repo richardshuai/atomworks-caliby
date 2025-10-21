@@ -252,14 +252,11 @@ def maybe_fix_non_polymer_at_symmetry_center(
         # Quick check to see whether any non-polymer is closer than 0.05A to any other.
         clash_matrix = cell_list.get_atoms(non_polymers.coord, clash_distance, as_mask=True)  # [n, n]
 
-        # OPTIMIZATION: Fast path - count total clashes instead of full matrix comparison
-        # If clash_matrix only has diagonal elements (no clashes), we can exit early
-        # This is much faster than np.array_equal for large matrices
+        # Fast path when only diagonal elements present
         n_clashes = np.count_nonzero(clash_matrix)
         n_atoms = len(non_polymers)
         if n_clashes == n_atoms:
-            # Only diagonal elements (self-clashes), no symmetric clashes
-            return atom_array_stack  # Early exit
+            return atom_array_stack
 
         # Remove identity matrix so we don't count self-clashes
         identity_matrix = np.identity(n_atoms, dtype=bool)
@@ -583,16 +580,12 @@ def add_pn_unit_iid_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomAr
     _temp_pn_unit_iid = sum_string_arrays(atom_array.pn_unit_id, "_", atom_array.transformation_id)
     _final_pn_unit_iid = np.full(atom_array.array_length(), fill_value="", dtype=object)
 
-    # OPTIMIZATION: Avoid expensive subset_atom_array calls by using boolean masks and vectorized operations
-    # Old approach: subset_atom_array for each unique pn_unit_iid (expensive for symmetric assemblies)
-    # New approach: use boolean masks to access first atom of each unit, then broadcast results
-
+    # Use boolean masks to access first atom of each unit, then broadcast results
     unique_pn_unit_iids = np.unique(_temp_pn_unit_iid)
 
-    # ...iterate through unique pn_unit_iids
+    # Iterate through unique pn_unit_iids
     # (We implicitly assume that a given pn_unit_id will have the same transformation_id across all atoms in the unit)
     for pn_unit_iid in unique_pn_unit_iids:
-        # OPTIMIZATION: Use boolean mask instead of subset_atom_array to avoid expensive copy
         mask = _temp_pn_unit_iid == pn_unit_iid
 
         # Find first atom index in this unit (all atoms in unit have same pn_unit_id and transformation_id)
