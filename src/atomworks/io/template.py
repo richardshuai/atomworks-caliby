@@ -24,48 +24,6 @@ from atomworks.io.utils.testing import has_ambiguous_annotation_set
 logger = logging.getLogger(__file__)
 
 
-@lru_cache(maxsize=200)
-def _get_base_ccd_template(
-    ccd_code: str,
-    *,
-    ccd_mirror_path: os.PathLike = CCD_MIRROR_PATH,
-    remove_hydrogens: bool = True,
-    occupancy: float | None = None,
-    b_factor: float | None = None,
-) -> AtomArray:
-    """Get base CCD template with only cache-friendly annotations (cached, internal use only).
-
-    This function only accepts annotations that should be part of the cache key (occupancy, b_factor).
-    Chain-specific annotations (chain_id, chain_type, is_polymer) should be added AFTER copying.
-
-    WARNING: Do not modify the returned template directly.
-    This is an internal cached version. Use get_empty_ccd_template()
-    which returns a safe copy.
-
-    Args:
-        ccd_code: The three-letter code of the chemical component.
-        ccd_mirror_path: Path to the local CCD mirror directory.
-        remove_hydrogens: Whether to remove hydrogen atoms.
-        occupancy: Occupancy value. Defaults to None.
-        b_factor: B-factor value. Defaults to None.
-
-    Returns:
-        Base template AtomArray (do not modify).
-    """
-    template_cc = atom_array_from_ccd_code(ccd_code, ccd_mirror_path, coords=None)
-
-    if remove_hydrogens:
-        template_cc = ta.remove_hydrogens(template_cc)
-
-    # Set cache-friendly annotations only
-    if occupancy is not None:
-        template_cc.set_annotation("occupancy", np.full(len(template_cc), occupancy))
-    if b_factor is not None:
-        template_cc.set_annotation("b_factor", np.full(len(template_cc), b_factor))
-
-    return template_cc
-
-
 def get_empty_ccd_template(
     ccd_code: str,
     *,
@@ -94,20 +52,10 @@ def get_empty_ccd_template(
     Example:
         >>> template = get_empty_ccd_template("ALA", chain_id="A", res_id=1, occupancy=1.0)
     """
-    # Separate cache-friendly annotations from chain-specific ones
-    occupancy = res_wise_annotations.pop("occupancy", None)
-    b_factor = res_wise_annotations.pop("b_factor", None)
+    template = atom_array_from_ccd_code(ccd_code, ccd_mirror_path, coords=None)
 
-    # Get base template with cache-friendly annotations
-    base = _get_base_ccd_template(
-        ccd_code,
-        ccd_mirror_path=ccd_mirror_path,
-        remove_hydrogens=remove_hydrogens,
-        occupancy=occupancy,
-        b_factor=b_factor,
-    )
-
-    template = base.copy()
+    if remove_hydrogens:
+        template = ta.remove_hydrogens(template)
 
     n_atoms = len(template)
     for annot, value in res_wise_annotations.items():
