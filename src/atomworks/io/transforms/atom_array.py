@@ -251,12 +251,16 @@ def maybe_fix_non_polymer_at_symmetry_center(
 
         # Quick check to see whether any non-polymer is closer than 0.05A to any other.
         clash_matrix = cell_list.get_atoms(non_polymers.coord, clash_distance, as_mask=True)  # [n, n]
-        identity_matrix = np.identity(len(non_polymers), dtype=bool)
-        if np.array_equal(clash_matrix, identity_matrix):
-            return atom_array_stack  # Early exit
-        else:
-            # Remove identity matrix so we don't count self-clashes
-            clash_matrix = clash_matrix & ~identity_matrix
+
+        # Fast path when only diagonal elements present
+        n_clashes = np.count_nonzero(clash_matrix)
+        n_atoms = len(non_polymers)
+        if n_clashes == n_atoms:
+            return atom_array_stack
+
+        # Remove identity matrix so we don't count self-clashes
+        identity_matrix = np.identity(n_atoms, dtype=bool)
+        clash_matrix = clash_matrix & ~identity_matrix
         logger.debug("Found clashing non-polymer at a symmetry center, resolving.")
 
         # Get list of chain_ids with clashing atoms (for computational efficiency)
@@ -567,19 +571,29 @@ def add_pn_unit_id_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArr
 
 
 def add_pn_unit_iid_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomArray | AtomArrayStack:
-    """Adds the polymer/non-polymer unit instance ID (pn_unit_iid) annotation to the AtomArray or AtomArrayStack."""
+    """Adds the polymer/non-polymer unit instance ID (pn_unit_iid) annotation to the AtomArray or AtomArrayStack.
+
+    Optimized to avoid expensive subarray operations by using vectorized operations and boolean masks.
+    For symmetric assemblies with many identical chains, this provides significant speedup.
+    """
     # ...create an array that concatenates the pn_unit_id and transformation_id
     _temp_pn_unit_iid = sum_string_arrays(atom_array.pn_unit_id, "_", atom_array.transformation_id)
     _final_pn_unit_iid = np.full(atom_array.array_length(), fill_value="", dtype=object)
 
-    # ...iterate through unique pn_unit_iids
+    # Use boolean masks to access first atom of each unit, then broadcast results
+    unique_pn_unit_iids = np.unique(_temp_pn_unit_iid)
+
+    # Iterate through unique pn_unit_iids
     # (We implicitly assume that a given pn_unit_id will have the same transformation_id across all atoms in the unit)
-    for pn_unit_iid in np.unique(_temp_pn_unit_iid):
-        # ...get the pn_unit_atom_array
-        pn_unit_atom_array = subset_atom_array(atom_array, _temp_pn_unit_iid == pn_unit_iid)
+    for pn_unit_iid in unique_pn_unit_iids:
+        mask = _temp_pn_unit_iid == pn_unit_iid
+
+        # Find first atom index in this unit (all atoms in unit have same pn_unit_id and transformation_id)
+        first_atom_idx = np.where(mask)[0][0]
+
         # ...get the transformation_id and pn_unit_id (which is the same for all atoms in the unit)
-        transformation_id = pn_unit_atom_array.transformation_id[0]
-        pn_unit_id = pn_unit_atom_array.pn_unit_id[0].astype(str)
+        transformation_id = atom_array.transformation_id[first_atom_idx]
+        pn_unit_id = str(atom_array.pn_unit_id[first_atom_idx])
 
         # ...split apart the pn_unit_id by commas
         pn_unit_ids = pn_unit_id.split(",")
@@ -591,7 +605,7 @@ def add_pn_unit_iid_annotation(atom_array: AtomArray | AtomArrayStack) -> AtomAr
         pn_unit_iid_formatted = ",".join(pn_unit_iids)
 
         # ...update the AtomArray with the instance-level identifier
-        _final_pn_unit_iid[_temp_pn_unit_iid == pn_unit_iid] = pn_unit_iid_formatted
+        _final_pn_unit_iid[mask] = pn_unit_iid_formatted
 
     atom_array.set_annotation("pn_unit_iid", _final_pn_unit_iid.astype(str))
 
