@@ -555,7 +555,17 @@ class Compose(Transform):
                 raise
             except Exception as e:
                 # construct error message including the RNG states
-                msg = f"Transforms failed at stage `{transform.__class__.__name__}`: " + str(e)
+                failed_transform_name = transform.__class__.__name__
+
+                # Give more informative messages for failures within a ConditionalRoute or RandomRoute
+                if (
+                    failed_transform_name in ["ConditionalRoute", "RandomRoute"]
+                    and hasattr(data, "__transform_history__")
+                    and len(data.__transform_history__) > 0
+                ):
+                    failed_transform_name += f" -> {data.__transform_history__[-1]['name']}"
+
+                msg = f"Transforms failed at stage `{failed_transform_name}`: " + str(e)
                 if "example_id" in data:
                     msg += f"\nFailure occurred for example ID: {data['example_id']}."
                 if self.track_rng_state and self.print_rng_state:
