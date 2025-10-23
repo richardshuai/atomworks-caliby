@@ -214,23 +214,21 @@ def get_within_poly_res_idx(atom_array: AtomArray) -> np.ndarray:
     one chain per polymer). For non-polymers, the value is -1.
 
     Note:
-        Requires that `within_chain_res_idx` annotation already exists.
-        Use :py:class:`AddWithinChainInstanceResIdx` transform first.
+        If `within_chain_res_idx` annotation exists, it will be reused for efficiency.
+        Otherwise, it will be computed on-the-fly (same logic as AddWithinChainInstanceResIdx).
 
     Args:
-        atom_array: The atom array to process. Must have `within_chain_res_idx`
-            and `is_polymer` annotations.
+        atom_array: The atom array to process. Must have `is_polymer` annotation.
 
     Returns:
         Array of within-polymer residue indices (0-indexed for polymers, -1 for non-polymers).
     """
-    # Verify prerequisite annotation exists
-    assert "within_chain_res_idx" in atom_array.get_annotation_categories(), (
-        "within_chain_res_idx annotation must exist. " "Run AddWithinChainInstanceResIdx transform first."
-    )
-
-    # Copy within_chain_res_idx (works for all chains including polymers)
-    within_poly_res_idx = atom_array.within_chain_res_idx.copy()
+    # Check if within_chain_res_idx already exists (performance optimization)
+    if "within_chain_res_idx" in atom_array.get_annotation_categories():
+        within_poly_res_idx = atom_array.within_chain_res_idx.copy()
+    else:
+        # Compute on-the-fly using same logic as AddWithinChainInstanceResIdx
+        within_poly_res_idx = get_within_group_res_idx(atom_array, group_by="chain_iid")
 
     # Set non-polymers to -1
     within_poly_res_idx[~atom_array.is_polymer] = -1
@@ -338,13 +336,12 @@ class AddWithinPolyResIdxAnnotation(Transform):
 
     For polymers, the `within_poly_res_idx` is a zero-indexed, continuous residue
     index within the chain. For non-polymers, the value is set to -1.
+
     Note:
         The `within_poly_res_idx` is zero-indexed, since it is used as an index
         into the MSA. In contrast, the `res_id` annotation (derived from the mmCIF
         file) is one-indexed.
     """
-
-    requires_previous_transforms: ClassVar[list[str | Transform]] = ["AddWithinChainInstanceResIdx"]
 
     incompatible_previous_transforms: ClassVar[list[str | Transform]] = [
         "CropContiguousLikeAF3",
@@ -352,7 +349,7 @@ class AddWithinPolyResIdxAnnotation(Transform):
     ]  # cropping changes the residue indices
 
     def check_input(self, data: dict) -> None:
-        check_atom_array_annotation(data, ["chain_iid", "is_polymer", "within_chain_res_idx"])
+        check_atom_array_annotation(data, ["chain_iid", "is_polymer"])
 
     def forward(self, data: dict) -> dict:
         atom_array = data["atom_array"]
