@@ -171,6 +171,22 @@ class TestAnnotationList2D:
         assert arr.values.shape == (0,)
         assert arr.n_atoms == 3
 
+    def test_symmetrization(self):
+        """Test ensure_symmetric adds missing pairs and detects value mismatches."""
+        # Adds missing reverse pairs
+        annot = AnnotationList2D(3, np.array([[0, 0], [0, 1], [1, 2]]), np.array([0.5, 1.5, 2.5]))
+        result = annot.symmetrized()
+        assert len(result.pairs) == 5
+        assert np.allclose(result.pairs, np.array([[0, 0], [0, 1], [1, 2], [1, 0], [2, 1]]))
+        assert np.allclose(result.values, [0.5, 1.5, 2.5, 1.5, 2.5])
+
+        # Errors on value mismatch
+        with pytest.raises(ValueError, match="Asymmetric values.*1.0 vs.*2.0"):
+            AnnotationList2D(3, np.array([[0, 1], [1, 0]]), np.array([1.0, 2.0])).symmetrized()
+
+        # Handles NaN correctly (NaN == NaN)
+        assert len(AnnotationList2D(3, np.array([[0, 1], [1, 0]]), np.array([np.nan, np.nan])).symmetrized().pairs) == 2
+
 
 def _make_single_atom(element: str, coord: list[float], annotations_2d: list[str] = None) -> AtomArrayPlus:
     """Helper function to create a single-atom AtomArrayPlus with the given element, coordinates, and optional 2D annotation names."""

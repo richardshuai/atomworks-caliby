@@ -70,7 +70,12 @@ class Index(ConditionBase):
 
     @classmethod
     def default_mask(cls, atom_array: AtomArray) -> np.ndarray:
-        return np.ones(atom_array.array_length(), dtype=bool)
+        if cls.full_name in atom_array.get_annotation_categories():
+            # ... if annotation exists, derive the mask from it
+            return cls.annotation(atom_array, default="raise") != cls.MASKED_INDEX
+        else:
+            # ... otherwise, default to a full mask (all indices leaked)
+            return np.ones(atom_array.array_length(), dtype=bool)
 
     @classmethod
     def default_annotation(cls, atom_array: AtomArray) -> np.ndarray:

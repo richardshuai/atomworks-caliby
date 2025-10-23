@@ -383,6 +383,8 @@ class ConditionBase(ABC, metaclass=ConditionMeta):
                 raise ValueError(f"Mask `{mask_name}` for `{cls.name}` must be a boolean array. Got {mask.dtype}.")
             atom_array.set_annotation(mask_name, mask)
         elif n_body == 2:
+            if cls.is_symmetric:
+                mask = mask.symmetrized()
             n_atoms = mask.n_atoms
             pairs = mask.pairs
             values = mask.values
@@ -427,7 +429,10 @@ class ConditionBase(ABC, metaclass=ConditionMeta):
             # ... handle correct argument logic
             if len(args) == 1:
                 assert isinstance(args[0], AnnotationList2D), "Only AnnotationList2D is allowed for 2-body conditions."
-                pairs, values = args[0].pairs, args[0].values
+                annot = args[0]
+                if cls.is_symmetric:
+                    annot = annot.symmetrized()
+                pairs, values = annot.pairs, annot.values
                 annotation_kwargs = {"pairs": pairs, "values": values}
             elif len(args) == 0:
                 pass

@@ -1,4 +1,5 @@
 import copy
+import logging
 import numbers
 from collections import defaultdict
 from collections.abc import Sequence
@@ -7,6 +8,8 @@ from typing import Any, Generic, TypeVar, Union
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray, AtomArrayStack
+
+logger = logging.getLogger("atomworks.io")
 
 T = TypeVar("T")
 
@@ -235,6 +238,67 @@ class AnnotationList2D(Generic[T]):
         """
         self.pairs = np.vstack([self.pairs, [i, j]])
         self.values = np.append(self.values, value)
+
+    def symmetrized(self) -> "AnnotationList2D":
+        """
+        Return a symmetrized version of this AnnotationList2D (does not modify in place).
+
+        If (i,j) exists but (j,i) doesn't, adds (j,i) with the same value.
+        If both exist, raises error if values differ.
+
+        Returns:
+            Symmetric AnnotationList2D.
+
+        Raises:
+            ValueError: If (i,j) and (j,i) both exist with different values.
+        """
+        if len(self.pairs) == 0:
+            return AnnotationList2D(self.n_atoms, self.pairs.copy(), self.values.copy())
+
+        # Build lookup: (i, j) -> value
+        pair_dict = {(int(i), int(j)): val for (i, j), val in zip(self.pairs, self.values, strict=False)}
+
+        # Check for value mismatches
+        value_mismatches = []
+        for i, j in self.pairs:
+            if i == j:  # Skip self-pairs
+                continue
+
+            reverse_key = (int(j), int(i))
+            if reverse_key in pair_dict:
+                # Both exist - check values match
+                forward_val = pair_dict[(int(i), int(j))]
+                reverse_val = pair_dict[reverse_key]
+
+                if isinstance(forward_val, numbers.Number) and isinstance(reverse_val, numbers.Number):
+                    values_match = np.isclose(forward_val, reverse_val, equal_nan=True)
+                else:
+                    values_match = forward_val == reverse_val
+
+                if not values_match:
+                    value_mismatches.append(((i, j), forward_val, reverse_val))
+
+        if value_mismatches:
+            details = ", ".join([f"({i},{j})={fwd} vs ({j},{i})={rev}" for (i, j), fwd, rev in value_mismatches[:3]])
+            if len(value_mismatches) > 3:
+                details += f", ... ({len(value_mismatches)} total)"
+            raise ValueError(f"Asymmetric values: {details}")
+
+        # Add missing reverse pairs
+        new_pairs = []
+        new_values = []
+        for (i, j), val in zip(self.pairs, self.values, strict=False):
+            if i != j and (int(j), int(i)) not in pair_dict:
+                new_pairs.append([j, i])
+                new_values.append(val)
+
+        if new_pairs:
+            logger.info(f"Added {len(new_pairs)} missing pairs to AnnotationList2D to ensure symmetry.")
+            all_pairs = np.vstack([self.pairs, np.array(new_pairs)])
+            all_values = np.concatenate([self.values, np.array(new_values)])
+            return AnnotationList2D(self.n_atoms, all_pairs, all_values)
+        else:
+            return AnnotationList2D(self.n_atoms, self.pairs.copy(), self.values.copy())
 
     def __getitem__(self, index: Any) -> "AnnotationList2D | tuple[int, int, T]":
         """
