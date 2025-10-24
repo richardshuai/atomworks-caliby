@@ -390,6 +390,16 @@ class _AtomArrayPlusBase:
         """Return a list of all 2D annotation names (categories)."""
         return list(self._annot_2d.keys())
 
+    def del_annotation_2d(self, name: str) -> None:
+        """
+        Remove a 2D annotation category.
+
+        Args:
+            name: The 2D annotation category to remove.
+        """
+        if name in self._annot_2d:
+            del self._annot_2d[name]
+
     def _copy_2d_annotations(self, clone: Any) -> None:
         """Deep copy 2D annotations to the clone."""
         clone._annot_2d = copy.deepcopy(self._annot_2d)
