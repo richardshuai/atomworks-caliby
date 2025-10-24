@@ -391,8 +391,7 @@ class _AtomArrayPlusBase:
         return list(self._annot_2d.keys())
 
     def del_annotation_2d(self, name: str) -> None:
-        """
-        Remove a 2D annotation category.
+        """Remove a 2D annotation category.
 
         Args:
             name: The 2D annotation category to remove.
