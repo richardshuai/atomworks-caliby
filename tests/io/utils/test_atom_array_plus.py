@@ -226,6 +226,27 @@ class TestAtomArrayPlus:
         names = arr.get_annotation_2d_categories()
         assert set(names) == {"distances", "foo", "bar"}
 
+    def test_del_annotation_2d(self, simple_array):
+        """Test deleting 2D annotations from AtomArrayPlus."""
+        arr = deepcopy(simple_array)
+        arr.set_annotation_2d("foo", [(0, 1)], [42])
+        arr.set_annotation_2d("bar", [(1, 0)], [24])
+
+        # Verify initial state
+        assert set(arr.get_annotation_2d_categories()) == {"distances", "foo", "bar"}
+
+        # Delete one annotation
+        arr.del_annotation_2d("foo")
+        assert set(arr.get_annotation_2d_categories()) == {"distances", "bar"}
+
+        # Delete another
+        arr.del_annotation_2d("distances")
+        assert set(arr.get_annotation_2d_categories()) == {"bar"}
+
+        # Delete nonexistent annotation (should not raise error, like AtomArray.del_annotation)
+        arr.del_annotation_2d("nonexistent")  # Should do nothing
+        assert set(arr.get_annotation_2d_categories()) == {"bar"}
+
     def test_slice_and_filter_2d_annotations(self, complex_array):
         """Test filtering of 2D annotations when slicing AtomArrayPlus."""
         arr = complex_array.copy()
