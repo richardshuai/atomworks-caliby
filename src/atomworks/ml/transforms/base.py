@@ -563,7 +563,9 @@ class Compose(Transform):
                     and hasattr(data, "__transform_history__")
                     and len(data.__transform_history__) > 0
                 ):
-                    failed_transform_name += f" -> {data.__transform_history__[-1]['name']}"
+                    last_transform = data.__transform_history__[-1]["name"]
+                    if last_transform != failed_transform_name:
+                        failed_transform_name += f" -> {last_transform}"
 
                 msg = f"Transforms failed at stage `{failed_transform_name}`: " + str(e)
                 if "example_id" in data:
