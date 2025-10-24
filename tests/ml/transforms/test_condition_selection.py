@@ -49,12 +49,17 @@ def test_sample_residue(atom_array: AtomArray):
 
 def test_sample_deterministic(atom_array: AtomArray):
     total_masks = []
-    for _ in range(2):
+    is_eligible_mask = (atom_array.occupancy > 0) & ~np.isnan(atom_array.coord).any(axis=1)
+
+    for i in range(2):
         with rng_state(create_rng_state_from_seeds(np_seed=1, py_seed=1, torch_seed=1)):
+            # Run once with the mask as a string, once with the mask as a numpy array
+            is_eligible = "(occupancy > 0) & (~has_nan_coord())" if i == 0 else is_eligible_mask
+
             total_mask, all_masks = mg.sample_mask_via_seed_grow_merge(
                 atom_array,
                 fn_sample_seed=mg.SampleUniformly(
-                    is_eligible="(occupancy > 0) & (~has_nan_coord())",
+                    is_eligible=is_eligible,
                     avoid_same=("chain_id", "res_name", "res_id"),
                 ),
                 fn_grow_seed=mg.GrowToResidue(),

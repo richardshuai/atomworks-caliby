@@ -33,18 +33,26 @@ logger = logging.getLogger(__name__)
 class SampleSeed(abc.ABC):
     def __init__(
         self,
-        is_eligible: str | None = None,
+        is_eligible: str | np.ndarray | None = None,
         avoid_same: tuple[str, ...] | None = None,
         rng: np.random.Generator | None = None,
     ):
-        self.is_eligible = QueryExpression(is_eligible) if exists(is_eligible) else None
+        if not exists(is_eligible):
+            self.is_eligible = None
+        elif isinstance(is_eligible, str):
+            self.is_eligible = QueryExpression(is_eligible)
+        else:
+            self.is_eligible = is_eligible
         self.avoid_same = (avoid_same,) if isinstance(avoid_same, str) else avoid_same
         self.rng = rng
 
     def _get_is_eligible(self, atom_array: AtomArray) -> np.ndarray:
-        is_eligible = np.ones(atom_array.array_length(), dtype=bool)
-        if exists(self.is_eligible):
+        if not exists(self.is_eligible):
+            is_eligible = np.ones(atom_array.array_length(), dtype=bool)
+        elif isinstance(self.is_eligible, QueryExpression):
             is_eligible = self.is_eligible.mask(atom_array)
+        else:
+            is_eligible = self.is_eligible
 
         if not is_eligible.any():
             raise ValueError(f"No eligible indices found with filters: {self.is_eligible}")
