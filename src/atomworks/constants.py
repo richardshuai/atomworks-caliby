@@ -723,6 +723,45 @@ PROTEIN_FRAME_ATOM_NAMES: Final[tuple[str, ...]] = ("N", "CA", "C")
 NUCLEIC_ACID_FRAME_ATOM_NAMES: Final[tuple[str, ...]] = ("C1'", "C3'", "C4'")
 """A tuple of the names of the frame atoms (backbone) for nucleic acids."""
 
+PROTEIN_BACKBONE_ATOM_NAMES: Final[tuple[str, ...]] = ("N", "CA", "C", "O", "OXT")
+"""A tuple of the names of all protein backbone atoms (N-CA-C backbone + carbonyl oxygen + terminal OXT)."""
+
+RNA_BACKBONE_ATOM_NAMES: Final[tuple[str, ...]] = (
+    "P",
+    "OP1",
+    "OP2",
+    "O5'",
+    "C5'",
+    "C4'",
+    "C3'",
+    "C2'",
+    "C1'",
+    "O4'",
+    "O3'",
+    "O2'",
+)
+"""A tuple of the names of RNA backbone atoms (sugar-phosphate backbone including 2' hydroxyl)."""
+
+DNA_BACKBONE_ATOM_NAMES: Final[tuple[str, ...]] = (
+    "P",
+    "OP1",
+    "OP2",
+    "O5'",
+    "C5'",
+    "C4'",
+    "C3'",
+    "C2'",
+    "C1'",
+    "O4'",
+    "O3'",
+)
+"""A tuple of the names of DNA backbone atoms (sugar-phosphate backbone, no 2' hydroxyl)."""
+
+NUCLEIC_ACID_BACKBONE_ATOM_NAMES: Final[tuple[str, ...]] = tuple(
+    sorted(set(RNA_BACKBONE_ATOM_NAMES) | set(DNA_BACKBONE_ATOM_NAMES))
+)
+"""A tuple of the names of all nucleic acid backbone atoms (union of RNA and DNA backbones)."""
+
 NA_VALUES = [
     "",
     " ",
