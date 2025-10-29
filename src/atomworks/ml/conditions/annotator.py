@@ -46,7 +46,11 @@ from biotite.structure import AtomArray
 from jaxtyping import Bool, Float, Int
 
 from atomworks.constants import (
+    DNA_BACKBONE_ATOM_NAMES,
     METAL_ELEMENTS,
+    NUCLEIC_ACID_BACKBONE_ATOM_NAMES,
+    PROTEIN_BACKBONE_ATOM_NAMES,
+    RNA_BACKBONE_ATOM_NAMES,
     STANDARD_AA,
     STANDARD_AA_TIP_ATOM_NAMES,
     STANDARD_DNA,
@@ -228,8 +232,9 @@ def is_standard_aa(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F8
 @_requires_annotations("is_protein")
 def is_protein_backbone(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to protein backbone."""
+
     is_protein = atom_array.get_annotation("is_protein")
-    is_backbone_atom = np.isin(atom_array.atom_name, ["N", "CA", "C", "O", "OXT"])
+    is_backbone_atom = np.isin(atom_array.atom_name, PROTEIN_BACKBONE_ATOM_NAMES)
     return is_protein & is_backbone_atom
 
 
@@ -238,8 +243,35 @@ def is_protein_backbone(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noq
 def is_protein_sidechain(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to protein sidechain."""
     is_protein = atom_array.get_annotation("is_protein")
-    is_sidechain_atom = ~np.isin(atom_array.atom_name, ["N", "CA", "C", "O", "OXT"])
+    is_sidechain_atom = ~np.isin(atom_array.atom_name, PROTEIN_BACKBONE_ATOM_NAMES)
     return is_protein & is_sidechain_atom
+
+
+@_register_lazy_annotator("is_rna_backbone")
+@_requires_annotations("is_rna")
+def is_rna_backbone(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
+    """Check if atoms belong to RNA backbone (sugar-phosphate)."""
+    is_rna = atom_array.get_annotation("is_rna")
+    is_backbone_atom = np.isin(atom_array.atom_name, RNA_BACKBONE_ATOM_NAMES)
+    return is_rna & is_backbone_atom
+
+
+@_register_lazy_annotator("is_dna_backbone")
+@_requires_annotations("is_dna")
+def is_dna_backbone(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
+    """Check if atoms belong to DNA backbone (sugar-phosphate)."""
+    is_dna = atom_array.get_annotation("is_dna")
+    is_backbone_atom = np.isin(atom_array.atom_name, DNA_BACKBONE_ATOM_NAMES)
+    return is_dna & is_backbone_atom
+
+
+@_register_lazy_annotator("is_nucleic_acid_backbone")
+@_requires_annotations("is_nucleic_acid")
+def is_nucleic_acid_backbone(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
+    """Check if atoms belong to nucleic acid backbone (sugar-phosphate)."""
+    is_na = atom_array.get_annotation("is_nucleic_acid")
+    is_backbone_atom = np.isin(atom_array.atom_name, NUCLEIC_ACID_BACKBONE_ATOM_NAMES)
+    return is_na & is_backbone_atom
 
 
 @_register_lazy_annotator("is_standard_rna")
