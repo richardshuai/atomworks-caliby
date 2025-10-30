@@ -159,11 +159,23 @@ class TokenEncoding:
 
     @cached_property
     def tokens(self) -> np.ndarray:
-        return np.array(list(self.token_atoms.keys()), dtype=object)
+        dtypes = {type(token) for token in self.token_atoms}
+        if all(issubclass(dtype, str) for dtype in dtypes):
+            return np.array(list(self.token_atoms.keys()), dtype=str)
+        elif all(issubclass(dtype, int | np.integer) for dtype in dtypes):
+            return np.array(list(self.token_atoms.keys()), dtype=int)
+        else:
+            return np.array(list(self.token_atoms.keys()), dtype=object)
 
     @cached_property
     def unknown_tokens(self) -> np.ndarray:
-        return np.array(list(self.chemcomp_type_to_unknown.values()), dtype=object)
+        dtypes = {type(token) for token in self.chemcomp_type_to_unknown.values()}
+        if all(issubclass(dtype, str) for dtype in dtypes):
+            return np.array(list(self.chemcomp_type_to_unknown.values()), dtype=str)
+        elif all(issubclass(dtype, int | np.integer) for dtype in dtypes):
+            return np.array(list(self.chemcomp_type_to_unknown.values()), dtype=int)
+        else:
+            return np.array(list(self.chemcomp_type_to_unknown.values()), dtype=object)
 
     @cached_property
     def n_tokens(self) -> int:
