@@ -326,6 +326,11 @@ AF2_ATOM37_ENCODING = TokenEncoding(
     },
     chemcomp_type_to_unknown={chem_type: "UNK" for chem_type in AA_LIKE_CHEM_TYPES},
 )
+
+AF2_ATOM37_WITH_ATOMIZATION = TokenEncoding(
+    token_atoms={**AF2_ATOM37_ENCODING.token_atoms, 0: ['0' if i == 1 else '' for i in range(37)]},
+    chemcomp_type_to_unknown=AF2_ATOM37_ENCODING.chemcomp_type_to_unknown,
+)
 """AF2's atom37 encoding
 
 Reference:
