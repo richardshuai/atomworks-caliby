@@ -45,8 +45,10 @@ import numpy as np
 from biotite.structure import AtomArray
 from jaxtyping import Bool, Float, Int
 
+from atomworks.common import listmap
 from atomworks.constants import (
     DNA_BACKBONE_ATOM_NAMES,
+    ELEMENT_NAME_TO_ATOMIC_NUMBER,
     METAL_ELEMENTS,
     NUCLEIC_ACID_BACKBONE_ATOM_NAMES,
     PROTEIN_BACKBONE_ATOM_NAMES,
@@ -409,3 +411,9 @@ def res_has_tip_atom(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: 
     res_start_idxs = np.where(is_res_start)[0]
     res_segments = np.concatenate([res_start_idxs, [atom_array.array_length()]])
     return apply_and_spread(res_segments, is_tip_atom, np.any)
+
+
+@_register_lazy_annotator("atomic_number")
+def atomic_number(atom_array: AtomArray) -> Int[Array, "n_atoms"]:  # noqa: F821
+    """Get atomic numbers for each atom."""
+    return np.array(listmap(ELEMENT_NAME_TO_ATOMIC_NUMBER.get, np.char.upper(atom_array.element)), dtype=np.int8)

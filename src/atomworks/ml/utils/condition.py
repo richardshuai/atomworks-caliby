@@ -1,6 +1,7 @@
 """Utilities for saving and loading atom arrays with condition annotations to/from CIF files."""
 
 import logging
+import warnings
 from os import PathLike
 
 import numpy as np
@@ -17,6 +18,7 @@ from atomworks.io.utils.atom_array_plus import (
 )
 from atomworks.io.utils.io_utils import suppress_logging_messages, to_cif_file
 from atomworks.io.utils.selection import get_annotation, get_annotation_categories
+from atomworks.ml.conditions.annotator import ANNOTATOR_REGISTRY, ensure_annotations
 from atomworks.ml.conditions.base import CONDITIONS, ConditionBase
 
 
@@ -284,3 +286,50 @@ def _idxs_values_to_cif_dict(idxs: np.ndarray, values: np.ndarray) -> dict:
     return {f"idx{i}": idxs[:, i] for i in range(idxs.shape[1])} | {
         f"val{i}": values[:, i] for i in range(values.shape[1])
     }
+
+
+def default_annotations_and_conditions_from_registry(
+    atom_array: AtomArray,
+    annotations: list[str],
+) -> AtomArrayPlus:
+    """Add all registered annotations and conditions with default values.
+
+    Generates defaults from both ``ANNOTATOR_REGISTRY`` and ``CONDITIONS`` registry.
+    Ignores annotations without known default generation methods.
+    Promotes the input ``atom_array`` to an ``AtomArrayPlus`` in order to handle n-body annotations.
+
+    Args:
+      atom_array: AtomArray to annotate (modified in-place).
+      annotations: Specific annotation names to generate.
+    """
+    atom_array = as_atom_array_plus(atom_array)
+
+    # Filter to requested annotations
+    annotations_set = set(annotations)
+    target_annotator_names = annotations_set & set(ANNOTATOR_REGISTRY.keys())
+    target_condition_names = annotations_set - target_annotator_names
+
+    # Generate ANNOTATOR_REGISTRY annotations using ensure_annotations
+    if target_annotator_names:
+        ensure_annotations(atom_array, *target_annotator_names)
+
+    # Generate CONDITIONS annotations and masks
+    for condition in CONDITIONS:
+        # Handle mask
+        mask_name = condition.mask_name
+        if mask_name in target_condition_names:
+            try:
+                condition.set_mask(atom_array, condition.default_mask(atom_array))
+            except Exception as e:
+                warnings.warn(f"Failed to generate mask '{mask_name}': {e}", stacklevel=2)
+
+        # Handle annotation (if not a mask-only condition)
+        if not condition.is_mask:
+            full_name = condition.full_name
+            if full_name in target_condition_names:
+                try:
+                    condition.set_annotation(atom_array, condition.default_annotation(atom_array))
+                except Exception as e:
+                    warnings.warn(f"Failed to generate annotation '{full_name}': {e}", stacklevel=2)
+
+    return atom_array

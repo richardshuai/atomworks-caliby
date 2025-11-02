@@ -255,6 +255,9 @@ def atom_array_from_encoding(
 
     # ... set atomize annotation if `token_is_atom` is provided
     if token_is_atom is not None:
+        # Expand token_is_atom to n_atoms_per_token if necessary
+        if token_is_atom.ndim == 1:
+            token_is_atom = np.repeat(token_is_atom[:, np.newaxis], encoding.n_atoms_per_token, axis=1)
         atom_array.set_annotation("atomize", np.asarray(token_is_atom[atom_should_exist], dtype=np.bool_))
 
     # ... flatten and annotate coordinates
