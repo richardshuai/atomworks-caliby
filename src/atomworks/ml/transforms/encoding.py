@@ -192,10 +192,11 @@ def atom_array_to_encoding(
 
 def atom_array_from_encoding(
     encoded_coord: torch.Tensor | np.ndarray,
-    encoded_mask: torch.Tensor | np.ndarray,
     encoded_seq: torch.Tensor | np.ndarray,
     encoding: TokenEncoding,
-    chain_id: str = "A",  # TODO: Allow passing a numpy array of chain ids
+    chain_id: str = "A",
+    *,
+    encoded_mask: torch.Tensor | np.ndarray | None = None,
     token_is_atom: torch.Tensor | np.ndarray | None = None,
     **other_annotations: np.ndarray | None,
     # TODO: Allow passing a res_id
@@ -209,13 +210,14 @@ def atom_array_from_encoding(
 
     Args:
         encoded_coord: Encoded coordinates tensor.
-        encoded_mask: Encoded mask tensor.
         encoded_seq: Encoded sequence tensor.
         encoding: The encoding to use for encoding the atom array.
         chain_id: Chain ID. Can be a single string (e.g., "A")
           or a numpy array of shape (n_res,) corresponding to each residue. Defaults to "A".
+        encoded_mask: Optional encoded mask tensor. If not provided, will be derived
+          from coordinates by checking for NaN values. Defaults to ``None``.
         token_is_atom: Boolean mask indicating
-          whether each token corresponds to an atom.
+          whether each token corresponds to an atom. Defaults to ``None``.
         **other_annotations: Additional annotations to include in the
           AtomArray. The shape must match one of the following:
 
@@ -230,10 +232,15 @@ def atom_array_from_encoding(
     # Turn tensors into numpy arrays if necessary
     _from_tensor = lambda x: x.cpu().numpy() if isinstance(x, torch.Tensor) else x  # noqa E731
     encoded_coord = _from_tensor(encoded_coord)
-    encoded_mask = _from_tensor(encoded_mask)
     encoded_seq = _from_tensor(encoded_seq)
     token_is_atom = _from_tensor(token_is_atom)
     other_annotations = {annot: _from_tensor(annot_arr) for annot, annot_arr in other_annotations.items()}
+
+    # Derive mask from coordinates if not provided
+    if encoded_mask is None:
+        encoded_mask = ~np.isnan(encoded_coord[..., 0])
+    else:
+        encoded_mask = _from_tensor(encoded_mask)
 
     # Extract token, element and atom name information via the encoding
     seq = encoding.idx_to_token[encoded_seq]  # [n_res] (str)
