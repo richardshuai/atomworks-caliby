@@ -4,7 +4,6 @@ from typing import Any, Literal
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import AtomArray
-from line_profiler import profile
 
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
@@ -16,7 +15,6 @@ from atomworks.ml.transforms.base import Transform
 logger = logging.getLogger("atomworks.ml")
 
 
-@profile
 def calculate_atomwise_sasa(
     atom_array: AtomArray,
     probe_radius: float = 1.4,
@@ -57,7 +55,6 @@ def calculate_atomwise_sasa(
     return full_sasa
 
 
-@profile
 def calculate_atomwise_rasa(
     atom_array: AtomArray,
     probe_radius: float = 1.4,
