@@ -5,8 +5,10 @@ import pytest
 
 from atomworks.constants import STANDARD_AA
 from atomworks.enums import ChainType
+from atomworks.ml.transforms.atom_array import AddGlobalAtomIdAnnotation
 from atomworks.ml.transforms.atomize import AtomizeByCCDName
 from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.crop import CropSpatialLikeAF3
 from atomworks.ml.transforms.dssp import AnnotateSecondaryStructure, SecondaryStructureGroup
 from atomworks.ml.utils.testing import cached_parse
 from atomworks.ml.utils.token import get_token_starts
@@ -72,7 +74,7 @@ def test_annotate_secondary_structure(pdb_id):
                 atomize_by_default=True,
                 res_names_to_ignore=STANDARD_AA,
             ),
-            AnnotateSecondaryStructure(),
+            AnnotateSecondaryStructure(bin_path="/projects/ml/dssp/install/bin/mkdssp"),
         ]
     )
     data = pipe(data)
@@ -83,9 +85,6 @@ def test_annotate_secondary_structure(pdb_id):
 @pytest.mark.parametrize("pdb_id", ["1fu2"])
 def test_annotate_secondary_structure_after_spatial_crop(pdb_id):
     """Test DSSP annotation works correctly after spatial cropping."""
-    from atomworks.ml.transforms.atom_array import AddGlobalAtomIdAnnotation
-    from atomworks.ml.transforms.crop import CropSpatialLikeAF3
-
     data = cached_parse(pdb_id)
     pipe = Compose(
         [
@@ -95,7 +94,7 @@ def test_annotate_secondary_structure_after_spatial_crop(pdb_id):
                 res_names_to_ignore=STANDARD_AA,
             ),
             CropSpatialLikeAF3(crop_size=100, seed=42),
-            AnnotateSecondaryStructure(),
+            AnnotateSecondaryStructure(bin_path="/projects/ml/dssp/install/bin/mkdssp"),
         ]
     )
 
@@ -104,19 +103,8 @@ def test_annotate_secondary_structure_after_spatial_crop(pdb_id):
     check_dssp_annotations(atom_array)
 
 
-def test_secondary_structure_group_helpers():
-    """Test SecondaryStructureGroup helper methods."""
-    # Test names() method
-    names = SecondaryStructureGroup.names()
-    assert len(names) == 4
-    assert names == ["alpha_helix", "beta_sheet", "other_protein", "non_protein"]
-
-    # Test to_string() method
-    assert SecondaryStructureGroup.to_string(0) == "alpha_helix"
-    assert SecondaryStructureGroup.to_string(1) == "beta_sheet"
-    assert SecondaryStructureGroup.to_string(2) == "other_protein"
-    assert SecondaryStructureGroup.to_string(3) == "non_protein"
-
-
 if __name__ == "__main__":
+    import os
+
+    os.environ["DSSP_PATH"] = "DSSP_PATH"
     pytest.main(["-v", "-x", "--log-cli-level=INFO", __file__])

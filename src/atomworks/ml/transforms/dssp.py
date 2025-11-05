@@ -105,6 +105,7 @@ def annotate_secondary_structure(
     atom_array: AtomArray,
     bin_path: str | None = None,
     annotation_name: str = "dssp_sse",
+    is_valid_annotation_name: str | None = None,
 ) -> AtomArray:
     """Annotate secondary structure for each residue using DSSP.
 
@@ -115,15 +116,12 @@ def annotate_secondary_structure(
     Args:
       atom_array: AtomArray to annotate.
       bin_path: Path to DSSP executable. If ``None``, uses executable from ``DSSPExecutable``.
-      annotation_name: Name for the annotation. Defaults to ``"dssp_sse"``.
+      annotation_name: Name for the SSE annotation. Defaults to ``"dssp_sse"``.
+      is_valid_annotation_name: Name for the validity annotation. If ``None``,
+        uses ``"{annotation_name}_is_valid"``. Defaults to ``None``.
 
     Returns:
       AtomArray with secondary structure annotations added.
-
-    Notes:
-      Annotations added:
-      - ``{annotation_name}``: Integer values from :py:class:`SecondaryStructureGroup`
-      - ``{annotation_name}_is_valid``: Boolean indicating if DSSP ran successfully
     """
     # Get bin_path from executable manager if not provided
     if bin_path is None:
@@ -172,8 +170,12 @@ def annotate_secondary_structure(
     sse_spread = spread_token_wise(atom_array, sse)
     is_valid_spread = spread_token_wise(atom_array, is_valid)
 
+    # Use provided is_valid annotation name or default
+    if is_valid_annotation_name is None:
+        is_valid_annotation_name = f"{annotation_name}_is_valid"
+
     atom_array.set_annotation(annotation_name, sse_spread)
-    atom_array.set_annotation(f"{annotation_name}_is_valid", is_valid_spread)
+    atom_array.set_annotation(is_valid_annotation_name, is_valid_spread)
 
     return atom_array
 
@@ -181,40 +183,43 @@ def annotate_secondary_structure(
 class AnnotateSecondaryStructure(Transform):
     """Annotate secondary structure for each residue using DSSP.
 
-    Uses the DSSP program to compute secondary structure assignments based on
-    hydrogen bonding patterns. The transform adds integer annotations from
-    :py:class:`SecondaryStructureGroup` indicating the secondary structure type.
+    Adds integer annotations from :py:class:`SecondaryStructureGroup` indicating the secondary structure type.
 
     Args:
-      bin_path: Path to DSSP executable. If ``None``, uses ``DSSP`` environment variable
-        or default location. Defaults to ``None``.
-      annotation_name: Name for the annotation. Defaults to ``"dssp_sse"``.
+      bin_path: Path to DSSP executable. If ``None``, uses ``DSSP`` environment variable. Defaults to ``None``.
+      annotation_name: Name for the SSE annotation. Defaults to ``"dssp_sse"``.
+      is_valid_annotation_name: Name for the validity annotation. If ``None``,
+        uses ``"{annotation_name}_is_valid"``. Defaults to ``None``.
 
     Examples:
-      Basic usage with environment variable::
+      Basic usage::
 
         transform = AnnotateSecondaryStructure()
         data = transform(data)
-        sse = data["atom_array"].dssp_sse  # Integer values 0-3
+        sse = data["atom_array"].dssp_sse
+        is_valid = data["atom_array"].dssp_sse_is_valid
 
-      With explicit path::
+      Custom annotation names::
 
-        transform = AnnotateSecondaryStructure(bin_path="/path/to/mkdssp")
+        transform = AnnotateSecondaryStructure(annotation_name="secondary_structure", is_valid_annotation_name="ss_valid")
         data = transform(data)
-
-      Convert to human-readable strings::
-
-        sse_values = data["atom_array"][token_starts].dssp_sse
-        sse_strings = [SecondaryStructureGroup.to_string(v) for v in sse_values]
+        sse = data["atom_array"].secondary_structure
+        is_valid = data["atom_array"].ss_valid
     """
 
-    def __init__(self, bin_path: str | None = None, annotation_name: str = "dssp_sse"):
+    def __init__(
+        self,
+        bin_path: str | None = None,
+        annotation_name: str = "dssp_sse",
+        is_valid_annotation_name: str | None = None,
+    ):
         # Initialize executable if not already done
         if bin_path is None:
             DSSPExecutable.get_or_initialize()
         else:
             DSSPExecutable.get_or_initialize(bin_path)
         self.annotation_name = annotation_name
+        self.is_valid_annotation_name = is_valid_annotation_name
 
     def check_input(self, data: dict) -> None:
         check_contains_keys(data, ["atom_array"])
@@ -227,5 +232,6 @@ class AnnotateSecondaryStructure(Transform):
             atom_array,
             bin_path=None,  # Use executable manager
             annotation_name=self.annotation_name,
+            is_valid_annotation_name=self.is_valid_annotation_name,
         )
         return data
