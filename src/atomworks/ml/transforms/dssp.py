@@ -11,8 +11,6 @@ from atomworks.enums import ChainType
 from atomworks.ml.executables.dssp import DSSPExecutable
 from atomworks.ml.transforms._checks import (
     check_atom_array_annotation,
-    check_contains_keys,
-    check_is_instance,
 )
 from atomworks.ml.transforms.base import Transform
 from atomworks.ml.utils.token import get_token_starts, spread_token_wise
@@ -74,7 +72,7 @@ class DSSPCode(StrEnum):
 
 
 def _get_chain_sse_and_valid(chain_atom_array: AtomArray, bin_path: str) -> tuple[np.ndarray, bool]:
-    """Run DSSP on a chain's protein atoms, return group indices and validity.
+    """Run DSSP on a chain's protein atoms, return group indices and whether DSSP ran successfully.
 
     Args:
       chain_atom_array: AtomArray containing atoms from a single chain.
@@ -110,8 +108,10 @@ def annotate_secondary_structure(
     """Annotate secondary structure for each residue using DSSP.
 
     Only protein tokens are assigned secondary structure groups; all others are
-    set to NON_PROTEIN. Also adds a boolean annotation indicating whether the
-    SSE is valid (not default due to error).
+    set to NON_PROTEIN.
+
+    Also adds a boolean annotation indicating whether the SSE is valid (not default
+    NON_PROTEIN due to error).
 
     Args:
       atom_array: AtomArray to annotate.
@@ -130,7 +130,11 @@ def annotate_secondary_structure(
 
     # Atom-level masks
     is_protein_atom_lvl = np.isin(atom_array.chain_type, ChainType.get_proteins())
-    is_atomized_atom_lvl = atom_array.atomize
+    is_atomized_atom_lvl = (
+        atom_array.atomize
+        if "atomize" in atom_array.get_annotation_categories()
+        else np.zeros(atom_array.array_length(), dtype=bool)
+    )
 
     # Token-level masks
     token_starts = get_token_starts(atom_array)
@@ -190,6 +194,8 @@ class AnnotateSecondaryStructure(Transform):
       annotation_name: Name for the SSE annotation. Defaults to ``"dssp_sse"``.
       is_valid_annotation_name: Name for the validity annotation. If ``None``,
         uses ``"{annotation_name}_is_valid"``. Defaults to ``None``.
+      max_n_tokens: Maximum number of tokens to run DSSP on. If structure exceeds this,
+        DSSP is skipped and no annotations are added. Defaults to 800, which encompasses most proteins.
     """
 
     def __init__(
@@ -197,6 +203,7 @@ class AnnotateSecondaryStructure(Transform):
         bin_path: str | None = None,
         annotation_name: str = "dssp_sse",
         is_valid_annotation_name: str | None = None,
+        max_n_tokens: int | None = 800,
     ):
         # Initialize executable if not already done
         if bin_path is None:
@@ -205,14 +212,25 @@ class AnnotateSecondaryStructure(Transform):
             DSSPExecutable.get_or_initialize(bin_path)
         self.annotation_name = annotation_name
         self.is_valid_annotation_name = is_valid_annotation_name
+        self.max_n_tokens = max_n_tokens
 
     def check_input(self, data: dict) -> None:
-        check_contains_keys(data, ["atom_array"])
-        check_is_instance(data, "atom_array", AtomArray)
-        check_atom_array_annotation(data, ["chain_type", "chain_iid", "atomize"])
+        check_atom_array_annotation(data, ["chain_type", "chain_iid"])
 
     def forward(self, data: dict) -> dict:
         atom_array: AtomArray = data["atom_array"]
+
+        # Check if structure exceeds max_n_tokens
+        if self.max_n_tokens is not None:
+            token_starts = get_token_starts(atom_array)
+            n_tokens = len(token_starts)
+
+            if n_tokens > self.max_n_tokens:
+                # Skip DSSP and return data without annotations
+                logger.info(f"Skipping DSSP: structure has {n_tokens} tokens, exceeds max_n_tokens={self.max_n_tokens}")
+                return data
+
+        # Proceed with normal DSSP annotation
         data["atom_array"] = annotate_secondary_structure(
             atom_array,
             bin_path=None,  # Use executable manager

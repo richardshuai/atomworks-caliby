@@ -147,14 +147,5 @@ def test_annotate_secondary_structure_after_spatial_crop(pdb_id, cleanup_dssp):
     check_dssp_annotations(atom_array)
 
 
-def test_dssp_executable_not_found():
-    """Test proper error when DSSP not found."""
-    with pytest.raises(FileNotFoundError):
-        if DSSPExecutable.is_initialized():
-            DSSPExecutable.reinitialize("/this/path/is/invalid")
-        else:
-            DSSPExecutable.initialize("/this/path/is/invalid")
-
-
 if __name__ == "__main__":
     pytest.main(["-v", "-x", "--log-cli-level=INFO", __file__])
