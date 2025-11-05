@@ -45,12 +45,12 @@ class SecondaryStructureGroup(IntEnum):
 class DSSPCode(StrEnum):
     """DSSP secondary structure codes as defined by the DSSP program."""
 
-    ALPHA_HELIX = "H"  # α-helix
-    ISOLATED_BETA_BRIDGE = "B"  # residue in isolated β-bridge
-    EXTENDED_STRAND = "E"  # extended strand, participates in β ladder
-    THREE_TEN_HELIX = "G"  # 310-helix
-    PI_HELIX = "I"  # π-helix
-    POLYPROLINE_HELIX = "P"  # κ-helix (poly-proline II helix)
+    ALPHA_HELIX = "H"  # alpha-helix
+    ISOLATED_BETA_BRIDGE = "B"  # residue in isolated beta-bridge
+    EXTENDED_STRAND = "E"  # extended strand, participates in beta ladder
+    THREE_TEN_HELIX = "G"  # 3-10 helix
+    PI_HELIX = "I"  # pi-helix
+    POLYPROLINE_HELIX = "P"  # kappa-helix (poly-proline II helix)
     HYDROGEN_BONDED_TURN = "T"  # hydrogen-bonded turn
     BEND = "S"  # bend
     OTHER = "C"  # loop, coil, or irregular

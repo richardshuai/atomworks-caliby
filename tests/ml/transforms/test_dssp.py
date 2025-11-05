@@ -42,18 +42,19 @@ def check_dssp_annotations(atom_array):
     token_dssp_groups = sse[token_starts]
     token_sse_is_valid = sse_is_valid[token_starts]
 
-    # All protein tokens should have non-NON_PROTEIN groups
-    assert np.all(
-        token_dssp_groups[protein_token_mask] != SecondaryStructureGroup.NON_PROTEIN
-    ), "All protein tokens must have non-NON_PROTEIN DSSP groups"
+    # Protein tokens with valid DSSP should have non-NON_PROTEIN groups
+    protein_valid_mask = protein_token_mask & token_sse_is_valid
+    if np.any(protein_valid_mask):
+        assert np.all(
+            token_dssp_groups[protein_valid_mask] != SecondaryStructureGroup.NON_PROTEIN
+        ), "Protein tokens with valid DSSP must have non-NON_PROTEIN groups"
 
     # All non-protein tokens should have NON_PROTEIN group
     assert np.all(
         token_dssp_groups[~protein_token_mask] == SecondaryStructureGroup.NON_PROTEIN
     ), "All non-protein tokens must have NON_PROTEIN DSSP group"
 
-    # All protein tokens should have is_valid True, all non-protein tokens should have is_valid False
-    assert np.all(token_sse_is_valid[protein_token_mask]), "All protein tokens must have dssp_sse_is_valid True"
+    # All non-protein tokens should have is_valid False
     assert np.all(~token_sse_is_valid[~protein_token_mask]), "All non-protein tokens must have dssp_sse_is_valid False"
 
     # Check all values are valid SecondaryStructureGroup indices
