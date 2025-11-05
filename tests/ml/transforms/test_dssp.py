@@ -13,7 +13,7 @@ from atomworks.ml.transforms.atom_array import AddGlobalAtomIdAnnotation
 from atomworks.ml.transforms.atomize import AtomizeByCCDName
 from atomworks.ml.transforms.base import Compose
 from atomworks.ml.transforms.crop import CropSpatialLikeAF3
-from atomworks.ml.transforms.dssp import AnnotateSecondaryStructure, SecondaryStructureGroup
+from atomworks.ml.transforms.dssp import AnnotateSecondaryStructure, SSEnum
 from atomworks.ml.utils.testing import cached_parse
 from atomworks.ml.utils.token import get_token_starts
 
@@ -87,19 +87,19 @@ def check_dssp_annotations(atom_array):
     protein_valid_mask = protein_token_mask & token_sse_is_valid
     if np.any(protein_valid_mask):
         assert np.all(
-            token_dssp_groups[protein_valid_mask] != SecondaryStructureGroup.NON_PROTEIN
+            token_dssp_groups[protein_valid_mask] != SSEnum.NON_PROTEIN
         ), "Protein tokens with valid DSSP must have non-NON_PROTEIN groups"
 
     # All non-protein tokens should have NON_PROTEIN group
     assert np.all(
-        token_dssp_groups[~protein_token_mask] == SecondaryStructureGroup.NON_PROTEIN
+        token_dssp_groups[~protein_token_mask] == SSEnum.NON_PROTEIN
     ), "All non-protein tokens must have NON_PROTEIN DSSP group"
 
     # All non-protein tokens should have is_valid False
     assert np.all(~token_sse_is_valid[~protein_token_mask]), "All non-protein tokens must have dssp_sse_is_valid False"
 
-    # Check all values are valid SecondaryStructureGroup indices
-    valid_values = set(range(4))  # 0-3 for ALPHA_HELIX, BETA_SHEET, OTHER_PROTEIN, NON_PROTEIN
+    # Check all values are valid SSEnum indices
+    valid_values = {-1, 0, 1, 2, 3}  # -1 for NONE, 0-3 for ALPHA_HELIX, BETA_SHEET, OTHER_PROTEIN, NON_PROTEIN
     assert set(np.unique(sse)).issubset(valid_values), f"Invalid DSSP values: {np.unique(sse)}"
 
 

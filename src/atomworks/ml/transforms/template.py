@@ -179,9 +179,9 @@ class RF2AATemplate:
         # Create atom array
         atom_array = atom_array_from_encoding(
             atom14_coords,
-            atom14_mask,
             seq_tokenized,
-            encoding=LEGACY_RF2_ATOM14_ENCODING,
+            LEGACY_RF2_ATOM14_ENCODING,
+            encoded_mask=atom14_mask,
         )
         n_atom = len(atom_array)
 

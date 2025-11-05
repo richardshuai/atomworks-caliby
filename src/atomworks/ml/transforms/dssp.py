@@ -18,12 +18,21 @@ from atomworks.ml.utils.token import get_token_starts, spread_token_wise
 logger = logging.getLogger("atomworks.ml")
 
 
-class SecondaryStructureGroup(IntEnum):
-    """Secondary structure groups for protein residues.
+class SSEnum(IntEnum):
+    """Secondary structure enum for protein residues.
 
-    Groups DSSP codes into four categories for efficient storage and manipulation.
+    Groups DSSP codes into five categories for efficient storage and manipulation.
+    Used for both DSSP output annotations and secondary structure conditioning.
+
+    Values:
+      NONE: Not set/not conditioned (value: -1)
+      ALPHA_HELIX: Alpha helix (H, G, I in DSSP) (value: 0)
+      BETA_SHEET: Beta sheet (E, B in DSSP) (value: 1)
+      OTHER_PROTEIN: Coil/loop/turn (T, S, C, P in DSSP) (value: 2)
+      NON_PROTEIN: Non-protein chain or DSSP failed (value: 3)
     """
 
+    NONE = -1
     ALPHA_HELIX = 0
     BETA_SHEET = 1
     OTHER_PROTEIN = 2
@@ -32,12 +41,15 @@ class SecondaryStructureGroup(IntEnum):
     @classmethod
     def names(cls) -> list[str]:
         """Return human-readable names for each group."""
-        return ["alpha_helix", "beta_sheet", "other_protein", "non_protein"]
+        return ["none", "alpha_helix", "beta_sheet", "other_protein", "non_protein"]
 
     @classmethod
     def to_string(cls, value: int) -> str:
         """Convert integer value to human-readable string."""
-        return cls.names()[value]
+        # Handle NONE specially since it's -1
+        if value == -1:
+            return "none"
+        return cls.names()[value + 1]  # Offset by 1 since NONE is at index 0
 
 
 class DSSPCode(StrEnum):
@@ -61,14 +73,14 @@ class DSSPCode(StrEnum):
 
     @classmethod
     def to_group_index(cls, code: str) -> int:
-        """Map DSSP code to SecondaryStructureGroup index."""
+        """Map DSSP code to SSEnum index."""
         if code in {cls.ALPHA_HELIX.value, cls.THREE_TEN_HELIX.value, cls.PI_HELIX.value}:
-            return SecondaryStructureGroup.ALPHA_HELIX
+            return SSEnum.ALPHA_HELIX
         if code in {cls.EXTENDED_STRAND.value, cls.ISOLATED_BETA_BRIDGE.value}:
-            return SecondaryStructureGroup.BETA_SHEET
+            return SSEnum.BETA_SHEET
         if code == cls.NON_PROTEIN.value:
-            return SecondaryStructureGroup.NON_PROTEIN
-        return SecondaryStructureGroup.OTHER_PROTEIN
+            return SSEnum.NON_PROTEIN
+        return SSEnum.OTHER_PROTEIN
 
 
 def _get_chain_sse_and_valid(chain_atom_array: AtomArray, bin_path: str) -> tuple[np.ndarray, bool]:
@@ -80,7 +92,7 @@ def _get_chain_sse_and_valid(chain_atom_array: AtomArray, bin_path: str) -> tupl
 
     Returns:
       Tuple of (group_indices, is_valid) where group_indices are integers from
-      SecondaryStructureGroup enum and is_valid indicates if DSSP ran successfully.
+      SSEnum and is_valid indicates if DSSP ran successfully.
     """
     try:
         dssp_codes = dssp.DsspApp.annotate_sse(chain_atom_array, bin_path=bin_path)
@@ -94,7 +106,7 @@ def _get_chain_sse_and_valid(chain_atom_array: AtomArray, bin_path: str) -> tupl
             f"using NON_PROTEIN code for this entity's residues, and setting is_valid annotation to False"
         )
         return (
-            np.full(len(chain_atom_array), SecondaryStructureGroup.NON_PROTEIN, dtype=np.int8),
+            np.full(len(chain_atom_array), SSEnum.NON_PROTEIN, dtype=np.int8),
             False,
         )
 
@@ -141,7 +153,7 @@ def annotate_secondary_structure(
     atom_array_token_lvl = atom_array[token_starts]
 
     # Default all tokens to NON_PROTEIN and all is_valid to False
-    sse = np.full(len(atom_array_token_lvl), SecondaryStructureGroup.NON_PROTEIN, dtype=np.int8)
+    sse = np.full(len(atom_array_token_lvl), SSEnum.NON_PROTEIN, dtype=np.int8)
     is_valid = np.zeros(len(atom_array_token_lvl), dtype=bool)
 
     if np.any(is_protein_atom_lvl):
@@ -187,7 +199,7 @@ def annotate_secondary_structure(
 class AnnotateSecondaryStructure(Transform):
     """Annotate secondary structure for each residue using DSSP.
 
-    Adds integer annotations from :py:class:`SecondaryStructureGroup` indicating the secondary structure type.
+    Adds integer annotations from :py:class:`SSEnum` indicating the secondary structure type.
 
     Args:
       bin_path: Path to DSSP executable. If ``None``, uses ``DSSP`` environment variable. Defaults to ``None``.
