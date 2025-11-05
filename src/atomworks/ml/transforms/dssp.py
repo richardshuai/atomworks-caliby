@@ -190,21 +190,6 @@ class AnnotateSecondaryStructure(Transform):
       annotation_name: Name for the SSE annotation. Defaults to ``"dssp_sse"``.
       is_valid_annotation_name: Name for the validity annotation. If ``None``,
         uses ``"{annotation_name}_is_valid"``. Defaults to ``None``.
-
-    Examples:
-      Basic usage::
-
-        transform = AnnotateSecondaryStructure()
-        data = transform(data)
-        sse = data["atom_array"].dssp_sse
-        is_valid = data["atom_array"].dssp_sse_is_valid
-
-      Custom annotation names::
-
-        transform = AnnotateSecondaryStructure(annotation_name="secondary_structure", is_valid_annotation_name="ss_valid")
-        data = transform(data)
-        sse = data["atom_array"].secondary_structure
-        is_valid = data["atom_array"].ss_valid
     """
 
     def __init__(

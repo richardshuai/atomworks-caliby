@@ -1,10 +1,14 @@
 """Tests for DSSP secondary structure annotation."""
 
+import os
+
 import numpy as np
 import pytest
 
 from atomworks.constants import STANDARD_AA
 from atomworks.enums import ChainType
+from atomworks.ml.executables import _EXECUTABLES
+from atomworks.ml.executables.dssp import DSSPExecutable
 from atomworks.ml.transforms.atom_array import AddGlobalAtomIdAnnotation
 from atomworks.ml.transforms.atomize import AtomizeByCCDName
 from atomworks.ml.transforms.base import Compose
@@ -13,10 +17,45 @@ from atomworks.ml.transforms.dssp import AnnotateSecondaryStructure, SecondarySt
 from atomworks.ml.utils.testing import cached_parse
 from atomworks.ml.utils.token import get_token_starts
 
+DSSP_PATH = os.environ.get("DSSP", "/projects/ml/dssp/install/bin/mkdssp")
+
 DSSP_TEST_CASES = [
     "1a1e",  # Protein structure
     "1fu2",  # Multi-chain protein
 ]
+
+
+def _has_dssp() -> bool:
+    """Check if DSSP is installed."""
+    if os.path.isfile(DSSP_PATH) and os.access(DSSP_PATH, os.X_OK):
+        try:
+            DSSPExecutable.get_or_initialize(DSSP_PATH)
+            return True
+        except Exception:
+            return False
+    return False
+
+
+has_dssp = _has_dssp()
+
+
+skip_if_no_dssp = pytest.mark.skipif(
+    not has_dssp,
+    reason="DSSP is not installed",
+)
+
+
+@pytest.fixture
+def cleanup_dssp():
+    """Reinitialize DSSPExecutable for test isolation.
+
+    Ensures the DSSP executable singleton is reset between tests.
+    """
+    if has_dssp:
+        DSSPExecutable.reinitialize(DSSP_PATH)
+    yield
+    _EXECUTABLES.pop(DSSPExecutable.name, None)
+    DSSPExecutable._is_initialized = False
 
 
 def check_dssp_annotations(atom_array):
@@ -64,8 +103,10 @@ def check_dssp_annotations(atom_array):
     assert set(np.unique(sse)).issubset(valid_values), f"Invalid DSSP values: {np.unique(sse)}"
 
 
+@pytest.mark.requires_dssp
+@skip_if_no_dssp
 @pytest.mark.parametrize("pdb_id", DSSP_TEST_CASES)
-def test_annotate_secondary_structure(pdb_id):
+def test_annotate_secondary_structure(pdb_id, cleanup_dssp):
     """Test DSSP annotation on various structures."""
     data = cached_parse(pdb_id)
     pipe = Compose(
@@ -74,7 +115,7 @@ def test_annotate_secondary_structure(pdb_id):
                 atomize_by_default=True,
                 res_names_to_ignore=STANDARD_AA,
             ),
-            AnnotateSecondaryStructure(bin_path="/projects/ml/dssp/install/bin/mkdssp"),
+            AnnotateSecondaryStructure(),  # Uses environment variable or default
         ]
     )
     data = pipe(data)
@@ -82,9 +123,12 @@ def test_annotate_secondary_structure(pdb_id):
     check_dssp_annotations(atom_array)
 
 
+@pytest.mark.requires_dssp
+@skip_if_no_dssp
 @pytest.mark.parametrize("pdb_id", ["1fu2"])
-def test_annotate_secondary_structure_after_spatial_crop(pdb_id):
+def test_annotate_secondary_structure_after_spatial_crop(pdb_id, cleanup_dssp):
     """Test DSSP annotation works correctly after spatial cropping."""
+
     data = cached_parse(pdb_id)
     pipe = Compose(
         [
@@ -94,7 +138,7 @@ def test_annotate_secondary_structure_after_spatial_crop(pdb_id):
                 res_names_to_ignore=STANDARD_AA,
             ),
             CropSpatialLikeAF3(crop_size=100, seed=42),
-            AnnotateSecondaryStructure(bin_path="/projects/ml/dssp/install/bin/mkdssp"),
+            AnnotateSecondaryStructure(),  # Uses environment variable or default
         ]
     )
 
@@ -103,8 +147,14 @@ def test_annotate_secondary_structure_after_spatial_crop(pdb_id):
     check_dssp_annotations(atom_array)
 
 
-if __name__ == "__main__":
-    import os
+def test_dssp_executable_not_found():
+    """Test proper error when DSSP not found."""
+    with pytest.raises(FileNotFoundError):
+        if DSSPExecutable.is_initialized():
+            DSSPExecutable.reinitialize("/this/path/is/invalid")
+        else:
+            DSSPExecutable.initialize("/this/path/is/invalid")
 
-    os.environ["DSSP_PATH"] = "DSSP_PATH"
+
+if __name__ == "__main__":
     pytest.main(["-v", "-x", "--log-cli-level=INFO", __file__])
