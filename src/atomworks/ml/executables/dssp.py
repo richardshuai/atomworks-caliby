@@ -50,12 +50,6 @@ class DSSPExecutable(Executable):
         if dssp_path is not None and os.path.isfile(dssp_path) and os.access(dssp_path, os.X_OK):
             return dssp_path
 
-        # Try default location
-        default_path = "/projects/ml/dssp/install/bin/mkdssp"
-        if os.path.isfile(default_path) and os.access(default_path, os.X_OK):
-            logger.info(f"Using default DSSP path: {default_path}")
-            return default_path
-
         raise ExecutableError(
             "No `bin_path` provided and `DSSP` environment variable not set.\n"
             "Please set the `DSSP` environment variable to the path of the DSSP executable "
