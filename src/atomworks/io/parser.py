@@ -62,8 +62,8 @@ __all__ = ["parse"]
 STANDARD_PARSER_ARGS = {
     "add_missing_atoms": True,
     "add_id_and_entity_annotations": True,
-    "add_bond_types_from_struct_conn": ["covale"],
-    "remove_ccds": CRYSTALLIZATION_AIDS,
+    "add_bond_types_from_struct_conn": ("covale",),
+    "remove_ccds": tuple(CRYSTALLIZATION_AIDS),
     "remove_waters": True,
     "fix_ligands_at_symmetry_centers": True,
     "fix_arginines": True,
