@@ -1,0 +1,121 @@
+"""Tests for DSSP secondary structure annotation."""
+
+import numpy as np
+import pytest
+
+from atomworks.constants import STANDARD_AA
+from atomworks.enums import ChainType
+from atomworks.ml.transforms.atomize import AtomizeByCCDName
+from atomworks.ml.transforms.base import Compose
+from atomworks.ml.transforms.dssp import AnnotateSecondaryStructure, SecondaryStructureGroup
+from atomworks.ml.utils.testing import cached_parse
+from atomworks.ml.utils.token import get_token_starts
+
+DSSP_TEST_CASES = [
+    "1a1e",  # Protein structure
+    "1fu2",  # Multi-chain protein
+]
+
+
+def check_dssp_annotations(atom_array):
+    """Verify DSSP annotations are present and valid."""
+    # Check annotation exists
+    assert "dssp_sse" in atom_array.get_annotation_categories()
+    assert "dssp_sse_is_valid" in atom_array.get_annotation_categories()
+
+    # Check annotation length and type
+    sse = atom_array.get_annotation("dssp_sse")
+    assert len(sse) == atom_array.array_length()
+    assert sse.dtype in [np.int8, np.int16, np.int32, np.int64]
+
+    # Check dssp_sse_is_valid length and type
+    sse_is_valid = atom_array.get_annotation("dssp_sse_is_valid")
+    assert len(sse_is_valid) == atom_array.array_length()
+    assert sse_is_valid.dtype == bool or sse_is_valid.dtype == np.bool_
+
+    # Token-level checks
+    token_starts = get_token_starts(atom_array)
+    token_chain_types = atom_array.chain_type[token_starts]
+    protein_token_mask = np.isin(token_chain_types, ChainType.get_proteins())
+
+    # Get the DSSP group for each token (first atom of each token)
+    token_dssp_groups = sse[token_starts]
+    token_sse_is_valid = sse_is_valid[token_starts]
+
+    # All protein tokens should have non-NON_PROTEIN groups
+    assert np.all(
+        token_dssp_groups[protein_token_mask] != SecondaryStructureGroup.NON_PROTEIN
+    ), "All protein tokens must have non-NON_PROTEIN DSSP groups"
+
+    # All non-protein tokens should have NON_PROTEIN group
+    assert np.all(
+        token_dssp_groups[~protein_token_mask] == SecondaryStructureGroup.NON_PROTEIN
+    ), "All non-protein tokens must have NON_PROTEIN DSSP group"
+
+    # All protein tokens should have is_valid True, all non-protein tokens should have is_valid False
+    assert np.all(token_sse_is_valid[protein_token_mask]), "All protein tokens must have dssp_sse_is_valid True"
+    assert np.all(~token_sse_is_valid[~protein_token_mask]), "All non-protein tokens must have dssp_sse_is_valid False"
+
+    # Check all values are valid SecondaryStructureGroup indices
+    valid_values = set(range(4))  # 0-3 for ALPHA_HELIX, BETA_SHEET, OTHER_PROTEIN, NON_PROTEIN
+    assert set(np.unique(sse)).issubset(valid_values), f"Invalid DSSP values: {np.unique(sse)}"
+
+
+@pytest.mark.parametrize("pdb_id", DSSP_TEST_CASES)
+def test_annotate_secondary_structure(pdb_id):
+    """Test DSSP annotation on various structures."""
+    data = cached_parse(pdb_id)
+    pipe = Compose(
+        [
+            AtomizeByCCDName(
+                atomize_by_default=True,
+                res_names_to_ignore=STANDARD_AA,
+            ),
+            AnnotateSecondaryStructure(),
+        ]
+    )
+    data = pipe(data)
+    atom_array = data["atom_array"]
+    check_dssp_annotations(atom_array)
+
+
+@pytest.mark.parametrize("pdb_id", ["1fu2"])
+def test_annotate_secondary_structure_after_spatial_crop(pdb_id):
+    """Test DSSP annotation works correctly after spatial cropping."""
+    from atomworks.ml.transforms.atom_array import AddGlobalAtomIdAnnotation
+    from atomworks.ml.transforms.crop import CropSpatialLikeAF3
+
+    data = cached_parse(pdb_id)
+    pipe = Compose(
+        [
+            AddGlobalAtomIdAnnotation(),
+            AtomizeByCCDName(
+                atomize_by_default=True,
+                res_names_to_ignore=STANDARD_AA,
+            ),
+            CropSpatialLikeAF3(crop_size=100, seed=42),
+            AnnotateSecondaryStructure(),
+        ]
+    )
+
+    data = pipe(data)
+    atom_array = data["atom_array"]
+    check_dssp_annotations(atom_array)
+
+
+def test_secondary_structure_group_helpers():
+    """Test SecondaryStructureGroup helper methods."""
+    # Test names() method
+    names = SecondaryStructureGroup.names()
+    assert len(names) == 4
+    assert names == ["alpha_helix", "beta_sheet", "other_protein", "non_protein"]
+
+    # Test to_string() method
+    assert SecondaryStructureGroup.to_string(0) == "alpha_helix"
+    assert SecondaryStructureGroup.to_string(1) == "beta_sheet"
+    assert SecondaryStructureGroup.to_string(2) == "other_protein"
+    assert SecondaryStructureGroup.to_string(3) == "non_protein"
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-x", "--log-cli-level=INFO", __file__])
