@@ -165,4 +165,4 @@ tinker/
 .DS_Store
 
 # Local scripts
-scripts/
+**/logs

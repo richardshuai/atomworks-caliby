@@ -59,6 +59,14 @@ UNIREF30_DB_NAME = "uniref30_2302_db"
 
 logger = logging.getLogger(__name__)
 
+logger.info(
+    "Initialized ColabFold MSA generation module\n"
+    f"Local CPU DB Path: {LOCAL_DB_PATH_CPU}\n"
+    f"Local GPU DB Path: {LOCAL_DB_PATH_GPU}\n"
+    f"Net CPU DB Path: {NET_DB_PATH_CPU}\n"
+    f"Net GPU DB Path: {NET_DB_PATH_GPU}"
+)
+
 
 def create_fasta_with_hashed_headers(sequences: list[str], output_file: PathLike) -> None:
     """Create a FASTA file from sequence strings with SHA-256 hashed headers.
@@ -161,7 +169,7 @@ class MSAGenerationConfig:
     """
 
     sharding_pattern: str = "/0:2/"
-    output_extension: str = "a3m.gz"
+    output_extension: str = MSAFileExtension.A3M_GZ.value
     use_env: bool = True
     gpu: bool = False
     gpu_server: bool = False
@@ -706,7 +714,7 @@ def make_msas_mmseqs(
     use_local_temp_dir: bool = True,
     max_final_sequences: int = 10_000,
     sharding_pattern: str = "/0:2/",
-    output_extension: str = "a3m.gz",
+    output_extension: str = MSAFileExtension.A3M_GZ.value,
     search_config: MMseqs2SearchConfig | None = None,
 ) -> None:
     """Generate MSAs directly from protein sequences.
@@ -721,7 +729,7 @@ def make_msas_mmseqs(
         use_local_temp_dir: Whether to use local temporary directory for intermediate files.
         max_final_sequences: Maximum number of sequences in final MSAs after filtering.
         sharding_pattern: Directory sharding pattern (e.g., "/0:2/").
-        output_extension: Output file extension (.a3m, .a3m.gz, .afa, .afa.gz).
+        output_extension: Output file extension (.a3m, .a3m.gz, .a3m.zst, .afa, .afa.gz, .afa.zst).
         search_config: Advanced MMseqs2 search configuration.
 
     Examples:

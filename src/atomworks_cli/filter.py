@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from glob import glob
 from pathlib import Path
 
 import typer
@@ -18,14 +19,9 @@ logger = logging.getLogger(__name__)
 
 @app.command()
 def filter(
-    input_dir: Path = typer.Argument(
+    input_dir: str = typer.Argument(
         ...,
-        exists=True,
-        file_okay=False,
-        dir_okay=True,
-        readable=True,
-        resolve_path=True,
-        help="Source directory containing MSA files to filter",
+        help="Source directory containing MSA files to filter (supports glob patterns like '0*')",
     ),
     output_dir: Path = typer.Argument(
         None,
@@ -40,13 +36,13 @@ def filter(
         MSAFileExtension.A3M_GZ.value,
         "--input-extension",
         "-i",
-        help="File extension for input MSA files (e.g., .a3m, .a3m.gz, .afa, .afa.gz)",
+        help="File extension for input MSA files (e.g., .a3m, .a3m.gz, .a3m.zst, .afa, .afa.gz, .afa.zst)",
     ),
     output_extension: str = typer.Option(
         MSAFileExtension.A3M_GZ.value,
         "--output-extension",
         "-o",
-        help="File extension for output MSA files (e.g., .a3m, .a3m.gz, .afa, .afa.gz)",
+        help="File extension for output MSA files (e.g., .a3m, .a3m.gz, .a3m.zst, .afa, .afa.gz, .afa.zst)",
     ),
     max_sequences: int = typer.Option(
         10_000,
@@ -95,6 +91,10 @@ def filter(
 
         # Convert uncompressed MSA files to compressed ones while filtering
         atomworks msa filter ./msas ./filtered_msas --input-extension .a3m --output-extension .a3m.gz --max-sequences 1000
+
+        # Filter multiple directories using glob patterns
+        atomworks msa filter "0*" ./filtered_msas --max-sequences 1000
+        atomworks msa filter "*/msas" ./filtered_msas --max-sequences 1000
     """
     hhfilter_config = HHFilterConfig(
         max_sequences=max_sequences,
@@ -109,9 +109,30 @@ def filter(
         num_workers=num_workers,
     )
 
+    # Expand glob patterns if present
+    input_paths = glob(input_dir) if any(c in input_dir for c in ["*", "?", "["]) else [input_dir]
+    input_paths = [Path(p) for p in input_paths if Path(p).is_dir()]
+
+    # Check if any directories were matched
+    if not input_paths:
+        typer.secho(f"Error: No directories matched the pattern: {input_dir}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    # Validate that all paths are directories
+    for path in input_paths:
+        if not path.exists():
+            typer.secho(f"Error: Input path does not exist: {path}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+        if not path.is_dir():
+            typer.secho(f"Error: Input path is not a directory: {path}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
     # Display configuration
     typer.secho("MSA Filtering Configuration:", fg=typer.colors.CYAN, bold=True)
-    typer.echo(f"  Input Directory: {input_dir}")
+    typer.echo(f"  Input Pattern: {input_dir}")
+    typer.echo(f"  Matched Directories: {len(input_paths)}")
+    for path in input_paths:
+        typer.echo(f"    - {path}")
     typer.echo(f"  Input File Extension: {config.input_extension}")
     typer.echo(f"  Output File Extension: {config.output_extension}")
     typer.echo(f"  Number of Workers: {config.num_workers}")
@@ -125,8 +146,10 @@ def filter(
     # Run the filtering process
     try:
         typer.echo("Starting MSA filtering process...")
-        logger.info(f"Beginning MSA filtering from {input_dir}")
-        filter_msas(input_dir=input_dir, output_dir=output_dir, config=config)
+        for path in input_paths:
+            logger.info(f"Beginning MSA filtering from {path}")
+            typer.echo(f"\nProcessing directory: {path}")
+            filter_msas(input_dir=path, output_dir=output_dir, config=config)
         logger.info("MSA filtering completed successfully")
         typer.secho("MSA filtering completed successfully!", fg=typer.colors.GREEN)
     except Exception as e:

@@ -48,8 +48,12 @@ def count_sequences_in_msa(file_path: Path) -> int:
         raise FileNotFoundError(f"MSA file not found: {file_path}")
 
     if is_compressed_file(file_path):
-        # For compressed files: zcat file.gz | grep -c "^>"
-        cmd = f'zcat "{file_path}" | grep -c "^>"'
+        # For compressed files: use appropriate decompression tool
+        if str(file_path).endswith(".zst"):
+            cmd = f'zstdcat "{file_path}" | grep -c "^>"'
+        else:
+            # .gz or .gzip files
+            cmd = f'zcat "{file_path}" | grep -c "^>"'
     else:
         # For regular files: grep -c "^>" file
         cmd = f'grep -c "^>" "{file_path}"'

@@ -5,6 +5,7 @@ Provides functions for file operations, directory scanning, and data loading.
 
 import gzip
 import hashlib
+import io
 import os
 import pickle
 from collections.abc import Callable
@@ -16,13 +17,14 @@ from typing import Any, TextIO
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+import zstandard as zstd
 
 from atomworks.io.utils.io_utils import apply_sharding_pattern, build_sharding_pattern
 from atomworks.ml.utils.misc import logger
 
 
 def open_file(filename: PathLike) -> TextIO:
-    """Open a file, handling gzipped files if necessary.
+    """Open a file, handling compressed files if necessary.
 
     Args:
         filename: The path to the file to open.
@@ -36,9 +38,16 @@ def open_file(filename: PathLike) -> TextIO:
     filename = Path(filename)
     # ...assert that the file exists
     assert filename.exists(), f"File {filename} does not exist"
-    # ...open the file for reading, accepting either gzipped or plaintext files
+    # ...open the file for reading, accepting gzipped, zstd, or plaintext files
     if filename.suffix == ".gz":
         return gzip.open(filename, "rt")
+    elif filename.suffix == ".zst":
+        # Open zstd file and wrap in TextIOWrapper for text mode
+        # Note: The file handle is managed by the TextIOWrapper/stream_reader
+        dctx = zstd.ZstdDecompressor()
+        fh = open(filename, "rb")  # noqa: SIM115
+        reader = dctx.stream_reader(fh)
+        return io.TextIOWrapper(reader, encoding="utf-8")
     return filename.open("r")
 
 
