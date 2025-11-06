@@ -41,8 +41,7 @@ def split_csv_for_msa(
     if sequence_column is None:
         if len(df.columns) != 1:
             raise ValueError(
-                f"CSV has {len(df.columns)} columns. "
-                f"Either provide exactly 1 column or specify --sequence-column"
+                f"CSV has {len(df.columns)} columns. " f"Either provide exactly 1 column or specify --sequence-column"
             )
         sequence_column = df.columns[0]
 
