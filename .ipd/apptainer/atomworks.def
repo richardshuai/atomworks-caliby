@@ -7,8 +7,8 @@ From: python:3.12-slim
     Description AtomWorks - A research-oriented data toolkit for training biomolecular deep-learning foundation models
 
 %files
-    # Copy the entire project
-    ../../ /opt/atomworks/
+    # Only copy pyproject.toml for dependency installation
+    ../../pyproject.toml /opt/atomworks/pyproject.toml
 
 %post
     # Update system and install essential packages
@@ -22,6 +22,28 @@ From: python:3.12-slim
 
     # Install uv for fast dependency resolution
     pip install uv
+
+    # Print dependencies before installation
+    echo "=========================================="
+    echo "Dependencies to be installed:"
+    echo "=========================================="
+    python3 << 'EOF'
+import tomllib
+
+with open('/opt/atomworks/pyproject.toml', 'rb') as f:
+    data = tomllib.load(f)
+
+print('\nCore dependencies:')
+for dep in data.get('project', {}).get('dependencies', []):
+    print(f'  - {dep}')
+
+print('\nOptional dependencies:')
+for group, deps in data.get('project', {}).get('optional-dependencies', {}).items():
+    print(f'\n[{group}]:')
+    for dep in deps:
+        print(f'  - {dep}')
+EOF
+    echo "=========================================="
 
     # Install the package with all dependencies from pyproject.toml
     uv pip install --system -r /opt/atomworks/pyproject.toml --all-extras
