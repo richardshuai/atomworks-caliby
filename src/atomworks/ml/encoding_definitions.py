@@ -331,24 +331,51 @@ AF2_ATOM37_WITH_ATOMIZATION = TokenEncoding(
     token_atoms={**AF2_ATOM37_ENCODING.token_atoms, 0: ['0' if i == 1 else '' for i in range(37)]},
     chemcomp_type_to_unknown=AF2_ATOM37_ENCODING.chemcomp_type_to_unknown,
 )
-"""AF2's atom37 encoding
+"""AF2's atom37 encoding with atomization support.
 
 Reference:
     `AlphaFold residue_constants.py <https://github.com/google-deepmind/alphafold/blob/f251de6613cb478207c732bf9627b1e853c99c2f/alphafold/common/residue_constants.py#L492-L544>`_
-(extracted via:
-```python
-atom37 = {}
-for res1 in restype_order.keys():
-    res3 = restype_1to3[res1]
-    arr = np.array([""]*37, dtype="<U3")
-    for atom in restype_name_to_atom14_names[res3]:
-        if atom != '':
-            arr[atom_order[atom]] = f"{atom:<3}" if atom != "" else "   "
-        arr[-1] = "OXT"
-    atom37[res3] = arr
-atom37["UNK"] = np.array(["   "]*37, dtype="<U3")
-```
 """
+
+# fmt: off
+NA_ATOM37_ENCODING = TokenEncoding(
+    token_atoms={
+        #        0     1      2      3      4      5      6      7      8      9      10     11     12     13     14     15     16     17     18     19     20     21     22     23     24     25     26     27     28     29     30     31     32     33     34     35     36
+        #        P     C1'    C2'    O2'    C3'    O3'    C4'    O4'    C5'    O5'    OP1    OP2    N9     C8     N7     C5     C4     N3     C2     N1     C6     N6     N2     O6     N1     C2     O2     N3     C4     C5     C6     N4     O4     C7     -      -      -
+        #        ^     ^MUST BE SLOT 1                                                               |<------- Purine base atoms ------>|      |<------ Pyrimidine base atoms ----->|
+        'DA': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', 'N9',  'C8',  'N7',  'C5',  'C4',  'N3',  'C2',  'N1',  'C6',  'N6',  '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        'DC': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    'N1',  'C2',  'O2',  'N3',  'C4',  'C5',  'C6',  'N4',  '',    '',    '',    '',    ''],
+        'DG': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', 'N9',  'C8',  'N7',  'C5',  'C4',  'N3',  'C2',  'N1',  'C6',  '',    'N2',  'O6',  '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        'DT': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    'N1',  'C2',  'O2',  'N3',  'C4',  'C5',  'C6',  '',    'O4',  'C7',  '',    '',    ''],
+        'DN': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        'A':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', 'N9',  'C8',  'N7',  'C5',  'C4',  'N3',  'C2',  'N1',  'C6',  'N6',  '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        'C':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    'N1',  'C2',  'O2',  'N3',  'C4',  'C5',  'C6',  'N4',  '',    '',    '',    '',    ''],
+        'G':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', 'N9',  'C8',  'N7',  'C5',  'C4',  'N3',  'C2',  'N1',  'C6',  '',    'N2',  'O6',  '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        'U':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    'N1',  'C2',  'O2',  'N3',  'C4',  'C5',  'C6',  '',    'O4',  '',    '',    '',    ''],
+        'N':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+    },
+    chemcomp_type_to_unknown=(
+        {chem_type: UNKNOWN_DNA for chem_type in DNA_LIKE_CHEM_TYPES}
+        | {chem_type: UNKNOWN_RNA for chem_type in RNA_LIKE_CHEM_TYPES}
+    ),
+)
+"""Nucleic acid atom37-like encoding for DNA and RNA.
+
+Provides a unified 37-slot encoding for both DNA and RNA nucleotides, analogous to the
+protein atom37 encoding. Key features:
+
+- Slot 0: P (phosphate backbone)
+- Slot 1: C1prime (anomeric carbon - analogous to CA in proteins)
+- Slot 3: O2prime (present in RNA, empty in DNA)
+- Slots 12-23: Purine base atoms (A, G, DA, DG)
+- Slots 24-33: Pyrimidine base atoms (C, U, T, DC, DT)
+- No hydrogens included (heavy atoms only)
+
+This encoding ensures that structurally equivalent atoms across different nucleotides
+occupy the same slot, while maintaining unique positions for purine vs pyrimidine atoms
+that have different structural roles despite sharing atom names.
+"""
+# fmt: on
 
 # fmt: off
 RF2AA_TOKEN_TO_STANDARD_TOKEN = {
