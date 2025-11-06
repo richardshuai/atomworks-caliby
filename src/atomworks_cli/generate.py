@@ -58,7 +58,7 @@ def generate(
         MSAFileExtension.A3M_GZ.value,
         "--output-extension",
         "-o",
-        help="Output file extension (.a3m, .a3m.gz, .afa, .afa.gz)",
+        help="Output file extension (.a3m, .a3m.gz, .a3m.zst, .afa, .afa.gz, .afa.zst)",
     ),
     gpu: bool | None = typer.Option(
         None,

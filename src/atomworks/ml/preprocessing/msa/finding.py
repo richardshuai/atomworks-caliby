@@ -131,7 +131,7 @@ def sequence_has_msa(
         sequence: Protein sequence to check.
         msa_dirs: Directories to search. If None, uses LOCAL_MSA_DIRS env var.
         shard_depths: Sharding levels to check. Defaults to [0, 1, 2, 3, 4].
-        extensions: File extensions to check. Defaults to [A3M, A3M_GZ].
+        extensions: File extensions to check. Defaults to [A3M, A3M_GZ, A3M_ZST].
 
     Returns:
         True if MSA exists, False otherwise.
@@ -146,7 +146,7 @@ def sequence_has_msa(
         shard_depths = [0, 1, 2, 3, 4]
 
     if extensions is None:
-        extensions = [MSAFileExtension.A3M, MSAFileExtension.A3M_GZ]
+        extensions = [MSAFileExtension.A3M, MSAFileExtension.A3M_GZ, MSAFileExtension.A3M_ZST]
 
     # Convert extensions to string list
     extension_strs = [ext.value if isinstance(ext, MSAFileExtension) else str(ext) for ext in extensions]
@@ -183,7 +183,7 @@ def find_msas(
         sequences: Protein sequences to find MSAs for.
         msa_dirs: Directories to search. If None, uses LOCAL_MSA_DIRS env var.
         shard_depths: Sharding levels to check. Defaults to [0, 1, 2, 3, 4].
-        extensions: File extensions to check. Defaults to [A3M, A3M_GZ].
+        extensions: File extensions to check. Defaults to [A3M, A3M_GZ, A3M_ZST].
 
     Returns:
         Tuple of (missing_sequences, sequence_to_msa_path) where:
@@ -219,7 +219,7 @@ def find_msas(
         shard_depths = [0, 1, 2, 3, 4]
 
     if extensions is None:
-        extensions = [MSAFileExtension.A3M, MSAFileExtension.A3M_GZ]
+        extensions = [MSAFileExtension.A3M, MSAFileExtension.A3M_GZ, MSAFileExtension.A3M_ZST]
 
     # Convert extensions to string list
     extension_strs = [ext.value if isinstance(ext, MSAFileExtension) else str(ext) for ext in extensions]
