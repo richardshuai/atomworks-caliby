@@ -63,7 +63,7 @@ jobs:
       - name: Run tests
         run: |
           export N_CPU=4
-          srun --chdir=$PWD -p cpu -c $N_CPU -t 00:30:00 --mem=64G bash ./.github/ci/run_tests.sh
+          srun --chdir=$PWD -p cpu -c $N_CPU -t 00:30:00 --mem=32G bash ./.github/ci/run_tests.sh
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
