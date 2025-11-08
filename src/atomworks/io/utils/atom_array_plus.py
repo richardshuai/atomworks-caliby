@@ -107,7 +107,7 @@ class AnnotationList2D(Generic[T]):
 
         # ... reshape pairs to (N, 2) array if it's not already
         if pairs.size > 0:
-            if not pairs.shape[1] == 2 and len(pairs.shape) == 2:
+            if pairs.shape[1] != 2 and len(pairs.shape) == 2:
                 pairs = pairs.reshape(-1, 2)
         else:
             pairs = np.empty((0, 2), dtype=np.int32)
@@ -272,8 +272,12 @@ class AnnotationList2D(Generic[T]):
         upper_triangle_sort_idx = np.argsort(upper_triangle_pairs[:, 0] * self.n_atoms + upper_triangle_pairs[:, 1])
         upper_triangle_pairs = upper_triangle_pairs[upper_triangle_sort_idx]
 
-        lower_triangle_pairs_reverse = lower_triangle_pairs[:, ::-1]  # needs to be sorted again because we reversed the order (want to sort by first index now)
-        lower_reverse_sort_idx = np.argsort(lower_triangle_pairs_reverse[:, 0] * self.n_atoms + lower_triangle_pairs_reverse[:, 1])
+        lower_triangle_pairs_reverse = lower_triangle_pairs[
+            :, ::-1
+        ]  # needs to be sorted again because we reversed the order (want to sort by first index now)
+        lower_reverse_sort_idx = np.argsort(
+            lower_triangle_pairs_reverse[:, 0] * self.n_atoms + lower_triangle_pairs_reverse[:, 1]
+        )
         lower_reverse_pairs = lower_triangle_pairs_reverse[lower_reverse_sort_idx]
 
         upper_values = self.values[upper_triangle_pairs_mask][upper_triangle_sort_idx]
@@ -282,7 +286,9 @@ class AnnotationList2D(Generic[T]):
         if len(upper_values) == len(lower_reverse_values) and np.allclose(upper_triangle_pairs, lower_reverse_pairs):
             # all values should be the same since the pairs are the same
             if isinstance(upper_values[0], numbers.Number):
-                assert np.allclose(upper_values, lower_reverse_values, equal_nan=True), "Input AnnotationList2D is not symmetric"
+                assert np.allclose(
+                    upper_values, lower_reverse_values, equal_nan=True
+                ), "Input AnnotationList2D is not symmetric"
             else:
                 assert upper_values == lower_reverse_values, "Input AnnotationList2D is not symmetric"
 
@@ -290,13 +296,17 @@ class AnnotationList2D(Generic[T]):
             return AnnotationList2D(self.n_atoms, self.pairs.copy(), self.values.copy())
 
         # ... inputs are not symmetric, but maybe we can rescue
-        
+
         upper_triangle_pairs_keys = upper_triangle_pairs[:, 0] * self.n_atoms + upper_triangle_pairs[:, 1]
         lower_triangle_pairs_reverse_keys = lower_reverse_pairs[:, 0] * self.n_atoms + lower_reverse_pairs[:, 1]
 
         # find overlaps using searchsorted
-        search_idx = np.searchsorted(upper_triangle_pairs_keys, lower_triangle_pairs_reverse_keys, side="left")  # returns where each lower_triangle_pairs_reverse_key would be inserted in upper_triangle_pairs_keys
-        valid = search_idx < len(upper_triangle_pairs_keys)  # possible that there are some search_idx keys that are outside of len_upper_triangle_pairs_keys since
+        search_idx = np.searchsorted(
+            upper_triangle_pairs_keys, lower_triangle_pairs_reverse_keys, side="left"
+        )  # returns where each lower_triangle_pairs_reverse_key would be inserted in upper_triangle_pairs_keys
+        valid = search_idx < len(
+            upper_triangle_pairs_keys
+        )  # possible that there are some search_idx keys that are outside of len_upper_triangle_pairs_keys since
         matches = upper_triangle_pairs_keys[search_idx[valid]] == lower_triangle_pairs_reverse_keys[valid]
 
         if np.any(matches):  # there are overlaps, make sure they are equal
@@ -304,10 +314,14 @@ class AnnotationList2D(Generic[T]):
             overlap_upper_values = upper_values[search_idx[valid]][matches]
 
             if isinstance(overlap_lower_values[0], numbers.Number):
-                assert np.allclose(overlap_lower_values, overlap_upper_values, equal_nan=True), f"Asymmetric values: {overlap_lower_values} != {overlap_upper_values}"
+                assert np.allclose(
+                    overlap_lower_values, overlap_upper_values, equal_nan=True
+                ), f"Asymmetric values: {overlap_lower_values} != {overlap_upper_values}"
             else:
-                assert overlap_lower_values == overlap_upper_values, f"Asymmetric values: {overlap_lower_values} != {overlap_upper_values}"
-            
+                assert (
+                    overlap_lower_values == overlap_upper_values
+                ), f"Asymmetric values: {overlap_lower_values} != {overlap_upper_values}"
+
             # if there's matches, lets remove the duplicates from one of the lists (in this case, lower triangle)
             # can't just use matches because it is not necessarily the right length (not same length as valid)
             overlap_idx = np.where(valid)[0][matches]
@@ -323,7 +337,6 @@ class AnnotationList2D(Generic[T]):
         combined_values = np.concatenate([combined_values, combined_values])
 
         return AnnotationList2D(self.n_atoms, combined_pairs, combined_values)
-
 
     def __getitem__(self, index: Any) -> "AnnotationList2D | tuple[int, int, T]":
         """

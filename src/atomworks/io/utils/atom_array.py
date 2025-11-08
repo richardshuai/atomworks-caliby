@@ -3,7 +3,6 @@ from collections.abc import Callable
 import biotite.structure as struc
 import numpy as np
 
-
 NUMPY_REDUCE_FUNCS = {
     np.any: np.logical_or.reduceat,
     np.all: np.logical_and.reduceat,
