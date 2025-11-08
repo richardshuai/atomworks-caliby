@@ -4,9 +4,9 @@ import math
 from collections.abc import Iterator, Sequence
 from operator import add
 
+import numpy as np
 import pandas as pd
 import torch
-import numpy as np
 from toolz import accumulate
 from torch.utils.data import Dataset, DistributedSampler, Sampler, WeightedRandomSampler
 
@@ -449,7 +449,7 @@ class LazyWeightedRandomSampler(WeightedRandomSampler):
         assert replacement, "LazyWeightedRandomSampler only supports replacement=True"
         super().__init__(weights, num_samples, replacement, generator)
         self.prefetch_buffer_size = prefetch_buffer_size
-        
+
         # We cannot use torch.multinomial with > 2^24 categories (and MGnify validation has more than this)
         # precompute sampling probabilities
         weights_np = self.weights.cpu().numpy() if self.weights.is_cuda else self.weights.numpy()
@@ -467,6 +467,7 @@ class LazyWeightedRandomSampler(WeightedRandomSampler):
                 prefetch_buffer = np.searchsorted(self.cumsum, random_values).tolist()
 
             yield prefetch_buffer.pop(0)
+
 
 class LoadBalancedDistributedSampler(DistributedSampler):
     """DistributedSampler that balances large examples across replicas.

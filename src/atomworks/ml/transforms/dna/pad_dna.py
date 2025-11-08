@@ -564,8 +564,8 @@ class PadDNA(Transform):
         dna_chain_second = component_fourth + component_fifth + component_sixth
 
         # finally, if chains were symmetric, padding breaks symmetry so we need to relabel
-        if (dna_chain_first.molecule_entity[0] == dna_chain_second.molecule_entity[0]):
-            next_id = np.max((atom_array_non_dna+dna_chain_first).molecule_entity) + 1
+        if dna_chain_first.molecule_entity[0] == dna_chain_second.molecule_entity[0]:
+            next_id = np.max((atom_array_non_dna + dna_chain_first).molecule_entity) + 1
             dna_chain_second.molecule_entity = np.full_like(dna_chain_second.molecule_entity, next_id)
 
         return atom_array_non_dna + dna_chain_first + dna_chain_second
