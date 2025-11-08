@@ -560,12 +560,15 @@ class PadDNA(Transform):
         component_fourth = _renumber_res_ids_around_reference(component_fourth, ref=component_fifth, where="before")
         component_sixth = _renumber_res_ids_around_reference(component_sixth, ref=component_fifth, where="after")
 
-        # construct final hybrid DNA structure
-        array_new_dna = (
-            component_first + component_second + component_third + component_fourth + component_fifth + component_sixth
-        )
+        dna_chain_first = component_first + component_second + component_third
+        dna_chain_second = component_fourth + component_fifth + component_sixth
 
-        return atom_array_non_dna + array_new_dna
+        # finally, if chains were symmetric, padding breaks symmetry so we need to relabel
+        if dna_chain_first.molecule_entity[0] == dna_chain_second.molecule_entity[0]:
+            next_id = np.max((atom_array_non_dna + dna_chain_first).molecule_entity) + 1
+            dna_chain_second.molecule_entity = np.full_like(dna_chain_second.molecule_entity, next_id)
+
+        return atom_array_non_dna + dna_chain_first + dna_chain_second
 
     def forward(self, data: dict[str, Any]) -> dict[str, Any]:
         if np.random.rand() < self.p_skip:
