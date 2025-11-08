@@ -681,12 +681,14 @@ def _atom_array_to_networkx_graph(
     """Convert an AtomArray to a NetworkX graph."""
     # ... create the bond graph
     bonds = atom_array.bonds.as_array()
-    bond_list = bonds[:, :2]
+    bond_list = [tuple(bond) for bond in bonds[:, :2]]
 
     # ... create the bond graph for the atom array
-    bond_graph = nx.Graph()
-    bond_graph.add_nodes_from(range(len(atom_array)))
-    bond_graph.add_edges_from(bond_list)
+    bond_graph = nx.Graph(bond_list)
+
+    # ... add isolated nodes if needed (e.g., if the atom array has disconnected ions)
+    if len(bond_graph.nodes) < len(atom_array):
+        bond_graph.add_nodes_from(range(len(atom_array)))
 
     # ... annotate the bond graph with bond order
     if bond_order:
