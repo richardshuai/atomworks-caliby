@@ -6,8 +6,8 @@ from datetime import datetime
 
 import pandas as pd
 
-from atomworks.ml.databases.dataclasses import DataSource
-from atomworks.ml.databases.utils import _smart_cast
+from .dataclasses import DataSource
+from .utils import _smart_cast
 
 DATA_SOURCE_DB_PATH = "/projects/ml/datahub/experimental_data/experimental_data_sources.csv"
 BACKUP_DIR = "/projects/ml/datahub/experimental_data/experimental_data_sources_backups/"

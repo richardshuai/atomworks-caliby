@@ -879,8 +879,8 @@ def insert_atoms(
     """
     n_atoms_orig = arr.array_length()
     assert isinstance(new_atoms, list) and isinstance(
-        new_atoms[0], AtomArray
-    ), "new_atoms must be a list of AtomArray like objects (not atoms)"
+        new_atoms[0], AtomArray | AtomArrayPlus | struc.Atom
+    ), "new_atoms must be a list of AtomArray, AtomArrayPlus, or Atom objects."
     assert len(new_atoms) == len(insert_positions), "Each new atom must have a corresponding insert position."
     arr_all = concatenate_any([arr, *new_atoms])
 
