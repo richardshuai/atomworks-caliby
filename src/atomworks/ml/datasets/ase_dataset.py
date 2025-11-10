@@ -11,8 +11,7 @@ import ase.db
 import numpy as np
 import pandas as pd
 
-from atomworks.io.utils.ase_conversions import ase_to_atom_array
-from atomworks.ml.datasets.datasets import ExampleIDMixin, MolecularDataset
+from atomworks.ml.datasets.base import ExampleIDMixin, MolecularDataset
 from atomworks.ml.utils.io import read_parquet_with_metadata
 
 logger = logging.getLogger(__name__)
@@ -50,6 +49,7 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         *,
         lmdb_path: str,
         name: str,
+        loader: Callable | None = None,
         metadata_parquet: str | None = None,
         id_column: str = "lmdb_idx",
         filters: list[str] | None = None,
@@ -65,6 +65,8 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         Args:
             lmdb_path: Path to the ASE LMDB database directory
             name: Descriptive name for this dataset
+            loader: Optional callable to process atoms_row into data dictionary.
+                Should accept (atoms_row, example_id, global_idx) and return dict with atom_array.
             metadata_parquet: Optional path to parquet file with metadata for filtering.
                 Must contain 'lmdb_idx' column mapping to LMDB row IDs.
             id_column: Column name in metadata_parquet containing LMDB indices (default: "lmdb_idx")
@@ -80,6 +82,7 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         """
         super().__init__(
             name=name,
+            loader=loader,
             transform=transform,
             save_failed_examples_to_dir=save_failed_examples_to_dir,
         )
@@ -279,54 +282,16 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         # _get_row() is the internal method used by ASE's own .get() method.
         # This pattern is used by fairchem and is stable across ASE versions 3.x.
         atoms_row = self.dbs[db_idx]._get_row(lmdb_row_id)
-        atoms = atoms_row.toatoms()
 
-        # Update atoms.info with any data from the row
-        if isinstance(atoms_row.data, dict):
-            atoms.info.update(atoms_row.data)
+        # Use example_id for tracking (use source attribute as example_id)
+        example_id = atoms_row.data["source"]
 
-        # Convert to Biotite AtomArray
-        # Note: ase_to_atom_array already transfers positions, elements, and standard arrays
-        atom_array = ase_to_atom_array(atoms)
+        # Apply loader to convert atoms_row to data dictionary
+        # Loader receives (atoms_row, example_id, global_idx) and returns dict with atom_array
+        data = self._apply_loader((atoms_row, example_id, global_idx))
 
-        # Extract additional per-atom properties as annotations
-        # Only process properties not already transferred by ase_to_atom_array
-        for prop in self.per_atom_properties:
-            # Skip properties already handled by the conversion (numbers, positions)
-            if prop in ("numbers", "positions"):
-                continue
-            if prop in atoms.arrays:
-                # Only set if not already present to avoid overwriting conversion results
-                if not hasattr(atom_array, prop):
-                    atom_array.set_annotation(prop, atoms.arrays[prop])
-            else:
-                logger.warning(
-                    f"Requested per-atom property '{prop}' not found in atoms.arrays for example {global_idx}. "
-                    f"Available properties: {list(atoms.arrays.keys())}"
-                )
-
-        # Extract global properties into extra_info
-        extra_info = {}
-        for prop in self.global_properties:
-            if prop in atoms.info:
-                extra_info[prop] = atoms.info[prop]
-            else:
-                logger.warning(
-                    f"Requested global property '{prop}' not found in atoms.info for example {global_idx}. "
-                    f"Available properties: {list(atoms.info.keys())}"
-                )
-
-        # Build data dictionary
-        # Use global_idx as the example_id for consistency
-        example_id = str(global_idx)
-        data = {
-            "example_id": example_id,
-            "atom_array": atom_array,
-            "extra_info": extra_info,
-        }
-
-        # Apply transform
-        data = self._apply_transform(data, example_id=data["example_id"], idx=idx)
+        # Apply transform pipeline
+        data = self._apply_transform(data, example_id=example_id, idx=idx)
 
         return data
 
