@@ -99,7 +99,7 @@ def check_dssp_annotations(atom_array):
     assert np.all(~token_sse_is_valid[~protein_token_mask]), "All non-protein tokens must have dssp_sse_is_valid False"
 
     # Check all values are valid SSEnum indices
-    valid_values = {-1, 0, 1, 2, 3}  # -1 for NONE, 0-3 for ALPHA_HELIX, BETA_SHEET, OTHER_PROTEIN, NON_PROTEIN
+    valid_values = {0, 1, 2, 3, 4}  # 0 for NONE, 1-4 for HELIX, SHEET, LOOP, NON_PROTEIN
     assert set(np.unique(sse)).issubset(valid_values), f"Invalid DSSP values: {np.unique(sse)}"
 
 

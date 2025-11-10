@@ -25,31 +25,31 @@ class SSEnum(IntEnum):
     Used for both DSSP output annotations and secondary structure conditioning.
 
     Values:
-      NONE: Not set/not conditioned (value: -1)
-      ALPHA_HELIX: Alpha helix (H, G, I in DSSP) (value: 0)
-      BETA_SHEET: Beta sheet (E, B in DSSP) (value: 1)
-      OTHER_PROTEIN: Coil/loop/turn (T, S, C, P in DSSP) (value: 2)
-      NON_PROTEIN: Non-protein chain or DSSP failed (value: 3)
+      NONE: Not set/not conditioned (value: 0)
+      HELIX: Alpha helix (H, G, I in DSSP) (value: 1)
+      SHEET: Beta sheet (E, B in DSSP) (value: 2)
+      LOOP: Coil/loop/turn (T, S, C, P in DSSP) (value: 3)
+      NON_PROTEIN: Non-protein chain or DSSP failed (value: 4)
     """
 
-    NONE = -1
-    ALPHA_HELIX = 0
-    BETA_SHEET = 1
-    OTHER_PROTEIN = 2
-    NON_PROTEIN = 3
+    NONE = 0
+    HELIX = 1
+    SHEET = 2
+    LOOP = 3
+    NON_PROTEIN = 4
 
     @classmethod
     def names(cls) -> list[str]:
         """Return human-readable names for each group."""
-        return ["none", "alpha_helix", "beta_sheet", "other_protein", "non_protein"]
+        return ["none", "helix", "sheet", "loop", "non_protein"]
 
     @classmethod
     def to_string(cls, value: int) -> str:
         """Convert integer value to human-readable string."""
-        # Handle NONE specially since it's -1
-        if value == -1:
+        # Handle NONE specially since it's 0
+        if value == 0:
             return "none"
-        return cls.names()[value + 1]  # Offset by 1 since NONE is at index 0
+        return cls.names()[value]
 
 
 class DSSPCode(StrEnum):
@@ -75,12 +75,12 @@ class DSSPCode(StrEnum):
     def to_group_index(cls, code: str) -> int:
         """Map DSSP code to SSEnum index."""
         if code in {cls.ALPHA_HELIX.value, cls.THREE_TEN_HELIX.value, cls.PI_HELIX.value}:
-            return SSEnum.ALPHA_HELIX
+            return SSEnum.HELIX
         if code in {cls.EXTENDED_STRAND.value, cls.ISOLATED_BETA_BRIDGE.value}:
-            return SSEnum.BETA_SHEET
+            return SSEnum.SHEET
         if code == cls.NON_PROTEIN.value:
             return SSEnum.NON_PROTEIN
-        return SSEnum.OTHER_PROTEIN
+        return SSEnum.LOOP
 
 
 def _get_chain_sse_and_valid(chain_atom_array: AtomArray, bin_path: str) -> tuple[np.ndarray, bool]:
