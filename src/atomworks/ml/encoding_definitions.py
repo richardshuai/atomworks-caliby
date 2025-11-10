@@ -365,8 +365,8 @@ Provides a unified 37-slot encoding for both DNA and RNA nucleotides, analogous 
 protein atom37 encoding. Key features:
 
 - Slot 0: P (phosphate backbone)
-- Slot 1: C1prime (anomeric carbon - analogous to CA in proteins)
-- Slot 3: O2prime (present in RNA, empty in DNA)
+- Slot 1: C1' (prime) (anomeric carbon - analogous to CA in proteins)
+- Slot 3: O2' (prime) (present in RNA, empty in DNA)
 - Slots 12-23: Purine base atoms (A, G, DA, DG)
 - Slots 24-33: Pyrimidine base atoms (C, U, T, DC, DT)
 - No hydrogens included (heavy atoms only)
