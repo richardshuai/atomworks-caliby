@@ -243,7 +243,7 @@ def test_chriality_in_spoofed_rdkit_molecules():
 def test_atom_array_to_rdkit_bond_inference(ccd_code: str):
     """Test that inferring bonds from coordinates produces same results as using original bonds."""
 
-    original = atom_array_from_ccd_code(ccd_code, ccd_mirror_path="/projects/ml/frozen_pdb_copies/2025_07_13_ccd")
+    original = atom_array_from_ccd_code(ccd_code)
 
     # Path 1: Normal conversion using original CCD bonds
     mol_with_bonds = atom_array_to_rdkit(

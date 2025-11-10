@@ -3,21 +3,9 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,18 +28,124 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
-            - Test coverage
+            # PR Review Instructions
 
-            Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback.
+            Review this PR using CLAUDE.md guidelines. Follow this systematic approach:
 
-            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
+            ---
+
+            ## Step 1: Review Priorities (Check in Order)
+
+            ### P0 - CRITICAL ISSUES (Report First)
+
+            **1. Bugs**
+            - If you spot a bug, report it immediately at the top of your review
+            - When in doubt, flag it for human review
+            - Check: logic errors, incorrect algorithms, off-by-one errors, type mismatches
+            - DO NOT suggest defensive null checks - let Python raise natural errors
+
+            **2. Duplicate Code/Functions**
+            - Use Grep/Read tools to check if EVERY function in the PR already exists
+            - Search locations:
+              - `src/atomworks/io/utils/` (atom array utilities, geometry, etc.)
+              - `src/atomworks/ml/transforms/` (transform utilities)
+              - Files matching `*.common.*` pattern
+              - Similar function names (e.g., `calc_distance` vs `calculate_distance`)
+            - If found: HIGH priority issue - must use existing code
+
+            ### P1 - CODE QUALITY
+
+            - DRY violations (repeated code that should be extracted)
+            - YAGNI violations (speculative features not requested)
+            - Functions over classes (unnecessary classes)
+            - Missing type hints
+            - Poor error handling
+            - Not following established patterns (check CLAUDE.md)
+            - Performance concerns
+
+            ### P2 - DOCUMENTATION & TESTS
+
+            **Documentation:**
+            - Missing or poor docstrings (see CLAUDE.md for Google style)
+            - Redundant type documentation (types should be in annotations only)
+            - Note: Examples are ALWAYS optional - only suggest if truly valuable
+
+            **Testing (CRITICAL - Use Checklist):**
+
+            For EACH new function/class, ask:
+            - [ ] Is this complex logic with edge cases? → YES = suggest test
+            - [ ] Is this a transform that modifies structures? → YES = suggest test
+            - [ ] Is this a simple getter/setter/wrapper? → NO = don't suggest
+            - [ ] Already covered by integration tests? → NO = don't suggest
+
+            **Good test example:** `tests/ml/transforms/test_rdkit_utils.py`
+            - Loads from CCD with bonds
+            - Infers bonds
+            - Verifies they match
+            - End-to-end, not unit test bloat
+
+            **DO NOT** suggest tests for trivial code. Quality over quantity.
+
+            ---
+
+            ## Step 2: Review Format (REQUIRED)
+
+            Structure your review EXACTLY like this:
+
+            ```markdown
+            ## Summary
+            [2-3 sentences: What does this PR do? What did you find?]
+
+            ## Issues Found
+
+            1. [First issue with specific line numbers and clear description]
+            2. [Second issue...]
+            3. [etc.]
+
+            ## Action Items
+
+            | # | Importance | Problem | Suggested Fix |
+            |---|------------|---------|---------------|
+            | 1 | High | [Specific issue with line #] | [Exactly what you'd do if given autonomy] |
+            | 2 | Medium | [Another issue] | [Concrete fix] |
+            ```
+
+            **Importance levels:**
+            - **High**: Bugs, duplicates, security issues, broken functionality
+            - **Medium**: Code quality, missing tests for complex logic, poor docs
+            - **Low**: Style suggestions, minor optimizations
+
+            ---
+
+            ## Example Review Format
+
+            ```markdown
+            ## Summary
+            This PR adds a function to calculate pairwise atom distances. Found 1 duplicate function and 1 logic error in the distance calculation.
+
+            ## Issues Found
+
+            1. **Line 45**: Function `calculate_distance()` duplicates existing `atomworks.io.utils.geometry.euclidean_distance()`
+            2. **Line 78**: Logic error - using L1 norm instead of L2 norm for Euclidean distance
+            3. **Line 120**: Missing type hints for return value
+
+            ## Action Items
+
+            | # | Importance | Problem | Suggested Fix |
+            |---|------------|---------|---------------|
+            | 1 | High | Duplicate function at line 45 | Remove `calculate_distance()`, import `euclidean_distance` from `atomworks.io.utils.geometry` |
+            | 2 | High | Incorrect distance calculation at line 78 | Change `np.sum(np.abs(diff))` to `np.linalg.norm(diff)` |
+            | 3 | Medium | Missing return type hint at line 120 | Add `-> Float[np.ndarray, "n_atoms n_atoms"]` |
+            ```
+
+            ---
+
+            ## Final Steps
+
+            1. Use Grep/Read tools to check for duplicates
+            2. Structure review using the format above
+            3. Post review using: `gh pr comment ${{ github.event.pull_request.number }} --body "$(cat review.md)"`
 
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://docs.claude.com/en/docs/claude-code/cli-reference for available options
-          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
-
+          claude_args: '--allowed-tools "Read,Grep,Glob,WebFetch,Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git diff:*)"'

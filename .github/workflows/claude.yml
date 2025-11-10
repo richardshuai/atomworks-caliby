@@ -40,11 +40,68 @@ jobs:
           additional_permissions: |
             actions: read
 
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
+          # Provide context about the codebase and enforce coding standards
+          prompt: |
+            You have been tagged to help with this issue/PR/comment.
 
-          # Optional: Add claude_args to customize behavior and configuration
+            **CRITICAL**: MAKE MINIMAL CHANGES ONLY.
+            - Change ONLY the lines necessary to solve the problem
+            - DO NOT refactor unrelated code
+            - DO NOT add extra features or "improvements" not requested
+            - DO NOT over-engineer the solution
+            - Keep it simple and focused on the specific request
+
+            **IMPORTANT**: Always follow the guidelines in CLAUDE.md. Key principles:
+
+            ## Coding Standards
+            - **DRY**: Extract common logic, avoid duplication
+            - **YAGNI**: No speculative features - only what's requested
+            - **Functions over classes**: Use classes only for state/inheritance
+            - **Error handling**: Trust Python's natural errors - DO NOT add defensive null checks
+            - **Type hints**: Always include; use jaxtyping for tensors
+
+            ## Testing Philosophy (CRITICAL)
+            **Quality over quantity. Avoid test bloat.**
+            - Prefer 1-2 well-written end-to-end tests over many unit tests
+            - Good example: `tests/ml/transforms/test_rdkit_utils.py`
+            - DO NOT write trivial tests (getters/setters/wrappers)
+            - ONLY test: complex logic, transforms, edge cases, regressions
+
+            ## Documentation
+            - Google-style docstrings (concise, no redundancy)
+            - Type hints in signature only (not in docstring)
+            - Examples are ALWAYS optional - only add if truly valuable
+
+            ## Workflow
+            1. Check CLAUDE.md for detailed guidelines
+            2. Search codebase for existing similar functions (use Grep/Read)
+            3. Look in: `src/atomworks/io/utils/`, `src/atomworks/ml/transforms/`, `*.common.*` files
+            4. Follow established patterns
+            5. Implement ONLY the requested changes - no extra refactoring or improvements
+            6. Run relevant tests and ensure they pass (see below)
+
+            **Remember**: Surgical precision. Touch only what needs to be touched.
+
+            ## Testing Requirements (CRITICAL)
+            **ALWAYS run tests after making changes. Work is NOT complete until tests pass.**
+
+            ```bash
+            # Activate Python environment FIRST
+            source .venv/bin/activate
+
+            # Run relevant tests (focus on what you changed)
+            PDB_MIRROR_PATH=tests/data/pdb pytest tests/path/to/relevant/tests.py -v
+
+            # If making broader changes, run full suite
+            make format  # Format code first
+            PDB_MIRROR_PATH=tests/data/pdb pytest tests -m "not very_slow" -n auto
+            ```
+
+            **Do NOT consider your work complete if tests fail. Fix issues until tests pass.**
+
+            Now complete the task requested in the comment/issue.
+
+          # Give Claude access to all necessary tools
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://docs.claude.com/en/docs/claude-code/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr:*)'
+          claude_args: '--allowed-tools "Read,Write,Edit,Grep,Glob,Bash,WebFetch,WebSearch"'
 
