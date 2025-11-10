@@ -166,3 +166,6 @@ tinker/
 
 # Local scripts
 **/logs
+
+# AI
+**/.claude

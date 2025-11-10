@@ -26,13 +26,6 @@ def ase_to_atom_array(atoms: Atoms) -> AtomArray:
 
     See Also:
         :py:func:`atom_array_to_ase`: Convert Biotite AtomArray back to ASE format
-
-    Example:
-        >>> from ase import Atoms
-        >>> atoms = Atoms("H2O", positions=[[0, 0, 0], [1, 0, 0], [0, 1, 0]])
-        >>> atom_array = ase_to_atom_array(atoms)
-        >>> # Round-trip conversion preserves data
-        >>> atoms_back = atom_array_to_ase(atom_array)
     """
     if not isinstance(atoms, Atoms):
         raise TypeError(f"Expected ASE Atoms, got {type(atoms).__name__}")
@@ -46,12 +39,13 @@ def ase_to_atom_array(atoms: Atoms) -> AtomArray:
     array = AtomArray(len(symbols))
     array.element = np.array(symbols)  # Biotite expects array-like
     array.coord = positions.astype(np.float32)
+    array.atomic_number = atoms.get_atomic_numbers().tolist()
 
     if box is not None:
         array.box = np.array(box)
         # Store PBC for round-trip conversion using private attribute
         # RATIONALE: Biotite doesn't expose PBC in public API, but we need it for
-        # round-trip conversion with ASE. This is a documented design choice.
+        # round-trip conversion with ASE.
         if hasattr(atoms, "pbc"):
             array._pbc = tuple(atoms.pbc)
 
@@ -66,7 +60,7 @@ def ase_to_atom_array(atoms: Atoms) -> AtomArray:
     # Transfer metadata from atoms.info to array._info
     # RATIONALE: Biotite's AtomArray doesn't provide a public API for arbitrary metadata.
     # Using _info (private attribute) is necessary for complete data transfer in
-    # round-trip conversions. This pattern is stable across Biotite versions 1.x.
+    # round-trip conversions.
     if hasattr(atoms, "info") and atoms.info:
         array._info = dict(atoms.info)
 
@@ -90,14 +84,6 @@ def atom_array_to_ase(array: AtomArray) -> Atoms:
 
     See Also:
         :py:func:`ase_to_atom_array`: Convert ASE Atoms to Biotite format
-
-    Example:
-        >>> from biotite.structure import AtomArray
-        >>> import numpy as np
-        >>> array = AtomArray(3)
-        >>> array.element = np.array(["H", "H", "O"])
-        >>> array.coord = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]])
-        >>> atoms = atom_array_to_ase(array)
     """
     if not isinstance(array, AtomArray):
         raise TypeError(f"Expected Biotite AtomArray, got {type(array).__name__}")
@@ -126,7 +112,7 @@ def atom_array_to_ase(array: AtomArray) -> Atoms:
     # RATIONALE: Biotite stores annotations in _annot dict. While private, this is
     # the standard pattern for bulk annotation access (similar to how atoms.arrays works in ASE).
     # Alternative: Loop through array.get_annotation_categories() but that's slower and
-    # doesn't capture all array data. This pattern is stable across Biotite versions 1.x.
+    # doesn't capture all array data.
     atoms.arrays.update(array._annot)
 
     # Transfer metadata if available

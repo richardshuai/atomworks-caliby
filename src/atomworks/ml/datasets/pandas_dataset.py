@@ -11,11 +11,11 @@ import numpy as np
 import pandas as pd
 
 from atomworks.constants import NA_VALUES
-
-logger = logging.getLogger("datasets")
 from atomworks.ml.utils.io import read_parquet_with_metadata
 
 from .base import ExampleIDMixin, MolecularDataset
+
+logger = logging.getLogger("datasets")
 
 
 class PandasDataset(MolecularDataset, ExampleIDMixin):

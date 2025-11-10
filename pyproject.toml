@@ -52,7 +52,13 @@ ml = [
     "einops>=0.7.0,<1",
     "jaxtyping>=0.2.17,<1",
     "beartype>=0.18.0,<1",
-    "ase>=3.22.0,<4",  # Atomic Simulation Environment for ASE dataset support
+]
+
+ase = [
+    # ASE (Atomic Simulation Environment) dataset support
+    "ase>=3.22.0,<4",  # Atomic Simulation Environment
+    "ase-db-backends>=0.10.0,<1",  # Database backends for ASE (PostgreSQL, MySQL, LMDB)
+    "lmdb>=1.5.0,<2",  # LMDB backend for ASE database support (required for .aselmdb files)
 ]
 
 openbabel = [
@@ -118,6 +124,7 @@ line-length = 120
 indent-width = 4
 target-version = "py312"
 exclude = [
+    "**/external",
     ".bzr",
     ".direnv",
     ".eggs",

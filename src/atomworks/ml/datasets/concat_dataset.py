@@ -7,9 +7,9 @@ from typing import Any
 
 from torch.utils.data import ConcatDataset, Dataset
 
-logger = logging.getLogger("datasets")
-
 from .base import ExampleIDMixin
+
+logger = logging.getLogger("datasets")
 
 
 class ConcatDatasetWithID(ConcatDataset):
