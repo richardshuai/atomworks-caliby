@@ -378,6 +378,186 @@ that have different structural roles despite sharing atom names.
 # fmt: on
 
 # fmt: off
+UNIFIED_ATOM37_ENCODING = TokenEncoding(
+    token_atoms={
+        # Mask token (class 0)
+        'MASK': ['   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   '],
+        
+        # Standard amino acids (classes 1-20)
+        #        0       1       2       3       4       5       6       7       8       9      10      11      12      13      14      15      16      17      18      19      20      21      22      23      24      25      26      27      28      29      30      31      32      33      34      35      36
+        'ALA': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'ARG': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', 'CD ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'NE ', '   ', '   ', '   ', '   ', '   ', 'NH1', 'NH2', '   ', 'CZ ', '   ', '   ', '   ', 'OXT'],
+        'ASN': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'ND2', 'OD1', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'ASP': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OD1', 'OD2', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'CYS': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', '   ', '   ', '   ', '   ', '   ', 'SG ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'GLN': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', 'CD ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'NE2', 'OE1', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'GLU': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', 'CD ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OE1', 'OE2', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'GLY': ['N  ', 'CA ', 'C  ', '   ', 'O  ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'HIS': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'CD2', 'ND1', '   ', '   ', '   ', '   ', '   ', 'CE1', '   ', '   ', '   ', '   ', 'NE2', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'ILE': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', '   ', 'CG1', 'CG2', '   ', '   ', '   ', '   ', 'CD1', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'LEU': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', '   ', 'CD1', 'CD2', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'LYS': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', 'CD ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'CE ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'NZ ', 'OXT'],
+        'MET': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'SD ', 'CE ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'PHE': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', '   ', 'CD1', 'CD2', '   ', '   ', '   ', '   ', '   ', '   ', 'CE1', 'CE2', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'CZ ', '   ', '   ', '   ', 'OXT'],
+        'PRO': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', 'CD ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'SER': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', '   ', '   ', '   ', 'OG ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'THR': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', '   ', '   ', 'CG2', '   ', 'OG1', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        'TRP': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', '   ', 'CD1', 'CD2', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'CE2', 'CE3', '   ', 'NE1', '   ', '   ', '   ', 'CH2', '   ', '   ', '   ', '   ', 'CZ2', 'CZ3', '   ', 'OXT'],
+        'TYR': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', 'CG ', '   ', '   ', '   ', '   ', '   ', '   ', 'CD1', 'CD2', '   ', '   ', '   ', '   ', '   ', '   ', 'CE1', 'CE2', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OH ', 'CZ ', '   ', '   ', '   ', 'OXT'],
+        'VAL': ['N  ', 'CA ', 'C  ', 'CB ', 'O  ', '   ', 'CG1', 'CG2', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', 'OXT'],
+        
+        # Unknown amino acid (class 21)
+        'UNK': ['   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   '],
+        
+        # RNA nucleotides (classes 22-25): A, C, G, U
+        #       0     1      2      3      4      5      6      7      8      9      10     11     12     13     14     15     16     17     18     19     20     21     22     23     24     25     26     27     28     29     30     31     32     33     34     35     36
+        'A':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', 'N9',  'C8',  'N7',  'C5',  'C4',  'N3',  'C2',  'N1',  'C6',  'N6',  '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        'C':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    'N1',  'C2',  'O2',  'N3',  'C4',  'C5',  'C6',  'N4',  '',    '',    '',    '',    ''],
+        'G':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', 'N9',  'C8',  'N7',  'C5',  'C4',  'N3',  'C2',  'N1',  'C6',  '',    'N2',  'O6',  '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        'U':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    'N1',  'C2',  'O2',  'N3',  'C4',  'C5',  'C6',  '',    'O4',  '',    '',    '',    ''],
+        
+        # Unknown RNA (class 26)
+        'N':  ['P',   "C1'",  "C2'", "O2'",  "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        
+        # DNA nucleotides (classes 27-30): DA, DC, DG, DT
+        'DA': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', 'N9',  'C8',  'N7',  'C5',  'C4',  'N3',  'C2',  'N1',  'C6',  'N6',  '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        'DC': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    'N1',  'C2',  'O2',  'N3',  'C4',  'C5',  'C6',  'N4',  '',    '',    '',    '',    ''],
+        'DG': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', 'N9',  'C8',  'N7',  'C5',  'C4',  'N3',  'C2',  'N1',  'C6',  '',    'N2',  'O6',  '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        'DT': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    'N1',  'C2',  'O2',  'N3',  'C4',  'C5',  'C6',  '',    'O4',  'C7',  '',    '',    ''],
+        
+        # Unknown DNA (class 31)
+        'DN': ['P',   "C1'",  "C2'", '',     "C3'", "O3'", "C4'", "O4'", "C5'", "O5'", 'OP1', 'OP2', '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    '',    ''],
+        
+        # Atomised token (class 32) - placeholder for atomised small molecules
+        'ATOMISED': ['   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   ', '   '],
+    },
+    chemcomp_type_to_unknown=(
+        {chem_type: "UNK" for chem_type in AA_LIKE_CHEM_TYPES}
+        | {chem_type: "DN" for chem_type in DNA_LIKE_CHEM_TYPES}
+        | {chem_type: "N" for chem_type in RNA_LIKE_CHEM_TYPES}
+    ),
+)
+"""Unified atom37 encoding for all token types in ConditionalResidueTypeSeqFeat.
+
+Provides a comprehensive 37-slot encoding that encompasses:
+- Class 0: MASK token (special masking token)
+- Classes 1-20: Standard amino acids (ALA, ARG, ASN, ASP, CYS, GLN, GLU, GLY, HIS, ILE, 
+                LEU, LYS, MET, PHE, PRO, SER, THR, TRP, TYR, VAL)
+- Class 21: UNK (unknown amino acid)
+- Classes 22-25: RNA nucleotides (A, C, G, U)
+- Class 26: N (unknown RNA)
+- Classes 27-30: DNA nucleotides (DA, DC, DG, DT)
+- Class 31: DN (unknown DNA)
+- Class 32: ATOMISED (atomised small molecule token)
+
+This encoding is compatible with the conditional residue type feature used in protein
+foundation models, enabling unified handling of proteins, RNA, DNA, and small molecules
+in a single representation space.
+
+Usage:
+    Use UNIFIED_ATOM37_ENCODING for atom37 layout operations (coordinate processing):
+        - atom_array_to_encoding() / atom_array_from_encoding()
+        - Converting between AtomArray and atom37 coordinate tensors
+    
+    Use UnifiedSequenceEncoding for sequence encoding operations (residue type indices):
+        - Encoding residue names to integer indices for the residue_type feature
+        - Has CCD integration and is_aa_like/is_rna_like/is_dna_like properties
+"""
+# fmt: on
+
+# Unified sequence tokens matching UNIFIED_ATOM37_ENCODING
+UNIFIED_TOKENS = (
+    # 0: MASK token
+    MASK,
+    # 1-20: Standard amino acids
+    *STANDARD_AA,
+    # 21: Unknown AA
+    UNKNOWN_AA,
+    # 22-25: RNA nucleotides
+    *STANDARD_RNA,
+    # 26: Unknown RNA
+    UNKNOWN_RNA,
+    # 27-30: DNA nucleotides
+    *STANDARD_DNA,
+    # 31: Unknown DNA
+    UNKNOWN_DNA,
+    # 32: Atomised token
+    "ATOMISED",
+)
+"""Sequence tokens for unified encoding (33 tokens total)"""
+
+
+class UnifiedSequenceEncoding:
+    """Encodes and decodes sequence tokens for the unified atom37 encoding.
+
+    This class provides functionality to convert between residue names and their
+    corresponding integer encodings for the unified atom37 system. It handles
+    standard amino acids, RNA, DNA, atomised molecules, and unknown residues,
+    with full CCD (Chemical Component Dictionary) integration.
+
+    Token indices:
+        0: MASK
+        1-20: Standard amino acids (ALA, ARG, ..., VAL)
+        21: UNK (unknown AA)
+        22-25: RNA nucleotides (A, C, G, U)
+        26: N (unknown RNA)
+        27-30: DNA nucleotides (DA, DC, DG, DT)
+        31: DN (unknown DNA)
+        32: ATOMISED
+    """
+
+    def __init__(self):
+        # Load CCD from biotite
+        ccd = struc.info.ccd.get_ccd()
+
+        # Get all residue names and their corresponding chemtypes
+        self.all_res_names = ccd["chem_comp"]["id"].as_array()
+        self.all_res_chemtypes = np.char.upper(ccd["chem_comp"]["type"].as_array())
+
+        # Get boolean arrays for each chemtype
+        self.is_rna_like = np.isin(self.all_res_chemtypes, list(RNA_LIKE_CHEM_TYPES))
+        self.is_dna_like = np.isin(self.all_res_chemtypes, list(DNA_LIKE_CHEM_TYPES))
+        self.is_aa_like = np.isin(self.all_res_chemtypes, list(AA_LIKE_CHEM_TYPES))
+
+        # Build mappings for all CCD residue names to unified tokens
+        res_name_to_token = dict(zip(self.all_res_names[self.is_rna_like], cycle([UNKNOWN_RNA])))
+        res_name_to_token |= dict(zip(self.all_res_names[self.is_dna_like], cycle([UNKNOWN_DNA])))
+        res_name_to_token |= dict(zip(self.all_res_names[self.is_aa_like], cycle([UNKNOWN_AA])))
+        res_name_to_token |= dict(zip(UNIFIED_TOKENS, UNIFIED_TOKENS, strict=False))
+        self.res_name_to_token = res_name_to_token
+
+        # Build mappings for unified tokens to indices
+        self.token_to_int = {token: i for i, token in enumerate(UNIFIED_TOKENS)}
+
+    @property
+    def tokens(self) -> list[str]:
+        return UNIFIED_TOKENS
+
+    def res_name_to_unified_token(self, res_name: str) -> str:
+        return np.vectorize(lambda res_name: self.res_name_to_token.get(res_name, UNKNOWN_AA))(res_name)
+
+    @property
+    def token_to_idx(self) -> dict[str, int]:
+        return self.token_to_int
+
+    @cached_property
+    def idx_to_token(self) -> np.ndarray:
+        return np.array(UNIFIED_TOKENS)
+
+    @property
+    def n_tokens(self) -> int:
+        return len(self.tokens)
+
+    def encode(self, res_names: Sequence[str]) -> np.ndarray:
+        # NOTE: Defined here rather than as attribute to allow pickling for multiprocessing
+        encode_func = np.vectorize(lambda x: self.token_to_int.get(x, self.token_to_int[UNKNOWN_AA]))
+        return encode_func(res_names)
+
+    def decode(self, token_idxs: int | Sequence[int]) -> np.ndarray:
+        return self.idx_to_token[token_idxs]
+
+
+# fmt: off
 RF2AA_TOKEN_TO_STANDARD_TOKEN = {
     'ALA': 'ALA',
     'ARG': 'ARG',
