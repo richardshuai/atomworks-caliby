@@ -31,7 +31,7 @@ class DSSPExecutable(Executable):
         """Initialize DSSP executable.
 
         Args:
-          bin_path: Path to DSSP executable. If ``None``, attempts to find using ``DSSP`` env variable.
+          bin_path: Path to DSSP executable. If ``None``, attempts to find using ``DSSP_PATH`` env variable.
 
         Returns:
           Initialized DSSPExecutable.
