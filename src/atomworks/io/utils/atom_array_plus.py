@@ -288,11 +288,11 @@ class AnnotationList2D(Generic[T]):
         if len(upper_values) == len(lower_reverse_values) and np.array_equal(upper_triangle_pairs, lower_reverse_pairs):
             # all values should be the same since the pairs are the same
             if np.issubdtype(upper_values.dtype, np.number):
-                assert np.allclose(
-                    upper_values, lower_reverse_values, equal_nan=True
-                ), "Input AnnotationList2D is not symmetric"
+                if not np.allclose(upper_values, lower_reverse_values, equal_nan=True):
+                    raise ValueError(f"Asymmetric input values: {upper_values} != {lower_reverse_values}")
             else:
-                assert np.array_equal(upper_values, lower_reverse_values), "Input AnnotationList2D is not symmetric"
+                if not np.array_equal(upper_values, lower_reverse_values):
+                    raise ValueError(f"Asymmetric input values: {upper_values} != {lower_reverse_values}")
 
             # if they are, great! Just return the original list here
             return AnnotationList2D(self.n_atoms, self.pairs.copy(), self.values.copy())

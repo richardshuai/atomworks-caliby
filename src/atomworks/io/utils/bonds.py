@@ -685,6 +685,7 @@ def _atom_array_to_networkx_graph(
     # ... create the bond graph for the atom array, adding all nodes first to ensure correct indexing
     bond_graph = nx.Graph()
     bond_graph.add_nodes_from(range(len(atom_array)))
+    bond_list = []
 
     # ... add edges from bond list
     if len(bonds) > 0:
