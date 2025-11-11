@@ -17,7 +17,7 @@ from atomworks.ml.transforms.dssp import AnnotateSecondaryStructure, SSEnum
 from atomworks.ml.utils.testing import cached_parse
 from atomworks.ml.utils.token import get_token_starts
 
-DSSP_PATH = os.environ.get("DSSP", "/projects/ml/dssp/install/bin/mkdssp")
+DSSP_PATH = os.environ.get("DSSP_PATH", "/projects/ml/dssp/install/bin/mkdssp")
 
 DSSP_TEST_CASES = [
     "1a1e",  # Protein structure

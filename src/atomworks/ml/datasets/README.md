@@ -7,7 +7,7 @@ This README provides an overview of how to work with datasets for training struc
 ### Simple File-Based Dataset
 
 ```python
-from atomworks.ml.datasets.datasets import FileDataset
+from atomworks.ml.datasets import FileDataset
 from atomworks.io import parse
 
 # Define a simple loader function
@@ -26,7 +26,7 @@ dataset = FileDataset.from_directory(
 ### Tabular Dataset with Transforms
 
 ```python
-from atomworks.ml.datasets.datasets import PandasDataset
+from atomworks.ml.datasets import PandasDataset
 from atomworks.ml.datasets.loaders import create_loader_with_query_pn_units
 from atomworks.ml.transforms.base import Compose
 from atomworks.ml.transforms.crop import CropSpatialLikeAF3
@@ -189,7 +189,7 @@ dataset = PandasDataset(data=df, name="custom", loader=my_custom_loader)
 For complex training schemes, combine multiple datasets with `ConcatDatasetWithID`:
 
 ```python
-from atomworks.ml.datasets.datasets import ConcatDatasetWithID
+from atomworks.ml.datasets import ConcatDatasetWithID
 
 # Create individual datasets
 chains_dataset = PandasDataset(data="chains.parquet", name="chains", ...)
@@ -241,7 +241,7 @@ When a Transform fails, AtomWorks saves:
 For robust training, use `FallbackDatasetWrapper` with `FallbackSamplerWrapper`:
 
 ```python
-from atomworks.ml.datasets.datasets import FallbackDatasetWrapper
+from atomworks.ml.datasets import FallbackDatasetWrapper
 
 # Wrap dataset to enable fallback on errors
 dataset_with_fallback = FallbackDatasetWrapper(

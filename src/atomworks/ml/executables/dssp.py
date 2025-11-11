@@ -31,7 +31,7 @@ class DSSPExecutable(Executable):
         """Initialize DSSP executable.
 
         Args:
-          bin_path: Path to DSSP executable. If ``None``, attempts to find using ``DSSP`` env variable.
+          bin_path: Path to DSSP executable. If ``None``, attempts to find using ``DSSP_PATH`` env variable.
 
         Returns:
           Initialized DSSPExecutable.
@@ -46,13 +46,13 @@ class DSSPExecutable(Executable):
     @staticmethod
     def _infer_bin_path_from_env_var() -> PathLike:
         """Get the path to the DSSP executable from environment variables."""
-        dssp_path = os.environ.get("DSSP")
+        dssp_path = os.environ.get("DSSP_PATH")
         if dssp_path is not None and os.path.isfile(dssp_path) and os.access(dssp_path, os.X_OK):
             return dssp_path
 
         raise ExecutableError(
-            "No `bin_path` provided and `DSSP` environment variable not set.\n"
-            "Please set the `DSSP` environment variable to the path of the DSSP executable "
+            "No `bin_path` provided and `DSSP_PATH` environment variable not set.\n"
+            "Please set the `DSSP_PATH` environment variable to the path of the DSSP executable "
             "or provide a `bin_path` to the `DSSPExecutable` constructor: "
             "`DSSPExecutable.initialize(bin_path='/path/to/mkdssp')`."
         )

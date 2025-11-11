@@ -19,7 +19,7 @@ The current AtomWorks dataset system consists of three main components:
 Dataset Classes
 ---------------
 
-.. automodule:: atomworks.ml.datasets.datasets
+.. automodule:: atomworks.ml.datasets
    :members:
    :undoc-members:
    :show-inheritance:
@@ -42,7 +42,7 @@ Basic Usage Examples
 
 .. code-block:: python
 
-   from atomworks.ml.datasets.datasets import FileDataset
+   from atomworks.ml.datasets import FileDataset
    from atomworks.io import parse
    
    def simple_loading_fn(raw_data) -> dict:
@@ -60,7 +60,7 @@ Basic Usage Examples
 
 .. code-block:: python
 
-   from atomworks.ml.datasets.datasets import PandasDataset
+   from atomworks.ml.datasets import PandasDataset
    from atomworks.ml.datasets.loaders import create_loader_with_query_pn_units
 
    dataset = PandasDataset(
