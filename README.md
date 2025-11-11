@@ -185,10 +185,10 @@ Here's a simple example that:
 # 8=NON_POLYMER, 9=WATER, 10=BRANCHED, 11=MACROLIDE
 
 af3_pdb_dataset:
-  _target_: atomworks.ml.datasets.datasets.ConcatDatasetWithID
+  _target_: atomworks.ml.datasets.ConcatDatasetWithID
   datasets:
     # Single PN units
-    - _target_: atomworks.ml.datasets.datasets.StructuralDatasetWrapper
+    - _target_: atomworks.ml.datasets.StructuralDatasetWrapper
       dataset_parser:
         _target_: atomworks.ml.datasets.parsers.PNUnitsDFParser
       transform:
@@ -208,7 +208,7 @@ af3_pdb_dataset:
         # rna_msa_dirs:
         #   - { dir: /path/to/msa, extension: .afa, directory_depth: 0 }
       dataset:
-        _target_: atomworks.ml.datasets.datasets.PandasDataset
+        _target_: atomworks.ml.datasets.PandasDataset
         name: pn_units
         id_column: example_id
         data: /path/to/metadata/pn_units_df.parquet
@@ -226,7 +226,7 @@ af3_pdb_dataset:
       save_failed_examples_to_dir: null
 
     # Binary interfaces
-    - _target_: atomworks.ml.datasets.datasets.StructuralDatasetWrapper
+    - _target_: atomworks.ml.datasets.StructuralDatasetWrapper
       dataset_parser:
         _target_: atomworks.ml.datasets.parsers.InterfacesDFParser
       transform:
@@ -245,7 +245,7 @@ af3_pdb_dataset:
         # rna_msa_dirs:
         #   - { dir: /path/to/msa, extension: .afa, directory_depth: 0 }
       dataset:
-        _target_: atomworks.ml.datasets.datasets.PandasDataset
+        _target_: atomworks.ml.datasets.PandasDataset
         name: interfaces
         id_column: example_id
         data: /path/to/metadata/interfaces_df.parquet

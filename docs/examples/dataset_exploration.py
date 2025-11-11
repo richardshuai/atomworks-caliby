@@ -35,7 +35,7 @@ This example demonstrates how to work with datasets in AtomWorks, from simple fi
 #
 # **NOTE**: All AtomWorks Datasets require a `name` attribute to support many of the logging/debugging features that are supplied out-of-the-box.
 
-from atomworks.ml.datasets.datasets import FileDataset
+from atomworks.ml.datasets import FileDataset
 
 # To setup the test pack, if not already, run `atomworks setup tests`
 dataset = FileDataset.from_directory(
@@ -218,7 +218,7 @@ print(interfaces_df.head())
 #
 # **NOTE**: Because a given PDB ID may contain many interfaces and thus may appear multiple times in our dataset, we must also incorporate the `assembly_id` and the `pn_unit_iids` of the two interacting chains within the `example_id`.
 
-from atomworks.ml.datasets.datasets import PandasDataset
+from atomworks.ml.datasets import PandasDataset
 from atomworks.ml.datasets.loaders import create_loader_with_query_pn_units
 
 dataset = PandasDataset(
