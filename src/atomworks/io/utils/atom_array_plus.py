@@ -256,6 +256,9 @@ class AnnotationList2D(Generic[T]):
         If (i,j) exists but (j,i) doesn't, adds (j,i) with the same value.
         If both exist, raises error if values differ.
 
+        This algorithm uses vectorized operations on the pairs and values arrays to avoid looping over pairs
+        and realizing the large arrays in memory.
+
         Returns:
             Symmetric AnnotationList2D.
 
@@ -316,13 +319,11 @@ class AnnotationList2D(Generic[T]):
             overlap_upper_values = upper_values[search_idx[valid]][matches]
 
             if np.issubdtype(overlap_lower_values.dtype, np.number):
-                assert np.allclose(
-                    overlap_lower_values, overlap_upper_values, equal_nan=True
-                ), f"Asymmetric values: {overlap_lower_values} != {overlap_upper_values}"
+                if not np.allclose(overlap_lower_values, overlap_upper_values, equal_nan=True):
+                    raise ValueError(f"Asymmetric values: {overlap_lower_values} != {overlap_upper_values}")
             else:
-                assert np.array_equal(
-                    overlap_lower_values, overlap_upper_values
-                ), f"Asymmetric values: {overlap_lower_values} != {overlap_upper_values}"
+                if not np.array_equal(overlap_lower_values, overlap_upper_values):
+                    raise ValueError(f"Asymmetric values: {overlap_lower_values} != {overlap_upper_values}")
 
             # if there's matches, lets remove the duplicates from one of the lists (in this case, lower triangle)
             # can't just use matches because it is not necessarily the right length (not same length as valid)

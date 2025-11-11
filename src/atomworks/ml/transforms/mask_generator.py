@@ -605,7 +605,7 @@ class GrowByHoppingAlongBondGraph(GrowMask):
 
         # Get the relevant graph around the seed
         graph = self.graph
-        if not graph:
+        if graph is None:
             graph = _atom_array_to_networkx_graph(atom_array, bond_order=False, cast_aromatic_bonds_to_same_type=True)
 
         # Sample number of hops from geometric distribution
