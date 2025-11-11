@@ -556,6 +556,7 @@ class GrowByHoppingAlongBondGraph(GrowMask):
             "transformation_id",
         ),
         rng: np.random.Generator | None = None,
+        atom_array: AtomArray | None = None,
     ):
         """
         Args:
@@ -563,10 +564,18 @@ class GrowByHoppingAlongBondGraph(GrowMask):
             allow_other_tokens: Whether to allow the mask to grow into other tokens.
             allow_other_chains: Whether to allow the mask to grow into other chains.
             rng: Random number generator.
+            atom_array: AtomArray to grow the mask on. Optional, but if provided will precompute the bond graph and save a lot of time
         """
         self.n_hops_expected = n_hops_expected
         self.require_same_annotation = require_same_annotation
         self.rng = rng
+        self.graph = None
+        if atom_array is not None:
+            self.graph = _atom_array_to_networkx_graph(
+                atom_array,
+                bond_order=False,
+                cast_aromatic_bonds_to_same_type=True,
+            )
 
     def __call__(
         self,
@@ -595,7 +604,9 @@ class GrowByHoppingAlongBondGraph(GrowMask):
             is_allowed = is_allowed & (_annotation == _target_annotation)
 
         # Get the relevant graph around the seed
-        graph = _atom_array_to_networkx_graph(atom_array, bond_order=False, cast_aromatic_bonds_to_same_type=True)
+        graph = self.graph
+        if graph is None:
+            graph = _atom_array_to_networkx_graph(atom_array, bond_order=False, cast_aromatic_bonds_to_same_type=True)
 
         # Sample number of hops from geometric distribution
         geometric = self.rng.geometric if self.rng else np.random.geometric

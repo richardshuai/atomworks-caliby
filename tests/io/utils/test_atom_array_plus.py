@@ -181,11 +181,32 @@ class TestAnnotationList2D:
         assert np.allclose(result.values, [0.5, 1.5, 2.5, 1.5, 2.5])
 
         # Errors on value mismatch
-        with pytest.raises(ValueError, match="Asymmetric values.*1.0 vs.*2.0"):
+        with pytest.raises(ValueError, match="^Asymmetric input values"):
             AnnotationList2D(3, np.array([[0, 1], [1, 0]]), np.array([1.0, 2.0])).symmetrized()
 
         # Handles NaN correctly (NaN == NaN)
         assert len(AnnotationList2D(3, np.array([[0, 1], [1, 0]]), np.array([np.nan, np.nan])).symmetrized().pairs) == 2
+
+        # Some more edge cases
+        annot = AnnotationList2D(
+            4,
+            np.array([[0, 1], [0, 2], [2, 1], [1, 3]]),  # upper and lower triangle pairs
+            np.array([1.0, 2.0, 3.0, 4.0]),
+        )
+        result = annot.symmetrized()
+        assert len(result.pairs) == 8
+        assert np.allclose(
+            result.as_dense_array(),
+            np.array(
+                [
+                    [np.nan, 1.0, 2.0, np.nan],
+                    [1.0, np.nan, 3.0, 4.0],
+                    [2.0, 3.0, np.nan, np.nan],
+                    [np.nan, 4.0, np.nan, np.nan],
+                ]
+            ),
+            equal_nan=True,
+        )
 
 
 def _make_single_atom(element: str, coord: list[float], annotations_2d: list[str] = None) -> AtomArrayPlus:

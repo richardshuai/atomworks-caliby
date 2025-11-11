@@ -430,8 +430,6 @@ class ConditionBase(ABC, metaclass=ConditionMeta):
             if len(args) == 1:
                 assert isinstance(args[0], AnnotationList2D), "Only AnnotationList2D is allowed for 2-body conditions."
                 annot = args[0]
-                if cls.is_symmetric:
-                    annot = annot.symmetrized()
                 pairs, values = annot.pairs, annot.values
                 annotation_kwargs = {"pairs": pairs, "values": values}
             elif len(args) == 0:
