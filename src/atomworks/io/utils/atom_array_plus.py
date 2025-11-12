@@ -1023,3 +1023,24 @@ def stack_any(arrays: list[AtomArray | AtomArrayPlus]) -> AtomArrayStack | AtomA
     if any(isinstance(arr, AtomArrayPlus) for arr in arrays):
         return stack_atom_array_plus([as_atom_array_plus(arr) for arr in arrays])
     return struc.stack(arrays)
+
+
+def as_atom_array_plus_stack(
+    arrays: AtomArray | AtomArrayPlus | AtomArrayStack | AtomArrayPlusStack | list[AtomArray | AtomArrayPlus | struc.Atom] | struc.Atom,
+) -> AtomArrayPlusStack:
+    """Convert various input types to an AtomArrayPlusStack."""
+    # Already the target type
+    if isinstance(arrays, AtomArrayPlusStack):
+        return arrays
+
+    # Convert from regular stack
+    if isinstance(arrays, AtomArrayStack):
+        return AtomArrayPlusStack.from_atom_array_stack(arrays)
+
+    # Convert from list
+    if isinstance(arrays, list):
+        arrays_plus = [as_atom_array_plus(arr) for arr in arrays]
+        return stack_atom_array_plus(arrays_plus)
+
+    # Single array (AtomArray, AtomArrayPlus, or Atom) - wrap in list and stack
+    return stack_atom_array_plus([as_atom_array_plus(arrays)])
