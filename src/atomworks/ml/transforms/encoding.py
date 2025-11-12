@@ -31,6 +31,61 @@ from atomworks.ml.utils.token import get_token_count, get_token_starts, token_it
 logger = getLogger(__name__)
 
 
+def atom_array_to_resnames(
+    atom_array: AtomArray,
+    encoding: TokenEncoding,
+    atomize_token: str = "<A>",
+) -> np.ndarray:
+    """Encode residue types from an AtomArray.
+    
+    Encodes at token level, then spreads to atom level for efficiency.
+    Handles proteins, DNA, RNA, atomized residues (ligands, ions), and unknown tokens.
+    For atomized residues, uses the atomize_token. For masked/to-be-generated
+    residues, use the `<M>` (mask) token.
+    
+    Args:
+        atom_array: AtomArray with token_id annotation.
+        encoding: TokenEncoding defining the mapping (e.g., UNIFIED_ATOM37_ENCODING).
+        atomize_token: Token to use for atomized residues. Defaults to `<A>`.
+    Returns:
+        Array of token type indices with shape [n_atoms], where each index
+        corresponds to encoding.token_to_idx. Each atom gets the encoding of its token.
+    
+    Examples:
+        >>> from atomworks.ml.encoding_definitions import UNIFIED_ATOM37_ENCODING
+        >>> resnames = atom_array_to_resnames(atom_array, UNIFIED_ATOM37_ENCODING)
+        >>> # resnames[i] is the encoded residue type for atom i
+    """
+    n_tokens = get_token_count(atom_array)
+    token_encoded_seq = np.empty(n_tokens, dtype=int)
+    
+    # Check if atom array has atomize annotation
+    has_atomize = "atomize" in atom_array.get_annotation_categories()
+    
+    # Iterate over tokens and encode token names (token-level encoding)
+    for i, token in enumerate(token_iter(atom_array)):
+        # Case 1: atomized tokens (ligands, ions) or single-atom tokens
+        # Use atomize_token
+        if (has_atomize and token.atomize[0]) or len(token) == 1:
+            token_name = atomize_token
+        # Case 2: residue tokens (proteins, DNA, RNA)
+        # Use res_name as token identifier
+        else:
+            token_name = token.res_name[0]
+        
+        # Resolve unknown tokens (e.g., UNK for unknown AA, N for unknown RNA, DN for unknown DNA)
+        if token_name not in encoding.token_to_idx:
+            token_is_atom = (has_atomize and token.atomize[0]) or len(token) == 1
+            token_name = encoding.resolve_unknown_token_name(token_name, token_is_atom)
+            assert token_name in encoding.token_to_idx, f"Unknown token name: {token_name}"
+        
+        # Encode as integer index
+        token_encoded_seq[i] = encoding.token_to_idx[token_name]
+    
+    # Spread token-level encoding to atom-level (single vectorized operation)
+    return token_encoded_seq[atom_array.token_id]
+
+
 def atom_array_to_encoding(
     atom_array: AtomArray,
     encoding: TokenEncoding,
