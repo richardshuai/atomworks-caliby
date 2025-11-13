@@ -7,12 +7,16 @@ from glob import glob
 from pathlib import Path
 from typing import Any
 
-import ase.db
 import numpy as np
 import pandas as pd
 
 from atomworks.ml.datasets.base import ExampleIDMixin, MolecularDataset
 from atomworks.ml.utils.io import read_parquet_with_metadata
+try:
+    import ase.db
+except ImportError as e:
+    print("ASE library is required for AseDBDataset. Please install ASE to use this dataset.")
+    ase = None
 
 logger = logging.getLogger(__name__)
 
