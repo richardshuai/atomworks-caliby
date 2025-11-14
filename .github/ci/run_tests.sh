@@ -4,7 +4,7 @@ echo "Running from $PWD"
 
 export OPENBLAS_NUM_THREADS=1
 export OMP_NUM_THREADS=1
-apptainer_path=/net/software/containers/users/ncorley/atomworks/atomworks.sif
+apptainer_path=/net/software/containers/users/ncorley/atomworks/atomworks_dev.sif
 tar -xf /net/lab/pub/atomworks/test_pack_latest.tar.gz -C tests/data > /dev/null 2>&1
 
 # Get max processes from environment variable, default to 24 if not set
