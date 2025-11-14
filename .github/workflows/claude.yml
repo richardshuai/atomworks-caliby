@@ -78,26 +78,26 @@ jobs:
             3. Look in: `src/atomworks/io/utils/`, `src/atomworks/ml/transforms/`, `*.common.*` files
             4. Follow established patterns
             5. Implement ONLY the requested changes - no extra refactoring or improvements
-            6. Run relevant tests and ensure they pass (see below)
+            6. Run ruff to ensure code quality (see below)
 
             **Remember**: Surgical precision. Touch only what needs to be touched.
 
-            ## Testing Requirements (CRITICAL)
-            **ALWAYS run tests after making changes. Work is NOT complete until tests pass.**
+            ## Code Quality (CRITICAL)
+            **DO run ruff to ensure code quality:**
 
             ```bash
-            # Activate Python environment FIRST
-            source .venv/bin/activate
+            # Format code
+            ruff format .
 
-            # Run relevant tests (focus on what you changed)
-            PDB_MIRROR_PATH=tests/data/pdb pytest tests/path/to/relevant/tests.py -v
-
-            # If making broader changes, run full suite
-            make format  # Format code first
-            PDB_MIRROR_PATH=tests/data/pdb pytest tests -m "not very_slow" -n auto
+            # Check for lint issues
+            ruff check src tests
             ```
 
-            **Do NOT consider your work complete if tests fail. Fix issues until tests pass.**
+            **DO NOT run tests:**
+            - Tests take too long for PR comment responses
+            - CI will run the full test suite automatically
+            - Focus on quick, surgical fixes only
+            - If changes are complex enough to need testing, mention this in your response
 
             Now complete the task requested in the comment/issue.
 

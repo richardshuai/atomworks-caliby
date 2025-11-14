@@ -98,7 +98,7 @@ def split_csv_for_msa(
     return manifest
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Split CSV into chunks for batch MSA generation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
