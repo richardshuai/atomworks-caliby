@@ -36,11 +36,14 @@ featurization pipeline as the training data.
 """
 
 import abc
+import logging
 from typing import Any, ClassVar
 
 import numpy as np
 
 from atomworks.ml.transforms.base import Transform
+
+logger = logging.getLogger(__name__)
 
 
 class SampleDesignTask(Transform):
@@ -64,13 +67,21 @@ class SampleDesignTask(Transform):
         design_tasks: dict[str, dict[str, Any]],
         rng: np.random.Generator | None = None,
     ):
-        # Check the format of the design tasks dictionary
+        # Check the format of the design tasks dictionary and remove tasks with zero frequency
+        design_tasks_to_use = {}
+        removed_design_task_names = []
         for name, task in design_tasks.items():
             assert "transform" in task, f"Design task {name} must have a 'transform' key"
             assert "frequency" in task, f"Design task {name} must have a 'frequency' key"
-            assert task["frequency"] > 0, f"Design task {name} frequency must be positive, but got {task['frequency']}"
+            if task["frequency"] > 0:
+                design_tasks_to_use[name] = task
+            else:
+                removed_design_task_names.append(name)
 
-        self.design_tasks = design_tasks
+        logger.warning(
+            f"Removed {len(removed_design_task_names)} design tasks with zero frequency: {', '.join(removed_design_task_names)}"
+        )
+        self.design_tasks = design_tasks_to_use
         self.rng = rng
 
     def forward(self, data: dict) -> dict:
