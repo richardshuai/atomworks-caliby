@@ -2,6 +2,7 @@
 
 import bisect
 import logging
+import warnings
 from collections.abc import Callable
 from glob import glob
 from pathlib import Path
@@ -16,7 +17,11 @@ from atomworks.ml.utils.io import read_parquet_with_metadata
 try:
     import ase.db
 except ImportError:
-    print("ASE library is required for AseDBDataset. Please install ASE to use this dataset.")
+    warnings.warn(
+        "ASE library is required for AseDBDataset. Please install ASE to use this dataset.",
+        ImportWarning,
+        stacklevel=2,
+    )
     ase = None
 
 logger = logging.getLogger(__name__)
