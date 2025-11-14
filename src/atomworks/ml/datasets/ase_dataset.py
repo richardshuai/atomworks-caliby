@@ -12,9 +12,10 @@ import pandas as pd
 
 from atomworks.ml.datasets.base import ExampleIDMixin, MolecularDataset
 from atomworks.ml.utils.io import read_parquet_with_metadata
+
 try:
     import ase.db
-except ImportError as e:
+except ImportError:
     print("ASE library is required for AseDBDataset. Please install ASE to use this dataset.")
     ase = None
 
