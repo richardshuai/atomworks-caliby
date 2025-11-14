@@ -42,6 +42,10 @@ def calculate_atomwise_sasa(
 
     # 2) Slice the array to keep only valid atoms
     valid_atom_array = atom_array[atom_filter]
+    
+    # Early return if no valid atoms remain
+    if len(valid_atom_array) == 0:
+        return np.full(atom_array.array_length(), np.nan, dtype=float)
 
     # Compute SASA on only the valid atoms
     valid_sasa = struc.sasa(
