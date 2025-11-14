@@ -2,6 +2,7 @@
 
 import bisect
 import logging
+import warnings
 from collections.abc import Callable
 from glob import glob
 from pathlib import Path
@@ -12,10 +13,15 @@ import pandas as pd
 
 from atomworks.ml.datasets.base import ExampleIDMixin, MolecularDataset
 from atomworks.ml.utils.io import read_parquet_with_metadata
+
 try:
     import ase.db
-except ImportError as e:
-    print("ASE library is required for AseDBDataset. Please install ASE to use this dataset.")
+except ImportError:
+    warnings.warn(
+        "ASE library is required for AseDBDataset. Please install ASE to use this dataset.",
+        ImportWarning,
+        stacklevel=2,
+    )
     ase = None
 
 logger = logging.getLogger(__name__)
