@@ -1026,7 +1026,12 @@ def stack_any(arrays: list[AtomArray | AtomArrayPlus]) -> AtomArrayStack | AtomA
 
 
 def as_atom_array_plus_stack(
-    arrays: AtomArray | AtomArrayPlus | AtomArrayStack | AtomArrayPlusStack | list[AtomArray | AtomArrayPlus | struc.Atom] | struc.Atom,
+    arrays: AtomArray
+    | AtomArrayPlus
+    | AtomArrayStack
+    | AtomArrayPlusStack
+    | list[AtomArray | AtomArrayPlus | struc.Atom]
+    | struc.Atom,
 ) -> AtomArrayPlusStack:
     """Convert various input types to an AtomArrayPlusStack."""
     # Already the target type
