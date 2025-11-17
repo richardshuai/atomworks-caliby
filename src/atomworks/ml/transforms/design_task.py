@@ -78,9 +78,12 @@ class SampleDesignTask(Transform):
             else:
                 removed_design_task_names.append(name)
 
-        logger.warning(
-            f"Removed {len(removed_design_task_names)} design tasks with zero frequency: {', '.join(removed_design_task_names)}"
-        )
+        if removed_design_task_names:
+            logger.info(
+                f"Removed {len(removed_design_task_names)} design tasks with zero frequency: {', '.join(removed_design_task_names)}"
+            )
+        assert design_tasks_to_use, "No design tasks with non-zero frequency found"
+
         self.design_tasks = design_tasks_to_use
         self.rng = rng
 
