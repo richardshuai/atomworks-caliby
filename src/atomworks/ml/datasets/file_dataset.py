@@ -10,6 +10,10 @@ from atomworks.ml.utils.io import scan_directory
 from .base import ExampleIDMixin, MolecularDataset
 
 
+def _always_true(x: PathLike) -> bool:
+    return True
+
+
 class FileDataset(MolecularDataset, ExampleIDMixin):
     """Dataset that loads molecular data from individual files.
 
@@ -44,7 +48,7 @@ class FileDataset(MolecularDataset, ExampleIDMixin):
         """
         super().__init__(name=name, **kwargs)
 
-        self.filter_fn = filter_fn or (lambda x: True)
+        self.filter_fn = filter_fn or _always_true
 
         # Convert to Path objects and filter
         file_paths = [Path(path) for path in file_paths if self.filter_fn(path)]

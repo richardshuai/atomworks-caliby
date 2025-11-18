@@ -1,11 +1,11 @@
 """CIF-based dataset loaders."""
 
+import functools
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from toolz import keyfilter
 
 from atomworks.io.parser import STANDARD_PARSER_ARGS, parse
 
@@ -24,6 +24,54 @@ def _load_structure_from_path(path: Path, assembly_id: str, parser_args: dict | 
     return result_dict
 
 
+def _base_loader_function(
+    row: pd.Series,
+    example_id_colname: str,
+    path_colname: str,
+    assembly_id_colname: str | None,
+    attrs: dict,
+    base_path: str,
+    extension: str,
+    sharding_pattern: str | None,
+    parser_args: dict | None,
+) -> dict[str, Any]:
+    """Base loader function (picklable when used with functools.partial)."""
+    # Prepare loader-specific attributes
+    loader_attrs = attrs.copy()
+    if base_path and "base_path" not in loader_attrs:
+        loader_attrs["base_path"] = base_path
+    if extension and "extension" not in loader_attrs:
+        loader_attrs["extension"] = extension
+
+    extra_info = _construct_metadata_hierarchy(row, loader_attrs)
+
+    assembly_id = row[assembly_id_colname] if assembly_id_colname is not None and assembly_id_colname in row else "1"
+    path = _construct_structure_path(
+        row[path_colname], extra_info.get("base_path"), extra_info.get("extension"), sharding_pattern
+    )
+    result_dict = _load_structure_from_path(path, assembly_id, parser_args)
+
+    # Remove used columns from extra_info
+    exclude_cols = (
+        [example_id_colname, path_colname]
+        + ([assembly_id_colname] if assembly_id_colname else [])
+        + ["base_path", "extension"]
+    )
+    extra_info = {k: v for k, v in extra_info.items() if k not in exclude_cols}
+
+    return {
+        "example_id": row[example_id_colname],
+        "path": path,
+        "assembly_id": assembly_id,
+        "extra_info": extra_info,
+        "atom_array": result_dict["assemblies"][assembly_id][0],
+        "atom_array_stack": result_dict["assemblies"][assembly_id],
+        "chain_info": result_dict["chain_info"],
+        "ligand_info": result_dict["ligand_info"],
+        "metadata": result_dict["metadata"],
+    }
+
+
 def create_base_loader(
     example_id_colname: str = "example_id",
     path_colname: str = "path",
@@ -34,7 +82,7 @@ def create_base_loader(
     sharding_pattern: str | None = None,
     parser_args: dict | None = None,
 ) -> Callable[[pd.Series], dict[str, Any]]:
-    """Factory function that creates a base loader with common logic for many AtomWorks datasets.
+    """Factory function that creates a picklable base loader for AtomWorks datasets.
 
     Args:
         example_id_colname: Name of column containing unique example identifiers
@@ -52,50 +100,32 @@ def create_base_loader(
         parser_args: Optional dictionary of arguments to pass to the CIF parser when loading the structure file.
 
     Returns:
-        A function that takes a pandas Series and returns a dictionary of the loaded structure.
+        A picklable loader function (via functools.partial) for multiprocessing.
     """
+    return functools.partial(
+        _base_loader_function,
+        example_id_colname=example_id_colname,
+        path_colname=path_colname,
+        assembly_id_colname=assembly_id_colname,
+        attrs=attrs or {},
+        base_path=base_path,
+        extension=extension,
+        sharding_pattern=sharding_pattern,
+        parser_args=parser_args,
+    )
 
-    def loader_function(row: pd.Series) -> dict[str, Any]:
-        # Prepare loader-specific attributes
-        loader_attrs = attrs.copy() if attrs else {}
-        if base_path and "base_path" not in loader_attrs:
-            loader_attrs["base_path"] = base_path
-        if extension and "extension" not in loader_attrs:
-            loader_attrs["extension"] = extension
 
-        extra_info = _construct_metadata_hierarchy(row, loader_attrs)
-
-        assembly_id = (
-            row[assembly_id_colname] if assembly_id_colname is not None and assembly_id_colname in row else "1"
-        )
-        path = _construct_structure_path(
-            row[path_colname], extra_info.get("base_path"), extra_info.get("extension"), sharding_pattern
-        )
-        result_dict = _load_structure_from_path(path, assembly_id, parser_args)
-
-        # Remove used columns from extra_info to avoid duplication in the output dictionary
-        exclude_cols = (
-            [example_id_colname, path_colname]
-            + ([assembly_id_colname] if assembly_id_colname else [])
-            + ["base_path", "extension"]
-        )
-        extra_info = keyfilter(lambda k: k not in exclude_cols, extra_info)
-
-        return {
-            # ... from the row and metadata hierarchy
-            "example_id": row[example_id_colname],
-            "path": path,
-            "assembly_id": assembly_id,
-            "extra_info": extra_info,
-            # ... from the CIF parser
-            "atom_array": result_dict["assemblies"][assembly_id][0],  # First model
-            "atom_array_stack": result_dict["assemblies"][assembly_id],  # All models
-            "chain_info": result_dict["chain_info"],
-            "ligand_info": result_dict["ligand_info"],
-            "metadata": result_dict["metadata"],
-        }
-
-    return loader_function
+def _loader_with_query_pn_units_function(
+    row: pd.Series,
+    base_loader: Callable,
+    pn_unit_iid_colnames: list[str],
+) -> dict[str, Any]:
+    """Loader with query pn_units (picklable when used with functools.partial)."""
+    result = base_loader(row)
+    result["extra_info"] = {k: v for k, v in result["extra_info"].items() if k not in pn_unit_iid_colnames}
+    query_pn_unit_iids = [row[colname] for colname in pn_unit_iid_colnames]
+    result["query_pn_unit_iids"] = query_pn_unit_iids
+    return result
 
 
 def create_loader_with_query_pn_units(
@@ -109,7 +139,7 @@ def create_loader_with_query_pn_units(
     attrs: dict | None = None,
     parser_args: dict | None = None,
 ) -> Callable[[pd.Series], dict[str, Any]]:
-    """Factory function that creates a generic loader for pipelines with query pn_units (chains).
+    """Factory function that creates a picklable loader for pipelines with query pn_units (chains).
 
     For instance, in the interfaces dataset, each sampled row contains two pn_unit instance IDs
     that should be included in the cropped structure.
@@ -142,18 +172,34 @@ def create_loader_with_query_pn_units(
         parser_args=parser_args,
     )
 
-    def loader_function(row: pd.Series) -> dict[str, Any]:
-        # Get base loader dictionary with common functionality
-        result = base_loader(row)
-        result["extra_info"] = keyfilter(lambda k: k not in pn_unit_iid_colnames, result["extra_info"])
+    return functools.partial(
+        _loader_with_query_pn_units_function,
+        base_loader=base_loader,
+        pn_unit_iid_colnames=pn_unit_iid_colnames,
+    )
 
-        # Add query-specific fields
-        query_pn_unit_iids = [row[colname] for colname in pn_unit_iid_colnames]
-        result["query_pn_unit_iids"] = query_pn_unit_iids
 
-        return result
+def _loader_with_interfaces_and_pn_units_to_score_function(
+    row: pd.Series,
+    base_loader: Callable,
+    interfaces_to_score_colname: str | None,
+    pn_units_to_score_colname: str | None,
+) -> dict[str, Any]:
+    """Loader with scoring info (picklable when used with functools.partial)."""
+    result = base_loader(row)
+    exclude_cols = [interfaces_to_score_colname, pn_units_to_score_colname]
+    result["extra_info"] = {k: v for k, v in result["extra_info"].items() if k not in exclude_cols}
 
-    return loader_function
+    interfaces_to_score = row[interfaces_to_score_colname] if interfaces_to_score_colname is not None else None
+    pn_units_to_score = row[pn_units_to_score_colname] if pn_units_to_score_colname is not None else None
+
+    result.update(
+        {
+            "interfaces_to_score": interfaces_to_score,
+            "pn_units_to_score": pn_units_to_score,
+        }
+    )
+    return result
 
 
 def create_loader_with_interfaces_and_pn_units_to_score(
@@ -168,7 +214,7 @@ def create_loader_with_interfaces_and_pn_units_to_score(
     attrs: dict | None = None,
     parser_args: dict | None = None,
 ) -> Callable[[pd.Series], dict[str, Any]]:
-    """Factory function that creates a loader that adds interfaces and pn_units to score for validation datasets.
+    """Factory function that creates a picklable loader for validation datasets with scoring information.
 
     Example:
         >>> loader = create_loader_with_interfaces_and_pn_units_to_score(
@@ -187,24 +233,9 @@ def create_loader_with_interfaces_and_pn_units_to_score(
         parser_args=parser_args,
     )
 
-    def loader_function(row: pd.Series) -> dict[str, Any]:
-        # Get base loader dictionary with common functionality
-        result = base_loader(row)
-        result["extra_info"] = keyfilter(
-            lambda k: k not in [interfaces_to_score_colname, pn_units_to_score_colname], result["extra_info"]
-        )
-
-        # Add validation-specific fields
-        interfaces_to_score = row[interfaces_to_score_colname] if interfaces_to_score_colname is not None else None
-        pn_units_to_score = row[pn_units_to_score_colname] if pn_units_to_score_colname is not None else None
-
-        result.update(
-            {
-                "interfaces_to_score": interfaces_to_score,
-                "pn_units_to_score": pn_units_to_score,
-            }
-        )
-
-        return result
-
-    return loader_function
+    return functools.partial(
+        _loader_with_interfaces_and_pn_units_to_score_function,
+        base_loader=base_loader,
+        interfaces_to_score_colname=interfaces_to_score_colname,
+        pn_units_to_score_colname=pn_units_to_score_colname,
+    )
