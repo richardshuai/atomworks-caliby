@@ -31,7 +31,7 @@ def create_ase_loader(
         per_atom_properties: List of per-atom properties to extract from atoms.arrays
             as AtomArray annotations (e.g., forces, charges, spins)
         global_properties: List of global properties to extract from atoms.info
-            into extra_info dict (e.g., energy, charge, spin)
+            and/or atoms_row into extra_info dict (e.g., energy, charge, spin)
         add_missing_atoms: Whether to add missing atoms during parse_atom_array
 
     Returns:
@@ -159,11 +159,14 @@ def create_ase_loader(
         for prop in global_properties:
             if prop in atoms.info:
                 data["extra_info"][prop] = atoms.info[prop]
+            elif prop in atoms_row:
+                data["extra_info"][prop] = atoms_row[prop]
             else:
                 logger.warning(
                     f"Requested global property '{prop}' not found in atoms.info for example {global_idx}. "
                     f"Available properties: {list(atoms.info.keys())}"
                 )
+
         # Set the example ID
         data["example_id"] = example_id
         return data
