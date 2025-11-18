@@ -291,7 +291,7 @@ To run the tests for the various datasets, you can run the following command:
 
 ```bash
 # Make sure you have the correct environment activated, and set your paths correctly in the .env file / shell environment variables (see points above)
-pytest tests/ml/test_data_loading_pipelines.py
+pytest tests/ml/pipelines/test_data_loading_pipelines.py
 ```
 
 ---
