@@ -1,12 +1,12 @@
-"""
-Tools for using RDKit with AtomArray objects.
-"""
+"""Tools for using RDKit with AtomArray objects."""
 
+import contextlib
 import copy
 import io
 import logging
+import os
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from functools import cache, wraps
 from os import PathLike
 from pathlib import Path
@@ -36,6 +36,26 @@ from atomworks.io.utils.ccd import atom_array_from_ccd_code
 from atomworks.ml.utils import timer
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _suppress_stderr_fd() -> Generator[None, None, None]:
+    """Context manager to suppress stderr at file descriptor level.
+
+    Suppresses YAeHMOP warnings from rdDetermineBonds that write directly
+    to the stderr file descriptor.
+    """
+    stderr_fd = 2
+    saved_stderr = os.dup(stderr_fd)
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull_fd, stderr_fd)
+        yield
+    finally:
+        os.dup2(saved_stderr, stderr_fd)
+        os.close(devnull_fd)
+        os.close(saved_stderr)
+
 
 # Set default pickle properties to all properties, otherwise
 #  annotations get lost when pickling/unpickling molecules
@@ -728,7 +748,9 @@ def atom_array_to_rdkit(
 
         try:
             # (Fast) Try standard rdDetermineBonds first
-            rdDetermineBonds.DetermineBonds(mol, useHueckel=True, charge=system_charge, maxIterations=5_000)
+            # Suppress YAeHMOP warnings that write directly to stderr
+            with _suppress_stderr_fd():
+                rdDetermineBonds.DetermineBonds(mol, useHueckel=True, charge=system_charge, maxIterations=5_000)
         except Exception as err_rdkit:
             # (Slow) Transitionmetal complexes (TMC) - fall back to xyz2mol_tm
             try:
@@ -739,11 +761,12 @@ def atom_array_to_rdkit(
                     overall_charge: int,
                     with_stereo: bool,
                 ) -> Mol:
-                    return get_tmc_mol(
-                        mol,
-                        overall_charge=overall_charge,
-                        with_stereo=with_stereo,
-                    )
+                    with _suppress_stderr_fd():
+                        return get_tmc_mol(
+                            mol,
+                            overall_charge=overall_charge,
+                            with_stereo=with_stereo,
+                        )
 
                 mol = _get_tmc_mol_with_timeout(
                     mol,
