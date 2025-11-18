@@ -28,8 +28,12 @@ def _load_json(path: Path) -> Any:
         return json.load(f)
 
 
+def _load_pt(path: Path) -> Any:
+    return torch.load(path, map_location="cpu", weights_only=False)
+
+
 FILE_LOADERS: dict[str, Callable[[Path], Any]] = {
-    ".pt": lambda path: torch.load(path, map_location="cpu", weights_only=False),
+    ".pt": _load_pt,
     ".pkl": _load_pkl,
     ".json": _load_json,
 }
