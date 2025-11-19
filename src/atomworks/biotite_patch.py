@@ -146,6 +146,8 @@ def _update_get_residue_starts() -> None:
 
     struc.get_residue_starts = get_residue_starts
 
+    # Needed to patch other functions from struc.residues
+    struc.residues.get_residue_starts = get_residue_starts
 
 def _update_array() -> None:
     """Improve the `array` function to not truncate the datatype of annotations."""
