@@ -254,7 +254,6 @@ def atom_array_from_encoding(
     encoded_mask: torch.Tensor | np.ndarray | None = None,
     token_is_atom: torch.Tensor | np.ndarray | None = None,
     **other_annotations: np.ndarray | None,
-    # TODO: Allow passing a res_id
 ) -> AtomArray:
     """Create an AtomArray from encoded coordinates, mask, and sequence.
 

@@ -448,7 +448,7 @@ Provides a comprehensive 37-slot encoding that encompasses:
 - Class 26: N (unknown RNA)
 - Classes 27-30: DNA nucleotides (DA, DC, DG, DT)
 - Class 31: DN (unknown DNA)
-- Class 32: ATOMISED (atomised small molecule token)
+- Class 32: ATOMIZED (atomized small molecule token)
 
 This encoding is compatible with the conditional residue type feature used in protein
 foundation models, enabling unified handling of proteins, RNA, DNA, and small molecules
