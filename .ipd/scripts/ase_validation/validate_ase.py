@@ -6,8 +6,7 @@ Usage:
         --output-dir ./results \
         --chunk-id 0 \
         --sample-size 1000 \
-        --lmdb-path /net/tukwila/omol_4m/train_4M \
-        --total-entries 4000000
+        --lmdb-path /net/tukwila/omol_4m/train_4M
 
     # Skip indices already in a merged parquet file:
     python validate_ase.py \
@@ -132,13 +131,13 @@ def process_single(idx: int, dataset, pb) -> dict | None:  # noqa: ANN001
 
     try:
         example = dataset[idx]
-        info = example["extra_info"]
         atom_array = example["atom_array"]
+        info = example["extra_info"]
 
         source = str(info.get("source", ""))
         base_result = {
             "lmdb_idx": idx,
-            "num_atoms": int(info.get("num_atoms", -1)),
+            "num_atoms": len(atom_array),
             "source": source,
             "dataset": categorize_source(source),
             "charge": int(info.get("charge", 0)),
@@ -156,19 +155,37 @@ def process_single(idx: int, dataset, pb) -> dict | None:  # noqa: ANN001
                 attempt_fixing_corrupted_molecules=True,
             )
         except Exception:
-            return {**base_result, "rdkit_conversion_failed": True, "pb_bust_failed": False, "passes_stereochemical_validation": False}
+            return {
+                **base_result,
+                "rdkit_conversion_failed": True,
+                "pb_bust_failed": False,
+                "passes_stereochemical_validation": False,
+            }
 
         # PoseBusters validation
         try:
             results_df = pb.bust(mol_pred=mol, full_report=False)
             pb_results = results_df.iloc[0].to_dict()
-            check_results = {f"pb_{k}": bool(v) for k, v in pb_results.items() if isinstance(v, bool | int) and k != "file_path"}
+            check_results = {
+                f"pb_{k}": bool(v) for k, v in pb_results.items() if isinstance(v, bool | int) and k != "file_path"
+            }
             relevant_checks = {k: v for k, v in check_results.items() if k not in EXCLUDED_PB_CHECKS}
             all_passed = all(relevant_checks.values()) if relevant_checks else True
-            return {**base_result, "rdkit_conversion_failed": False, "pb_bust_failed": False, "passes_stereochemical_validation": all_passed, **check_results}
+            return {
+                **base_result,
+                "rdkit_conversion_failed": False,
+                "pb_bust_failed": False,
+                "passes_stereochemical_validation": all_passed,
+                **check_results,
+            }
         except Exception:
             # We assume that molecules (e.g., metal organics) that error on PoseBusters are valid (but mark as PB bust failed)
-            return {**base_result, "rdkit_conversion_failed": False, "pb_bust_failed": True, "passes_stereochemical_validation": True}
+            return {
+                **base_result,
+                "rdkit_conversion_failed": False,
+                "pb_bust_failed": True,
+                "passes_stereochemical_validation": True,
+            }
 
     except Exception:
         # Skip entries that fail to load entirely
@@ -180,8 +197,7 @@ def validate(
     chunk_id: int,
     sample_size: int = 1000,
     lmdb_path: str = "/net/tukwila/omol_4m/train_4M",
-    total_entries: int = 4_000_000,
-    checkpoint_interval: int = 10,
+    checkpoint_interval: int = 50,
     seed: int | None = None,
     existing_merged: str | None = None,
 ) -> None:
@@ -192,7 +208,6 @@ def validate(
         chunk_id: Unique identifier for this chunk (used in filename).
         sample_size: Number of entries to process in this chunk.
         lmdb_path: Path to the ASE LMDB database.
-        total_entries: Total number of entries in the database.
         checkpoint_interval: Save results every N entries.
         seed: Random seed for sampling. Defaults to chunk_id.
         existing_merged: Optional path to a pre-existing merged parquet file.
@@ -215,22 +230,50 @@ def validate(
     print(f"ASE Validation - Chunk {chunk_id}")
     print(f"Sample size: {sample_size}, Checkpoint: every {checkpoint_interval}")
 
+    # Initialize dataset with lazy shard loading (memory efficient)
+    print(f"Connecting to LMDB at {lmdb_path}...")
+    loader = create_ase_loader(
+        per_atom_properties=[],
+        global_properties=["source", "charge", "num_atoms", "energy"],
+        add_missing_atoms=False,
+    )
+    dataset = AseDBDataset(
+        lmdb_path=lmdb_path,
+        name="ase_validation",
+        loader=loader,
+        transform=Identity(),
+    )
+    total_entries = len(dataset)
+    print(f"Connected. Total entries: {total_entries:,}")
+
     # Get already-processed indices
     done_indices = get_processed_indices(output_path, existing_merged)
     print(f"Found {len(done_indices):,} already processed")
 
-    # Sample random indices
-    all_indices = set(range(total_entries)) - done_indices
-    if not all_indices:
+    # Sample random indices (memory efficient - only sample what we need)
+    remaining_count = total_entries - len(done_indices)
+    if remaining_count <= 0:
         print("All done!")
+        dataset.close()
         return
 
-    to_process = random.sample(list(all_indices), min(sample_size, len(all_indices)))
-    print(f"Processing {len(to_process)} indices")
+    # Sample random indices without creating set(range(total_entries))
+    actual_sample_size = min(sample_size, remaining_count)
+    to_process = []
+    attempts = 0
+    max_attempts = actual_sample_size * 10  # Avoid infinite loop
 
-    # Initialize dataset and PoseBusters once
-    loader = create_ase_loader(per_atom_properties=[], global_properties=["source", "charge", "num_atoms", "energy"], add_missing_atoms=False)
-    dataset = AseDBDataset(lmdb_path=lmdb_path, name="ase_validation", filters=[], per_atom_properties=[], global_properties=["source", "charge", "num_atoms", "energy"], loader=loader, transform=Identity(), use_cache=False)
+    while len(to_process) < actual_sample_size and attempts < max_attempts:
+        candidate = random.randint(0, total_entries - 1)
+        if candidate not in done_indices and candidate not in to_process:
+            to_process.append(candidate)
+        attempts += 1
+
+    # Sort indices by shard to minimize shard switching
+    to_process.sort(key=lambda x: x // dataset._entries_per_shard)
+    print(f"Processing {len(to_process)} indices (sorted by shard)")
+
+    # Initialize PoseBusters
     pb = PoseBusters(config="mol")
 
     # Process
@@ -252,6 +295,8 @@ def validate(
         print(f"\nSaved {len(df)} entries to {chunk_file}")
         print(f"Skipped {skipped} entries (load errors)")
         print(f"Dataset distribution:\n{df['dataset'].value_counts().to_string()}")
+
+    dataset.close()
 
 
 if __name__ == "__main__":

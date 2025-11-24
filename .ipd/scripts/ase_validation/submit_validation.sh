@@ -5,12 +5,11 @@
 #   ./submit_validation.sh [OPTIONS]
 #
 # Options:
-#   --lmdb-path PATH      Path to ASE LMDB (default: /net/tukwila/omol_4m/train_4M)
-#   --total-entries N     Total entries in dataset (default: 4000000)
-#   --num-jobs N          Number of parallel SLURM jobs (default: 1000)
-#   --sample-size N       Entries per job to sample (default: 5000)
+#   --lmdb-path PATH      Path to ASE LMDB (default: /net/tukwila/omol_all/train)
+#   --num-jobs N          Number of parallel SLURM jobs (default: 10)
+#   --sample-size N       Entries per job to sample (default: 100)
 #   --output-dir DIR      Output directory (default: ./ase_validation_results)
-#   --time TIME           Time limit per job (default: 0:10:00)
+#   --time TIME           Time limit per job (default: 0:20:00)
 #   --mem MEM             Memory per job (default: 4G)
 #   --partition PART      SLURM partition (default: cpu)
 #   --existing-merged F   Path to existing merged parquet to skip (default: none)
@@ -19,15 +18,14 @@
 set -e
 
 # Default configuration
-LMDB_PATH="/net/tukwila/omol_4m/train_4M"
-TOTAL_ENTRIES=4000000
-NUM_JOBS=10000
+LMDB_PATH="/net/tukwila/omol_all/train"
+NUM_JOBS=30000
 SAMPLE_SIZE=1000
-OUTPUT_DIR="./ase_validation_results"
-TIME_LIMIT="0:20:00"
-MEMORY="4G"
+OUTPUT_DIR="/net/scratch/ncorley/ase_validation"
+TIME_LIMIT="0:30:00"
+MEMORY="3G"
 PARTITION="cpu"
-EXISTING_MERGED="/home/ncorley/projects/modelhub/latent/lib/atomworks/.ipd/scripts/ase_validation/validation_merged_11_22_2025_14_00.parquet"
+EXISTING_MERGED="/home/ncorley/projects/modelhub/latent/lib/atomworks/.ipd/scripts/validation_merged_2025_11_23_14_00.parquet"
 DRY_RUN=false
 
 # Parse arguments
@@ -35,10 +33,6 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --lmdb-path)
             LMDB_PATH="$2"
-            shift 2
-            ;;
-        --total-entries)
-            TOTAL_ENTRIES="$2"
             shift 2
             ;;
         --num-jobs)
@@ -94,7 +88,6 @@ echo "=========================================="
 echo "ASE LMDB Validation - SLURM Array Job"
 echo "=========================================="
 echo "LMDB Path:       $LMDB_PATH"
-echo "Total Entries:   $TOTAL_ENTRIES"
 echo "Number of Jobs:  $NUM_JOBS"
 echo "Sample Size:     $SAMPLE_SIZE entries per job"
 echo "Output Dir:      $OUTPUT_DIR"
@@ -105,7 +98,7 @@ echo "Partition:       $PARTITION"
 echo ""
 echo "Strategy: Each job samples $SAMPLE_SIZE random indices,"
 echo "          skipping any already processed by other jobs."
-echo "          No multiprocessing - single-threaded per job."
+echo "          Total entries auto-detected from LMDB."
 echo "=========================================="
 
 if [ "$DRY_RUN" = true ]; then
@@ -134,14 +127,13 @@ cat > "$JOB_SCRIPT" << 'JOBSCRIPT'
 # Configuration (set by submit script)
 LMDB_PATH="LMDB_PLACEHOLDER"
 OUTPUT_DIR="OUTPUT_DIR_PLACEHOLDER"
-TOTAL_ENTRIES=TOTAL_PLACEHOLDER
 SAMPLE_SIZE=SAMPLE_PLACEHOLDER
 SCRIPT_DIR="SCRIPT_DIR_PLACEHOLDER"
 EXISTING_MERGED="EXISTING_MERGED_PLACEHOLDER"
 
 echo "=========================================="
 echo "Job ID: $SLURM_ARRAY_TASK_ID"
-echo "Sampling $SAMPLE_SIZE random indices from $TOTAL_ENTRIES total"
+echo "Sampling $SAMPLE_SIZE random indices"
 echo "Output Dir: $OUTPUT_DIR"
 echo "=========================================="
 echo
@@ -151,12 +143,12 @@ cd "$SCRIPT_DIR/../../../../"
 source .venv/bin/activate
 
 # Run validation (single-threaded, random sampling)
+# Total entries is auto-detected by AseDBDataset
 python "$SCRIPT_DIR/validate_ase.py" \
     --output-dir "$OUTPUT_DIR" \
     --chunk-id $SLURM_ARRAY_TASK_ID \
     --sample-size $SAMPLE_SIZE \
     --lmdb-path "$LMDB_PATH" \
-    --total-entries $TOTAL_ENTRIES \
     --checkpoint-interval 10 \
     --existing-merged "$EXISTING_MERGED"
 
@@ -178,7 +170,6 @@ sed -i "s|MEM_PLACEHOLDER|$MEMORY|g" "$JOB_SCRIPT"
 sed -i "s|PARTITION_PLACEHOLDER|$PARTITION|g" "$JOB_SCRIPT"
 sed -i "s|LAST_JOB_PLACEHOLDER|$LAST_JOB_IDX|g" "$JOB_SCRIPT"
 sed -i "s|LMDB_PLACEHOLDER|$LMDB_PATH|g" "$JOB_SCRIPT"
-sed -i "s|TOTAL_PLACEHOLDER|$TOTAL_ENTRIES|g" "$JOB_SCRIPT"
 sed -i "s|SAMPLE_PLACEHOLDER|$SAMPLE_SIZE|g" "$JOB_SCRIPT"
 sed -i "s|SCRIPT_DIR_PLACEHOLDER|$SCRIPT_DIR|g" "$JOB_SCRIPT"
 sed -i "s|EXISTING_MERGED_PLACEHOLDER|$EXISTING_MERGED|g" "$JOB_SCRIPT"
