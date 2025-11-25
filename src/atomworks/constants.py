@@ -256,14 +256,14 @@ Reference:
 BIOTITE_BOND_TYPE_TO_BOND_ORDER: Final[MappingProxyType[BondType, int]] = MappingProxyType(
     {
         # biotite bond type -> bond order
-        BondType.ANY: 1, # 0
-        BondType.SINGLE: 1, # 1
-        BondType.DOUBLE: 2, # 2
-        BondType.TRIPLE: 3, # 3
-        BondType.QUADRUPLE: 4, # 4
-        BondType.AROMATIC_SINGLE: 1, # 5
-        BondType.AROMATIC_DOUBLE: 2, # 6
-        BondType.AROMATIC_TRIPLE: 3, # 7
+        BondType.ANY: 1,  # 0
+        BondType.SINGLE: 1,  # 1
+        BondType.DOUBLE: 2,  # 2
+        BondType.TRIPLE: 3,  # 3
+        BondType.QUADRUPLE: 4,  # 4
+        BondType.AROMATIC_SINGLE: 1,  # 5
+        BondType.AROMATIC_DOUBLE: 2,  # 6
+        BondType.AROMATIC_TRIPLE: 3,  # 7
     }
 )
 """Mapping from Biotite bond types to bond orders.
@@ -379,6 +379,8 @@ GAP: Final[str] = sys.intern("<G>")
 GAP_ONE_LETTER: Final[str] = sys.intern("-")
 """The one-letter code for a gap token."""
 
+MASKED: Final[str] = sys.intern("<M>")
+"""The (non-standard) code for a masked token."""
 
 # fmt: off
 STANDARD_AA: Final[tuple[str, ...]] = tuple(sorted([

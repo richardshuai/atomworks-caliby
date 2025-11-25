@@ -59,6 +59,9 @@ from atomworks.constants import (
     STANDARD_PURINE_RESIDUES,
     STANDARD_PYRIMIDINE_RESIDUES,
     STANDARD_RNA,
+    UNKNOWN_AA,
+    UNKNOWN_DNA,
+    UNKNOWN_RNA,
 )
 from atomworks.enums import ChainType
 from atomworks.io.utils.atom_array import apply_and_spread
@@ -230,6 +233,15 @@ def is_standard_aa(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F8
     return np.isin(atom_array.res_name, STANDARD_AA)
 
 
+@_register_lazy_annotator("is_standard_or_unknown_aa")
+def is_standard_or_unknown_aa(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
+    """Check if atoms belong to standard or unknown amino acid residue.
+
+    NOTE: May be different than the chain-level "is_protein" in the case of mixed-type chains (e.g., a protein with a non-canonical amino acid).
+    """
+    return np.isin(atom_array.res_name, [*STANDARD_AA, UNKNOWN_AA])
+
+
 @_register_lazy_annotator("is_protein_backbone")
 @_requires_annotations("is_protein")
 def is_protein_backbone(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
@@ -286,6 +298,24 @@ def is_standard_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F
 def is_standard_dna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to standard DNA."""
     return np.isin(atom_array.res_name, STANDARD_DNA)
+
+
+@_register_lazy_annotator("is_standard_or_unknown_dna")
+def is_standard_or_unknown_dna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
+    """Check if atoms belong to standard or unknown DNA residue.
+
+    NOTE: May be different than the chain-level "is_dna" in the case of mixed-type chains (e.g., DNA/RNA hybrids).
+    """
+    return np.isin(atom_array.res_name, [*STANDARD_DNA, UNKNOWN_DNA])
+
+
+@_register_lazy_annotator("is_standard_or_unknown_rna")
+def is_standard_or_unknown_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
+    """Check if atoms belong to standard or unknown RNA residue.
+
+    NOTE: May be different than the chain-level "is_rna" in the case of mixed-type chains (e.g., DNA/RNA hybrids).
+    """
+    return np.isin(atom_array.res_name, [*STANDARD_RNA, UNKNOWN_RNA])
 
 
 @_register_lazy_annotator("is_pyrimidine")
