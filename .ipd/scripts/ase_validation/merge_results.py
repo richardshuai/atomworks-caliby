@@ -106,6 +106,29 @@ def merge_results(
 
         merged["passes_stereochemical_validation"] = merged.apply(calc_stereo_validation, axis=1)
 
+    # Optimize dtypes for memory efficiency
+    # Convert all pb_* columns to bool
+    pb_cols = [c for c in merged.columns if c.startswith("pb_") and c != "pb_bust_failed"]
+    for col in pb_cols:
+        merged[col] = merged[col].astype(bool)
+    merged["pb_bust_failed"] = merged["pb_bust_failed"].astype(bool)
+    merged["rdkit_conversion_failed"] = merged["rdkit_conversion_failed"].astype(bool)
+    merged["passes_stereochemical_validation"] = merged["passes_stereochemical_validation"].astype(bool)
+
+    # Convert dataset to categorical
+    merged["dataset"] = merged["dataset"].astype("category")
+
+    # Downcast integers to smallest types
+    merged["lmdb_idx"] = merged["lmdb_idx"].astype("int32")  # max 100M fits in int32
+    merged["num_atoms"] = merged["num_atoms"].astype("int16")  # max 500 fits in int16
+    merged["charge"] = merged["charge"].astype("int8")  # +/- 10 fits in int8
+
+    # Float32 for energy
+    merged["energy"] = merged["energy"].astype("float32")
+
+    # Truncate source to 100 chars to save memory
+    merged["source"] = merged["source"].apply(lambda s: s if len(s) <= 100 else s[:97] + "...")
+
     # Save merged results
     output_path = Path(output_file)
     output_path.parent.mkdir(parents=True, exist_ok=True)

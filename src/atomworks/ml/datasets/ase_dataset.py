@@ -1,6 +1,5 @@
 """Dataset for loading molecular structures from ASE LMDB databases."""
 
-import bisect
 import logging
 import warnings
 from collections.abc import Callable
@@ -30,28 +29,8 @@ logger = logging.getLogger(__name__)
 class AseDBDataset(MolecularDataset, ExampleIDMixin):
     """Dataset for loading molecular structures from ASE LMDB databases.
 
-    This dataset supports:
-    - Direct loading from ASE LMDB databases (like OMol25)
-    - Optional metadata parquet for efficient filtering
-    - Automatic index caching for fast initialization
-    - Extraction of per-atom and global properties
-
-    The dataset converts ASE Atoms objects to Biotite AtomArray format and
-    extracts DFT properties (energies, forces, charges, etc.) into the standard
-    AtomWorks data format.
-
-    Example:
-        >>> # Without metadata parquet (uses cached index)
-        >>> dataset = AseDBDataset(lmdb_path="/path/to/train_4M", name="omol25_train", transform=my_transform)
-
-        >>> # With metadata parquet for filtering
-        >>> dataset = AseDBDataset(
-        ...     lmdb_path="/path/to/train_4M",
-        ...     metadata_parquet="train_4M_metadata.parquet",
-        ...     filters=["data_id == 'elytes'", "num_atoms < 100"],
-        ...     name="omol25_filtered",
-        ...     transform=my_transform,
-        ... )
+    Uses memory-efficient lazy shard loading - only one shard is kept
+    open at a time (~50MB), instead of all shards (~50MB * num_shards).
     """
 
     def __init__(
@@ -67,7 +46,6 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         per_atom_properties: list[str] | None = None,
         global_properties: list[str] | None = None,
         transform: Callable | None = None,
-        use_cache: bool = True,
         save_failed_examples_to_dir: str | Path | None = None,
     ):
         """Initialize AseDBDataset.
@@ -87,7 +65,6 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
             global_properties: List of global properties to extract from atoms.info
                 into extra_info dict (e.g., energy, charge, spin)
             transform: Transform pipeline to apply to loaded data
-            use_cache: Whether to use/create cached index when no metadata_parquet provided
             save_failed_examples_to_dir: Optional directory to save failed examples for debugging
         """
         super().__init__(
@@ -100,113 +77,111 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         self.lmdb_path = Path(lmdb_path)
         self.metadata_parquet = metadata_parquet
         self.id_column = id_column
-        self.use_cache = use_cache
 
         # Set default properties if not provided
         self.per_atom_properties = per_atom_properties or []
         self.global_properties = global_properties or []
 
-        # Open LMDB connection(s)
-        # Handle both single file and directory with multiple .aselmdb files
-        logger.info(f"Connecting to ASE LMDB database at {self.lmdb_path}")
-        self.dbs, self.db_ids = self._connect_databases(self.lmdb_path)
+        # Discover shard files without connecting (lazy loading)
+        self._filepaths = self._discover_shards(self.lmdb_path)
+        self._num_shards = len(self._filepaths)
+        logger.info(f"Found {self._num_shards} shard(s) at {self.lmdb_path}")
 
-        # Build cumulative index for efficient lookup across databases
-        # This follows fairchem's approach for sharded databases
-        idlens = [len(ids) for ids in self.db_ids]
-        total_entries = sum(idlens)
+        # Auto-detect entries per shard and total (connects to first+last shards briefly)
+        self._entries_per_shard, self._total_entries = self._detect_shard_info()
+        logger.info(f"Entries per shard: {self._entries_per_shard:,}, total: {self._total_entries:,}")
 
-        if total_entries == 0:
-            raise ValueError(f"No entries found in LMDB database at {self.lmdb_path}")
+        # Lazy shard state - only one shard open at a time
+        self._current_shard_idx: int | None = None
+        self._current_db = None
+        self._current_ids: list | None = None
 
-        # Keep as numpy array for efficient bisect operations
-        self._idlen_cumulative = np.cumsum(idlens)
-
-        # Build index mapping
+        # Index mapping: None for unfiltered (identity), numpy array for filtered
         if metadata_parquet is not None:
             logger.info(f"Loading metadata from {metadata_parquet}")
             self.metadata_df = self._load_metadata(metadata_parquet, filters, columns_to_load)
-            self.indices = self.metadata_df[id_column].tolist()
+            self.indices: np.ndarray | None = np.array(self.metadata_df[id_column], dtype=np.int64)
+            logger.info(f"Filtered dataset contains {len(self.indices):,} examples")
         else:
-            # Use all entries - sequential indices across all databases
             self.metadata_df = None
-            self.indices = list(range(total_entries))
+            self.indices = None  # Use identity mapping: indices[i] == i
+            logger.info(f"Dataset contains {self._total_entries:,} examples")
 
-        # Build reverse mapping for O(1) id_to_idx lookups
-        self._id_to_idx_map = {str(idx): i for i, idx in enumerate(self.indices)}
-
-        logger.info(f"Dataset contains {len(self.indices):,} examples")
-
-    def _connect_databases(self, lmdb_path: Path) -> tuple[list, list]:
-        """Connect to ASE database file(s).
-
-        Handles both single .aselmdb files and directories containing multiple files.
-        Similar to fairchem's approach for handling sharded LMDB databases.
+    def _discover_shards(self, lmdb_path: Path) -> list[str]:
+        """Discover shard files without connecting to them.
 
         Args:
             lmdb_path: Path to database file or directory
 
         Returns:
-            Tuple of (list of database connections, list of id lists per database)
+            List of file paths to shard files
         """
-        # Determine file paths to connect to
         if lmdb_path.is_file():
-            filepaths = [str(lmdb_path)]
+            return [str(lmdb_path)]
         elif lmdb_path.is_dir():
-            # Find all .aselmdb files in directory
             filepaths = sorted(glob(str(lmdb_path / "*.aselmdb")))
             if not filepaths:
                 raise ValueError(f"No .aselmdb files found in directory: {lmdb_path}")
+            return filepaths
         else:
             raise ValueError(f"Path does not exist: {lmdb_path}")
 
-        logger.info(f"Found {len(filepaths)} database file(s)")
+    def _detect_shard_info(self) -> tuple[int, int]:
+        """Detect entries per shard and total entries.
 
-        # Connect to each database
-        dbs = []
-        connection_errors = []
-        for path in filepaths:
+        Connects to first and last shards to determine accurate counts.
+
+        Returns:
+            Tuple of (entries_per_shard, total_entries)
+        """
+
+        def get_shard_count(path: str) -> int:
+            connect_args = {"readonly": True, "use_lock_file": False} if "aselmdb" in path else {}
+            db = ase.db.connect(path, **connect_args)
             try:
-                # Connect with readonly and no lock file for multi-process safety
-                # Following fairchem's approach
-                connect_args = {}
-                if "aselmdb" in path:
-                    connect_args["readonly"] = True
-                    connect_args["use_lock_file"] = False
+                return len(db.ids) if hasattr(db, "ids") else db.count()
+            finally:
+                if hasattr(db, "close"):
+                    db.close()
 
-                db = ase.db.connect(path, **connect_args)
-                dbs.append(db)
-                logger.info(f"Connected to {Path(path).name}")
-            except Exception as e:
-                error_msg = f"Failed to connect to {Path(path).name}: {type(e).__name__}: {e}"
-                logger.error(error_msg)
-                connection_errors.append(error_msg)
+        first_count = get_shard_count(self._filepaths[0])
 
-        if not dbs:
-            error_summary = "\n".join(connection_errors) if connection_errors else "Unknown connection error"
-            raise ValueError(
-                f"Could not connect to any databases at {lmdb_path}\n"
-                f"Expected .aselmdb files or ASE-compatible database files.\n"
-                f"Connection errors:\n{error_summary}"
-            )
+        if self._num_shards == 1:
+            return first_count, first_count
 
-        # Get IDs from each database
-        db_ids = []
-        for i, db in enumerate(dbs):
-            if hasattr(db, "ids"):
-                # Fast path: database has ids attribute (LMDB backend)
-                db_ids.append(db.ids)
-                logger.debug(f"Database {i} has {len(db.ids)} entries")
-            else:
-                # Slow path: iterate to get ids (SQLite, JSON backends)
-                ids = [row.id for row in db.select()]
-                db_ids.append(ids)
-                logger.debug(f"Database {i} has {len(ids)} entries")
+        # Check last shard to handle variable shard sizes
+        last_count = get_shard_count(self._filepaths[-1])
 
-        total_count = sum(len(ids) for ids in db_ids)
-        logger.info(f"Total structures across all databases: {total_count:,}")
+        # Calculate total: assume all shards except last have first_count entries
+        total = (self._num_shards - 1) * first_count + last_count
+        return first_count, total
 
-        return dbs, db_ids
+    def _ensure_shard_loaded(self, shard_idx: int) -> None:
+        """Load a shard if not already loaded, closing previous shard.
+
+        Args:
+            shard_idx: Index of shard to load (0-based)
+        """
+        if self._current_shard_idx == shard_idx:
+            return
+
+        # Close previous shard
+        if self._current_db is not None:
+            if hasattr(self._current_db, "close"):
+                try:
+                    self._current_db.close()
+                except Exception as e:
+                    logger.warning(f"Failed to close shard {self._current_shard_idx}: {e}")
+            self._current_db = None
+            self._current_ids = None
+
+        # Open new shard
+        path = self._filepaths[shard_idx]
+        connect_args = {"readonly": True, "use_lock_file": False} if "aselmdb" in path else {}
+        self._current_db = ase.db.connect(path, **connect_args)
+        self._current_ids = self._current_db.ids if hasattr(self._current_db, "ids") else None
+        self._current_shard_idx = shard_idx
+        logger.debug(f"Loaded shard {shard_idx}: {Path(path).name}")
 
     def _load_metadata(
         self, parquet_path: str, filters: list[str] | None, columns_to_load: list[str] | None
@@ -247,7 +222,9 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
 
     def __len__(self) -> int:
         """Return the number of examples in the dataset."""
-        return len(self.indices)
+        if self.indices is not None:
+            return len(self.indices)
+        return self._total_entries
 
     def __getitem__(self, idx: int) -> Any:
         """Load and transform an example by index.
@@ -261,43 +238,49 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         Raises:
             IndexError: If index is out of bounds
         """
-        # Get the global index for this example (Python handles negative indexing)
-        try:
-            global_idx = self.indices[idx]
-        except IndexError as e:
-            raise IndexError(f"Index {idx} out of range for dataset with {len(self.indices)} examples") from e
+        # Handle negative indexing
+        dataset_len = len(self)
+        if idx < 0:
+            idx = dataset_len + idx
+        if idx < 0 or idx >= dataset_len:
+            raise IndexError(f"Index {idx} out of range for dataset with {dataset_len} examples")
 
-        # Map global index to database and row ID using bisect_right
-        # This follows fairchem's approach exactly
-        # For _idlen_cumulative = [10, 20, 30]:
-        #   - global_idx=9 -> db_idx=0, el_idx=9 (last item of first DB)
-        #   - global_idx=10 -> db_idx=1, el_idx=0 (first item of second DB)
-        #   - global_idx=20 -> db_idx=2, el_idx=0 (first item of third DB)
-        db_idx = bisect.bisect_right(self._idlen_cumulative, global_idx)
+        # Get the global LMDB index (identity if no filter, otherwise lookup)
+        global_idx = idx if self.indices is None else int(self.indices[idx])
 
-        # Calculate the index within that specific database
-        el_idx = global_idx if db_idx == 0 else global_idx - self._idlen_cumulative[db_idx - 1]
+        # Calculate which shard this index belongs to
+        shard_idx = global_idx // self._entries_per_shard
+        local_idx = global_idx % self._entries_per_shard
 
-        if el_idx < 0 or el_idx >= len(self.db_ids[db_idx]):
-            raise IndexError(
-                f"Invalid element index {el_idx} for database {db_idx} "
-                f"(global_idx={global_idx}, db has {len(self.db_ids[db_idx])} entries)"
-            )
+        if shard_idx >= self._num_shards:
+            raise IndexError(f"Global index {global_idx} exceeds dataset bounds ({self._total_entries})")
 
-        # Get the actual row ID from the database
-        lmdb_row_id = self.db_ids[db_idx][el_idx]
+        # Ensure correct shard is loaded (lazy loading)
+        self._ensure_shard_loaded(shard_idx)
 
-        # Fetch atoms from appropriate database
+        # Get the actual row ID from the currently loaded shard
+        # Note: Some shards may have fewer entries than _entries_per_shard
+        if self._current_ids is not None:
+            actual_shard_len = len(self._current_ids)
+            if local_idx >= actual_shard_len:
+                # This shard has fewer entries - index is out of bounds for the dataset
+                raise IndexError(
+                    f"Index {idx} (global {global_idx}) exceeds dataset bounds. "
+                    f"Shard {shard_idx} has {actual_shard_len} entries, not {self._entries_per_shard}."
+                )
+            lmdb_row_id = self._current_ids[local_idx]
+        else:
+            lmdb_row_id = local_idx + 1  # ASE uses 1-based IDs
+
+        # Fetch atoms from currently loaded shard
         # RATIONALE: ASE's LMDB backend doesn't expose a public method to get rows by ID.
         # _get_row() is the internal method used by ASE's own .get() method.
-        # This pattern is used by fairchem and is stable across ASE versions 3.x.
-        atoms_row = self.dbs[db_idx]._get_row(lmdb_row_id)
+        atoms_row = self._current_db._get_row(lmdb_row_id)
 
         # Use example_id for tracking (use source attribute as example_id)
         example_id = atoms_row.data["source"]
 
         # Apply loader to convert atoms_row to data dictionary
-        # Loader receives (atoms_row, example_id, global_idx) and returns dict with atom_array
         data = self._apply_loader((atoms_row, example_id, global_idx))
 
         # Apply transform pipeline
@@ -317,14 +300,19 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         """
         try:
             global_idx = int(example_id)
-            return global_idx in self.indices
         except (ValueError, TypeError):
             return False
 
-    def id_to_idx(self, example_id: str | list[str]) -> int | list[int]:
-        """Convert example ID(s) to index(es).
+        if self.indices is None:
+            # Unfiltered: any valid index is in the dataset
+            return 0 <= global_idx < self._total_entries
 
-        Uses O(1) dictionary lookup for efficient conversion.
+        # Filtered: check if index is in the filtered set
+        pos = np.searchsorted(self.indices, global_idx)
+        return pos < len(self.indices) and self.indices[pos] == global_idx
+
+    def id_to_idx(self, example_id: str | list[str]) -> int | list[int]:
+        """Convert example ID(s) to dataset index(es).
 
         Args:
             example_id: Single ID or list of IDs (global LMDB indices as strings)
@@ -336,36 +324,30 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
             ValueError: If example_id is not found in the dataset
         """
         if isinstance(example_id, list):
-            result = []
-            for eid in example_id:
-                idx = self._id_to_idx_map.get(str(eid))
-                if idx is None:
-                    # Provide helpful error message
-                    if not self.indices:
-                        raise ValueError(f"Example ID '{eid}' not found - dataset is empty")
-                    raise ValueError(
-                        f"Example ID '{eid}' not found in dataset. "
-                        f"Dataset contains {len(self.indices)} examples with IDs from "
-                        f"{self.indices[0]} to {self.indices[-1]}."
-                    )
-                result.append(idx)
-            return result
+            return [self._single_id_to_idx(eid) for eid in example_id]
+        return self._single_id_to_idx(example_id)
 
-        # Single ID lookup
-        idx = self._id_to_idx_map.get(str(example_id))
-        if idx is None:
-            # Provide helpful error message
-            if not self.indices:
-                raise ValueError(f"Example ID '{example_id}' not found - dataset is empty")
-            raise ValueError(
-                f"Example ID '{example_id}' not found in dataset. "
-                f"Dataset contains {len(self.indices)} examples with IDs from "
-                f"{self.indices[0]} to {self.indices[-1]}."
-            )
-        return idx
+    def _single_id_to_idx(self, example_id: str) -> int:
+        """Convert a single example ID to dataset index."""
+        try:
+            global_idx = int(example_id)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Example ID '{example_id}' is not a valid integer") from e
+
+        if self.indices is None:
+            # Unfiltered: identity mapping
+            if 0 <= global_idx < self._total_entries:
+                return global_idx
+            raise ValueError(f"Example ID '{example_id}' out of range [0, {self._total_entries})")
+
+        # Filtered: binary search
+        pos = int(np.searchsorted(self.indices, global_idx))
+        if pos < len(self.indices) and self.indices[pos] == global_idx:
+            return pos
+        raise ValueError(f"Example ID '{example_id}' not found in filtered dataset " f"({len(self.indices)} examples)")
 
     def idx_to_id(self, idx: int | list[int]) -> str | list[str]:
-        """Convert index(es) to example ID(s).
+        """Convert dataset index(es) to example ID(s).
 
         Args:
             idx: Single index or list of indices (0 to len-1)
@@ -374,22 +356,31 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
             Corresponding example ID(s) as string(s) (global LMDB indices)
         """
         if isinstance(idx, list):
-            return [str(self.indices[i]) for i in idx]
+            return [self._single_idx_to_id(i) for i in idx]
+        return self._single_idx_to_id(idx)
+
+    def _single_idx_to_id(self, idx: int) -> str:
+        """Convert a single dataset index to example ID."""
+        if self.indices is None:
+            # Unfiltered: identity mapping
+            return str(idx)
         return str(self.indices[idx])
 
     def close(self) -> None:
-        """Explicitly close database connections.
+        """Explicitly close database connection.
 
         This method should be called when you're done using the dataset to ensure
-        database connections are properly closed. Also called automatically on deletion.
+        the database connection is properly closed. Also called automatically on deletion.
         """
-        if hasattr(self, "dbs"):
-            for i, db in enumerate(self.dbs):
-                if hasattr(db, "close"):
-                    try:
-                        db.close()
-                    except Exception as e:
-                        logger.warning(f"Failed to close database {i}: {e}")
+        if self._current_db is not None:
+            if hasattr(self._current_db, "close"):
+                try:
+                    self._current_db.close()
+                except Exception as e:
+                    logger.warning(f"Failed to close shard {self._current_shard_idx}: {e}")
+            self._current_db = None
+            self._current_ids = None
+            self._current_shard_idx = None
 
     def __enter__(self):
         """Context manager entry."""

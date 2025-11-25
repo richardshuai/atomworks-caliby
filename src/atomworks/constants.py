@@ -255,18 +255,24 @@ Reference:
 
 BIOTITE_BOND_TYPE_TO_BOND_ORDER: Final[MappingProxyType[BondType, int]] = MappingProxyType(
     {
-        # biotite bond type -> (rdkit bond type, is_aromatic)
-        BondType.ANY: 1,
-        BondType.SINGLE: 1,
-        BondType.DOUBLE: 2,
-        BondType.TRIPLE: 3,
-        BondType.QUADRUPLE: 4,
-        BondType.AROMATIC_SINGLE: 1,
-        BondType.AROMATIC_DOUBLE: 2,
-        BondType.AROMATIC_TRIPLE: 3,
+        # biotite bond type -> bond order
+        BondType.ANY: 1,  # 0
+        BondType.SINGLE: 1,  # 1
+        BondType.DOUBLE: 2,  # 2
+        BondType.TRIPLE: 3,  # 3
+        BondType.QUADRUPLE: 4,  # 4
+        BondType.AROMATIC_SINGLE: 1,  # 5
+        BondType.AROMATIC_DOUBLE: 2,  # 6
+        BondType.AROMATIC_TRIPLE: 3,  # 7
     }
 )
-"""Mapping from Biotite bond types to bond orders."""
+"""Mapping from Biotite bond types to bond orders.
+
+NOTE: We do not include BondType.COORDINATION (8) and BondType.AROMATIC (9) as bond orders are not well-defined; they should be handled separately.
+
+Reference:
+    `biotite.structure.BondType <https://www.biotite-python.org/latest/apidoc/biotite.structure.BondType.html>`_
+"""
 
 DEFAULT_VALENCE = {
     "H": 1,
@@ -373,6 +379,8 @@ GAP: Final[str] = sys.intern("<G>")
 GAP_ONE_LETTER: Final[str] = sys.intern("-")
 """The one-letter code for a gap token."""
 
+MASKED: Final[str] = sys.intern("<M>")
+"""The (non-standard) code for a masked token."""
 
 # fmt: off
 STANDARD_AA: Final[tuple[str, ...]] = tuple(sorted([

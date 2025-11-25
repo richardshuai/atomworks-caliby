@@ -82,7 +82,11 @@ class SampleDesignTask(Transform):
             logger.info(
                 f"Removed {len(removed_design_task_names)} design tasks with zero frequency: {', '.join(removed_design_task_names)}"
             )
-        assert design_tasks_to_use, "No design tasks with non-zero frequency found"
+
+        if not design_tasks_to_use:
+            logger.warning(
+                "No design tasks with non-zero frequency found. " "SampleDesignTask will act as an identity transform."
+            )
 
         self.design_tasks = design_tasks_to_use
         self.rng = rng
@@ -95,15 +99,22 @@ class SampleDesignTask(Transform):
         2. Samples one task based on the relative frequencies
         3. Adds the sampled task name to the data dictionary
 
+        If no design tasks are configured, acts as an identity transform.
+
         Args:
             data: Input data dictionary containing atom array and other fields.
 
         Returns:
-            Data dictionary with the sampled task name added under the "task" key.
+            Data dictionary with the sampled task name added under the "task" key,
+            or unchanged if no design tasks are configured.
 
         Raises:
             AssertionError: If no eligible tasks are found for the current data.
         """
+        # Early return if no design tasks configured (identity transform)
+        if not self.design_tasks:
+            return data
+
         # 1. Build list of eligible tasks
         eligible_tasks, frequencies = [], []
 
