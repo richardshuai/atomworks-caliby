@@ -31,7 +31,7 @@ from atomworks.ml.utils.token import get_token_count, get_token_starts, token_it
 logger = getLogger(__name__)
 
 
-def atom_array_to_resnames(
+def atom_array_to_encoded_resnames(
     atom_array: AtomArray,
     encoding: TokenEncoding,
     atomize_token: str = "<A>",
@@ -40,13 +40,15 @@ def atom_array_to_resnames(
 
     Encodes at token level, then spreads to atom level for efficiency.
     Handles proteins, DNA, RNA, atomized residues (ligands, ions), and unknown tokens.
-    For atomized residues, uses the atomize_token. For masked/to-be-generated
-    residues, use the `<M>` (mask) token.
+
+    For atomized residues, uses the atomize_token.
+    For masked/to-be-generated residues, use the `<M>` (mask) token.
 
     Args:
         atom_array: AtomArray with token_id annotation.
         encoding: TokenEncoding defining the mapping (e.g., UNIFIED_ATOM37_ENCODING).
         atomize_token: Token to use for atomized residues. Defaults to `<A>`.
+
     Returns:
         Array of token type indices with shape [n_atoms], where each index
         corresponds to encoding.token_to_idx. Each atom gets the encoding of its token.
@@ -68,6 +70,7 @@ def atom_array_to_resnames(
         # Use atomize_token
         if (has_atomize and token.atomize[0]) or len(token) == 1:
             token_name = atomize_token
+
         # Case 2: residue tokens (proteins, DNA, RNA)
         # Use res_name as token identifier
         else:
@@ -113,6 +116,9 @@ def atom_array_to_encoding(
           The number of atoms in a token corresponds to the number of residues in the atom array, unless
           the atom array has the `atomize` annotation, in which case the number of tokens may exceed the
           number of residues.
+
+    TODO: Refactor so that `atom_array_to_encoding` uses `atom_array_to_encoded_resnames` internally.
+    TODO: Vectorize
 
     Args:
         - atom_array (AtomArray): The atom array containing polymer information. If the atom array has the

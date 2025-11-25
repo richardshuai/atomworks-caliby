@@ -30,7 +30,7 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
     """Dataset for loading molecular structures from ASE LMDB databases.
 
     Uses memory-efficient lazy shard loading - only one shard is kept
-    open at a time (~50MB), instead of all shards (~50MB × num_shards).
+    open at a time (~50MB), instead of all shards (~50MB * num_shards).
     """
 
     def __init__(
