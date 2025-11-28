@@ -14,6 +14,7 @@ from atomworks.io.transforms.atom_array import (
     get_connected_nodes,
 )
 from atomworks.io.utils.ase_conversions import ase_to_atom_array
+from atomworks.io.utils.chain import create_chain_id_generator
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def _ase_loader_function(
     mol = atom_array_to_rdkit(
         atom_array,
         infer_bonds=True,
-        timeout_seconds=1,
+        timeout_seconds=2,
         hydrogen_policy="keep",
         system_charge=atoms.info.get("charge", 0),
     )
@@ -53,15 +54,16 @@ def _ase_loader_function(
     connected_atoms = get_connected_nodes(*get_coarse_graph_as_nodes_and_edges(atom_array, "atom_id"))
 
     # Assign chain IDs based on connected components
-    for chain_idx, connected_atom in enumerate(connected_atoms):
-        chain_letter = chr(ord("A") + chain_idx)
-        res_number = chain_idx + 1
+    chain_id_gen = create_chain_id_generator()
+    for connected_atom in connected_atoms:
+        chain_letter = next(chain_id_gen)
+        res_number = 1
         element_counts = {}
 
         for atom_id in connected_atom:
             atom_array.chain_id[atom_array.atom_id == atom_id] = chain_letter
             atom_array.res_id[atom_array.atom_id == atom_id] = res_number
-            atom_array.res_name[atom_array.atom_id == atom_id] = f"L:{chain_letter}:{res_number}"
+            atom_array.res_name[atom_array.atom_id == atom_id] = f"{chain_letter}:{res_number}"
 
             element = atom_array.element[atom_array.atom_id == atom_id][0]
             element_counts[element] = element_counts.get(element, 0) + 1

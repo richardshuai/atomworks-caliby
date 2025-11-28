@@ -750,7 +750,7 @@ def atom_array_to_rdkit(
             # (Fast) Try standard rdDetermineBonds first
             # Suppress YAeHMOP warnings that write directly to stderr
             with _suppress_stderr_fd():
-                rdDetermineBonds.DetermineBonds(mol, useHueckel=True, charge=system_charge, maxIterations=5_000)
+                rdDetermineBonds.DetermineBonds(mol, useHueckel=True, charge=system_charge, maxIterations=10_000)
         except Exception as err_rdkit:
             # (Slow) Transitionmetal complexes (TMC) - fall back to xyz2mol_tm
             try:

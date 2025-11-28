@@ -55,7 +55,7 @@ def atom_array_to_encoded_resnames(
 
     Examples:
         >>> from atomworks.ml.encoding_definitions import UNIFIED_ATOM37_ENCODING
-        >>> resnames = atom_array_to_resnames(atom_array, UNIFIED_ATOM37_ENCODING)
+        >>> resnames = atom_array_to_encoded_resnames(atom_array, UNIFIED_ATOM37_ENCODING)
         >>> # resnames[i] is the encoded residue type for atom i
     """
     n_tokens = get_token_count(atom_array)

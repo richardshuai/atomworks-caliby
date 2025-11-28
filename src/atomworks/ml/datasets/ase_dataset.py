@@ -87,9 +87,9 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         self._num_shards = len(self._filepaths)
         logger.info(f"Found {self._num_shards} shard(s) at {self.lmdb_path}")
 
-        # Auto-detect entries per shard and total (connects to first+last shards briefly)
-        self._entries_per_shard, self._total_entries = self._detect_shard_info()
-        logger.info(f"Entries per shard: {self._entries_per_shard:,}, total: {self._total_entries:,}")
+        # Auto-detect shard sizes and build cumulative offset array
+        self._entries_per_shard, self._total_entries, self._shard_offsets = self._detect_shard_info()
+        logger.info(f"Entries per shard (first): {self._entries_per_shard:,}, total: {self._total_entries:,}")
 
         # Lazy shard state - only one shard open at a time
         self._current_shard_idx: int | None = None
@@ -126,13 +126,15 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         else:
             raise ValueError(f"Path does not exist: {lmdb_path}")
 
-    def _detect_shard_info(self) -> tuple[int, int]:
-        """Detect entries per shard and total entries.
+    def _detect_shard_info(self) -> tuple[int, int, np.ndarray]:
+        """Detect shard sizes and build cumulative offset array.
 
-        Connects to first and last shards to determine accurate counts.
+        Connects to all shards to determine accurate counts and build offsets
+        for handling non-uniform shard sizes.
 
         Returns:
-            Tuple of (entries_per_shard, total_entries)
+            Tuple of (entries_per_shard, total_entries, shard_offsets) where
+            shard_offsets[i] is the cumulative count before shard i.
         """
 
         def get_shard_count(path: str) -> int:
@@ -144,17 +146,15 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
                 if hasattr(db, "close"):
                     db.close()
 
-        first_count = get_shard_count(self._filepaths[0])
+        # Build cumulative offset array by querying each shard
+        shard_counts = [get_shard_count(path) for path in self._filepaths]
+        shard_offsets = np.zeros(self._num_shards + 1, dtype=np.int64)
+        shard_offsets[1:] = np.cumsum(shard_counts)
 
-        if self._num_shards == 1:
-            return first_count, first_count
+        first_count = shard_counts[0]
+        total = int(shard_offsets[-1])
 
-        # Check last shard to handle variable shard sizes
-        last_count = get_shard_count(self._filepaths[-1])
-
-        # Calculate total: assume all shards except last have first_count entries
-        total = (self._num_shards - 1) * first_count + last_count
-        return first_count, total
+        return first_count, total, shard_offsets
 
     def _ensure_shard_loaded(self, shard_idx: int) -> None:
         """Load a shard if not already loaded, closing previous shard.
@@ -248,11 +248,13 @@ class AseDBDataset(MolecularDataset, ExampleIDMixin):
         # Get the global LMDB index (identity if no filter, otherwise lookup)
         global_idx = idx if self.indices is None else int(self.indices[idx])
 
-        # Calculate which shard this index belongs to
-        shard_idx = global_idx // self._entries_per_shard
-        local_idx = global_idx % self._entries_per_shard
+        # Find which shard this index belongs to using binary search on cumulative offsets
+        # searchsorted returns the index where global_idx would be inserted to maintain order
+        # Using 'right' and subtracting 1 gives us the shard containing global_idx
+        shard_idx = int(np.searchsorted(self._shard_offsets, global_idx, side="right") - 1)
+        local_idx = global_idx - int(self._shard_offsets[shard_idx])
 
-        if shard_idx >= self._num_shards:
+        if shard_idx >= self._num_shards or shard_idx < 0:
             raise IndexError(f"Global index {global_idx} exceeds dataset bounds ({self._total_entries})")
 
         # Ensure correct shard is loaded (lazy loading)
