@@ -389,7 +389,7 @@ def parse_atom_array(
     fix_bond_types: bool = True,
     convert_mse_to_met: bool = False,
     hydrogen_policy: Literal["keep", "remove", "infer"] = "keep",
-    build_assembly: Literal["first", "all", "_spoof"] | list[str] | tuple[str] | None = "all",
+    build_assembly: Literal["first", "all"] | list[str] | tuple[str] | None = "all",
     extra_fields: list[str] | Literal["all"] | None = None,
 ) -> dict[str, Any]:
     """Parse, clean and augment an AtomArray or AtomArrayStack.
@@ -402,11 +402,6 @@ def parse_atom_array(
             will be created.
         _cif_file (pdbx.CIFFile | pdbx.BinaryCIFFile | None, optional): The biotite CIF file object to use for parsing.
             Intended for internal use only. Defaults to None, corresponding to direct AtomArray parsing.
-        build_assembly (Literal["first", "all", "_spoof"] | list[str] | tuple[str] | None, optional): Same as in parse,
-            with the addition of a "_spoof" option that will create a single assembly for the entire AtomArray. This
-            is risky as it will reset the transformation_id, and is intended for internal use only.
-
-
         **additional_kwargs: See `parse` documentation for details.
 
     Returns:
@@ -420,7 +415,6 @@ def parse_atom_array(
         - add_missing_atoms must be False
         - hydrogen_policy cannot be "infer"
         - convert_mse_to_met must be False
-        - build_assembly cannot be "_spoof"
         - _cif_file must be None
 
         These restrictions ensure that 2D annotations remain aligned with atom indices.
@@ -448,10 +442,17 @@ def parse_atom_array(
                 "MSE to MET conversion is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack. "
                 "Convert to AtomArray using atom_array.as_atom_array() first, or pass convert_mse_to_met=False."
             )
-        if build_assembly == "_spoof":
-            raise ValueError(
-                "The '_spoof' build_assembly option is not supported when parsing an AtomArrayPlus or AtomArrayPlusStack."
-            )
+
+    if build_assembly == "_spoof":
+        import warnings
+
+        warnings.warn(
+            "build_assembly='_spoof' is deprecated and will be removed in a future version. "
+            "Use build_assembly='all' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        build_assembly = "all"
 
     # ... ensure that the input AtomArray or AtomArrayStack has a BondList
     if atom_array_or_stack.bonds is None:
@@ -492,11 +493,6 @@ def parse_atom_array(
 
     if exists(extra_fields) and not exists(_cif_file):
         logger.warning("The `extra_fields` argument will be ignored if there is no CIF file input.")
-    if exists(build_assembly) and build_assembly != "_spoof" and not exists(_cif_file):
-        logger.warning(
-            "When parsing an AtomArray directly, `build_assembly` will be ignored unless set to '_spoof' (not advised)."
-        )
-        build_assembly = None
 
     if "label_entity_id" not in atom_array_or_stack.get_annotation_categories():
         if "chain_entity" in atom_array_or_stack.get_annotation_categories():
@@ -633,34 +629,31 @@ def parse_atom_array(
             if msa_path != "":
                 data_dict["chain_info"][chain]["msa_path"] = Path(msa_path)
 
-    # ... optionally, build assemblies and add assembly-specifc annotation (instance IDs like `chain_iid`, `pn_unit_iid`, `molecule_iid`)
+    # ... build assemblies and add assembly-specific annotations (instance IDs like `chain_iid`, `pn_unit_iid`, `molecule_iid`)
     if exists(build_assembly):
-        assert (
-            build_assembly in ["first", "all", "_spoof"] or isinstance(build_assembly, list | tuple)
-        ), "Invalid `build_assembly` option. Must be 'first', 'all', '_spoof', or a list/tuple of assembly IDs as strings."
+        assert build_assembly in ["first", "all"] or isinstance(
+            build_assembly, list | tuple
+        ), "Invalid `build_assembly` option. Must be 'first', 'all', or a list/tuple of assembly IDs as strings."
 
-        if exists(_cif_file) and "pdbx_struct_assembly" in data_dict["cif_block"]:
-            # ... build the assemblies from the CIF file, adding the `iid` annotations as we do so
-            assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
-            struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
-        else:
-            # If there are no assemblies, set the `assembly_gen_category` and `struct_oper_category` to identity operations
-            assembly_gen_category = get_identity_assembly_gen_category(list(data_dict["chain_info"].keys()))
-            struct_oper_category = get_identity_op_expr_category()
-
-        data_dict["assemblies"] = build_assemblies_from_asym_unit(
-            assembly_gen_category=assembly_gen_category,
-            struct_oper_category=struct_oper_category,
-            asym_unit_atom_array_stack=asym_unit_stack,
-            build_assembly=build_assembly if build_assembly != "_spoof" else "all",
-            fix_symmetry_centers=fix_ligands_at_symmetry_centers,
-        )
-
-        # Store the assembly generation and struct oper categories in extra_info for caching and future reference
-        data_dict["extra_info"]["assembly_gen_category"] = assembly_gen_category
-        data_dict["extra_info"]["struct_oper_category"] = struct_oper_category
+    # Determine assembly categories: use CIF data if build_assembly is set, otherwise identity operations
+    if exists(build_assembly) and exists(_cif_file) and "pdbx_struct_assembly" in data_dict["cif_block"]:
+        assembly_gen_category = data_dict["cif_block"]["pdbx_struct_assembly_gen"]
+        struct_oper_category = data_dict["cif_block"]["pdbx_struct_oper_list"]
     else:
-        data_dict["assemblies"] = {}
+        assembly_gen_category = get_identity_assembly_gen_category(list(data_dict["chain_info"].keys()))
+        struct_oper_category = get_identity_op_expr_category()
+
+    data_dict["assemblies"] = build_assemblies_from_asym_unit(
+        assembly_gen_category=assembly_gen_category,
+        struct_oper_category=struct_oper_category,
+        asym_unit_atom_array_stack=asym_unit_stack,
+        build_assembly=build_assembly or "all",
+        fix_symmetry_centers=fix_ligands_at_symmetry_centers,
+    )
+
+    # Store the assembly generation and struct oper categories in extra_info for caching and future reference
+    data_dict["extra_info"]["assembly_gen_category"] = assembly_gen_category
+    data_dict["extra_info"]["struct_oper_category"] = struct_oper_category
 
     # Handle instances where ph information is included in crystallization conditions
     if exists(_cif_file) and "exptl_crystal_grow" in _cif_file.block:
@@ -820,7 +813,7 @@ def _parse_from_pdb(filename: os.PathLike, **parse_from_cif_kwargs) -> dict[str,
     # ... parse the CIF block into a dictionary
     parse_from_cif_kwargs["file_type"] = "pdb"
     parse_from_cif_kwargs["extra_fields"] = None
-    parse_from_cif_kwargs["build_assembly"] = "_spoof"
+    parse_from_cif_kwargs["build_assembly"] = "all"
 
     kwargs_to_pass = {k: v for k, v in parse_from_cif_kwargs.items() if k not in ["model", "file_type"]}
     data_dict = parse_atom_array(atom_array_stack, _cif_file=None, **kwargs_to_pass)
