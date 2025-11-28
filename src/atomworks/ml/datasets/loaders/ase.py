@@ -14,19 +14,9 @@ from atomworks.io.transforms.atom_array import (
     get_connected_nodes,
 )
 from atomworks.io.utils.ase_conversions import ase_to_atom_array
+from atomworks.io.utils.chain import create_chain_id_generator
 
 logger = logging.getLogger(__name__)
-
-
-def _index_to_chain_id(idx: int) -> str:
-    """Convert index to PDB-style chain ID (A-Z, then AA-ZZ, etc.)."""
-    result = ""
-    idx += 1  # 1-indexed for the math
-    while idx > 0:
-        idx -= 1
-        result = chr(ord("A") + idx % 26) + result
-        idx //= 26
-    return result
 
 
 def _ase_loader_function(
@@ -64,8 +54,9 @@ def _ase_loader_function(
     connected_atoms = get_connected_nodes(*get_coarse_graph_as_nodes_and_edges(atom_array, "atom_id"))
 
     # Assign chain IDs based on connected components
-    for chain_idx, connected_atom in enumerate(connected_atoms):
-        chain_letter = _index_to_chain_id(chain_idx)
+    chain_id_gen = create_chain_id_generator()
+    for connected_atom in connected_atoms:
+        chain_letter = next(chain_id_gen)
         res_number = 1
         element_counts = {}
 
