@@ -765,7 +765,7 @@ def add_iid_annotations_to_assemblies(
     for assembly_id, assembly in assemblies_dict.items():
         assert (
             "transformation_id" in assembly.get_annotation_categories()
-        ), "Transformation IDs must be present in the assembly AtomArrayStack to add instance IDs."
+        ), f"Assembly '{assembly_id}' missing transformation_id annotation (required for instance IDs)"
 
         # Add (if not already present):
         # ... chain IIDs

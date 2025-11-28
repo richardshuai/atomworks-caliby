@@ -402,6 +402,8 @@ def parse_atom_array(
             will be created.
         _cif_file (pdbx.CIFFile | pdbx.BinaryCIFFile | None, optional): The biotite CIF file object to use for parsing.
             Intended for internal use only. Defaults to None, corresponding to direct AtomArray parsing.
+        build_assembly: Specifies which assembly to build. When ``None``, creates a single identity
+            assembly (ID "1") with instance ID annotations (``chain_iid``, ``pn_unit_iid``, ``molecule_iid``).
         **additional_kwargs: See `parse` documentation for details.
 
     Returns:
@@ -447,8 +449,7 @@ def parse_atom_array(
         import warnings
 
         warnings.warn(
-            "build_assembly='_spoof' is deprecated and will be removed in a future version. "
-            "Use build_assembly='all' instead.",
+            "build_assembly='_spoof' is deprecated. Use build_assembly='all' or None instead.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -643,6 +644,7 @@ def parse_atom_array(
         assembly_gen_category = get_identity_assembly_gen_category(list(data_dict["chain_info"].keys()))
         struct_oper_category = get_identity_op_expr_category()
 
+    # When build_assembly=None with identity ops, "all" builds the single identity assembly (ID "1")
     data_dict["assemblies"] = build_assemblies_from_asym_unit(
         assembly_gen_category=assembly_gen_category,
         struct_oper_category=struct_oper_category,
@@ -813,6 +815,7 @@ def _parse_from_pdb(filename: os.PathLike, **parse_from_cif_kwargs) -> dict[str,
     # ... parse the CIF block into a dictionary
     parse_from_cif_kwargs["file_type"] = "pdb"
     parse_from_cif_kwargs["extra_fields"] = None
+    # PDB files use identity assembly, so "all" builds just the single identity assembly
     parse_from_cif_kwargs["build_assembly"] = "all"
 
     kwargs_to_pass = {k: v for k, v in parse_from_cif_kwargs.items() if k not in ["model", "file_type"]}
