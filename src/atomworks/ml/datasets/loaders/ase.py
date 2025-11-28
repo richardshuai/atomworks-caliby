@@ -18,6 +18,17 @@ from atomworks.io.utils.ase_conversions import ase_to_atom_array
 logger = logging.getLogger(__name__)
 
 
+def _index_to_chain_id(idx: int) -> str:
+    """Convert index to PDB-style chain ID (A-Z, then AA-ZZ, etc.)."""
+    result = ""
+    idx += 1  # 1-indexed for the math
+    while idx > 0:
+        idx -= 1
+        result = chr(ord("A") + idx % 26) + result
+        idx //= 26
+    return result
+
+
 def _ase_loader_function(
     raw_data: tuple,
     per_atom_properties: list[str],
@@ -42,7 +53,7 @@ def _ase_loader_function(
     mol = atom_array_to_rdkit(
         atom_array,
         infer_bonds=True,
-        timeout_seconds=1,
+        timeout_seconds=2,
         hydrogen_policy="keep",
         system_charge=atoms.info.get("charge", 0),
     )
@@ -54,14 +65,14 @@ def _ase_loader_function(
 
     # Assign chain IDs based on connected components
     for chain_idx, connected_atom in enumerate(connected_atoms):
-        chain_letter = chr(ord("A") + chain_idx)
-        res_number = chain_idx + 1
+        chain_letter = _index_to_chain_id(chain_idx)
+        res_number = 1
         element_counts = {}
 
         for atom_id in connected_atom:
             atom_array.chain_id[atom_array.atom_id == atom_id] = chain_letter
             atom_array.res_id[atom_array.atom_id == atom_id] = res_number
-            atom_array.res_name[atom_array.atom_id == atom_id] = f"L:{chain_letter}:{res_number}"
+            atom_array.res_name[atom_array.atom_id == atom_id] = f"{chain_letter}:{res_number}"
 
             element = atom_array.element[atom_array.atom_id == atom_id][0]
             element_counts[element] = element_counts.get(element, 0) + 1
