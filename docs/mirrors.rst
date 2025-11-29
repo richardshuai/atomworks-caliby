@@ -1,30 +1,61 @@
+Data Mirrors
+============
+
+AtomWorks uses local mirrors of the PDB and CCD databases for parsing structures and training models. This page explains how to set up these mirrors.
+
+Setting Up Mirrors
+------------------
+
+PDB Mirror (~100 GB)
+^^^^^^^^^^^^^^^^^^^^
+
+The PDB mirror contains mmCIF structure files. We use mmCIF as the recommended format.
+
+.. code-block:: bash
+
+   # Download the entire PDB
+   atomworks pdb sync /path/to/pdb_mirror
+
+   # Or download specific PDB IDs only
+   atomworks pdb sync /path/to/pdb_mirror --pdb-id 1A0I --pdb-id 7XYZ
+
+   # Or from a file of IDs (one per line)
+   atomworks pdb sync /path/to/pdb_mirror --pdb-ids-file /path/to/ids.txt
+
+This creates a carbon-copy of the PDB with the same sharding pattern as RCSB (e.g., ``1a2b`` → ``/path/to/pdb_mirror/a2/1a2b.cif.gz``).
+
+CCD Mirror (~2 GB)
+^^^^^^^^^^^^^^^^^^
+
+The CCD (Chemical Component Dictionary) mirror contains ligand definitions used for parsing non-polymer entities.
+
+.. code-block:: bash
+
+   atomworks ccd sync /path/to/ccd_mirror
+
+If no CCD mirror is provided, AtomWorks falls back to Biotite's internal CCD. You can also add custom ligand definitions by placing CIF files in the mirror following the CCD pattern (e.g., ``/path/to/ccd_mirror/M/MYLIGAND/MYLIGAND.cif``).
+
+Configuring Environment Variables
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Once mirrors are created, configure the paths in a ``.env`` file in your repository root:
+
+.. code-block:: bash
+
+   PDB_MIRROR_PATH=/path/to/pdb_mirror
+   CCD_MIRROR_PATH=/path/to/ccd_mirror
+
+You can copy ``.env.sample`` as a starting point. See :doc:`installation` for more details on environment setup.
+
+----
+
 Training on the PDB
 ===================
 
 Step 1 — Mirror the PDB (mmCIFs)
 --------------------------------
 
-To train on the PDB, you first need to make sure you have access to the samples form the PDB. We use `mmCIF` files as the highly recommended format for training.
-For convenience, we provide a command to mirror the PDB:
-
-.. code-block:: bash
-
-  # Full mirror (~100 GB)
-  atomworks pdb sync /path/to/pdb_mirror  # This will create a carbon-copy of the PDB, dated today, in the specified directory. It will download the .mmcif files in the same sharding pattern as the original PDB and keep them gzipped for efficiency.
-
-  #   # If, for some reason you only want to download specific IDs, the CLI also supports this:
-  #   atomworks pdb sync /path/to/pdb_mirror --pdb-id 1A0I --pdb-id 7XYZ  # This will only download the specified PDB IDs.
-  #   # or
-  #   atomworks pdb sync /path/to/pdb_mirror --pdb-ids-file /path/to/ids.txt  # This will download the PDB IDs listed in the file, one per line. Each line should be a PDB ID (e.g. '6lyz') and separated by a newline.
-
-
-Once the mirror is created, set the environment variable:
-
-.. code-block:: bash
-
-  export PDB_MIRROR_PATH=/path/to/pdb_mirror
-
-To have this more permanent, you can add it to a `.env` file in your home directory. Here is an [example of a `.env`](.env.sample) file structure that you can copy, rename to `.env` and edit with your own paths.
+To train on the PDB, you need access to the structure files. Follow the instructions above to set up your PDB mirror.
   
 Step 2 — Get PDB metadata (PN units and interfaces)
 ---------------------------------------------------
