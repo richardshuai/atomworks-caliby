@@ -402,8 +402,12 @@ def parse_atom_array(
             will be created.
         _cif_file (pdbx.CIFFile | pdbx.BinaryCIFFile | None, optional): The biotite CIF file object to use for parsing.
             Intended for internal use only. Defaults to None, corresponding to direct AtomArray parsing.
-        build_assembly: Specifies which assembly to build. When ``None``, creates a single identity
-            assembly (ID "1") with instance ID annotations (``chain_iid``, ``pn_unit_iid``, ``molecule_iid``).
+        build_assembly: Specifies which assembly to build. Options:
+            - ``None``: Creates a single identity assembly (ID "1") with instance ID annotations
+              (``chain_iid``, ``pn_unit_iid``, ``molecule_iid``).
+            - ``"first"``: Build only the first assembly defined in the file.
+            - ``"all"``: Build all assemblies defined in the file.
+            - ``list | tuple``: Build specific assemblies by their IDs (e.g., ``["1", "2"]``).
         **additional_kwargs: See `parse` documentation for details.
 
     Returns:
@@ -649,7 +653,7 @@ def parse_atom_array(
         assembly_gen_category=assembly_gen_category,
         struct_oper_category=struct_oper_category,
         asym_unit_atom_array_stack=asym_unit_stack,
-        build_assembly=build_assembly or "all",
+        build_assembly=build_assembly if build_assembly is not None else "all",
         fix_symmetry_centers=fix_ligands_at_symmetry_centers,
     )
 
