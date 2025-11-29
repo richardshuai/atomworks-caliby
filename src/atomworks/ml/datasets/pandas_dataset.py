@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from atomworks.common import as_list
 from atomworks.constants import NA_VALUES
 from atomworks.ml.utils.io import read_parquet_with_metadata
 
@@ -109,6 +110,9 @@ class PandasDataset(MolecularDataset, ExampleIDMixin):
             ValueError: If file type is unsupported.
         """
         path = Path(path)
+        # Convert OmegaConf ListConfig to plain list if needed
+        if columns_to_load is not None:
+            columns_to_load = as_list(columns_to_load)
         if path.suffix == ".csv":
             data = pd.read_csv(path, usecols=columns_to_load, keep_default_na=False, na_values=NA_VALUES, **load_kwargs)
         elif path.suffix == ".parquet":
