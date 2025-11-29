@@ -184,7 +184,7 @@ Next we need to use the metadata to configure a dataset that we would like to sa
 Here's a simple example that:
 
 - Filters to D-polypeptide and L-polypeptide chains only (`POLYPEPTIDE_D` and `POLYPEPTIDE_L` -- to include additional chain types, replace the lists with the appropriate IDs (see [mapping](./src/atomworks/enums.py#L31-L45) in comments).
-- Excludes ligands in the AF3 list of excluded ligands, available at [`atomworks.io.constants.AF3_EXCLUDED_LIGANDS_REGEX`](./src/atomworks/constants.py#L350).
+- Excludes ligands in the AF3 list of excluded ligands, available at [`atomworks.constants.AF3_EXCLUDED_LIGANDS_REGEX`](./src/atomworks/constants.py#L350).
 
 ```yaml
 # NOTE: The below is a hydra config and the _target_ fields are the hydra syntax for instantiating a class.
@@ -197,10 +197,10 @@ Here's a simple example that:
 # 8=NON_POLYMER, 9=WATER, 10=BRANCHED, 11=MACROLIDE
 
 af3_pdb_dataset:
-  _target_: atomworks.ml.datasets.datasets.ConcatDatasetWithID
+  _target_: atomworks.ml.datasets.ConcatDatasetWithID
   datasets:
     # Single PN units
-    - _target_: atomworks.ml.datasets.datasets.StructuralDatasetWrapper
+    - _target_: atomworks.ml.datasets.StructuralDatasetWrapper
       dataset_parser:
         _target_: atomworks.ml.datasets.parsers.PNUnitsDFParser
       transform:
@@ -220,7 +220,7 @@ af3_pdb_dataset:
         # rna_msa_dirs:
         #   - { dir: /path/to/msa, extension: .afa, directory_depth: 0 }
       dataset:
-        _target_: atomworks.ml.datasets.datasets.PandasDataset
+        _target_: atomworks.ml.datasets.PandasDataset
         name: pn_units
         id_column: example_id
         data: /path/to/metadata/pn_units_df.parquet
@@ -238,7 +238,7 @@ af3_pdb_dataset:
       save_failed_examples_to_dir: null
 
     # Binary interfaces
-    - _target_: atomworks.ml.datasets.datasets.StructuralDatasetWrapper
+    - _target_: atomworks.ml.datasets.StructuralDatasetWrapper
       dataset_parser:
         _target_: atomworks.ml.datasets.parsers.InterfacesDFParser
       transform:
@@ -257,7 +257,7 @@ af3_pdb_dataset:
         # rna_msa_dirs:
         #   - { dir: /path/to/msa, extension: .afa, directory_depth: 0 }
       dataset:
-        _target_: atomworks.ml.datasets.datasets.PandasDataset
+        _target_: atomworks.ml.datasets.PandasDataset
         name: interfaces
         id_column: example_id
         data: /path/to/metadata/interfaces_df.parquet

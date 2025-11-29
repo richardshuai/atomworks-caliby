@@ -163,3 +163,9 @@ dev.ipynb
 _version.py
 tinker/
 .DS_Store
+
+# Local scripts
+**/logs
+
+# AI
+**/.claude

@@ -1,12 +1,12 @@
-"""
-Tools for using RDKit with AtomArray objects.
-"""
+"""Tools for using RDKit with AtomArray objects."""
 
+import contextlib
 import copy
 import io
 import logging
+import os
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from functools import cache, wraps
 from os import PathLike
 from pathlib import Path
@@ -17,7 +17,7 @@ import numpy as np
 import toolz
 from biotite.structure import AtomArray
 from rdkit import Chem
-from rdkit.Chem import AllChem, Mol, rdFingerprintGenerator
+from rdkit.Chem import AllChem, Mol, rdDetermineBonds, rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.DataStructs import ExplicitBitVect
 
@@ -31,9 +31,31 @@ from atomworks.constants import (
     PDB_ISOTOPE_SYMBOL_TO_ELEMENT_SYMBOL,
     UNKNOWN_LIGAND,
 )
+from atomworks.external.xyz2mol_tm import get_tmc_mol
 from atomworks.io.utils.ccd import atom_array_from_ccd_code
+from atomworks.ml.utils import timer
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _suppress_stderr_fd() -> Generator[None, None, None]:
+    """Context manager to suppress stderr at file descriptor level.
+
+    Suppresses YAeHMOP warnings from rdDetermineBonds that write directly
+    to the stderr file descriptor.
+    """
+    stderr_fd = 2
+    saved_stderr = os.dup(stderr_fd)
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull_fd, stderr_fd)
+        yield
+    finally:
+        os.dup2(saved_stderr, stderr_fd)
+        os.close(devnull_fd)
+        os.close(saved_stderr)
+
 
 # Set default pickle properties to all properties, otherwise
 #  annotations get lost when pickling/unpickling molecules
@@ -214,9 +236,7 @@ def _calc_formal_charge_from_valence(rdatom: Chem.Atom) -> int:
     num_valence_electrons = Chem.GetPeriodicTable().GetDefaultValence(
         rdatom.GetSymbol()
     )  # ... how many electrons are missing to full outer shell
-    num_electrons_in_bonds = (
-        rdatom.GetImplicitValence() + rdatom.GetExplicitValence()
-    )  # ... how many electrons are involved in bonds
+    num_electrons_in_bonds = rdatom.GetTotalValence()  # Total valence (explicit + implicit)
     num_radicals = rdatom.GetNumRadicalElectrons()  # ... how many unpaired, radical electrons
     return (num_electrons_in_bonds + num_radicals) - num_valence_electrons
 
@@ -547,6 +567,8 @@ def atom_array_from_rdkit(
                 hetero=True,  # per default, set all atoms to be hetero atoms
                 atom_name=f"{rdatom.GetSymbol().upper()}{element_occurence}",  # per default, set atom name to be element symbol + index
                 res_name=UNKNOWN_LIGAND,  # per default, set residue name to UNL (unknown ligand)
+                chiral_tag=int(rdatom.GetChiralTag()),
+                is_aromatic=rdatom.GetIsAromatic(),
             )
         )
     atom_array = struc.array(atoms)
@@ -611,7 +633,7 @@ def atom_array_from_rdkit(
                     default = -1
             elif np.issubdtype(val.dtype, np.floating):
                 default = np.nan
-            elif np.issubdtype(val.dtype, np.str_):
+            elif np.issubdtype(val.dtype, np.str_ or str):
                 default = ""
             elif np.issubdtype(val.dtype, bool):
                 default = False
@@ -641,6 +663,9 @@ def atom_array_to_rdkit(
     sanitize: bool = True,
     attempt_fixing_corrupted_molecules: bool = True,
     assume_metal_bonds_are_dative: bool = False,
+    infer_bonds: bool = False,
+    system_charge: int | None = None,
+    timeout_seconds: int = 1,
 ) -> Mol:
     """Generate an RDKit molecule from a Biotite AtomArray object.
 
@@ -654,6 +679,13 @@ def atom_array_to_rdkit(
         - attempt_fixing_corrupted_molecules (bool): Whether to attempt fixing corrupted molecules during conversion. Default is True.
         - assume_metal_bonds_are_dative (bool): Whether to assume that all bonds with metals are dative bonds. Default is False.
             WARNING: This messes up RDKit conformer generation.
+        - infer_bonds (bool): If True, infer bonds from 3D coordinates using rdDetermineBonds,
+            ignoring any existing bonds in atom_array. If False, use bonds from atom_array.bonds.
+            Defaults to False.
+        - system_charge (int): Overall charge of the system for bond order determination (used when infer_bonds=True).
+            Defaults to 0.
+        - timeout_seconds (int): Timeout in seconds for bond inference when using xyz2mol_tm for transition metal complexes.
+            Defaults to 1 second.
 
     Returns:
         - rdkit.Chem.Mol: RDKit Molecule generated from the AtomArray.
@@ -662,7 +694,8 @@ def atom_array_to_rdkit(
         Aromaticity, hybridization states, and other properties are automatically
         perceived by RDKit's SanitizeMol during the conversion process.
     """
-    # Initialize the RDKit molecule
+    # Initialize the RDKit molecule; copy AtomArray to avoid modifying the original
+    atom_array = atom_array.copy()
     mol = Chem.RWMol()
 
     # Set atoms
@@ -693,32 +726,92 @@ def atom_array_to_rdkit(
         rdkit_atom_ids.append(atom_id)
         mol.AddAtom(rdatom)
 
-    # Set bonds
-    _should_be_aromatic = set()
-
-    if exists(atom_array.bonds):
-        for bond in atom_array.bonds.as_array():
-            atom1, atom2, bond_type = list(map(int, bond))
-            if bond_type == struc.bonds.BondType.ANY:
-                # ... warn if underspecified bonds are encountered
-                logger.warning("Encountered BondType.ANY. Interpreting as single bond.")
-            bond_order, bond_is_aromatic = BIOTITE_BOND_TYPE_TO_RDKIT[bond_type]
-            mol.AddBond(atom1, atom2, order=bond_order)
-            if bond_is_aromatic and not attempt_fixing_corrupted_molecules:
-                # ... set aromaticity explicitly (and require the molecule makes sense later)
-                mol.GetAtomWithIdx(atom1).SetIsAromatic(True)
-                mol.GetAtomWithIdx(atom2).SetIsAromatic(True)
-            _should_be_aromatic.union({atom1, atom2})
-
-    # Set coordinates
+    # Set coordinates first
     set_coord = set_coord or not np.any(np.isnan(atom_array.coord))
     if set_coord:
         # ... add conformer (at id 0)
         conf_id = mol.AddConformer(Chem.Conformer(len(atom_array)), assignId=True)
+
         # ... fill in coordinates
         for atom_id, atom_coord in enumerate(atom_array.coord):
             mol.GetConformer(conf_id).SetAtomPosition(atom_id, atom_coord.tolist())
-        # ... assign stereochemistry
+
+    # Set bonds (either infer from 3D coordinates or use existing bonds)
+    _should_be_aromatic = set()
+    if infer_bonds:
+        assert mol.GetNumAtoms() > 0, "Cannot infer bonds for empty molecule"
+        assert (
+            "charge" in atom_array.get_annotation_categories() or system_charge is not None
+        ), "System charge must be provided when inferring bonds if atom_array has no 'charge' annotation."
+
+        system_charge = system_charge if system_charge is not None else int(np.nansum(atom_array.charge))
+
+        try:
+            # (Fast) Try standard rdDetermineBonds first
+            # Suppress YAeHMOP warnings that write directly to stderr
+            with _suppress_stderr_fd():
+                rdDetermineBonds.DetermineBonds(mol, useHueckel=True, charge=system_charge, maxIterations=10_000)
+        except Exception as err_rdkit:
+            # (Slow) Transitionmetal complexes (TMC) - fall back to xyz2mol_tm
+            try:
+
+                @timer.timeout(timeout=timeout_seconds, strategy="signal")
+                def _get_tmc_mol_with_timeout(
+                    mol: Mol,
+                    overall_charge: int,
+                    with_stereo: bool,
+                ) -> Mol:
+                    with _suppress_stderr_fd():
+                        return get_tmc_mol(
+                            mol,
+                            overall_charge=overall_charge,
+                            with_stereo=with_stereo,
+                        )
+
+                mol = _get_tmc_mol_with_timeout(
+                    mol,
+                    overall_charge=system_charge,
+                    with_stereo=True,
+                )
+
+                # xyz2mol_tm preserves rdkit_atom_id but reorders atoms
+                # Build mapping: rdkit_atom_id -> current index in mol_with_bonds
+                rdkit_id_to_current_idx = {}
+                for current_idx, atom in enumerate(mol.GetAtoms()):
+                    rdkit_id = atom.GetIntProp("rdkit_atom_id")
+                    rdkit_id_to_current_idx[rdkit_id] = current_idx
+
+                # Restore original atom order (so order of atom_array is preserved)
+                new_order = [rdkit_id_to_current_idx[i] for i in range(len(rdkit_id_to_current_idx))]
+                mol = Chem.RenumberAtoms(mol, new_order)
+
+            except Exception as err_xyz2mol:
+                # Both methods failed - raise comprehensive error
+                raise RuntimeError(
+                    f"Bond inference failed with both methods:\n"
+                    f"  rdDetermineBonds: {err_rdkit}\n"
+                    f"  xyz2mol_tm: {err_xyz2mol}"
+                ) from err_xyz2mol
+
+    elif exists(atom_array.bonds):
+        # Use existing bonds from atom_array
+        for bond in atom_array.bonds.as_array():
+            atom1, atom2, bond_type = list(map(int, bond))
+
+            if bond_type == struc.bonds.BondType.ANY:
+                logger.warning("Encountered BondType.ANY. Interpreting as single bond.")
+
+            bond_order, bond_is_aromatic = BIOTITE_BOND_TYPE_TO_RDKIT[bond_type]
+            mol.AddBond(atom1, atom2, order=bond_order)
+
+            if bond_is_aromatic and not attempt_fixing_corrupted_molecules:
+                mol.GetAtomWithIdx(atom1).SetIsAromatic(True)
+                mol.GetAtomWithIdx(atom2).SetIsAromatic(True)
+
+            _should_be_aromatic.union({atom1, atom2})
+
+    # Assign stereochemistry (requires 3D coordinates and bonds)
+    if mol.GetNumConformers() > 0:
         try:
             Chem.AssignStereochemistryFrom3D(mol)
         except ValueError:
@@ -745,7 +838,7 @@ def atom_array_to_rdkit(
         )
 
     # Clean up the molecule and infer various properties
-    #  (we always sanitize when attempting to fix corrupted molecules)
+    # (We always sanitize when attempting to fix corrupted molecules)
     if sanitize or attempt_fixing_corrupted_molecules:
         # ... verify validity of the molecule (according to Lewis octet rule)
         try:
@@ -762,7 +855,7 @@ def atom_array_to_rdkit(
             ).GetIsAromatic(), f"Atom {atom_idx} is not aromatic but was labelled as aromatic."
 
     # Turn into a non-editable molecule
-    mol = mol.GetMol()
+    mol = mol.GetMol() if isinstance(mol, Chem.RWMol) else mol
 
     # Attach custom atom-level annotations from the atom array
     mol._annotations = {"rdkit_atom_id": np.array(rdkit_atom_ids)}

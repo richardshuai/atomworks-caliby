@@ -1,12 +1,26 @@
 """General utility functions for working with CIF files in Biotite."""
 
-__all__ = ["get_structure", "load_any", "read_any", "to_cif_buffer", "to_cif_file", "to_cif_string"]
+__all__ = [
+    "apply_sharding_pattern",
+    "build_sharding_pattern",
+    "get_structure",
+    "load_any",
+    "parse_sharding_pattern",
+    "read_any",
+    "suppress_logging_messages",
+    "to_cif_buffer",
+    "to_cif_file",
+    "to_cif_string",
+]
 
 import gzip
 import io
 import logging
 import os
+import re
 import warnings
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -31,6 +45,31 @@ from atomworks.io.utils.testing import has_ambiguous_annotation_set
 logger = logging.getLogger("atomworks.io")
 
 CIF_LIKE_EXTENSIONS = {".cif", ".pdb", ".bcif", ".cif.gz", ".pdb.gz", ".bcif.gz"}
+
+
+@contextmanager
+def suppress_logging_messages(logger_name: str, message_pattern: str) -> Generator[None, None, None]:
+    """Temporarily suppress logging messages matching a pattern.
+
+    Args:
+        logger_name: Name of the logger to filter.
+        message_pattern: String pattern to match in log messages (substring match).
+
+    Examples:
+        >>> with suppress_logging_messages("atomworks.io", "not found"):
+        ...     # Code that generates "not found" warnings
+        ...     pass
+    """
+    target_logger = logging.getLogger(logger_name)
+
+    def filter_func(record: logging.LogRecord) -> bool:
+        return message_pattern not in record.getMessage()
+
+    target_logger.addFilter(filter_func)
+    try:
+        yield
+    finally:
+        target_logger.removeFilter(filter_func)
 
 
 def _get_logged_in_user() -> str:
@@ -889,3 +928,110 @@ def _filter_extra_fields(extra_fields: list[str], atom_site: pdbx.CIFCategory) -
             logger.warning(f"Field {field} not found in file, ignoring.")
 
     return filtered_extra_fields
+
+
+def find_files_by_extension(input_dir: Path, extension: str) -> list[Path]:
+    """Recursively find files with the specified extension in a directory."""
+    files = [f for f in input_dir.rglob(f"*{extension}") if str(f).endswith(extension)]
+
+    if not files:
+        raise FileNotFoundError(f"No files with extension {extension} found in {input_dir}")
+
+    return files
+
+
+def build_sharding_pattern(depth: int, chars_per_dir: int = 2) -> str:
+    """Build a sharding pattern string from depth and characters per directory.
+
+    Args:
+        depth: Number of directory levels.
+        chars_per_dir: Number of characters to use for each directory level.
+
+    Returns:
+        Sharding pattern string.
+
+    Examples:
+        >>> build_sharding_pattern(2, 2)
+        '/0:2/2:4/'
+        >>> build_sharding_pattern(3, 1)
+        '/0:1/1:2/2:3/'
+    """
+    if depth == 0:
+        return ""
+
+    parts = []
+    for i in range(depth):
+        start = i * chars_per_dir
+        end = start + chars_per_dir
+        parts.append(f"/{start}:{end}")
+
+    return "".join(parts) + "/"
+
+
+def parse_sharding_pattern(sharding_pattern: str) -> list[tuple[int, int]]:
+    """Parse a sharding pattern string into directory levels.
+
+    Args:
+        sharding_pattern: String like ``"/1:2/0:2/"`` where each ``/start:end/`` defines a directory level.
+            ``start:end`` defines the character range to use for that directory level.
+
+    Returns:
+        List of (start, end) tuples for each directory level.
+
+    Examples:
+        >>> parse_sharding_pattern("/1:2/0:2/")
+        [(1, 2), (0, 2)]
+    """
+    # Find all patterns like /start:end/ using a non-consuming lookahead
+    pattern = r"/(\d+):(\d+)(?=/)"
+    matches = []
+    for match in re.finditer(pattern, sharding_pattern):
+        matches.append((int(match.group(1)), int(match.group(2))))
+
+    if not matches:
+        raise ValueError(f"Invalid sharding pattern format: {sharding_pattern}. Expected format like '/1:2/0:2/'")
+
+    return matches
+
+
+def apply_sharding_pattern(path: os.PathLike, sharding_pattern: str | None = None) -> Path:
+    """Apply a sharding pattern to construct a file path.
+
+    Args:
+        path: The base path or identifier (e.g., PDB ID).
+        sharding_pattern: Pattern for organizing files in subdirectories. Examples:
+            - ``"/0:2/"``: Use first two characters for first directory level
+            - ``"/0:2/2:4/"``: Use chars 0-2 for first dir, then chars 2-4 for second dir
+            - ``None``: No sharding (default)
+
+    Returns:
+        The constructed file path with sharding applied.
+
+    Examples:
+        >>> apply_sharding_pattern("12as", "/0:2/1:3/")
+        Path("12/2a/12as")
+    """
+    path_str = str(path)
+    assert path_str and path_str != ".", "Path cannot be empty"
+
+    if not sharding_pattern:
+        return Path(path_str)
+
+    if not sharding_pattern.startswith("/"):
+        raise ValueError(f"Sharding pattern must start with '/': {sharding_pattern}")
+
+    try:
+        shard_ranges = parse_sharding_pattern(sharding_pattern)
+    except ValueError as e:
+        raise ValueError(f"Invalid sharding pattern '{sharding_pattern}': {e}") from e
+
+    # Validate all ranges before building path
+    for start, end in shard_ranges:
+        if end > len(path_str):
+            raise ValueError(f"Sharding range {start}:{end} exceeds path length {len(path_str)} for '{path_str}'")
+
+    # Build directory components from sharding ranges
+    directory_parts = [path_str[start:end] for start, end in shard_ranges]
+
+    # Construct final path: directories + filename
+    return Path(*directory_parts, path_str)
