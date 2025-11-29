@@ -140,9 +140,13 @@ atom_array: AtomArray = load_any("3nez.cif.gz", model=1)  # model=1 means that w
 
 ## Contribution
 
-We welcome improvements!  
+We welcome improvements!
 
 Please see the [contributors guide in the full documentation](https://rosettacommons.github.io/atomworks/latest/contributor_guide.html) for contribution guidelines.
+
+## Acknowledgments
+
+We thank Hope Woods and Rachel Clune from the Rosetta Commons for their partnership and collaboration on the codebase, documentation, tutorials, and examples.
 
 ## Citation
 
