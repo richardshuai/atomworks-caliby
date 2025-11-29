@@ -170,3 +170,4 @@ tinker/
 # AI
 **/.claude.ipd/
 CLAUDE.md
+.github/workflows/claude*.yml
