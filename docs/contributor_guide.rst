@@ -11,10 +11,14 @@ As you code
 -------------
 
 1. **Reduce cognitive overhead:**
+   
    a. Pick meaningful, descriptive variable names.
+   
    b. Write docstrings (leverage AI!) and comments. To be used in the API documentation the docstring should 
-   follow the Google style guide: `Google Python Style Guide <https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings>`_.
+      follow the Google style guide: `Google Python Style Guide <https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings>`_.
+
    c. Follow the `Python Zen <https://peps.python.org/pep-0020/>`_ – explicit is better than implicit, etc.
+
 2. **Write tests.**
 
 As you commit
@@ -45,7 +49,7 @@ As you review
 3. Keep review time <1h and <500 LOC for focus.
 
 Contributing to the documentation
---------------------------------
+---------------------------------
 The external AtomWorks documentation is built using `Sphinx <https://www.sphinx-doc.org/en/master/#>`_ and hosted on `GitHub Pages <https://docs.github.com/en/pages>`_.
 Aside from having AtomWorks and its dependencies installed, to build the documentation locally, you will need to install the documentation requirements:
 
@@ -62,20 +66,8 @@ To build the documentation, navigate to the ``docs`` directory and run:
 If you are new to Sphinx, please refer to the `Sphinx documentation <https://www.sphinx-doc.org/en/master/>`_ for guidance on writing and formatting documentation.
 All of the documentation is written in reStructuredText (reST) format. For more information on reST, see the `reStructuredText Primer <https://docutils.sourceforge.io/docs/user/rst/quickstart.html>`_.
 
-
-Visual Aids
------------
-
-.. image:: _static/best_practices_cognitive_load.png
-   :alt: Good vs Bad Cognitive Load
-   :width: 400px
-
-.. image:: _static/best_practices_mental_models.png
-   :alt: Internalized Mental Models
-   :width: 300px
-
-More detail
------------
+Other Resources
+---------------
 
 - `Best Practices for Code Review | SmartBear <https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/>`_
 
@@ -90,7 +82,7 @@ PR Hygiene
 When contributing to this repository, please follow these steps:
 
 1. Clone the repository
-2. Create the development environment (see the :ref:`Local Conda Environment<local-conda_environment>` section in the Installation Guide).
+2. Create the development environment (see the *Local Conda Environment* section in the Installation Guide).
 3. Create a new branch for your changes. 
    - Use the following convention to name your branch: ``<category>/<description>``. Categories: ``feat``, ``fix``, ``hotfix``, ``refactor``, ``docs``, ``perf``.
    - Example: ``feat/support-rdkit-small-molecule``
@@ -100,5 +92,3 @@ When contributing to this repository, please follow these steps:
    - Example: ``git commit -m "docs: add contributing guidelines"``
 5. Open a pull request to ``staging`` and describe your changes.
 6. Wait for review and merge your changes.
-
-For more details, see the README or contact the maintainers. 
