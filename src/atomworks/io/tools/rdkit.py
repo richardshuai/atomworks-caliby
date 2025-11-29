@@ -1,10 +1,8 @@
 """Tools for using RDKit with AtomArray objects."""
 
-import contextlib
 import copy
 import io
 import logging
-import os
 from collections import Counter
 from collections.abc import Callable, Generator
 from functools import cache, wraps
@@ -17,7 +15,7 @@ import numpy as np
 import toolz
 from biotite.structure import AtomArray
 from rdkit import Chem
-from rdkit.Chem import AllChem, Mol, rdDetermineBonds, rdFingerprintGenerator
+from rdkit.Chem import AllChem, Mol, rdFingerprintGenerator
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.DataStructs import ExplicitBitVect
 
@@ -31,30 +29,9 @@ from atomworks.constants import (
     PDB_ISOTOPE_SYMBOL_TO_ELEMENT_SYMBOL,
     UNKNOWN_LIGAND,
 )
-from atomworks.external.xyz2mol_tm import get_tmc_mol
 from atomworks.io.utils.ccd import atom_array_from_ccd_code
-from atomworks.ml.utils import timer
 
 logger = logging.getLogger(__name__)
-
-
-@contextlib.contextmanager
-def _suppress_stderr_fd() -> Generator[None, None, None]:
-    """Context manager to suppress stderr at file descriptor level.
-
-    Suppresses YAeHMOP warnings from rdDetermineBonds that write directly
-    to the stderr file descriptor.
-    """
-    stderr_fd = 2
-    saved_stderr = os.dup(stderr_fd)
-    devnull_fd = os.open(os.devnull, os.O_WRONLY)
-    try:
-        os.dup2(devnull_fd, stderr_fd)
-        yield
-    finally:
-        os.dup2(saved_stderr, stderr_fd)
-        os.close(devnull_fd)
-        os.close(saved_stderr)
 
 
 # Set default pickle properties to all properties, otherwise
@@ -663,9 +640,6 @@ def atom_array_to_rdkit(
     sanitize: bool = True,
     attempt_fixing_corrupted_molecules: bool = True,
     assume_metal_bonds_are_dative: bool = False,
-    infer_bonds: bool = False,
-    system_charge: int | None = None,
-    timeout_seconds: int = 1,
 ) -> Mol:
     """Generate an RDKit molecule from a Biotite AtomArray object.
 
@@ -679,13 +653,6 @@ def atom_array_to_rdkit(
         - attempt_fixing_corrupted_molecules (bool): Whether to attempt fixing corrupted molecules during conversion. Default is True.
         - assume_metal_bonds_are_dative (bool): Whether to assume that all bonds with metals are dative bonds. Default is False.
             WARNING: This messes up RDKit conformer generation.
-        - infer_bonds (bool): If True, infer bonds from 3D coordinates using rdDetermineBonds,
-            ignoring any existing bonds in atom_array. If False, use bonds from atom_array.bonds.
-            Defaults to False.
-        - system_charge (int): Overall charge of the system for bond order determination (used when infer_bonds=True).
-            Defaults to 0.
-        - timeout_seconds (int): Timeout in seconds for bond inference when using xyz2mol_tm for transition metal complexes.
-            Defaults to 1 second.
 
     Returns:
         - rdkit.Chem.Mol: RDKit Molecule generated from the AtomArray.
@@ -736,64 +703,9 @@ def atom_array_to_rdkit(
         for atom_id, atom_coord in enumerate(atom_array.coord):
             mol.GetConformer(conf_id).SetAtomPosition(atom_id, atom_coord.tolist())
 
-    # Set bonds (either infer from 3D coordinates or use existing bonds)
+    # Set bonds from existing bonds in atom_array
     _should_be_aromatic = set()
-    if infer_bonds:
-        assert mol.GetNumAtoms() > 0, "Cannot infer bonds for empty molecule"
-        assert (
-            "charge" in atom_array.get_annotation_categories() or system_charge is not None
-        ), "System charge must be provided when inferring bonds if atom_array has no 'charge' annotation."
-
-        system_charge = system_charge if system_charge is not None else int(np.nansum(atom_array.charge))
-
-        try:
-            # (Fast) Try standard rdDetermineBonds first
-            # Suppress YAeHMOP warnings that write directly to stderr
-            with _suppress_stderr_fd():
-                rdDetermineBonds.DetermineBonds(mol, useHueckel=True, charge=system_charge, maxIterations=10_000)
-        except Exception as err_rdkit:
-            # (Slow) Transitionmetal complexes (TMC) - fall back to xyz2mol_tm
-            try:
-
-                @timer.timeout(timeout=timeout_seconds, strategy="signal")
-                def _get_tmc_mol_with_timeout(
-                    mol: Mol,
-                    overall_charge: int,
-                    with_stereo: bool,
-                ) -> Mol:
-                    with _suppress_stderr_fd():
-                        return get_tmc_mol(
-                            mol,
-                            overall_charge=overall_charge,
-                            with_stereo=with_stereo,
-                        )
-
-                mol = _get_tmc_mol_with_timeout(
-                    mol,
-                    overall_charge=system_charge,
-                    with_stereo=True,
-                )
-
-                # xyz2mol_tm preserves rdkit_atom_id but reorders atoms
-                # Build mapping: rdkit_atom_id -> current index in mol_with_bonds
-                rdkit_id_to_current_idx = {}
-                for current_idx, atom in enumerate(mol.GetAtoms()):
-                    rdkit_id = atom.GetIntProp("rdkit_atom_id")
-                    rdkit_id_to_current_idx[rdkit_id] = current_idx
-
-                # Restore original atom order (so order of atom_array is preserved)
-                new_order = [rdkit_id_to_current_idx[i] for i in range(len(rdkit_id_to_current_idx))]
-                mol = Chem.RenumberAtoms(mol, new_order)
-
-            except Exception as err_xyz2mol:
-                # Both methods failed - raise comprehensive error
-                raise RuntimeError(
-                    f"Bond inference failed with both methods:\n"
-                    f"  rdDetermineBonds: {err_rdkit}\n"
-                    f"  xyz2mol_tm: {err_xyz2mol}"
-                ) from err_xyz2mol
-
-    elif exists(atom_array.bonds):
+    if exists(atom_array.bonds):
         # Use existing bonds from atom_array
         for bond in atom_array.bonds.as_array():
             atom1, atom2, bond_type = list(map(int, bond))
