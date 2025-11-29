@@ -101,7 +101,7 @@ def _ase_loader_function(
         add_missing_atoms=add_missing_atoms,
         remove_waters=False,
         remove_ccds=None,
-        build_assembly="_spoof",
+        build_assembly="all",
         hydrogen_policy="keep",
         fix_formal_charges=False,
         fix_bond_types=False,

@@ -763,20 +763,29 @@ def add_iid_annotations_to_assemblies(
 ) -> dict[str | int, AtomArray | AtomArrayStack]:
     """Adds chain, PN unit, and molecule IIDs to assembly AtomArrayStacks."""
     for assembly_id, assembly in assemblies_dict.items():
-        # ...add chain IIDs
-        assembly = add_chain_iid_annotation(assembly)
+        assert (
+            "transformation_id" in assembly.get_annotation_categories()
+        ), f"Assembly '{assembly_id}' missing transformation_id annotation (required for instance IDs)"
 
-        # ...check if we added bonds to the atom array
+        # Add (if not already present):
+        # ... chain IIDs
+        if "chain_iid" not in assembly.get_annotation_categories():
+            assembly = add_chain_iid_annotation(assembly)
 
-        # ...add PN unit IIDs, if we have the `pn_unit_id` annotation
-        if "pn_unit_id" in assembly.get_annotation_categories():
+        # ... PN unit IIDs
+        if (
+            "pn_unit_id" in assembly.get_annotation_categories()
+            and "pn_unit_iid" not in assembly.get_annotation_categories()
+        ):
             assembly = add_pn_unit_iid_annotation(assembly)
 
-        # ...add molecule IIDs, if we have the `molecule_id` annotation
-        if "molecule_id" in assembly.get_annotation_categories():
+        # ... molecule IIDs
+        if (
+            "molecule_id" in assembly.get_annotation_categories()
+            and "molecule_iid" not in assembly.get_annotation_categories()
+        ):
             assembly = add_molecule_iid_annotation(assembly)
 
-        # ...update the dictionary
         assemblies_dict[assembly_id] = assembly
 
     return assemblies_dict
