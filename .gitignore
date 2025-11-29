@@ -168,4 +168,5 @@ tinker/
 **/logs
 
 # AI
-**/.claude
+**/.claude.ipd/
+CLAUDE.md
