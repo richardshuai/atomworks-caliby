@@ -1,6 +1,6 @@
 [project]
-name = "atomworks"
-version = "2.2.0"
+name = "atomworks-caliby"
+version = "1.0.0"
 description = "A research-oriented data toolkit for training biomolecular deep-learning foundation models"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -39,10 +39,10 @@ dependencies = [
     # ... bioinformatics
     "py3Dmol>=2.2.1,<3", # Python wrapper for 3Dmol.js
     "pymol-remote>=0.0.5", # Remote access to PyMOL from Python (has no dependencies)
-    "biotite==1.4.0", # Biotite is a Python library for bioinformatics  # TODO: Test newer versions
+    "biotite>=1.4,<1.7", # Biotite is a Python library for bioinformatics
     "hydride>=1.2.3,<2", # Biotite-supported tool for hydrogen addition
     # ... small molecule libraries
-    "rdkit>=2024.3.5,<2025.9",
+    "rdkit>=2024.3.2,<2025.9",
 ]
 
 [project.optional-dependencies]
@@ -89,14 +89,14 @@ docs = [
 
 [dependency-groups]
 # Reference optional dependencies for native uv compatability (in addition to the pip compatability)
-dev = ["atomworks[dev]"]
-ml = ["atomworks[ml]"] 
-docs = ["atomworks[docs]"]
-openbabel = ["atomworks[openbabel]"]
+dev = ["atomworks-caliby[dev]"]
+ml = ["atomworks-caliby[ml]"] 
+docs = ["atomworks-caliby[docs]"]
+openbabel = ["atomworks-caliby[openbabel]"]
 
 [project.urls]
 homepage = "https://rosettacommons.github.io/atomworks/latest/index.html"
-repository = "https://github.com/RosettaCommons/atomworks"
+repository = "https://github.com/richardshuai/atomworks-caliby"
 documentation = "https://rosettacommons.github.io/atomworks/latest/index.html"
 
 [project.scripts]

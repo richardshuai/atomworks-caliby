@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -77,8 +77,8 @@ wheels = [
 ]
 
 [[package]]
-name = "atomworks"
-version = "2.1.2"
+name = "atomworks-caliby"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "biotite" },
@@ -131,16 +131,16 @@ openbabel = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "atomworks", extra = ["dev"] },
+    { name = "atomworks-caliby", extra = ["dev"] },
 ]
 docs = [
-    { name = "atomworks", extra = ["docs"] },
+    { name = "atomworks-caliby", extra = ["docs"] },
 ]
 ml = [
-    { name = "atomworks", extra = ["ml"] },
+    { name = "atomworks-caliby", extra = ["ml"] },
 ]
 openbabel = [
-    { name = "atomworks", extra = ["openbabel"] },
+    { name = "atomworks-caliby", extra = ["openbabel"] },
 ]
 
 [package.metadata]
@@ -148,7 +148,7 @@ requires-dist = [
     { name = "ase", marker = "extra == 'ase'", specifier = ">=3.22.0,<4" },
     { name = "ase-db-backends", marker = "extra == 'ase'", specifier = ">=0.10.0,<1" },
     { name = "beartype", marker = "extra == 'ml'", specifier = ">=0.18.0,<1" },
-    { name = "biotite", specifier = "==1.4.0" },
+    { name = "biotite", specifier = ">=1.4,<1.7" },
     { name = "cython", specifier = ">=3.0.0,<4" },
     { name = "cytoolz", specifier = ">=0.12.3,<1" },
     { name = "einops", marker = "extra == 'ml'", specifier = ">=0.7.0,<1" },
@@ -170,7 +170,7 @@ requires-dist = [
     { name = "pytest-dotenv", marker = "extra == 'dev'", specifier = ">=0.5.2,<1" },
     { name = "pytest-testmon", marker = "extra == 'dev'", specifier = ">=2.1.1,<3" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6.1,<4" },
-    { name = "rdkit", specifier = ">=2024.3.5,<2025.9" },
+    { name = "rdkit", specifier = ">=2024.3.2,<2025.9" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.8.3" },
     { name = "scipy", specifier = ">=1.13.1,<2" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=8.0.0,<9" },
@@ -183,10 +183,10 @@ requires-dist = [
 provides-extras = ["ml", "ase", "openbabel", "dev", "docs"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "atomworks", extras = ["dev"] }]
-docs = [{ name = "atomworks", extras = ["docs"] }]
-ml = [{ name = "atomworks", extras = ["ml"] }]
-openbabel = [{ name = "atomworks", extras = ["openbabel"] }]
+dev = [{ name = "atomworks-caliby", extras = ["dev"] }]
+docs = [{ name = "atomworks-caliby", extras = ["docs"] }]
+ml = [{ name = "atomworks-caliby", extras = ["ml"] }]
+openbabel = [{ name = "atomworks-caliby", extras = ["openbabel"] }]
 
 [[package]]
 name = "babel"
